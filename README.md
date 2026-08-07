@@ -76,17 +76,17 @@ and text contrast stays safe automatically.
 Each page now runs a deliberate order rather than whatever the section apps
 left behind.
 
-**Home** — hero → trust strip → category cards → best sellers → craft story →
-USP marquee → reviews → comparison → how it works → guarantee → FAQ.
+**Home** — hero → trust strip → category cards → best sellers → why-buy-here →
+USP marquee → how it works → returns band → FAQ.
 
 **Product** — the native `product-information` section with a rebuilt detail
 column: eyebrow, title, rating, price (with instalments), variant picker,
 **stock line + delivery-date estimate**, add to cart (now the *primary* button
 — it was `button-secondary` in the Horizon preset), express checkout,
 reassurance block with payment icons, three accordions, description,
-complementary products. Below the fold: trust strip → craft → related products
-→ reviews → FAQ → guarantee. Horizon's own variant-aware sticky add-to-cart bar
-is switched on.
+complementary products. Below the fold: trust strip → why-buy-here → related
+products → FAQ → returns band. Horizon's own variant-aware sticky add-to-cart
+bar is switched on. Five variants of this template ship — see Product pages.
 
 **Collection** — header → trust strip → filtered grid → sizing guide →
 buying-guide FAQ with structured data → guarantee.
@@ -97,11 +97,11 @@ Also rebuilt: `blog.json` (it was shipping its own second header *and* footer on
 top of the theme's own), the about and FAQ page templates, and the header and
 footer section groups.
 
-Removed: four `*.smi-backup.json` files and ten `product.d1 copy N.json`
-duplicates. The alternate templates still assigned to live products
-(`product.d1.json`, `product.smi-humi-product-page-*.json`,
-`collection.smi-humi-collection-page-*.json`) now mirror the rebuilt layouts, so
-no product falls back to the old design.
+Every alternate template name that shipped with the export still exists —
+`product.d1.json`, `product.d1 copy N.json`, the `*.smi-backup.json` files and
+the `smi-humi-*` variants — each now carrying the rebuilt layout. Shopify 404s a
+product whose assigned theme template is missing, so these names have to survive
+even when the layout inside them is replaced.
 
 ### 4. Speed
 
@@ -118,6 +118,25 @@ no product falls back to the old design.
 
 ---
 
+## Product pages
+
+Five product templates — `product.json` plus `ottoman-bed`, `divan-set`,
+`divan-base` and `bed-with-mattress` suffixes — each with the FAQ, "in the box"
+line and specification panel written for that kind of bed. Assignment map,
+paste-ready copy for the two supplier-written listings, and the catalogue data
+issues found in the live store are all in **[docs/product-pages.md](docs/product-pages.md)**.
+
+## Claims
+
+Every customer-facing promise in this theme traces to
+`/policies/shipping-policy` or `/policies/refund-policy`. The earlier build
+shipped placeholder claims that went live and contradicted those policies
+(100-night trial vs 30-day returns, 10-year guarantee vs 3 months, room-of-choice
+assembly vs doorstep flat-pack, plus swatches, old-bed removal, Klarna and
+invented reviews). All corrected or removed — the full list is in
+`docs/product-pages.md` §5. Section *defaults* are fixed too, so a freshly added
+section can no longer publish a promise the shop has not made.
+
 ## Before you go live
 
 These need store data that isn't in a theme export:
@@ -126,21 +145,15 @@ These need store data that isn't in a theme export:
    Set a landscape lifestyle shot, ideally 2400px wide.
 2. **Category card images and links.** The three cards point at
    `collections/all-beds`; repoint them and add images.
-3. **Pages referenced by CTAs** — create these or repoint the links:
-   `/pages/swatches`, `/pages/delivery`, `/pages/100-night-trial`,
-   `/pages/our-craft`, `/pages/contact`.
+3. **`/pages/contact`** — the only page CTA the theme still points at that you
+   need to create. Everything else links to your real policy pages.
 4. **Free-shipping threshold.** Theme settings → Cart. Default is 50; it must
    match your actual shipping profile or the meter lies.
-5. **Review numbers.** The 4.8 / 2,412 figures in the hero, footer, reviews and
-   summary are placeholders — replace them with your real numbers. The PDP star
-   rating uses the standard `reviews.rating` metafield, so it lights up on its
-   own once Judge.me, Loox, Okendo or similar is connected, and stays hidden
-   until then.
-6. **Copy.** Every claim in the defaults (10-year guarantee, 100-night trial,
-   two-person delivery, Klarna, Yorkshire manufacture, "40,000 rubs") is written
-   to be true of a brand like this, but they are *your* promises to make. Check
-   each one against what you actually offer before launch — the comparison table
-   in particular makes specific claims about competitors.
+5. **Reviews.** There is no review data on the store, so star ratings are off by
+   default. The product page rating reads the standard `reviews.rating`
+   metafield and appears by itself once Judge.me, Loox, Okendo or similar is
+   connected.
+6. **Assign the product templates.** See `docs/product-pages.md` §1.
 7. **Footer menus and socials.** The footer blocks point at `main-menu` and
    `footer`; social URLs are empty and those icons stay hidden until filled.
 
