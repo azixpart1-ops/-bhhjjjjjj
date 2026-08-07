@@ -12,6 +12,18 @@
   if section.settings.trim_title_at_pipe
     assign display_title = display_title | split: '|' | first | strip
   endif
+
+  comment
+    Descriptions here are structured with headings, so strip_html alone welds
+    them into one run-on sentence. Take the first real paragraph instead.
+  endcomment
+  assign paras = collection.description | split: '<p>'
+  if paras.size > 1
+    assign intro_txt = paras[1] | split: '</p>' | first | strip_html | strip
+  else
+    assign intro_txt = collection.description | replace: '</h1>', ' ' | replace: '</h2>', ' ' | replace: '</h3>', ' ' | replace: '</p>', ' ' | strip_html | strip
+  endif
+  assign intro_txt = intro_txt | truncate: 300
 -%}
 <div class="pl">
   <section class="wrap">
@@ -28,8 +40,8 @@
           <h1>{{ display_title }}</h1>
           {%- if section.settings.intro != blank -%}
             <div class="chero__intro">{{ section.settings.intro }}</div>
-          {%- elsif collection.description != blank -%}
-            <div class="chero__intro">{{ collection.description | strip_html | truncate: 320 }}</div>
+          {%- elsif intro_txt != blank -%}
+            <div class="chero__intro">{{ intro_txt }}</div>
           {%- endif -%}
           <p class="chero__count">{{ collection.products_count }} {% if collection.products_count == 1 %}bed{% else %}beds{% endif %} · 100-night trial on every one</p>
         </div>
