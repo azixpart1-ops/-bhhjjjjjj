@@ -259,3 +259,67 @@ The old product template had problems that were costing sales on every product p
 | "Higher density foam (60+ kg/m³)… standard foam (30-40 kg/m³)" | Removed — it framed your own 50kg/m³ as second tier |
 | "GREEN LIVING COLLECTION" above related products | Reads from the collection |
 | Fake purchase popups: invented buyer names, "purchased N minutes ago", labelled "Verified" | Not carried over — see §8 |
+
+
+---
+
+## 8. The rest of the site
+
+You published the homepage/PDP theme partway through this round, so it became live
+and theme writes against it are (correctly) blocked. Everything below is in a fresh
+draft duplicated from it:
+
+> **PawLunova — Collections, pages & PDP v2 (draft)** · theme ID `190481662245`
+
+**Online Store → Themes → … → Preview**, then **Publish** when you're happy. The
+currently-live theme is untouched.
+
+### What's in it
+
+| Template | Covers | Notes |
+|---|---|---|
+| `collection.json` | all 3 collections | Hero from the collection's own title/description/image, sort, paginated grid, in-grid promo tile to the bed finder, SEO copy moved below the grid, empty state |
+| `page.json` | privacy, sitemap | Default page layout |
+| `page.size.json` | Size & Firmness Guide | Tables styled properly |
+| `page.our-story.json` | Our Story | |
+| `page.faq.json` | FAQ | |
+| `page.choose-orthopaedic-beds.json` | buying guide | |
+| `page.contact.json` | Contact | Form with a breed/weight field, short-answers panel |
+| `cart.json` | basket | Quantity controls, free-delivery progress bar, trust beside checkout |
+| `blog.json` / `article.json` | News + 8 articles | |
+| `404.json` | not found | Routes to the finder rather than a dead end |
+
+Those four `page.*` suffix templates matter: the size guide, Our Story, FAQ and
+buying guide each have a template suffix assigned, so `page.json` alone would never
+have reached them.
+
+### PDP enhancements
+
+- **Product + BreadcrumbList JSON-LD** — per-variant offers with price, currency and
+  availability. Verified on the Kendal: 9 offers, £169.00 GBP, InStock.
+- **Size helper** in the buy column, where the sizing objection actually lands.
+- **Click-to-zoom** on gallery images; closes on Escape or backdrop, focus returns.
+
+### Collection heading fixes
+
+Your orthopaedic collection title is `Orthopaedic Dog Beds UK | Memory Foam Joint
+Support | Pawlunova` and was rendering verbatim as the H1. The heading now takes the
+part before the first pipe; titles without a pipe are untouched. That collection's
+description also opens with its own `<h1>`, so headings inside the rendered
+description are demoted a level, leaving one H1 per page from my sections.
+
+### Verified
+
+All eleven page types rendered from the draft theme: no Liquid errors anywhere, the
+collection grid is 4-up on desktop and 2-up on mobile with the promo tile placed,
+sort works, zero horizontal overflow at 1440px and 390px.
+
+### Two things I did not change
+
+1. **Your footer marks its column headings as `<h1>`** — "About", "Shop", "About the
+   shop". That gives every page on the site four H1s. It's in an app-provided footer
+   section, so editing it there would be overwritten on the next app update. Worth
+   fixing at the source.
+2. **`/collections/orthopaedic-dog-beds` 404s** — I'd used it in the homepage nav in
+   the earlier round. Corrected everywhere to `orthopaedic-dog-beds-uk`. If that URL
+   is linked from ads or emails, set up a redirect.
