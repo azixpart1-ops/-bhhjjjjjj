@@ -1,0 +1,137 @@
+{%- liquid
+  assign s = section.settings
+-%}
+
+{% render 'contrast-override', background_color: s.background_color, section_id: section.id %}
+
+<div class="cc-section color-custom-{{ section.id }}">
+  <div class="cc-container">
+    <div class="cc-split{% if s.media_position == 'right' %} cc-split--media-right{% endif %}" style="--cc-split-ratio: {{ s.image_ratio }};">
+      <div class="cc-split__media" data-cc-reveal>
+        {%- if s.image != blank -%}
+          {{
+            s.image
+            | image_url: width: 1800
+            | image_tag:
+              widths: '500,750,1000,1400,1800',
+              sizes: '(min-width: 990px) 50vw, 100vw',
+              loading: 'lazy',
+              alt: s.image.alt | default: s.heading | escape
+          }}
+        {%- else -%}
+          {{ 'lifestyle-2' | placeholder_svg_tag: 'placeholder-svg' }}
+        {%- endif -%}
+      </div>
+
+      <div class="cc-split__body" data-cc-reveal="90">
+        {%- if s.eyebrow != blank -%}<span class="cc-eyebrow">{{ s.eyebrow }}</span>{%- endif -%}
+        {%- if s.heading != blank -%}<h2 class="h2">{{ s.heading }}</h2>{%- endif -%}
+        {%- if s.text != blank -%}<div class="cc-lede">{{ s.text }}</div>{%- endif -%}
+
+        {%- if section.blocks.size > 0 -%}
+          <ul class="cc-split__list">
+            {%- for block in section.blocks -%}
+              <li {{ block.shopify_attributes }}>
+                {% render 'cc-icon', icon: block.settings.icon, size: 18 %}
+                <span>{{ block.settings.text }}</span>
+              </li>
+            {%- endfor -%}
+          </ul>
+        {%- endif -%}
+
+        {%- if s.button_label != blank -%}
+          <div>
+            <a href="{{ s.button_link | default: '#' }}" class="button">{{ s.button_label }}</a>
+          </div>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Image with checklist",
+  "tag": "section",
+  "class": "cc-section-split",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    {
+      "type": "select",
+      "id": "media_position",
+      "label": "Image position",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "right", "label": "Right" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Image ratio",
+      "options": [
+        { "value": "4 / 5", "label": "Portrait" },
+        { "value": "1 / 1", "label": "Square" },
+        { "value": "4 / 3", "label": "Landscape" }
+      ],
+      "default": "4 / 5"
+    },
+    { "type": "header", "content": "Content" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Why Comfort Crest" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Built like furniture, not flat-pack" },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text",
+      "default": "<p>Every frame is made from kiln-dried hardwood, upholstered by hand and stress-tested to 200kg before it leaves the workshop. No chipboard, no wobble, no regrets in year three.</p>"
+    },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "See how they're made" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "default": "#f7f3ec"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "point",
+      "name": "Checklist item",
+      "limit": 6,
+      "settings": [
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "options": [
+            { "value": "check-circle", "label": "Tick" },
+            { "value": "shield", "label": "Guarantee" },
+            { "value": "hand", "label": "Handmade" },
+            { "value": "leaf", "label": "Sustainable" },
+            { "value": "truck", "label": "Delivery" },
+            { "value": "moon", "label": "Sleep" },
+            { "value": "ruler", "label": "Sizing" },
+            { "value": "award", "label": "Award" }
+          ],
+          "default": "check-circle"
+        },
+        { "type": "text", "id": "text", "label": "Text", "default": "Kiln-dried hardwood frame" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Image with checklist",
+      "category": "Conversion",
+      "blocks": [
+        { "type": "point", "settings": { "icon": "hand", "text": "Upholstered by hand in Yorkshire" } },
+        { "type": "point", "settings": { "icon": "shield", "text": "10-year frame guarantee as standard" } },
+        { "type": "point", "settings": { "icon": "truck", "text": "Delivered and assembled in your bedroom" } },
+        { "type": "point", "settings": { "icon": "leaf", "text": "FSC-certified timber, recyclable packaging" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

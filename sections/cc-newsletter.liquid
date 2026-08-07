@@ -1,0 +1,98 @@
+{%- liquid
+  assign s = section.settings
+  assign form_id = 'cc-signup-' | append: section.id
+-%}
+
+{% render 'contrast-override', background_color: s.background_color, section_id: section.id %}
+
+<div class="cc-section color-custom-{{ section.id }}">
+  <div class="cc-container">
+    <div class="cc-signup" data-cc-reveal>
+      <div>
+        {%- if s.eyebrow != blank -%}
+          <span class="cc-eyebrow" style="color: inherit; opacity: 0.7;">{{ s.eyebrow }}</span>
+        {%- endif -%}
+        {%- if s.heading != blank -%}<h2 class="h2" style="margin: 0 0 1rem;">{{ s.heading }}</h2>{%- endif -%}
+        {%- if s.text != blank -%}
+          <p style="margin: 0; line-height: 1.65; opacity: 0.82; max-width: 46ch;">{{ s.text }}</p>
+        {%- endif -%}
+      </div>
+
+      <div>
+        {%- form 'customer', id: form_id, class: 'cc-signup__formwrap' -%}
+          <input type="hidden" name="contact[tags]" value="newsletter">
+
+          {%- if form.posted_successfully? -%}
+            <p class="cc-signup__success">{{ s.success_text }}</p>
+          {%- else -%}
+            <div class="cc-signup__form">
+              <label class="visually-hidden" for="{{ form_id }}-email">{{ s.placeholder }}</label>
+              <input
+                id="{{ form_id }}-email"
+                type="email"
+                name="contact[email]"
+                placeholder="{{ s.placeholder | escape }}"
+                autocomplete="email"
+                required
+                value="{{ form.email }}"
+              >
+              <button type="submit" class="button">{{ s.button_label }}</button>
+            </div>
+
+            {%- if form.errors -%}
+              <p class="cc-signup__success" role="alert">{{ form.errors.messages.email }}</p>
+            {%- endif -%}
+
+            {%- if s.note != blank -%}
+              <p class="cc-signup__note">{{ s.note }}</p>
+            {%- endif -%}
+          {%- endif -%}
+        {%- endform -%}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Email capture",
+  "tag": "section",
+  "class": "cc-section-signup",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Get £50 off your first bed" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Free swatches, and £50 off when you're ready" },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Text",
+      "default": "Join 18,000 people who get first access to new fabrics, one styling note a month, and a £50 welcome credit that never expires."
+    },
+    { "type": "text", "id": "placeholder", "label": "Field placeholder", "default": "Your email address" },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "Send my £50" },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Small print",
+      "default": "One email a month. Unsubscribe in a click. We never share your details."
+    },
+    {
+      "type": "text",
+      "id": "success_text",
+      "label": "Success message",
+      "default": "You're in — check your inbox for your £50 code."
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "default": "#ede5d6"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Email capture",
+      "category": "Conversion"
+    }
+  ]
+}
+{% endschema %}

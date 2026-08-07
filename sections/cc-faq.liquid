@@ -1,0 +1,170 @@
+{%- liquid
+  assign s = section.settings
+-%}
+
+{% render 'contrast-override', background_color: s.background_color, section_id: section.id %}
+
+<div class="cc-section color-custom-{{ section.id }}">
+  <div class="cc-container cc-container--reading">
+    <div class="cc-head{% if s.align == 'center' %} cc-head--center{% endif %}" data-cc-reveal>
+      <div>
+        {%- if s.eyebrow != blank -%}<span class="cc-eyebrow">{{ s.eyebrow }}</span>{%- endif -%}
+        {%- if s.heading != blank -%}<h2 class="cc-head__title h2">{{ s.heading }}</h2>{%- endif -%}
+      </div>
+    </div>
+
+    <div class="cc-faq" data-cc-reveal="80">
+      {%- for block in section.blocks -%}
+        <details class="cc-faq__item" {% if forloop.first and s.open_first %}open{% endif %} {{ block.shopify_attributes }}>
+          <summary>
+            <span>{{ block.settings.question }}</span>
+            <span class="cc-faq__sign" aria-hidden="true"></span>
+          </summary>
+          <div class="cc-faq__answer rte">{{ block.settings.answer }}</div>
+        </details>
+      {%- endfor -%}
+    </div>
+
+    {%- if s.footer_text != blank or s.button_label != blank -%}
+      <div style="margin-block-start: 2.5rem; display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.5rem;">
+        {%- if s.footer_text != blank -%}
+          <p class="cc-lede" style="margin: 0;">{{ s.footer_text }}</p>
+        {%- endif -%}
+        {%- if s.button_label != blank -%}
+          <a href="{{ s.button_link | default: '#' }}" class="button button-secondary">{{ s.button_label }}</a>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+{%- comment -%}
+  FAQPage markup. Google only honours it when the questions and answers are
+  visible on the page, which they are — the accordions render their content
+  in the DOM regardless of open state.
+{%- endcomment -%}
+{%- if s.enable_schema and section.blocks.size > 0 -%}
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {%- for block in section.blocks -%}
+          {
+            "@type": "Question",
+            "name": {{ block.settings.question | strip_html | json }},
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": {{ block.settings.answer | strip_html | strip_newlines | json }}
+            }
+          }{% unless forloop.last %},{% endunless %}
+        {%- endfor -%}
+      ]
+    }
+  </script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "FAQ",
+  "tag": "section",
+  "class": "cc-section-faq",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Before you buy" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "The questions we get asked most" },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Header alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Centre" }
+      ],
+      "default": "left"
+    },
+    { "type": "checkbox", "id": "open_first", "label": "Open first question", "default": true },
+    {
+      "type": "checkbox",
+      "id": "enable_schema",
+      "label": "Add FAQ structured data",
+      "info": "Helps these answers appear directly in Google. Only enable on one section per page.",
+      "default": true
+    },
+    { "type": "header", "content": "Footer" },
+    { "type": "text", "id": "footer_text", "label": "Text", "default": "Still deciding? Our bed specialists answer in under an hour, 9–6 daily." },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "Talk to a specialist" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "default": "#f7f3ec"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "question",
+      "name": "Question",
+      "settings": [
+        { "type": "text", "id": "question", "label": "Question", "default": "How long does delivery take?" },
+        {
+          "type": "richtext",
+          "id": "answer",
+          "label": "Answer",
+          "default": "<p>In-stock beds are delivered in 3–5 working days to UK mainland addresses. Made-to-order upholstery takes 3–4 weeks — the lead time is shown on every product page before you buy.</p>"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "FAQ",
+      "category": "Conversion",
+      "blocks": [
+        {
+          "type": "question",
+          "settings": {
+            "question": "How long does delivery take, and what does it include?",
+            "answer": "<p>In-stock beds arrive in 3–5 working days; made-to-order upholstery takes 3–4 weeks and the lead time is shown on the product page before you buy. Delivery is two-person, to the room of your choice, with assembly and packaging removal included at no extra cost.</p>"
+          }
+        },
+        {
+          "type": "question",
+          "settings": {
+            "question": "Can I see the fabric before I commit?",
+            "answer": "<p>Yes. Order up to five free swatches and we post them first class the same day. Most customers order swatches, then buy within a fortnight — it is the single best way to avoid a return.</p>"
+          }
+        },
+        {
+          "type": "question",
+          "settings": {
+            "question": "What if it doesn't work in the room?",
+            "answer": "<p>You have 100 nights to decide. If the bed isn't right, we collect it and refund you in full — no restocking fee and no need to keep the original packaging.</p>"
+          }
+        },
+        {
+          "type": "question",
+          "settings": {
+            "question": "Will it fit up my stairs?",
+            "answer": "<p>Every product page lists the boxed dimensions of each component. Frames and headboards ship separately and assemble in the room, so tight landings and turns are rarely a problem. If you're unsure, send us a photo and we'll check before you order.</p>"
+          }
+        },
+        {
+          "type": "question",
+          "settings": {
+            "question": "Can I spread the cost?",
+            "answer": "<p>Klarna and Clearpay are available at checkout — pay in three interest-free instalments, with no impact on your credit score for a soft search.</p>"
+          }
+        },
+        {
+          "type": "question",
+          "settings": {
+            "question": "What does the guarantee actually cover?",
+            "answer": "<p>Ten years on the frame and mechanism, two years on fabric and stitching. If a gas strut fails or a joint gives way in normal use, we repair or replace it free of charge.</p>"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,43 @@
+{% comment %}
+  Star rating row.
+
+  Accepts:
+    rating (number)  – e.g. 4.8
+    count  (number)  – number of reviews, optional
+    text   (string)  – overrides the generated caption, optional
+    hide_text (bool) – stars only, no caption
+    size   (number)  – star size in px, defaults to 15
+
+  Stars are drawn as five glyphs with the filled count derived from the
+  rating so a 4.8 reads as five stars, a 4.2 as four.
+{% endcomment %}
+
+{%- liquid
+  assign cc_rating = rating | default: 0.0
+  assign cc_size = size | default: 15
+  assign cc_filled = cc_rating | round
+  if cc_filled > 5
+    assign cc_filled = 5
+  endif
+-%}
+
+<div class="cc-rating">
+  <span class="cc-rating__stars" role="img" aria-label="Rated {{ cc_rating }} out of 5 stars">
+    {%- for i in (1..5) -%}
+      {%- if i <= cc_filled -%}
+        {% render 'cc-icon', icon: 'star', size: cc_size %}
+      {%- else -%}
+        {% render 'cc-icon', icon: 'star-outline', size: cc_size %}
+      {%- endif -%}
+    {%- endfor -%}
+  </span>
+  {%- unless hide_text -%}
+    {%- if text != blank -%}
+      <span class="cc-rating__text">{{ text }}</span>
+    {%- elsif count != blank and count > 0 -%}
+      <span class="cc-rating__text"><strong>{{ cc_rating }}</strong> · {{ count }} reviews</span>
+    {%- elsif cc_rating > 0 -%}
+      <span class="cc-rating__text"><strong>{{ cc_rating }}</strong> out of 5</span>
+    {%- endif -%}
+  {%- endunless -%}
+</div>

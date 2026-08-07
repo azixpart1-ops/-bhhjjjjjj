@@ -1,0 +1,50 @@
+{%- doc -%}
+  Free-shipping progress meter for the cart drawer and cart page.
+
+  Rendered server-side so it stays correct after every cart update — the
+  drawer and cart page both re-render through section rendering, so no
+  client-side recalculation is needed.
+{%- enddoc -%}
+
+{%- liquid
+  assign threshold_major = settings.cc_free_shipping_threshold | times: 1
+  assign threshold = threshold_major | times: 100
+-%}
+
+{%- if settings.cc_free_shipping_enabled and threshold > 0 -%}
+  {%- liquid
+    assign spent = cart.total_price
+    assign remaining = threshold | minus: spent
+
+    if remaining <= 0
+      assign percent = 100
+    else
+      assign percent = spent | times: 100 | divided_by: threshold
+    endif
+
+    assign remaining_money = remaining | money
+    assign progress_message = settings.cc_free_shipping_progress_text | replace: '[amount]', remaining_money
+  -%}
+
+  <div class="cc-ship-meter">
+    <span class="cc-ship-meter__label">
+      {%- if remaining <= 0 -%}
+        {% render 'cc-icon', icon: 'check-circle', size: 15 %}
+        <strong>{{ settings.cc_free_shipping_success_text }}</strong>
+      {%- else -%}
+        {{ progress_message }}
+      {%- endif -%}
+    </span>
+    <span class="cc-ship-meter__track">
+      <span
+        class="cc-ship-meter__fill"
+        style="width: {{ percent }}%;"
+        role="progressbar"
+        aria-valuenow="{{ percent }}"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-label="{{ settings.cc_free_shipping_success_text | escape }}"
+      ></span>
+    </span>
+  </div>
+{%- endif -%}

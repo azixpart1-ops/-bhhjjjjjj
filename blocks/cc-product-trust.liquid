@@ -1,0 +1,168 @@
+{%- liquid
+  assign bs = block.settings
+  assign product_resource = closest.product
+  assign variant = product_resource.selected_or_first_available_variant
+
+  # Delivery window, counted forward from today so the copy is always current.
+  assign day_seconds = 86400
+  assign from_seconds = bs.dispatch_min_days | times: day_seconds
+  assign to_seconds = bs.dispatch_max_days | times: day_seconds
+  assign now_seconds = 'now' | date: '%s' | plus: 0
+  assign from_date = now_seconds | plus: from_seconds | date: '%a %-d %b'
+  assign to_date = now_seconds | plus: to_seconds | date: '%a %-d %b'
+
+  # Stock state drives the urgency line.
+  assign stock_state = 'in'
+  assign stock_message = bs.in_stock_text
+  if variant.inventory_management == 'shopify' and variant.inventory_policy != 'continue'
+    if variant.inventory_quantity <= 0
+      assign stock_state = 'low'
+      assign stock_message = bs.backorder_text
+    elsif variant.inventory_quantity <= bs.low_stock_threshold
+      assign stock_state = 'low'
+      assign stock_message = bs.low_stock_text | replace: '[count]', variant.inventory_quantity
+    endif
+  endif
+-%}
+
+<div class="cc-product-trust spacing-style" style="{% render 'spacing-style', settings: bs %}">
+  {%- if bs.show_stock and stock_message != blank -%}
+    <p class="cc-stock cc-stock--{{ stock_state }}">
+      <span class="cc-stock__dot" aria-hidden="true"></span>
+      {{ stock_message }}
+    </p>
+  {%- endif -%}
+
+  <div class="cc-pdp-trust">
+    {%- if bs.show_delivery -%}
+      <p class="cc-pdp-trust__item">
+        {% render 'cc-icon', icon: 'truck', size: 19 %}
+        <span>
+          <strong>{{ bs.delivery_label }}</strong>
+          {{ from_date }} – {{ to_date }}{% if bs.delivery_note != blank %}. {{ bs.delivery_note }}{% endif %}
+        </span>
+      </p>
+    {%- endif -%}
+
+    {%- if bs.trial_text != blank -%}
+      <p class="cc-pdp-trust__item">
+        {% render 'cc-icon', icon: 'moon', size: 19 %}
+        <span>{{ bs.trial_text }}</span>
+      </p>
+    {%- endif -%}
+
+    {%- if bs.guarantee_text != blank -%}
+      <p class="cc-pdp-trust__item">
+        {% render 'cc-icon', icon: 'shield', size: 19 %}
+        <span>{{ bs.guarantee_text }}</span>
+      </p>
+    {%- endif -%}
+
+    {%- if bs.returns_text != blank -%}
+      <p class="cc-pdp-trust__item">
+        {% render 'cc-icon', icon: 'return', size: 19 %}
+        <span>{{ bs.returns_text }}</span>
+      </p>
+    {%- endif -%}
+  </div>
+
+  {%- if bs.show_payments -%}
+    <div class="cc-pdp-payments">
+      <span class="cc-pdp-payments__label">{{ bs.payments_label }}</span>
+      {%- for type in shop.enabled_payment_types limit: 8 -%}
+        {{ type | payment_type_svg_tag: class: 'cc-pdp-payment-icon' }}
+      {%- endfor -%}
+    </div>
+  {%- endif -%}
+</div>
+
+{% schema %}
+{
+  "name": "Delivery & trust",
+  "tag": null,
+  "settings": [
+    { "type": "header", "content": "Stock" },
+    { "type": "checkbox", "id": "show_stock", "label": "Show stock line", "default": true },
+    { "type": "text", "id": "in_stock_text", "label": "In stock text", "default": "In stock — ready to dispatch" },
+    {
+      "type": "range",
+      "id": "low_stock_threshold",
+      "label": "Low stock threshold",
+      "min": 1,
+      "max": 25,
+      "step": 1,
+      "default": 6
+    },
+    {
+      "type": "text",
+      "id": "low_stock_text",
+      "label": "Low stock text",
+      "info": "Use [count] to insert the remaining quantity.",
+      "default": "Only [count] left in this fabric"
+    },
+    { "type": "text", "id": "backorder_text", "label": "Made to order text", "default": "Made to order — reserve yours now" },
+    { "type": "header", "content": "Delivery" },
+    { "type": "checkbox", "id": "show_delivery", "label": "Show delivery estimate", "default": true },
+    { "type": "text", "id": "delivery_label", "label": "Delivery label", "default": "Free delivery" },
+    {
+      "type": "range",
+      "id": "dispatch_min_days",
+      "label": "Earliest arrival",
+      "min": 1,
+      "max": 30,
+      "step": 1,
+      "unit": "d",
+      "default": 3
+    },
+    {
+      "type": "range",
+      "id": "dispatch_max_days",
+      "label": "Latest arrival",
+      "min": 1,
+      "max": 60,
+      "step": 1,
+      "unit": "d",
+      "default": 6
+    },
+    {
+      "type": "text",
+      "id": "delivery_note",
+      "label": "Delivery note",
+      "default": "Two-person, to your room, assembled"
+    },
+    { "type": "header", "content": "Reassurance" },
+    { "type": "text", "id": "trial_text", "label": "Trial", "default": "100-night comfort trial" },
+    { "type": "text", "id": "guarantee_text", "label": "Guarantee", "default": "10-year guarantee on the frame and mechanism" },
+    { "type": "text", "id": "returns_text", "label": "Returns", "default": "Free collection if you change your mind" },
+    { "type": "header", "content": "Payment" },
+    { "type": "checkbox", "id": "show_payments", "label": "Show payment icons", "default": true },
+    { "type": "text", "id": "payments_label", "label": "Payment label", "default": "Secure checkout" },
+    { "type": "header", "content": "Spacing" },
+    {
+      "type": "range",
+      "id": "padding-block-start",
+      "label": "Top padding",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding-block-end",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "Delivery & trust"
+    }
+  ]
+}
+{% endschema %}

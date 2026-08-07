@@ -1,8 +1,6 @@
 <!doctype html>
 <html
-  {% if request.design_mode %}
-    class="shopify-design-mode"
-  {% endif %}
+  class="no-js{% if request.design_mode %} shopify-design-mode{% endif %}"
   lang="{{ request.locale.iso_code }}"
 >
   <head>
@@ -24,8 +22,19 @@
       >
     {% endif %}
 
+    {% comment %}
+      Swap the class before first paint so the scroll-reveal styles only ever
+      apply when the script that undoes them is actually going to run.
+    {% endcomment %}
+    <script>
+      document.documentElement.classList.remove('no-js');
+      document.documentElement.classList.add('js');
+    </script>
+
     {%- render 'meta-tags' -%}
     {%- render 'stylesheets' -%}
+    {{ 'cc-theme.css' | asset_url | stylesheet_tag }}
+    <script src="{{ 'cc-conversion.js' | asset_url }}" defer></script>
     {%- render 'fonts' -%}
     {%- render 'scripts' -%}
     {%- render 'theme-styles-variables' -%}
@@ -140,6 +149,11 @@
     {% if settings.quick_add or settings.mobile_quick_add %}
       {% render 'quick-add-modal' %}
     {% endif %}
-  {%- sections 'smi-group' -%}
-</body>
+    {% comment %}
+      The smi-group section group injects ~4,600 lines of Liquid worth of
+      inline CSS on every page, all of it scoped to `.smi-section`. No
+      template uses those sections any more, so it is off by default.
+      Re-add the smi-group sections tag here if you bring one back.
+    {% endcomment %}
+  </body>
 </html>

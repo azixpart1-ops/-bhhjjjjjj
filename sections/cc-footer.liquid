@@ -1,0 +1,174 @@
+{%- liquid
+  assign s = section.settings
+  assign logo_alt = shop.name | escape
+-%}
+
+{% render 'contrast-override', background_color: s.background_color, section_id: section.id %}
+
+<div class="cc-footer color-custom-{{ section.id }}">
+  <div class="cc-container">
+    <div class="cc-footer__top">
+      <div class="cc-footer__brand">
+        {%- if s.logo != blank -%}
+          {{
+            s.logo
+            | image_url: width: 600
+            | image_tag:
+              widths: '150,300,450,600',
+              loading: 'lazy',
+              alt: logo_alt,
+              class: 'cc-footer__logo'
+          }}
+        {%- else -%}
+          <p class="h4" style="margin: 0; font-family: var(--font-heading--family);">{{ shop.name }}</p>
+        {%- endif -%}
+
+        {%- if s.blurb != blank -%}
+          <p class="cc-footer__blurb">{{ s.blurb }}</p>
+        {%- endif -%}
+
+        {%- if s.show_rating -%}
+          <div style="margin-block-start: 1.25rem;">
+            {% render 'cc-rating', rating: s.rating_value, text: s.rating_caption, size: 15 %}
+          </div>
+        {%- endif -%}
+      </div>
+
+      {%- for block in section.blocks -%}
+        {%- case block.type -%}
+          {%- when 'footer_menu' -%}
+            <div {{ block.shopify_attributes }}>
+              <h2 class="cc-footer__title">{{ block.settings.title }}</h2>
+              <ul class="cc-footer__list">
+                {%- for link in block.settings.menu.links -%}
+                  <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+                {%- endfor -%}
+              </ul>
+            </div>
+
+          {%- when 'footer_text' -%}
+            <div {{ block.shopify_attributes }}>
+              <h2 class="cc-footer__title">{{ block.settings.title }}</h2>
+              <div class="cc-footer__blurb rte" style="margin-block-start: 0;">{{ block.settings.text }}</div>
+            </div>
+        {%- endcase -%}
+      {%- endfor -%}
+    </div>
+
+    <div class="cc-footer__bottom">
+      <span>&copy; {{ 'now' | date: '%Y' }} {{ shop.name }}{% if s.company_note != blank %} · {{ s.company_note }}{% endif %}</span>
+
+      {%- if s.show_social -%}
+        <ul class="cc-footer__social">
+          {%- if s.instagram != blank -%}
+            <li>
+              <a href="{{ s.instagram }}" aria-label="Instagram">{% render 'cc-icon', icon: 'instagram', size: 19 %}</a>
+            </li>
+          {%- endif -%}
+          {%- if s.facebook != blank -%}
+            <li>
+              <a href="{{ s.facebook }}" aria-label="Facebook">{% render 'cc-icon', icon: 'facebook', size: 19 %}</a>
+            </li>
+          {%- endif -%}
+          {%- if s.pinterest != blank -%}
+            <li>
+              <a href="{{ s.pinterest }}" aria-label="Pinterest">{% render 'cc-icon', icon: 'pinterest', size: 19 %}</a>
+            </li>
+          {%- endif -%}
+          {%- if s.tiktok != blank -%}
+            <li>
+              <a href="{{ s.tiktok }}" aria-label="TikTok">{% render 'cc-icon', icon: 'tiktok', size: 19 %}</a>
+            </li>
+          {%- endif -%}
+        </ul>
+      {%- endif -%}
+
+      {%- if s.show_payments -%}
+        <div class="cc-pdp-payments" style="margin: 0; gap: 0.5rem;">
+          {%- for type in shop.enabled_payment_types limit: 8 -%}
+            {{ type | payment_type_svg_tag }}
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Footer",
+  "tag": "div",
+  "class": "cc-section-footer",
+  "settings": [
+    { "type": "image_picker", "id": "logo", "label": "Logo" },
+    {
+      "type": "textarea",
+      "id": "blurb",
+      "label": "About text",
+      "default": "Comfort Crest makes upholstered and storage beds by hand in Britain, and delivers them built, to the room you actually sleep in."
+    },
+    { "type": "checkbox", "id": "show_rating", "label": "Show rating", "default": true },
+    {
+      "type": "range",
+      "id": "rating_value",
+      "label": "Rating",
+      "min": 1,
+      "max": 5,
+      "step": 0.1,
+      "default": 4.8
+    },
+    { "type": "text", "id": "rating_caption", "label": "Rating caption", "default": "4.8/5 from 2,412 verified reviews" },
+    { "type": "header", "content": "Social" },
+    { "type": "checkbox", "id": "show_social", "label": "Show social links", "default": true },
+    { "type": "url", "id": "instagram", "label": "Instagram" },
+    { "type": "url", "id": "facebook", "label": "Facebook" },
+    { "type": "url", "id": "pinterest", "label": "Pinterest" },
+    { "type": "url", "id": "tiktok", "label": "TikTok" },
+    { "type": "header", "content": "Legal" },
+    { "type": "checkbox", "id": "show_payments", "label": "Show payment icons", "default": true },
+    { "type": "text", "id": "company_note", "label": "Company note", "default": "Registered in England & Wales" },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "default": "#2f3d34"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "footer_menu",
+      "name": "Menu",
+      "limit": 4,
+      "settings": [
+        { "type": "text", "id": "title", "label": "Title", "default": "Shop" },
+        { "type": "link_list", "id": "menu", "label": "Menu", "default": "footer" }
+      ]
+    },
+    {
+      "type": "footer_text",
+      "name": "Text",
+      "limit": 2,
+      "settings": [
+        { "type": "text", "id": "title", "label": "Title", "default": "Talk to us" },
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>9–6, seven days a week.<br/>hello@comfortcrest.co.uk</p>"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Footer",
+      "category": "Layout",
+      "blocks": [
+        { "type": "footer_menu", "settings": { "title": "Shop" } },
+        { "type": "footer_menu", "settings": { "title": "Help" } },
+        { "type": "footer_text", "settings": { "title": "Talk to us" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

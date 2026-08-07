@@ -1,0 +1,186 @@
+{%- liquid
+  assign s = section.settings
+-%}
+
+{% render 'contrast-override', background_color: s.background_color, section_id: section.id %}
+
+<div class="cc-section color-custom-{{ section.id }}">
+  <div class="cc-container">
+    {%- if s.heading != blank or s.text != blank or s.link_label != blank -%}
+      <div class="cc-head{% if s.align == 'center' %} cc-head--center{% endif %}" data-cc-reveal>
+        <div>
+          {%- if s.eyebrow != blank -%}<span class="cc-eyebrow">{{ s.eyebrow }}</span>{%- endif -%}
+          {%- if s.heading != blank -%}<h2 class="cc-head__title h2">{{ s.heading }}</h2>{%- endif -%}
+          {%- if s.text != blank -%}
+            <p class="cc-lede{% if s.align == 'center' %} cc-lede--center{% endif %}" style="margin-block-start: 1rem;">
+              {{ s.text }}
+            </p>
+          {%- endif -%}
+        </div>
+        {%- if s.link_label != blank -%}
+          <a href="{{ s.link_url | default: '#' }}" class="cc-link">
+            {{ s.link_label }}
+            {% render 'cc-icon', icon: 'arrow-right', size: 14 %}
+          </a>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    <div class="cc-cards" style="--cc-card-ratio: {{ s.image_ratio }};">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign coll = block.settings.collection
+          assign card_title = block.settings.title
+          if card_title == blank and coll != blank
+            assign card_title = coll.title
+          endif
+
+          assign card_url = block.settings.link
+          if card_url == blank and coll != blank
+            assign card_url = coll.url
+          endif
+
+          assign card_image = block.settings.image
+          if card_image == blank and coll != blank
+            assign card_image = coll.featured_image
+          endif
+        -%}
+        <a
+          href="{{ card_url | default: '#' }}"
+          class="cc-card{% if s.card_style == 'overlay' %} cc-card--overlay{% endif %}"
+          data-cc-reveal="{{ forloop.index0 | times: 70 }}"
+          {{ block.shopify_attributes }}
+        >
+          <div class="cc-card__media">
+            {%- if card_image != blank -%}
+              {{
+                card_image
+                | image_url: width: 1200
+                | image_tag:
+                  widths: '300,450,600,900,1200',
+                  sizes: '(min-width: 990px) 25vw, (min-width: 750px) 33vw, 90vw',
+                  loading: 'lazy',
+                  alt: card_title | escape
+              }}
+            {%- else -%}
+              {{ 'collection-1' | placeholder_svg_tag: 'placeholder-svg' }}
+            {%- endif -%}
+          </div>
+          <div class="cc-card__body">
+            <h3 class="cc-card__title">{{ card_title | default: 'Collection' }}</h3>
+            {%- if block.settings.text != blank -%}
+              <p class="cc-card__text">{{ block.settings.text }}</p>
+            {%- endif -%}
+            {%- if s.show_cta -%}
+              <span class="cc-card__cta">{{ block.settings.cta | default: s.default_cta }}</span>
+            {%- endif -%}
+          </div>
+        </a>
+      {%- endfor -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Category cards",
+  "tag": "section",
+  "class": "cc-section-cards",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Shop by style" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Find the bed that fits the room" },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Text",
+      "default": "Three ways to shop, whether you are chasing storage, softness or a statement headboard."
+    },
+    { "type": "text", "id": "link_label", "label": "Header link", "default": "View all beds" },
+    { "type": "url", "id": "link_url", "label": "Header link URL" },
+    { "type": "header", "content": "Layout" },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Header alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Centre" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "card_style",
+      "label": "Card style",
+      "options": [
+        { "value": "below", "label": "Text below image" },
+        { "value": "overlay", "label": "Text over image" }
+      ],
+      "default": "below"
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Image ratio",
+      "options": [
+        { "value": "3 / 4", "label": "Portrait" },
+        { "value": "1 / 1", "label": "Square" },
+        { "value": "4 / 3", "label": "Landscape" }
+      ],
+      "default": "3 / 4"
+    },
+    { "type": "checkbox", "id": "show_cta", "label": "Show card link text", "default": true },
+    { "type": "text", "id": "default_cta", "label": "Default link text", "default": "Explore" },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "default": "#f7f3ec"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "card",
+      "name": "Card",
+      "limit": 6,
+      "settings": [
+        { "type": "collection", "id": "collection", "label": "Collection" },
+        { "type": "image_picker", "id": "image", "label": "Image", "info": "Falls back to the collection image." },
+        { "type": "text", "id": "title", "label": "Title", "info": "Falls back to the collection title." },
+        { "type": "textarea", "id": "text", "label": "Description" },
+        { "type": "text", "id": "cta", "label": "Link text" },
+        { "type": "url", "id": "link", "label": "Link", "info": "Falls back to the collection URL." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Category cards",
+      "category": "Conversion",
+      "blocks": [
+        {
+          "type": "card",
+          "settings": {
+            "title": "Ottoman storage beds",
+            "text": "Gas-lift storage across the full footprint — for rooms that have run out of wardrobe."
+          }
+        },
+        {
+          "type": "card",
+          "settings": {
+            "title": "Upholstered & velvet",
+            "text": "Deep-buttoned headboards in velvet and bouclé, hand-finished to order."
+          }
+        },
+        {
+          "type": "card",
+          "settings": {
+            "title": "Divan sets & mattresses",
+            "text": "Bed and mattress matched in one delivery, so nothing arrives half-finished."
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}
