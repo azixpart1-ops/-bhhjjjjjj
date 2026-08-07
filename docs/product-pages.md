@@ -7,34 +7,33 @@ the admin steps are yours.
 
 ---
 
-## 1. Assign the templates
+## 1. One product page, no assignment needed
 
-Five product templates now ship with the theme. Assign each product in
-**Products → [product] → Theme template**:
+There is a single authored product template: `templates/product.json`. It is the
+default, so every product uses it unless something says otherwise — no dropdown
+to set, nothing to remember when you add a product.
 
-| Product | Product type | Template to select |
+It adapts to the product instead of you maintaining variants of it. The
+"In the box" line is worked out from the product's type and title:
+
+| Product | Reads as | In the box |
 | --- | --- | --- |
-| The Mayfair \| Cream Velvet Ottoman Storage Bed | Ottoman Bed | `ottoman-bed` |
-| The Hampstead \| Bouclé Ottoman Storage Bed | Ottoman Bed | `ottoman-bed` |
-| The Nightingale — Black Velvet Ottoman Storage Bed | Ottoman Bed | `ottoman-bed` |
-| Ottoman Bed Frame King Size… (→ rename, §3) | Ottoman Bed | `ottoman-bed` |
-| Ottoman Bed Gas Lift… Leather Grey 3ft (→ rename, §3) | Ottoman Bed | `ottoman-bed` |
-| The Kensington \| Charcoal Divan Bed Set | Divan Bed Set | `divan-set` |
-| The Pimlico \| Cream Divan Bed Base | Divan Bed Base | `divan-base` |
-| The Marlow \| Grey Faux Leather Bed with Mattress | Bed with Mattress | `bed-with-mattress` |
+| The Pimlico (Divan Bed Base) | base | "the divan base and its fittings only — **no mattress and no headboard**" |
+| The Kensington (Divan Bed Set) | set | "divan base, cushioned headboard and mattress — everything in one delivery" |
+| The Marlow (Bed with Mattress) | mattress | "bed frame, headboard and the mattress" |
+| Ashford / Nightingale / Ellery (mattress in title) | mattress | "bed frame, headboard and the mattress" |
+| The Mayfair, The Hampstead | frame | "bed frame, headboard and all fittings" |
 
-Each template differs where it matters — the FAQ, the "in the box" line and the
-specification panel are written for that kind of bed. The divan-base template,
-for instance, leads with **"Does this include a mattress? No"**, because that is
-the question that generates the refunds.
+All eight of your products classify correctly, and it yields to an explicit
+denial — a title saying "mattress not included" reads as a frame. The four
+wordings are editable in the theme editor under the block's settings.
 
-Everything below the buy button is shared: trust strip → why-buy-here →
-related products → FAQ (with structured data) → returns band.
-
-> **Do not delete the old `d1`, `d1 copy N` or `smi-backup` templates.** They are
-> restored and now render the new design — see §5.
-
----
+**The legacy template names still exist** (`product.d1.json`,
+`product.d1 copy N.json`, `product.smi-backup.json`, `product.smi-humi-*.json`)
+and now all contain that same one design. They are duplicates on disk, not a
+second design to maintain: a product assigned to any of them gets the identical
+page, and nothing 404s because a template went missing. If you confirm in admin
+that no product references them, they can be deleted.
 
 ## 2. Rewrite the two supplier listings
 

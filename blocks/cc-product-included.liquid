@@ -1,0 +1,125 @@
+{% comment %}
+  "What's in the box", worked out from the product itself.
+
+  This is what lets a single product template serve a base-only listing and a
+  full divan set without the page lying about either. It reads product.type
+  first (the catalogue sets it properly), then falls back to keywords in the
+  title, so a new product is described correctly the moment it is created.
+
+  Order matters: "base" is tested before "set" and "mattress", because
+  "Divan Bed Base" must never match the mattress-included wording.
+{% endcomment %}
+
+{%- liquid
+  assign bs = block.settings
+  assign product_resource = closest.product
+
+  assign product_type = product_resource.type | downcase
+  assign haystack = product_type | append: ' ' | append: product_resource.title | downcase
+
+  comment
+    Base and set are decided from the product type where possible, because a
+    frame listing can legitimately mention "base" in passing. The mattress test
+    is deliberately just the word — titles phrase it every way going
+    ("with mattress", "& pocket sprung mattress", "with 1 mattress") — but it
+    yields to an explicit denial so a frame sold without one is never
+    described as including one.
+  endcomment
+
+  assign kind = 'frame'
+  if product_type contains 'base' or haystack contains 'bed base' or haystack contains 'base only'
+    assign kind = 'base'
+  elsif product_type contains 'set' or haystack contains 'bed set'
+    assign kind = 'set'
+  elsif haystack contains 'mattress'
+    assign kind = 'mattress'
+    if haystack contains 'no mattress' or haystack contains 'without mattress' or haystack contains 'mattress not included' or haystack contains 'excluding mattress'
+      assign kind = 'frame'
+    endif
+  endif
+
+  case kind
+    when 'base'
+      assign included_text = bs.text_base
+      assign included_icon = 'bed'
+    when 'set'
+      assign included_text = bs.text_set
+      assign included_icon = 'moon'
+    when 'mattress'
+      assign included_text = bs.text_mattress
+      assign included_icon = 'moon'
+    else
+      assign included_text = bs.text_frame
+      assign included_icon = 'bed'
+  endcase
+-%}
+
+{%- if included_text != blank -%}
+  <div class="cc-included spacing-style" style="{% render 'spacing-style', settings: bs %}">
+    {% render 'cc-icon', icon: included_icon, size: 19 %}
+    <span>
+      <strong>{{ bs.label }}</strong>
+      {{ included_text }}
+    </span>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "What's included",
+  "tag": null,
+  "settings": [
+    { "type": "text", "id": "label", "label": "Label", "default": "In the box:" },
+    {
+      "type": "text",
+      "id": "text_frame",
+      "label": "Bed frame",
+      "info": "Used when the product is a frame or ottoman bed with no mattress in the title.",
+      "default": "bed frame, headboard and all fittings, flat-packed with instructions."
+    },
+    {
+      "type": "text",
+      "id": "text_mattress",
+      "label": "Bed with mattress",
+      "info": "Used when the title or type mentions a mattress.",
+      "default": "bed frame, headboard and the mattress, flat-packed with all fittings and instructions."
+    },
+    {
+      "type": "text",
+      "id": "text_set",
+      "label": "Divan set",
+      "info": "Used when the title or type says it is a set.",
+      "default": "divan base, cushioned headboard and mattress — everything arrives in one delivery."
+    },
+    {
+      "type": "text",
+      "id": "text_base",
+      "label": "Base only",
+      "info": "Used when the title or type says base. Say plainly what is not included.",
+      "default": "the divan base and its fittings only — no mattress and no headboard."
+    },
+    { "type": "header", "content": "Spacing" },
+    {
+      "type": "range",
+      "id": "padding-block-start",
+      "label": "Top padding",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding-block-end",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [{ "name": "What's included" }]
+}
+{% endschema %}

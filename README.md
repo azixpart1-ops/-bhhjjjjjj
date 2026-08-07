@@ -81,12 +81,13 @@ USP marquee → how it works → returns band → FAQ.
 
 **Product** — the native `product-information` section with a rebuilt detail
 column: eyebrow, title, rating, price (with instalments), variant picker,
-**stock line + delivery-date estimate**, add to cart (now the *primary* button
+**what's in the box**, **stock line + delivery-date estimate**, add to cart
+(now the *primary* button
 — it was `button-secondary` in the Horizon preset), express checkout,
 reassurance block with payment icons, three accordions, description,
 complementary products. Below the fold: trust strip → why-buy-here → related
 products → FAQ → returns band. Horizon's own variant-aware sticky add-to-cart
-bar is switched on. Five variants of this template ship — see Product pages.
+bar is switched on.
 
 **Collection** — header → trust strip → filtered grid → sizing guide →
 buying-guide FAQ with structured data → guarantee.
@@ -120,11 +121,17 @@ even when the layout inside them is replaced.
 
 ## Product pages
 
-Five product templates — `product.json` plus `ottoman-bed`, `divan-set`,
-`divan-base` and `bed-with-mattress` suffixes — each with the FAQ, "in the box"
-line and specification panel written for that kind of bed. Assignment map,
-paste-ready copy for the two supplier-written listings, and the catalogue data
-issues found in the live store are all in **[docs/product-pages.md](docs/product-pages.md)**.
+**One** product template — `templates/product.json`, the default, so there is
+nothing to assign. It adapts rather than duplicating: a `cc-product-included`
+block derives the "In the box" line from the product's type and title, so the
+same page tells a base-only listing it ships **without a mattress** and a divan
+set that everything arrives together. Verified against all eight live products.
+
+The legacy template names still on disk carry a copy of that same design, so a
+product assigned to any of them renders identically and nothing 404s.
+
+Paste-ready copy for the two supplier-written listings and the catalogue data
+issues found in the live store are in **[docs/product-pages.md](docs/product-pages.md)**.
 
 ## Claims
 
