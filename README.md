@@ -1,0 +1,173 @@
+# PawLunova — Homepage Redesign
+
+A conversion-focused rebuild of the [pawlunova.co.uk](https://pawlunova.co.uk) homepage.
+Self-contained: open `index.html` in a browser, or serve the folder.
+
+```
+index.html            the page
+assets/styles.css     brand system, layout, motion
+assets/app.js         bed finder, reveals, menu, accordion
+assets/img/           product photography (pulled from the live Shopify CDN)
+```
+
+Every claim, price, product name, handle and stock figure on the page comes from
+the live store — pulled from the Shopify Admin API on 6 August 2026. Nothing is invented.
+
+---
+
+## 1. What was wrong with the old homepage
+
+Diagnosed from the live page before rebuilding.
+
+| Problem | Effect on sales |
+|---|---|
+| **The `<title>` tag read "Emberbeck \| Orthopaedic Dog Beds…"** — a different brand name | Every Google result and browser tab showed the wrong company. Fixed. |
+| Ten products dumped in a grid, then **the same ten repeated** under "Customer Favorites" and "Bring Nature Indoors" | Choice paralysis with 27 SKUs and no triage. The single biggest leak. |
+| Trust icons filled with placeholder copy — *"We offer a straightforward return policy to ensure that"* (sentence cut off mid-clause) | Reads as an unfinished site. Trust collapses at exactly the moment it's being asked for. |
+| Social proof stated four different ways: `+3700 Owners`, `3900+ verified reviews`, `Over 3,900 Happy Dogs`, `3,700+ UK OWNERS` | Inconsistent numbers read as fabricated. Standardised on **4.8/5 from 3,900+**. |
+| A review titled **"Merino Beanie"**, and two reviews whose body text literally starts *"Emotional win."* / *"Emotional: our anxious rescue…"* | Theme-demo and prompt artifacts left in production. Reads as fake. |
+| `"Orthopaedic 50kg/m³ — Relieves All Pain"` | An absolute medical claim. Not defensible and a CAP Code risk in the UK. Rewritten (see §4). |
+| `"5 - Year Foam Guaratee"` | Typo, in a trust badge. |
+| No sizing help, no "which bed for my dog", no problem framing | Visitors arrived, saw 27 beds, and had to self-serve the hardest decision. |
+
+The one thing the old site got **right**: the product descriptions. *"He used to drop.
+Now he lowers himself."* is excellent copy that was buried on product pages while the
+homepage said nothing. This rebuild pulls that voice up to the homepage.
+
+---
+
+## 2. The conversion architecture
+
+The page walks one emotional arc — *notice → name it → solve it → de-risk it → prove it → close* —
+because for a £69–£219 considered purchase, the buyer must first be convinced there is a
+problem worth £150 before any product is worth looking at.
+
+| # | Section | Job it does |
+|---|---|---|
+| 1 | **Hero** | Brand line as headline; the emotional trigger as the deck; the mechanism (50kg/m³) as the rational backup. Dual CTA — one for the undecided, one for the ready. |
+| 2 | **Trust strip** (above the fold line) | 100-night trial, 5-year guarantee, Yorkshire, free delivery. Risk is killed *before* the first price is seen. |
+| 3 | **Marquee** | Continuous, low-cost repetition of the proof points. |
+| 4 | **"Three signs"** | Problem awareness + self-diagnosis. Named behaviours the owner can check tonight: circling, sleeping on the floor, the slower rise. Turns a nice-to-have into a now-purchase. |
+| 5 | **Bed finder** ⭐ | The centrepiece. Three questions → one bed. Replaces a 27-product wall with a single confident recommendation. |
+| 6 | **"Density isn't firmness"** | Price justification. Explains 50kg/m³ so the price stops being compared to a £25 supermarket bed. Four-layer cross-section makes the invisible visible. |
+| 7 | **Four products** | Curated, each with a *role* ("Stiff mornings", "For burrowers"), not an undifferentiated grid. Priced high → low to anchor. |
+| 8 | **100-night trial** | The strongest asset in the business, given a full section instead of a footnote. *"We collect it free of charge and refund every penny."* |
+| 9 | **Reviews** | 4.8/5 with a live count-up. Includes a 4-star review with a mild criticism — imperfection raises credibility far more than a wall of fives. |
+| 10 | **Made in Yorkshire** | Brand + differentiation. The Lake District naming system is the strongest brand asset the store has and was previously unexplained. |
+| 11 | **FAQ** | Six real objections, in buying order. Also emits `FAQPage` schema for rich results. |
+| 12 | **Finale** | Emotional close, then the same two CTAs. |
+
+### The bed finder
+
+`assets/app.js` → `BEDS` + `MATRIX`. Three questions (sleep style × joint condition × size)
+resolve to one of eleven real products, with real handles, real "from" prices and real stock.
+
+| | No concerns | Slowing down | Diagnosed |
+|---|---|---|---|
+| **Curls up tight** | Buttermere Bouclé £69 | Windermere Nest £69 | Coniston £99 · Langdale £109 *(large)* |
+| **Leans on something** | Harrogate £69 | Grasmere Sofa £79 | Grasmere Ortho £89 · **Borrowdale £154** *(large)* |
+| **Sprawls flat out** | Sprawler £59 | Ambleside £124 | Kendal £169 |
+
+The price ladder rises with need in every row — the more the dog needs, the more the owner
+is willing to spend, and the finder puts them in front of exactly that bed.
+
+### Branding
+
+There was no coherent system before, so one was built from what the store already owns:
+the **Lake District / Yorkshire dales** naming (Borrowdale, Coniston, Grasmere, Windermere…).
+
+- **Palette** — bone `#FAF6EF`, oat, sand, deep moss `#27312A`, terracotta `#B35A33` for action.
+  Warm British heritage, not bright pet-shop primary colours.
+- **Type** — a transitional serif for display, system sans for body. Tracking and leading are
+  size-specific (tight negative tracking on display, near-zero on body).
+- **Voice** — observational and specific, taken from their own product copy. Never "premium
+  quality pet products".
+
+---
+
+## 3. Craft notes
+
+- **Motion** — `transform`/`opacity` only. Strong custom curves (`cubic-bezier(0.23, 1, 0.32, 1)`),
+  never `ease-in` on entrances, never `transition: all`, never `scale(0)`. Press feedback fires
+  on `:active` at 120ms. Hover motion is gated behind `@media (hover: hover) and (pointer: fine)`
+  so a tap doesn't fire a phantom hover.
+- **Reduced motion / transparency** — `prefers-reduced-motion` swaps movement for cross-fades and
+  stops the marquee; `prefers-reduced-transparency` makes every frosted surface solid.
+- **Accessibility** — skip link, visible focus rings, `aria-expanded` on the menu and FAQ,
+  labelled star ratings, and a palette checked against WCAG AA (body 16.9:1, muted 5.5:1,
+  CTA text 4.5:1, small terracotta 5.4:1, stars 3.6:1 for non-text contrast).
+- **Performance** — no frameworks, no external requests. Hero preloaded with `fetchpriority="high"`,
+  everything below the fold lazy-loaded with `srcset`. Total CSS+JS is ~35KB unminified.
+- **Verified** — rendered in Chromium at 1440px and 390px: no console errors, no horizontal
+  overflow, finder flow returns correct product/price/stock/link, sticky CTA shows and hides
+  at the right thresholds, mobile menu opens, closes on Escape and anchors to the header.
+
+---
+
+## 4. Things I changed on purpose — please confirm
+
+Three judgement calls where I did not reproduce the live site verbatim. All are reversible.
+
+1. **"Relieves All Pain" → "Pressure-relieving support for ageing joints."**
+   The original is an absolute medical claim. The FAQ answer on arthritis is likewise written
+   to be truthful and defensible ("a bed isn't a treatment… please keep talking to your vet")
+   rather than promising an outcome. This *increases* trust with the exact buyer you want.
+
+2. **Review copy cleaned of artifacts.** The substance of each review is verbatim; I removed the
+   demo title "Merino Beanie" and the leading `"Emotional win."` / `"Emotional:"` fragments.
+   **These reviews still read as AI-generated** ("Wow! Impressed", "I love this product").
+   Swapping in real verified reviews is the highest-value change you can make after launch.
+
+3. **Ambleside shows "From £124".** The live homepage says £134; the Shopify catalogue says
+   M £129 / L £124. I used the catalogue. Worth checking which is right.
+
+Also standardised: **3,900+ reviews at 4.8/5** everywhere. The site currently says 3,700 in two
+places and 3,900 in two others — please confirm the real figure.
+
+---
+
+## 5. ⚠️ Blocker before this goes live
+
+**Much of the product photography carries other companies' branding.** I verified this by
+inspecting the full-resolution files from your CDN:
+
+| Image | What's visible |
+|---|---|
+| `borrowdale` (The Borrowdale Orthopaedic) | **"Heavenly Beds for Saved Souls"** watermark, bottom right |
+| `harrogate` (The Harrogate Heritage) | Leather patch reading **"HOUND"** |
+| `coniston_ortho` (Coniston Orthopaedic) | Label reading **"WILTON"** |
+| `grasmere_sofa`, `buttermere_boucle`, `buttermere_mattress`, `ullswater`, `windermere_nest`, `kendal_cord` | Other manufacturers' leather tags |
+
+This is why the hero, the Yorkshire section and the trial section use `rydal_plush`,
+`wensleydale` and `coniston_rev` — the cleanest images in the library — and why the featured
+four are Kendal / Coniston Reversible / Wensleydale / Rydal Nest rather than the Borrowdale
+and Harrogate you currently lead with.
+
+I did not edit the watermarks out: removing another company's mark from imagery you may not
+own is not a fix, and the leather tags are part of the physical product in shot. **Reshooting
+your own product is the fix.** It also directly contradicts the "made in our Yorkshire
+workshop" claim the page leans on, which is a real exposure.
+
+The bed finder still recommends the *correct* bed regardless of photo quality — swap the
+images and nothing else needs to change.
+
+---
+
+## 6. Going live on Shopify
+
+The page is deliberately framework-free so it ports cleanly to your theme (Modulo, OS 2.0).
+
+1. Upload `assets/styles.css` and `assets/app.js` to `Assets`; reference them in `theme.liquid`.
+2. Split the `<section>` blocks into self-contained sections under `sections/` — the markup is
+   already one section per block with no shared state except the design tokens.
+3. Swap the local image paths for `{{ product.featured_image | image_url: width: 900 }}`.
+4. Point the `BEDS` table at Liquid so prices and stock stay live:
+   ```liquid
+   {% assign p = all_products['the-borrowdale-orthopaedic-dog-bed'] %}
+   from: {{ p.price_min | money }}, stock: {{ p.variants | map: 'inventory_quantity' | sum }}
+   ```
+   **Do this before launch** — the "Only N left in stock" badge is real today (6 Aug 2026)
+   but must be bound to live inventory rather than left hardcoded.
+5. Re-point nav/footer links at your live handles (they're absolute `pawlunova.co.uk` URLs now).
+
+I have not touched the live store. Say the word and I'll do the Liquid port.
