@@ -1,0 +1,217 @@
+{{ 'modulo-section-product-spotlight.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  # ─── Content
+  assign bg_image     = section.settings.background_image
+  assign heading      = section.settings.heading
+  assign heading_size = section.settings.heading_size | default: 30
+  assign product      = section.settings.product
+  assign button_label = section.settings.button_label | default: 'Shop now'
+
+  # ─── Card resolution: override → product → placeholder
+  assign card_title = section.settings.title_override
+  if card_title == blank and product != blank
+    assign card_title = product.title
+  endif
+  if card_title == blank
+    assign card_title = 'Featured product'
+  endif
+
+  assign card_subtitle = section.settings.subtitle
+  if card_subtitle == blank and product != blank
+    assign card_subtitle = product.vendor
+  endif
+
+  # price_override is free text → escape it here. The money branches are
+  # Shopify-generated (money_format may contain HTML) → emitted raw, never escaped.
+  assign card_price = section.settings.price_override | escape
+  if card_price == blank and product != blank
+    if product.price_varies
+      assign price_money = product.price_min | money
+      assign card_price = 'From ' | append: price_money
+    else
+      assign card_price = product.price | money
+    endif
+  endif
+
+  assign card_image = section.settings.card_image
+  if card_image == blank and product != blank
+    assign card_image = product.featured_image
+  endif
+
+  assign card_url = section.settings.button_link
+  if card_url == blank and product != blank
+    assign card_url = product.url
+  endif
+  if card_url == blank
+    assign card_url = '#'
+  endif
+
+  # ─── Layout
+  assign card_position = section.settings.card_position | default: 'left'
+  assign section_width = section.settings.section_width | default: 'page'
+  assign show_scrim    = section.settings.show_scrim
+
+  assign root_class = 'modulo-section modulo-psp'
+  assign root_class = root_class | append: ' modulo-psp--card-' | append: card_position
+  assign root_class = root_class | append: ' modulo-psp--width-' | append: section_width
+  if show_scrim
+    assign root_class = root_class | append: ' modulo-psp--scrim'
+  endif
+
+  # Full-bleed background is decorative — the card carries the meaning.
+  # Honor a merchant-provided alt, otherwise empty (decorative).
+  assign bg_alt = bg_image.alt | default: ''
+
+  # Avoid a heading-level skip if the merchant clears the section heading:
+  # promote the card title to h2 when no section h2 is rendered.
+  assign title_tag = 'h3'
+  if heading == blank
+    assign title_tag = 'h2'
+  endif
+-%}
+
+<section
+  class="{{ root_class }}"
+  style="
+    --modulo-psp-heading:{{ section.settings.heading_color | default: '#14140F' }};
+    --modulo-psp-heading-size:{{ heading_size }}px;
+    --modulo-psp-card-bg:{{ section.settings.card_bg_color | default: '#F6F0E2' }};
+    --modulo-psp-card-text:{{ section.settings.card_text_color | default: '#14140F' }};
+    --modulo-psp-subtitle:{{ section.settings.subtitle_color | default: '#6B675A' }};
+    --modulo-psp-media-bg:{{ section.settings.media_bg_color | default: '#EBE7DC' }};
+    --modulo-psp-btn-bg:{{ section.settings.button_bg | default: '#1A1A18' }};
+    --modulo-psp-btn-text:{{ section.settings.button_text | default: '#FFFFFF' }};
+    --modulo-psp-card-w:{{ section.settings.card_width | default: 360 }}px;
+    --modulo-psp-min-h:{{ section.settings.min_height | default: 600 }}px;
+    --modulo-psp-region-bg:{{ section.settings.region_bg_color | default: '#FFFFFF' }};
+    --modulo-psp-pad:{{ section.settings.content_padding | default: 44 }}px;
+    --modulo-psp-pad-top:{{ section.settings.padding_top | default: 0 }}px;
+    --modulo-psp-pad-bottom:{{ section.settings.padding_bottom | default: 0 }}px;
+  "
+>
+  <div class="modulo-psp__media">
+    {%- if bg_image != blank -%}
+      <img
+        class="modulo-psp__bg"
+        src="{{ bg_image | image_url: width: 2200 }}"
+        alt="{{ bg_alt | escape }}"
+        width="{{ bg_image.width }}"
+        height="{{ bg_image.height }}"
+        loading="eager"
+      >
+    {%- else -%}
+      {{ 'lifestyle-1' | placeholder_svg_tag: 'modulo-psp__bg modulo-psp__placeholder-svg' }}
+    {%- endif -%}
+    {%- if show_scrim -%}
+      <span class="modulo-psp__scrim" aria-hidden="true"></span>
+    {%- endif -%}
+  </div>
+
+  <div class="modulo-psp__container">
+    <div class="modulo-psp__inner">
+      {%- if heading != blank -%}
+        <h2 class="modulo-psp__heading">{{ heading | escape }}</h2>
+      {%- endif -%}
+
+      <article class="modulo-psp__card">
+        <div class="modulo-psp__head">
+          <{{ title_tag }} class="modulo-psp__title">{{ card_title | escape }}</{{ title_tag }}>
+          {%- if card_price != blank -%}
+            <span class="modulo-psp__price">{{ card_price }}</span>
+          {%- endif -%}
+        </div>
+        {%- if card_subtitle != blank -%}
+          <p class="modulo-psp__subtitle">{{ card_subtitle | escape }}</p>
+        {%- endif -%}
+
+        <div class="modulo-psp__product-media">
+          {%- if card_image != blank -%}
+            <img
+              src="{{ card_image | image_url: width: 700 }}"
+              alt="{{ card_title | escape }}"
+              width="{{ card_image.width }}"
+              height="{{ card_image.height }}"
+              loading="lazy"
+            >
+          {%- else -%}
+            {{ 'product-1' | placeholder_svg_tag: 'modulo-psp__placeholder-svg' }}
+          {%- endif -%}
+        </div>
+
+        {%- if button_label != blank -%}
+          <a class="modulo-psp__btn" href="{{ card_url }}">{{ button_label | escape }}</a>
+        {%- endif -%}
+      </article>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Modulo: Product Spotlight",
+  "tag": "section",
+  "class": "modulo-section-wrapper",
+  "settings": [
+    { "type": "header", "content": "Featured product" },
+    { "type": "image_picker", "id": "background_image", "label": "Background image", "info": "Full-bleed lifestyle photo behind the card. Falls back to a placeholder." },
+    { "type": "product", "id": "product", "label": "Product", "info": "Auto-fills the card title, price, vendor, image and link. Override any field below." },
+    { "type": "text", "id": "title_override", "label": "Title override", "info": "Overrides the product title. Used as the card title when no product is selected." },
+    { "type": "text", "id": "subtitle", "label": "Subtitle", "info": "Small label under the title (e.g. a collection or store name). Falls back to the product vendor." },
+    { "type": "text", "id": "price_override", "label": "Price override", "info": "Overrides the live product price. Type it exactly as you want it shown." },
+    { "type": "image_picker", "id": "card_image", "label": "Card image override", "info": "Overrides the product photo shown inside the card." },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Shop now" },
+    { "type": "url", "id": "button_link", "label": "Button link", "info": "Overrides the product URL." },
+
+    { "type": "header", "content": "Heading" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Highlights", "info": "Shown as an uppercase label. Leave blank to hide." },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 18, "max": 56, "step": 1, "unit": "px", "default": 30 },
+    { "type": "color", "id": "heading_color", "label": "Heading color", "default": "#14140F" },
+
+    { "type": "header", "content": "Layout" },
+    {
+      "type": "select", "id": "card_position", "label": "Card position", "default": "left",
+      "options": [
+        { "value": "left",  "label": "Left" },
+        { "value": "right", "label": "Right" }
+      ]
+    },
+    { "type": "range", "id": "card_width", "label": "Card width", "min": 280, "max": 480, "step": 10, "unit": "px", "default": 360 },
+    { "type": "range", "id": "min_height", "label": "Section height (desktop)", "min": 360, "max": 900, "step": 20, "unit": "px", "default": 600 },
+    { "type": "checkbox", "id": "show_scrim", "label": "Light scrim behind heading", "default": true, "info": "Subtle light fade so the heading stays legible over busy photos." },
+    { "type": "range", "id": "content_padding", "label": "Content padding", "min": 16, "max": 96, "step": 2, "unit": "px", "default": 44 },
+    {
+      "type": "select", "id": "section_width", "label": "Section width", "default": "page",
+      "options": [
+        { "value": "page", "label": "Page (1280px content)" },
+        { "value": "full", "label": "Full width" }
+      ]
+    },
+
+    { "type": "header", "content": "Card colors" },
+    { "type": "color", "id": "card_bg_color",   "label": "Card background", "default": "#F6F0E2" },
+    { "type": "color", "id": "card_text_color", "label": "Title + price",   "default": "#14140F" },
+    { "type": "color", "id": "subtitle_color",  "label": "Subtitle",        "default": "#6B675A" },
+    { "type": "color", "id": "media_bg_color",  "label": "Product image background", "default": "#EBE7DC" },
+    { "type": "color", "id": "button_bg",       "label": "Button background", "default": "#1A1A18" },
+    { "type": "color", "id": "button_text",     "label": "Button text",       "default": "#FFFFFF" },
+
+    { "type": "header", "content": "Section" },
+    { "type": "color", "id": "region_bg_color", "label": "Mobile background", "default": "#FFFFFF", "info": "Shows behind the card when the section stacks on mobile." },
+    { "type": "range", "id": "padding_top",    "label": "Padding top",    "min": 0, "max": 160, "step": 4, "unit": "px", "default": 0 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 0 }
+  ],
+  "presets": [
+    {
+      "name": "Modulo: Product Spotlight",
+      "settings": {
+        "heading": "Highlights",
+        "title_override": "Signature Linen Throw",
+        "subtitle": "New this season",
+        "price_override": "$199.00",
+        "button_label": "Shop now"
+      }
+    }
+  ]
+}
+{% endschema %}

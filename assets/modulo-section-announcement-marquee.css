@@ -1,0 +1,240 @@
+/* ============================================================
+   Modulo: Marquee Bar — seamless scrolling promo bar with a pinned CTA.
+   Prefix: .modulo-am__*  /  --modulo-am-*
+   Engine mirrors section-announcement-bar (clone-to-fill, ready-gated).
+   Signature: scrolling messages dissolve into a soft mask seam before
+   they reach the pinned lead / CTA, so scroll and button never collide.
+   ============================================================ */
+
+/* ─── Layer 1: sticky on the outer section wrapper ──────────
+   The shopify-section wrapper carries `modulo-am-section` (schema "class").
+   Sticky must live here, not on the inner root, because the inner root's
+   containing block is only bar-height (it would un-stick past the bar). */
+.modulo-am-section:has(.modulo-am--sticky) {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+/* ─── Layer 2: section root ─────────────────────────────── */
+.modulo-am {
+  --modulo-am-bg: #16120D;
+  --modulo-am-text: #F5EFE4;
+  --modulo-am-accent: #F2B84B;
+  --modulo-am-cta-text: #1A1509;
+  --modulo-am-size-d: 13px;
+  --modulo-am-size-m: 12px;
+  --modulo-am-pad-top: 11px;
+  --modulo-am-pad-bottom: 11px;
+  --modulo-am-speed: 32s;
+  --modulo-am-gap: 42px;      /* between plain messages */
+  --modulo-am-chip-gap: 14px; /* between chips */
+  --modulo-am-fade: 40px;     /* dissolve seam width */
+
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  font-family: inherit;
+  font-size: var(--modulo-am-size-d);
+  line-height: 1;
+  background: var(--modulo-am-bg);
+  color: var(--modulo-am-text);
+}
+.modulo-am--upper { text-transform: uppercase; }
+.modulo-am--empty { padding: 11px 20px; text-align: center; opacity: .85; }
+
+/* full-bleed band; content boxes to max-width when "full width" is off */
+.modulo-am__inner {
+  display: flex;
+  align-items: stretch;
+}
+.modulo-am--boxed .modulo-am__inner {
+  max-width: var(--modulo-am-max-w, 1200px);
+  margin-inline: auto;
+}
+
+/* ─── Layer 3: pinned lead (left) ───────────────────────── */
+.modulo-am__lead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  z-index: 2;
+  padding: var(--modulo-am-pad-top) 4px var(--modulo-am-pad-bottom) 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-size: calc(var(--modulo-am-size-d) - 1px);
+}
+.modulo-am--upper .modulo-am__lead { text-transform: uppercase; }
+.modulo-am__lead-disc {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--modulo-am-accent) 22%, transparent);
+  color: var(--modulo-am-accent);
+}
+.modulo-am__lead-disc svg { width: 13px; height: 13px; display: block; }
+.modulo-am__lead-t { white-space: nowrap; }
+
+/* ─── Layer 4: scrolling viewport (center) ──────────────── */
+.modulo-am__viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding-block: var(--modulo-am-pad-top) var(--modulo-am-pad-bottom);
+  /* the dissolve seam — content fades before the pinned zones */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--modulo-am-fade), #000 calc(100% - var(--modulo-am-fade)), transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 var(--modulo-am-fade), #000 calc(100% - var(--modulo-am-fade)), transparent 100%);
+}
+
+.modulo-am__track {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--modulo-am-gap);
+  width: max-content;
+  padding-inline: calc(var(--modulo-am-gap) / 2);
+  will-change: transform;
+}
+.modulo-am--style-chips .modulo-am__track {
+  gap: var(--modulo-am-chip-gap);
+  padding-inline: calc(var(--modulo-am-chip-gap) / 2);
+}
+
+/* Animation attaches only after JS has measured + cloned (ready=1),
+   so there is no jumpy first paint and it degrades to static if JS is off. */
+.modulo-am--dir-left  .modulo-am__track[data-modulo-am-ready="1"] {
+  animation: modulo-am-scroll-left var(--modulo-am-speed, 32s) linear infinite;
+}
+.modulo-am--dir-right .modulo-am__track[data-modulo-am-ready="1"] {
+  animation: modulo-am-scroll-right var(--modulo-am-speed, 32s) linear infinite;
+}
+@keyframes modulo-am-scroll-left {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(calc(-1 * var(--modulo-am-cycle-width, 0px)), 0, 0); }
+}
+@keyframes modulo-am-scroll-right {
+  from { transform: translate3d(calc(-1 * var(--modulo-am-cycle-width, 0px)), 0, 0); }
+  to   { transform: translate3d(0, 0, 0); }
+}
+/* RTL: flip so messages read in the natural direction */
+html[dir="rtl"] .modulo-am--dir-left  .modulo-am__track { animation-name: modulo-am-scroll-right; }
+html[dir="rtl"] .modulo-am--dir-right .modulo-am__track { animation-name: modulo-am-scroll-left; }
+
+/* Pause on hover / keyboard focus */
+.modulo-am--pausable:hover .modulo-am__track,
+.modulo-am--pausable:focus-within .modulo-am__track {
+  animation-play-state: paused;
+}
+
+/* ─── Layer 5: items + dividers ─────────────────────────── */
+.modulo-am__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+  flex: none;
+  letter-spacing: 0.02em;
+}
+.modulo-am--upper .modulo-am__item { letter-spacing: 0.07em; }
+.modulo-am__item-t { white-space: nowrap; }
+.modulo-am__item a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.modulo-am__item a:hover { text-decoration-thickness: 2px; }
+.modulo-am__item b,
+.modulo-am__item strong { color: var(--modulo-am-accent); font-weight: 800; }
+.modulo-am__item svg { width: 16px; height: 16px; color: var(--modulo-am-accent); flex: none; display: block; }
+
+.modulo-am__divider {
+  flex: none;
+  color: var(--modulo-am-accent);
+  opacity: .85;
+  font-size: .8em;
+  user-select: none;
+}
+
+/* chip style: each message in a pill */
+.modulo-am--style-chips .modulo-am__item {
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--modulo-am-text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--modulo-am-text) 14%, transparent);
+  letter-spacing: 0.01em;
+}
+.modulo-am--style-chips.modulo-am--upper .modulo-am__item { letter-spacing: 0.04em; }
+
+/* ─── Layer 6: pinned CTA (right) ───────────────────────── */
+.modulo-am__cta-wrap {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  z-index: 2;
+  padding-inline: 8px 10px;
+}
+.modulo-am__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  text-decoration: none;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-size: calc(var(--modulo-am-size-d) - 1px);
+  padding: 7px 14px;
+  border-radius: 8px;
+  white-space: nowrap;
+  background: var(--modulo-am-accent);
+  color: var(--modulo-am-cta-text);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 6px 16px -8px rgba(0, 0, 0, 0.5);
+  transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.modulo-am--upper .modulo-am__cta { text-transform: uppercase; }
+.modulo-am__cta svg { width: 15px; height: 15px; flex: none; transition: transform 0.18s ease; }
+.modulo-am__cta:hover {
+  background: color-mix(in srgb, var(--modulo-am-accent) 90%, #000);
+  transform: translateY(-1px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 10px 22px -10px rgba(0, 0, 0, 0.65);
+}
+.modulo-am__cta:hover svg { transform: translateX(2px); }
+.modulo-am__cta:active { transform: translateY(0); }
+.modulo-am__cta:focus-visible { outline: 2px solid var(--modulo-am-text); outline-offset: 3px; }
+
+/* ─── Mobile (≤600px) ───────────────────────────────────── */
+@media (max-width: 600px) {
+  .modulo-am { font-size: var(--modulo-am-size-m); --modulo-am-fade: 22px; }
+  .modulo-am__lead { display: none; }
+  .modulo-am__cta { padding: 7px 12px; gap: 0; }
+  .modulo-am__cta .modulo-am__cta-t { display: none; }
+  .modulo-am--keeplabel .modulo-am__cta { gap: 7px; }
+  .modulo-am--keeplabel .modulo-am__cta .modulo-am__cta-t { display: inline; }
+}
+
+/* ─── Reduced motion: no scroll, wrap + center the originals ─ */
+@media (prefers-reduced-motion: reduce) {
+  .modulo-am__track {
+    animation: none !important;
+    transform: none !important;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+  .modulo-am__viewport {
+    -webkit-mask-image: none;
+            mask-image: none;
+  }
+  /* no clones are added, so the last child is a dangling trailing divider */
+  .modulo-am__track > .modulo-am__divider:last-child { display: none; }
+  .modulo-am__cta, .modulo-am__cta svg { transition: none; }
+  .modulo-am__cta:hover, .modulo-am__cta:hover svg { transform: none; }
+}

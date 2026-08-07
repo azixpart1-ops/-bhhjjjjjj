@@ -1,0 +1,386 @@
+{{ 'modulo-section-collection-tabs.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  # ─── Header / rail
+  assign heading        = section.settings.heading
+  assign heading_size   = section.settings.heading_size | default: 48
+  assign show_shop_all  = section.settings.show_shop_all
+  assign shop_all_label = section.settings.shop_all_label | default: 'Shop all'
+
+  # ─── Carousel
+  assign slides_to_show = section.settings.slides_to_show | default: 2
+  assign card_gap       = section.settings.card_gap | default: 22
+  assign show_arrows    = section.settings.show_arrows
+
+  # ─── Product cards
+  assign image_ratio       = section.settings.image_ratio | default: 'square'
+  assign image_hover       = section.settings.image_hover | default: 'zoom'
+  assign show_vendor       = section.settings.show_vendor
+  assign show_compare_price = section.settings.show_compare_price
+  assign card_radius       = section.settings.card_radius | default: 16
+  assign button_label      = section.settings.button_label | default: 'Shop now'
+  assign button_style      = section.settings.button_style | default: 'solid'
+
+  # ─── Stock badge (inventory-driven — never fake scarcity)
+  assign show_stock_badge      = section.settings.show_stock_badge
+  assign stock_badge_threshold = section.settings.stock_badge_threshold | default: 10
+  assign stock_badge_text      = section.settings.stock_badge_text | default: 'Selling fast'
+
+  # ─── Colors
+  assign bg = section.settings.bg_color | default: '#EFEAE0'
+  if section.settings.bg_transparent
+    assign bg = 'transparent'
+  endif
+  assign text       = section.settings.text_color | default: '#211C16'
+  assign muted      = section.settings.muted_color | default: '#8A8178'
+  assign accent     = section.settings.accent_color | default: '#FF5638'
+  assign card_color = section.settings.card_color | default: '#FFFFFF'
+
+  # ─── Section layout
+  assign section_width        = section.settings.section_width | default: 'page'
+  assign section_outer_radius = section.settings.section_outer_radius | default: 28
+  assign container_width      = section.settings.container_width | default: 'standard'
+  assign pad_top              = section.settings.padding_top | default: 80
+  assign pad_bottom           = section.settings.padding_bottom | default: 80
+
+  assign block_count = section.blocks.size
+
+  # ─── Class assembly
+  assign root_class = 'modulo-section modulo-ct'
+  assign root_class = root_class | append: ' modulo-ct--width-' | append: section_width
+  assign root_class = root_class | append: ' modulo-ct--cw-' | append: container_width
+  assign root_class = root_class | append: ' modulo-ct--ratio-' | append: image_ratio
+  assign root_class = root_class | append: ' modulo-ct--hover-' | append: image_hover
+  assign root_class = root_class | append: ' modulo-ct--btn-' | append: button_style
+
+  # ─── Shop-all default url (first tab's collection)
+  assign first_block = section.blocks.first
+  assign shop_all_url = routes.all_products_collection_url
+  if first_block.settings.collection != blank
+    assign shop_all_url = first_block.settings.collection.url
+  endif
+
+  # ─── Demo data — only used to keep the zero-config preview polished when a
+  #     tab has no collection picked yet (theme-editor onboarding state).
+  assign demo_names   = '5 Panel Camp Cap,Derby Tier Backpack,Insulated Steel Mug,Bison Wool Blanket,Organic Trail Tee,Waxed Trucker Jacket,Ridgeline Daypack,Enamel Camp Bowl,Merino Ribbed Beanie,Heavy Canvas Tote,Trail Water Bottle,Flannel Overshirt' | split: ','
+  assign demo_prices  = '$48.00,$148.00,$24.00,$98.00,$28.00,$172.00,$118.00,$22.00,$34.00,$58.00,$30.00,$96.00' | split: ','
+  assign demo_compare = '$60.00,$165.00,$32.00,$128.00,$38.00,~,~,~,~,~,~,~' | split: ','
+-%}
+
+<section
+  class="{{ root_class }}"
+  data-modulo-ct
+  style="
+    --modulo-ct-bg:{{ bg }};
+    --modulo-ct-text:{{ text }};
+    --modulo-ct-muted:{{ muted }};
+    --modulo-ct-accent:{{ accent }};
+    --modulo-ct-card:{{ card_color }};
+    --modulo-ct-card-radius:{{ card_radius }}px;
+    --modulo-ct-heading-size:{{ heading_size }}px;
+    --modulo-ct-slides:{{ slides_to_show }};
+    --modulo-ct-gap:{{ card_gap }}px;
+    --modulo-ct-outer-radius:{{ section_outer_radius }}px;
+    --modulo-ct-pad-top:{{ pad_top }}px;
+    --modulo-ct-pad-bottom:{{ pad_bottom }}px;
+  "
+>
+  <div class="modulo-ct__inner">
+
+    {%- comment -%} ─── Left rail: heading + tabs + shop all ─── {%- endcomment -%}
+    <aside class="modulo-ct__rail">
+      {%- if heading != blank -%}
+        <h2 class="modulo-ct__heading">{{ heading }}</h2>
+      {%- endif -%}
+
+      {%- if block_count > 0 -%}
+        <div class="modulo-ct__tabs" role="tablist" aria-label="Collections">
+          {%- for block in section.blocks -%}
+            {%- liquid
+              assign tab_coll = block.settings.collection
+              assign tab_label = block.settings.label
+              if tab_label == blank
+                assign tab_label = tab_coll.title
+              endif
+              if tab_label == blank
+                assign tab_label = 'Collection'
+              endif
+              assign tab_url = routes.all_products_collection_url
+              if tab_coll != blank
+                assign tab_url = tab_coll.url
+              endif
+            -%}
+            <button
+              type="button"
+              class="modulo-ct__tab{% if forloop.first %} is-active{% endif %}"
+              role="tab"
+              id="modulo-ct-{{ section.id }}-tab-{{ forloop.index0 }}"
+              aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+              aria-controls="modulo-ct-{{ section.id }}-panel-{{ forloop.index0 }}"
+              data-modulo-ct-tab="{{ forloop.index0 }}"
+              data-collection-url="{{ tab_url }}"
+              {{ block.shopify_attributes }}
+            >{{ tab_label | escape }}</button>
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+
+      {%- if show_shop_all -%}
+        <a class="modulo-ct__shopall" href="{{ shop_all_url }}" data-modulo-ct-shopall>
+          <span>{{ shop_all_label | escape }}</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      {%- endif -%}
+    </aside>
+
+    {%- comment -%} ─── Carousel ─── {%- endcomment -%}
+    <div class="modulo-ct__main">
+      {%- if show_arrows -%}
+        <div class="modulo-ct__arrows">
+          <button class="modulo-ct__arrow" type="button" data-modulo-ct-prev aria-label="Previous products">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button class="modulo-ct__arrow" type="button" data-modulo-ct-next aria-label="Next products">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      {%- endif -%}
+
+      <div class="modulo-ct__viewport">
+        {%- for block in section.blocks -%}
+          {%- liquid
+            assign tab_coll = block.settings.collection
+            assign products_count = block.settings.products_count | default: 8
+            assign panel_idx = forloop.index0
+            assign demo_offset = panel_idx | times: 3
+          -%}
+          <div
+            class="modulo-ct__track{% if forloop.first %} is-active{% endif %}"
+            id="modulo-ct-{{ section.id }}-panel-{{ forloop.index0 }}"
+            role="tabpanel"
+            aria-labelledby="modulo-ct-{{ section.id }}-tab-{{ forloop.index0 }}"
+            data-modulo-ct-panel="{{ forloop.index0 }}"
+            {% unless forloop.first %}hidden{% endunless %}
+          >
+            {%- if tab_coll != blank and tab_coll.products.size > 0 -%}
+              {%- for product in tab_coll.products limit: products_count -%}
+                {%- liquid
+                  assign variant = product.selected_or_first_available_variant
+                  assign p_badge = false
+                  if show_stock_badge and variant.inventory_management != blank and variant.inventory_quantity > 0 and variant.inventory_quantity <= stock_badge_threshold
+                    assign p_badge = true
+                  endif
+                  assign img1 = product.featured_image
+                  assign img2 = product.images[1]
+                  assign has_compare = false
+                  if product.compare_at_price_max > product.price
+                    assign has_compare = true
+                  endif
+                -%}
+                <article class="modulo-ct__card">
+                  <a class="modulo-ct__media" href="{{ product.url }}" aria-label="{{ product.title | escape }}">
+                    {%- if p_badge -%}
+                      <span class="modulo-ct__badge">{{ stock_badge_text | escape }}</span>
+                    {%- endif -%}
+                    {%- if img1 != blank -%}
+                      <img
+                        class="modulo-ct__img"
+                        src="{{ img1 | image_url: width: 640 }}"
+                        alt="{{ img1.alt | escape | default: product.title | escape }}"
+                        width="{{ img1.width }}"
+                        height="{{ img1.height }}"
+                        loading="lazy"
+                      >
+                    {%- else -%}
+                      {{ 'product-1' | placeholder_svg_tag: 'modulo-ct__img modulo-ct__placeholder-svg' }}
+                    {%- endif -%}
+                    {%- if image_hover == 'second_image' and img2 != blank -%}
+                      <img
+                        class="modulo-ct__img modulo-ct__img--alt"
+                        src="{{ img2 | image_url: width: 640 }}"
+                        alt=""
+                        width="{{ img2.width }}"
+                        height="{{ img2.height }}"
+                        loading="lazy"
+                        aria-hidden="true"
+                      >
+                    {%- endif -%}
+                  </a>
+                  <div class="modulo-ct__body">
+                    <h3 class="modulo-ct__title"><a href="{{ product.url }}">{{ product.title | escape }}</a></h3>
+                    {%- if show_vendor and product.vendor != blank -%}
+                      <p class="modulo-ct__vendor">{{ product.vendor | escape }}</p>
+                    {%- endif -%}
+                    <p class="modulo-ct__price">
+                      {%- if product.price_varies -%}
+                        <span class="modulo-ct__from">From </span>{{ product.price_min | money }}
+                      {%- else -%}
+                        {{ product.price | money }}
+                      {%- endif -%}
+                      {%- if show_compare_price and has_compare -%}
+                        <s>{{ product.compare_at_price_max | money }}</s>
+                      {%- endif -%}
+                    </p>
+                    <a class="modulo-ct__btn" href="{{ product.url }}">{{ button_label | escape }}</a>
+                  </div>
+                </article>
+              {%- endfor -%}
+
+            {%- else -%}
+              {%- comment -%} Onboarding preview — no collection picked yet. {%- endcomment -%}
+              {%- for i in (1..products_count) -%}
+                {%- liquid
+                  assign name_idx = forloop.index0 | plus: demo_offset | modulo: 12
+                  assign svg_num = forloop.index0 | modulo: 6 | plus: 1
+                  assign d_name = demo_names[name_idx]
+                  assign d_price = demo_prices[name_idx]
+                  assign d_compare = demo_compare[name_idx]
+                  assign d_badge = false
+                  if show_stock_badge
+                    assign badge_mod = forloop.index0 | modulo: 3
+                    if badge_mod == 0
+                      assign d_badge = true
+                    endif
+                  endif
+                  assign ph_classes = 'modulo-ct__img modulo-ct__placeholder-svg modulo-ct__img--demo-' | append: svg_num
+                  assign ph_name = 'product-' | append: svg_num
+                -%}
+                <article class="modulo-ct__card">
+                  <a class="modulo-ct__media" href="{{ routes.all_products_collection_url }}" aria-label="{{ d_name }}">
+                    {%- if d_badge -%}
+                      <span class="modulo-ct__badge">{{ stock_badge_text | escape }}</span>
+                    {%- endif -%}
+                    {{ ph_name | placeholder_svg_tag: ph_classes }}
+                  </a>
+                  <div class="modulo-ct__body">
+                    <h3 class="modulo-ct__title"><a href="{{ routes.all_products_collection_url }}">{{ d_name }}</a></h3>
+                    {%- if show_vendor -%}
+                      <p class="modulo-ct__vendor">Your brand</p>
+                    {%- endif -%}
+                    <p class="modulo-ct__price">
+                      {{ d_price }}
+                      {%- if show_compare_price and d_compare != '~' -%}
+                        <s>{{ d_compare }}</s>
+                      {%- endif -%}
+                    </p>
+                    <a class="modulo-ct__btn" href="{{ routes.all_products_collection_url }}">{{ button_label | escape }}</a>
+                  </div>
+                </article>
+              {%- endfor -%}
+            {%- endif -%}
+          </div>
+        {%- endfor -%}
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script src="{{ 'modulo-section-collection-tabs.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Modulo: Collection Tabs",
+  "tag": "section",
+  "class": "modulo-section-wrapper",
+  "settings": [
+    { "type": "header", "content": "Heading" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Shop our collections", "info": "Bold any word(s) to highlight them in the accent color." },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 28, "max": 72, "step": 1, "unit": "px", "default": 48 },
+    { "type": "checkbox", "id": "show_shop_all", "label": "Show \"Shop all\" button", "default": true, "info": "Links to the active tab's collection." },
+    { "type": "text", "id": "shop_all_label", "label": "\"Shop all\" label", "default": "Shop all" },
+
+    { "type": "header", "content": "Carousel" },
+    { "type": "range", "id": "slides_to_show", "label": "Products visible (desktop)", "min": 2, "max": 4, "step": 1, "default": 2, "info": "The next card peeks in to invite swiping." },
+    { "type": "range", "id": "card_gap", "label": "Gap between cards", "min": 8, "max": 40, "step": 2, "unit": "px", "default": 22 },
+    { "type": "checkbox", "id": "show_arrows", "label": "Show navigation arrows", "default": true },
+
+    { "type": "header", "content": "Product cards" },
+    {
+      "type": "select", "id": "image_ratio", "label": "Image ratio", "default": "square",
+      "options": [
+        { "value": "square",    "label": "Square (1:1)" },
+        { "value": "portrait",  "label": "Portrait (3:4)" },
+        { "value": "landscape", "label": "Landscape (4:3)" }
+      ]
+    },
+    {
+      "type": "select", "id": "image_hover", "label": "Image hover effect", "default": "zoom",
+      "options": [
+        { "value": "none",         "label": "None" },
+        { "value": "zoom",         "label": "Zoom" },
+        { "value": "second_image", "label": "Show second image" }
+      ]
+    },
+    { "type": "checkbox", "id": "show_vendor", "label": "Show vendor", "default": true },
+    { "type": "checkbox", "id": "show_compare_price", "label": "Show compare-at price", "default": true },
+    { "type": "range", "id": "card_radius", "label": "Card corner radius", "min": 0, "max": 28, "step": 2, "unit": "px", "default": 16 },
+    { "type": "text", "id": "button_label", "label": "Card button label", "default": "Shop now" },
+    {
+      "type": "select", "id": "button_style", "label": "Card button style", "default": "solid",
+      "options": [
+        { "value": "solid",   "label": "Solid" },
+        { "value": "outline", "label": "Outline" }
+      ]
+    },
+
+    { "type": "header", "content": "Low-stock badge" },
+    { "type": "checkbox", "id": "show_stock_badge", "label": "Show low-stock badge", "default": true, "info": "Renders only on products that actually track inventory and are at or below the threshold — never fakes scarcity." },
+    { "type": "range", "id": "stock_badge_threshold", "label": "Show when stock is at or below (units)", "min": 1, "max": 50, "step": 1, "default": 10, "visible_if": "{{ section.settings.show_stock_badge }}" },
+    { "type": "text", "id": "stock_badge_text", "label": "Badge text", "default": "Selling fast", "visible_if": "{{ section.settings.show_stock_badge }}" },
+
+    { "type": "header", "content": "Section colors" },
+    { "type": "checkbox", "id": "bg_transparent", "label": "Transparent background", "default": false },
+    { "type": "color", "id": "bg_color", "label": "Background", "default": "#EFEAE0", "visible_if": "{{ section.settings.bg_transparent == false }}" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#211C16" },
+    { "type": "color", "id": "muted_color", "label": "Muted text (vendor, compare-at)", "default": "#8A8178" },
+    { "type": "color", "id": "accent_color", "label": "Accent (active tab, button hover)", "default": "#FF5638" },
+    { "type": "color", "id": "card_color", "label": "Card background", "default": "#FFFFFF" },
+
+    { "type": "header", "content": "Section layout" },
+    {
+      "type": "select", "id": "section_width", "label": "Section width", "default": "page",
+      "options": [
+        { "value": "page",  "label": "Full width" },
+        { "value": "boxed", "label": "Boxed (rounded corners)" }
+      ]
+    },
+    { "type": "range", "id": "section_outer_radius", "label": "Outer corner radius", "min": 0, "max": 48, "step": 2, "unit": "px", "default": 28, "visible_if": "{{ section.settings.section_width == 'boxed' }}" },
+    {
+      "type": "select", "id": "container_width", "label": "Content width", "default": "standard",
+      "visible_if": "{{ section.settings.section_width == 'page' }}",
+      "options": [
+        { "value": "standard", "label": "Standard (1200px)" },
+        { "value": "wide",     "label": "Wide (1400px)" },
+        { "value": "full",     "label": "Full bleed" }
+      ]
+    },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 }
+  ],
+  "blocks": [
+    {
+      "type": "tab",
+      "name": "Tab",
+      "limit": 8,
+      "settings": [
+        { "type": "collection", "id": "collection", "label": "Collection", "info": "Leave empty to show preview products while you set the section up." },
+        { "type": "text", "id": "label", "label": "Tab label", "info": "Falls back to the collection name when empty." },
+        { "type": "range", "id": "products_count", "label": "Products to show", "min": 2, "max": 12, "step": 1, "default": 8 }
+      ]
+    }
+  ],
+  "max_blocks": 8,
+  "presets": [
+    {
+      "name": "Modulo: Collection Tabs",
+      "blocks": [
+        { "type": "tab", "settings": { "label": "Sale" } },
+        { "type": "tab", "settings": { "label": "New arrivals" } },
+        { "type": "tab", "settings": { "label": "Best sellers" } },
+        { "type": "tab", "settings": { "label": "Bundles" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

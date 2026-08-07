@@ -1,0 +1,98 @@
+{% assign background_block = section.blocks | where: 'type', 'background' | first %}
+    {% if background_block %}
+    {%-liquid         
+        assign background = background_block.settings.background_simple
+        assign background_image = background_block.settings.image
+        assign background_image_mobile = background_block.settings.image_mobile
+        assign background_animation = background_block.settings.animation
+        assign background_overlay = background_block.settings.background_overlay
+        assign background_image_class = ''
+        if background_animation == 'parallax' 
+            assign background_image_class = 'smi-is-parallax'
+        endif
+    -%}
+    <div class="smi-background-block smi-background-block--{{ background_animation }}" style="--background: {{ background }}; --background-overlay: {{ background_overlay }};">       
+        {% if background_image != blank or background_image_mobile != blank %}
+        <picture>
+            {%- if background_image_mobile != blank -%}
+                <source media="(max-width:460px)" srcset="{{ background_image_mobile | image_url: width : 700 }}">
+                <source media="(max-width:767px)" srcset="{{ background_image_mobile | image_url: width : 1100 }}">
+            {%- endif -%}
+            {%- if background_image != blank -%}
+                {% if background_image_mobile == blank %}
+                    <source media="(max-width:460px)" srcset="{{ background_image | image_url: width : 700 }}">
+                    <source media="(max-width:767px)" srcset="{{ background_image | image_url: width : 1100 }}">
+                {% endif %}
+                {{ background_image | image_url: width : 1920 | image_tag: class: background_image_class }}
+            {%- elsif background_image_mobile != blank -%}
+                {% assign background_image_class = background_image_class | append: ' smi-image-mobile' %}
+                {{ background_image_mobile | image_url: width : 767 | image_tag: class: background_image_class }}
+            {%- endif -%}
+        </picture>
+        {% endif %}
+        {% if background_block.settings.video != blank %}
+            {% if is_reference %}
+				{% assign video_json = background_block.settings.video %}
+				{% assign preview_src = video_json | split: 'preview_image"=>' | last | split: '"src"=>"' | last | split: '"' | first %}
+				{% assign source_url = video_json | split: '"sources"=>[' | last | split: '"url"=>"' | last | split: '"' | first %}
+				{% assign source_mime = video_json | split: '"sources"=>[' | last | split: '"mime_type"=>"' | last | split: '"' | first %}
+			  <video 
+				playsinline="playsinline" 
+				preload="metadata" 
+				poster="{{ preview_src }}" 
+				autoplay="true" 
+				loop="true" 
+				muted="true" 
+				controls="false" 
+				image_size="1100x" 
+				class="smi-background-video"
+			  >
+				<source 
+				  src="{{ source_url }}" 
+				  type="{{ source_mime }}"
+				>
+				  <img 
+					src="{{ preview_src }}" 
+					alt="Preview image"
+				  >
+				  </video>
+			 
+			  {% else %}
+				{{
+				  background_block.settings.video
+				  | video_tag:
+					autoplay: true,
+					loop: true,
+					muted: true,
+					controls: false,
+					image_size: '1100x',
+					class: 'smi-background-video'
+				}}
+			  {% endif %}
+        {% elsif background_block.settings.video_url != blank %}
+            {%- if background_block.settings.video_url.type == 'youtube' -%}
+                <iframe
+                        src="https://www.youtube.com/embed/{{ background_block.settings.video_url.id }}?enablejsapi=1&autoplay=1&mute=1&loop=1&controls=0&playlist={{ background_block.settings.video_url.id }}&rel=0"
+                        class="smi-js-youtube smi-background-video"
+                        allow="autoplay; encrypted-media"
+                        allowfullscreen
+                        title="{{ background_block.settings.description | escape }}"
+                        width="100%"
+                        height="100%"
+                        loading="lazy"
+                ></iframe>
+            {%- else -%}
+                <iframe
+                        src="https://player.vimeo.com/video/{{ background_block.settings.video_url.id }}?title=0&byline=0&portrait=0&autoplay=1&loop=1&muted=1"
+                        class="smi-js-vimeo smi-background-video"
+                        allow="autoplay; encrypted-media"
+                        allowfullscreen
+                        title="{{ background_block.settings.description | escape }}"
+                        width="100%"
+                        height="100%"
+                        loading="lazy"
+                ></iframe>
+            {%- endif -%}
+        {% endif %}
+    </div>
+    {% endif %}

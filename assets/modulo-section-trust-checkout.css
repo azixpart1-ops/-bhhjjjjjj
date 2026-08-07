@@ -1,0 +1,187 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Modulo: Trust Checkout  —  .modulo-tc / --modulo-tc-*
+   Spec: docs/superpowers/specs/2026-07-15-trust-bands-design.md
+
+   Signature: claim over evidence. The claim row makes the promise; below the
+   seam, the payment marks are the citation — and they're real, pulled from the
+   merchant's own enabled providers. One welded card, not two stacked rows.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── Layer 1: section root ─── */
+.modulo-tc {
+  background: var(--modulo-tc-bg, #FFFFFF);
+  padding-block: var(--modulo-tc-pad-top, 40px) var(--modulo-tc-pad-bottom, 40px);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.modulo-tc *,
+.modulo-tc *::before,
+.modulo-tc *::after { box-sizing: border-box; }
+
+.modulo-tc--width-boxed {
+  max-width: var(--modulo-tc-container-max, 1200px);
+  margin-inline: auto;
+  border-radius: var(--modulo-tc-outer-radius, 24px);
+  overflow: hidden;
+}
+
+.modulo-tc__container {
+  max-width: var(--modulo-tc-container-max, 1200px);
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+.modulo-tc--container-full .modulo-tc__container { max-width: none; }
+.modulo-tc--width-boxed .modulo-tc__container { max-width: none; }
+
+/* ─── Layer 2: header ─── */
+.modulo-tc__header { margin-bottom: 22px; }
+.modulo-tc--header-center .modulo-tc__header { text-align: center; }
+.modulo-tc__eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--modulo-tc-muted, #5B6472);
+}
+.modulo-tc__heading {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.2;
+  color: var(--modulo-tc-text, #1A1A2E);
+  text-wrap: balance;
+}
+.modulo-tc__heading strong,
+.modulo-tc__heading b {
+  color: var(--modulo-tc-accent, #1A1A2E);
+  font-weight: inherit;
+}
+.modulo-tc__subheading {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--modulo-tc-muted, #5B6472);
+  text-wrap: balance;
+}
+
+/* ─── Layer 3: the card ─── */
+.modulo-tc--card-card .modulo-tc__card {
+  background: var(--modulo-tc-card, #F7F7F8);
+  border: 1px solid var(--modulo-tc-divider, #E5E7EB);
+  border-radius: var(--modulo-tc-radius, 14px);
+  overflow: hidden;
+}
+
+/* ─── Layer 4: claims ─── */
+.modulo-tc__claims {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 0;
+  padding: 18px 20px;
+}
+.modulo-tc__claim {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding-inline: 22px;
+  font-size: var(--modulo-tc-claim, 13px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--modulo-tc-text, #1A1A2E);
+  line-height: 1.2;
+}
+.modulo-tc--dividers .modulo-tc__claim + .modulo-tc__claim {
+  border-left: 1px solid var(--modulo-tc-divider, #E5E7EB);
+}
+.modulo-tc__claim-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--modulo-tc-accent, #1A1A2E);
+}
+.modulo-tc__claim-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  /* optical: sit the glyph at cap-height rather than on the baseline */
+  transform: translateY(-0.04em);
+}
+
+/* ─── Layer 5: the seam ─── */
+.modulo-tc__seam {
+  height: 1px;
+  background: var(--modulo-tc-divider, #E5E7EB);
+}
+
+/* ─── Layer 6: evidence (payment marks + note) ─── */
+/* The evidence pane deliberately does NOT paint its own background.
+   It used to be a hardcoded #FFFFFF for a two-tone lift against the default card, which
+   was the `cw`/`bs`/`msp` painted-surface trap: `card_bg` is a merchant colour but the
+   pane under it wasn't, so recolouring the card dark left a white slab across its lower
+   half AND stranded `--modulo-tc-muted` between two grounds — the note fell to 2.55:1
+   with no setting able to fix it. The seam already carries the claim/evidence structure,
+   so the two-tone was buying nothing that couldn't be paid for in contrast. */
+
+.modulo-tc__pay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 20px;
+}
+/* Shopify's payment_type_svg_tag emits a fixed 38x24 viewBox. Height drives it;
+   width follows the intrinsic ratio.
+   The marks stay FULL COLOUR on purpose — Shopify's theme store requirements
+   mandate it ("The icons must be in full color"), which is why no greyscale
+   setting exists. Do not add a filter here. */
+.modulo-tc__mark {
+  height: var(--modulo-tc-pay-h, 24px);
+  width: auto;
+  display: block;
+}
+.modulo-tc__mark--custom { object-fit: contain; }
+
+/* Sits on the card (or the section bg in plain mode) — the same ground as the claims,
+   so `muted_color` only ever has one surface to clear inside the card. */
+.modulo-tc__note {
+  margin: 0;
+  padding: 0 20px 16px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--modulo-tc-muted, #5B6472);
+  line-height: 1.5;
+  text-wrap: balance;
+}
+/* When the note is the only evidence, it needs its own top padding — otherwise it
+   sits flush against the seam. */
+.modulo-tc__pay + .modulo-tc__note { padding-top: 0; }
+.modulo-tc__evidence > .modulo-tc__note:first-child { padding-top: 16px; }
+
+/* ─── Mobile (≤860px) ─── */
+@media (max-width: 860px) {
+  .modulo-tc__claims {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 6px 16px;
+  }
+  .modulo-tc__claim {
+    justify-content: flex-start;
+    padding: 13px 4px;
+    border-left: 0;
+  }
+  .modulo-tc--dividers .modulo-tc__claim + .modulo-tc__claim {
+    border-left: 0;
+    border-top: 1px solid var(--modulo-tc-divider, #E5E7EB);
+  }
+}
+
+/* ─── Mobile (≤480px) ─── */
+@media (max-width: 480px) {
+  .modulo-tc__container { padding-inline: 16px; }
+  .modulo-tc__pay { gap: 6px; padding: 14px 12px; }
+  .modulo-tc__heading { font-size: 22px; }
+}

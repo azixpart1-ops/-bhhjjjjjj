@@ -1,0 +1,519 @@
+{% if smi_is_preview_mode %}
+	{% assign block_type_str = block.block_type | downcase %}
+	{% assign img_key = block_type_str | split: '__' | first %}
+	{% assign key_img = img_key | append: '.png' %}
+	
+	{% assign smi_app_img_src = smi_app_url | append: '/libraries/images/integrate-app/' | append: key_img %}
+	{% assign smi_app_img_main = smi_app_url | append: '/libraries/images/integrate-app/smind.png' %}
+	<div class="smi-app-block-preview smi-w-100 smi-px-xl smi-py-xl" smind-attr-{{ block.name }}-block smind-block-name="{{ block.name }}" smind-attributes smind-block-id="{{ block.id }}">
+		<div class="smi-d-flex smi-column-gap-md smi-mb-xl smi-align-items-center smi-justify-content-center smi-w-100">
+			<img
+			src="{{ smi_app_img_main }}"
+			alt="Smind app"
+			loading="lazy"
+			height="30px"
+			width="30px"
+			style="object-fit: contain;"
+			/>
+			<div class="smi-d-flex" style="width: fit-content;">
+				<svg class="smi-svg-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M5 11C4.44772 11 4 10.5523 4 10C4 9.44772 4.44772 9 5 9H15C15.5523 9 16 9.44772 16 10C16 10.5523 15.5523 11 15 11H5Z" fill="#000000"></path> <path d="M9 5C9 4.44772 9.44772 4 10 4C10.5523 4 11 4.44772 11 5V15C11 15.5523 10.5523 16 10 16C9.44772 16 9 15.5523 9 15V5Z" fill="#000000"></path> </g></svg>
+				</div>
+
+			<img
+				src="{{ smi_app_img_src }}"
+				alt="{{ block.block_type }}"
+				loading="lazy"
+				height="30px"
+				width="30px"
+				style="object-fit: contain;"
+			/>
+		</div>
+
+		<div class="smi-d-flex smi-justify-content-center smi-w-100">
+			<div style="color: #333;">Integrated 3rd party app "{{ block.name }}"</div>
+
+		</div>
+	</div>
+{% else %}
+	{% case block.block_type %}	
+	<!-- Judge.me app --> 
+	{% when 'judge_me__star_rating_badge' %}
+		<div id="smi-integrate-app">
+			<!-- Start of Judge.me code --> 
+			<div class='jdgm-widget jdgm-preview-badge' data-id='{{ product.id }}'> 
+				{{ product.metafields.judgeme.badge }} 
+			</div> 
+			<!-- End of Judge.me code -->
+		</div>
+
+	{% when 'judge_me__review_widget' %}
+		<div id="smi-integrate-app">
+			<!-- Start of Judge.me code -->
+			{% assign has_legacy = false %}
+			{% if product.metafields.judgeme.widget.size > 20 %}
+				{% assign has_legacy = true %}
+			{% endif %}
+			<div style='clear:both'></div>
+			<div id='judgeme_product_reviews' class='jdgm-widget jdgm-review-widget' data-product-title='{{ product.title | escape }}' data-id='{{ product.id }}' data-product-id='{{ product.id }}' data-widget='review' data-auto-install='false' data-shop-reviews-count='{{ shop.metafields.judgeme.shop_reviews_count | default: 0 | escape }}' data-entry-point='review_widget.js' data-entry-key='review-widget/main.js'>
+				{% if has_legacy %}
+					<div class='jdgm-legacy-widget-content' style='display: none;'>{{ product.metafields.judgeme.widget }}</div>
+				{% endif %}
+			</div>
+			{% if product.metafields.judgeme.review_widget_data %}
+				<script>jdgm.data ||= {}; jdgm.data.reviewWidget ||= {}; jdgm.data.reviewWidget[{{ product.id }}] = {{ product.metafields.judgeme.review_widget_data }}</script>
+			{% endif %}  
+			<!-- End of Judge.me code -->
+		</div>
+	{% when 'judge_me__medals' %}
+		<div id="smi-integrate-app">
+			<!-- Start of Judge.me code --> 
+			{{ shop.metafields.judgeme.medals }} 
+			<!-- End of Judge.me code -->
+		</div>
+	{% when 'judge_me__review_carousel' %}
+		<div id="smi-integrate-app">
+			<!-- Start of Judge.me code --> 
+			<div class='jdgm-carousel-wrapper'> 
+				{% assign jm_metafields = shop.metafields.judgeme %} 
+				<div class='jdgm-carousel-title-and-link'> 
+					<h2 class='jdgm-carousel-title'>Let customers speak for us</h2> 
+					<span class='jdgm-all-reviews-rating-wrapper' href='javascript:void(0)'> 
+						<span style='display:block' data-score='{{ jm_metafields.all_reviews_rating }}' class='jdgm-all-reviews-rating' aria-label='{{ jm_metafields.all_reviews_rating }} stars' tabindex='0' role='img'></span> 
+						<span style='display: block' class='jdgm-carousel-number-of-reviews' data-number-of-reviews='{{ jm_metafields.all_reviews_count }}'> 
+			from {{ shop.metafields.judgeme.all_reviews_count }} reviews 
+					</span> 
+					</span> 
+				</div> 
+				{{ jm_metafields.featured_carousel }} 
+			</div> 
+		</div>
+		<!-- End of Judge.me code -->
+	{% when 'judge_me__verified_review_counter' %}
+		<div id="smi-integrate-app">
+			<!-- Start of Judge.me code --> 
+			<div style='clear:both'></div> 
+			<div style='text-align: center'> 
+				<a class='jdgm-verified-count-badget' href='javascript:void(0)'> 
+					{{ shop.metafields.judgeme.verified_badge }} 
+				</a> 
+			</div> 
+			<!-- End of Judge.me code -->
+		</div>
+	{% when 'judge_me__all_review_counter' %}
+		<div id="smi-integrate-app">
+			<!-- Start of Judge.me code -->
+			<div class='jdgm-widget jdgm-all-reviews-text'>
+				<a href='javascript:void(0)'>
+					<span data-score='{{ shop.metafields.judgeme.all_reviews_rating }}' class='jdgm-all-reviews-rating'></span>
+					<span class='jdgm-all-reviews-text__text' data-score='{{ shop.metafields.judgeme.all_reviews_rating }}' data-number-of-reviews='{{ shop.metafields.judgeme.all_reviews_count }}' data-locale='en'>Customers rate us {{ shop.metafields.judgeme.all_reviews_rating | round: 1 }}/5 based on {{ shop.metafields.judgeme.all_reviews_count }} reviews.
+					</span>
+				</a>
+			</div>
+			<!-- End of Judge.me code -->
+		</div>
+
+		
+	<!-- Yotpo app --> 	
+	{% when 'yotpo__reviews_widget' %}
+		<div id="smi-integrate-app">
+			<script type="text/javascript">
+				(function e(){var e=document.createElement("script");e.type="text/javascript",e.async=true,e.src="//staticw2.yotpo.com/###APP_KEY###/widget.js";var t=document.getElementsByTagName("script")[0];t.parentNode.insertBefore(e,t)})();
+			</script>
+			<div class="yotpo yotpo-main-widget"
+				data-product-id="{{ product.id }}"
+				data-name="{{ product.title | escape }}"
+				data-url="{{ shop.url }}{{ product.url }}"
+				data-image-url="{{ product.featured_image | product_img_url: 'large' |replace: '?', '%3F' | replace: '&','%26'}}"
+				data-price="{{ variant.price | money_without_currency }}"
+				data-currency="{{ shop.currency }}"
+				data-description="{{ product.description | escape }}">
+			</div>	
+		</div>
+	{% when 'yotpo__star_rating' %}
+		<div id="smi-integrate-app">
+			<div class="yotpo bottomLine"
+				data-appkey="##APP_KEY##"
+				data-domain="{{shop.permanent_domain | escape }}"
+				data-product-id="{{ product.id }}"
+				data-product-models="{{ product.id }}"
+				data-name="{{ product.title | escape }}"
+				data-url="{{ shop.url }}{{ product.url }}"
+				data-image-url="{{ product.featured_image | product_img_url: 'large' |replace: '?', '%3F' | replace: '&','%26'}}"
+				data-description="{{ product.description | escape }}"
+				data-bread-crumbs="{% for tag in product.tags %}{{ tag | escape }};{% endfor %}">
+			</div>
+		</div>
+	
+	<!-- Loox app --> 	
+	{% when 'loox__product_review_widget' %}
+		<div id="smi-integrate-app">
+			<div id="looxReviews" data-product-id="{{product.id}}" class="loox-reviews-default"></div>
+		</div>
+	{% when 'loox__star_rating_widget' %}
+		<div id="smi-integrate-app">
+			<a href="#looxReviews"><div class="loox-rating" data-id="{{ product.id }}" data-rating="{{ product.metafields.loox.avg_rating }}" data-raters="{{ product.metafields.loox.num_reviews }}"></div></a>
+		</div>
+	{% when 'loox__trust_badge' %}
+		<div id="smi-integrate-app">
+			{% if shop.metafields.loox["global_stats"] %}
+				{% assign looxstats = shop.metafields.loox["global_stats"] | split: ',' %} 
+				<div
+				class="loox-trust-badge-container"
+				data-loox-layout="horizontal"
+				data-loox-alignment="fillContainer"
+				data-loox-review-title="reviews"
+				data-loox-scheme-type="default"
+				data-loox-rating-icon="true"
+				data-loox-average-rating="true"
+				data-loox-review-count="true"
+				data-loox-show-border="true"
+				data-loox-border-radius="8"
+				data-loox-font-size="20"
+				data-loox-open-reviews="true"
+						data-loox-loox-branding="true"
+				data-loox-rating="{{ looxstats[0] }}"
+				data-loox-raters="{{ looxstats[1] }}"
+				></div>
+			{% endif %}
+		</div>
+	{% when 'loox__store_total_rating' %}
+		<div id="smi-integrate-app">
+			{% if shop.metafields.loox["global_stats"] %}
+			{% assign looxstats = shop.metafields.loox["global_stats"] | split: ',' %} 
+				<div class="loox-rating loox-rating-hp" data-rating="{{ looxstats[0] }}" data-raters="{{ looxstats[1] }}"></div> 
+			{% endif %}
+
+		</div>
+	{% when 'loox__testimonials_carousel_widget' %}
+		<div id="smi-integrate-app">
+			<div id="loox-default-carousel">
+				<div class="loox-v2-carousel-container" id="LOOX-V2_CAROUSEL-testimonial" data-slide-type="testimonial" >
+				</div>
+			</div>
+		</div>
+	{% when 'loox__gallery_carousel_widget' %}
+		<div id="smi-integrate-app">
+			<div id="loox-default-carousel"><div class="loox-v2-carousel-container" id="LOOX-V2_CAROUSEL-gallery" data-slide-type="gallery" > </div></div>
+		</div>
+	{% when 'loox__cards_carousel_widget' %}
+		<div id="smi-integrate-app">
+			<loox-dynamic-carousel-widget class="loox-widget" data-widget="dynamic-carousel-widget" show-review-text style="width: 100%"></loox-dynamic-carousel-widget>
+		</div>
+	{% when 'loox__dynamic_carousel' %}
+		<div id="smi-integrate-app">
+			<div id="loox-default-carousel"><div class="loox-v2-carousel-container" id="LOOX-V2_CAROUSEL-card" data-slide-type="card" > </div></div>
+		</div>
+	{% when 'loox__snippets_widget' %}
+		<div id="smi-integrate-app">
+			<loox-snippets-widget product-id="{{ product.id }}"></loox-snippets-widget>
+		</div>
+	{% when 'loox__video_slider_widget' %}
+		<div id="smi-integrate-app">
+			<loox-video-slider-widget show-rating show-reviewer-name hide-arrows-mobile auto-play></loox-video-slider-widget>
+		</div>
+
+		
+	<!-- Air app --> 	
+	{% when 'air__review_box' %}
+		<div id="smi-integrate-app">
+			<div class="AirReviews-Widget AirReviews-Widget--Block"></div>
+		</div>
+
+	{% when 'air__star_rating_product_page' %}
+		<div id="smi-integrate-app">
+			<div class="AirReviews-Widget AirReviews-Widget--Stars" data-review-avg="{{ product.metafields.air_reviews_product.review_avg }}" data-review-count="{{ product.metafields.air_reviews_product.review_count }}"></div>
+		</div>
+	{% when 'air__star_rating_home_collection_page' %}
+		<div id="smi-integrate-app">
+			<div
+				class="AirReviews-Widget AirReviews-Widget--Stars"
+				style="margin-top:0.7rem"
+				data-review-avg="{{ card_product.metafields.air_reviews_product.review_avg }}"
+				data-review-count="{{ card_product.metafields.air_reviews_product.review_count }}"
+			></div>
+		</div>
+	{% when 'air__review_carousel' %}
+		<div id="smi-integrate-app">
+			<div class="AirReviews-Widget AirReviews-Widget--Carousel"></div>
+		</div>
+
+	<!-- TrustWill(Trustoo) - Product Reviews --> 	
+	{% when 'trust__review_widget' %}
+		<div id="smi-integrate-app">
+			<div class="custom-vstar-review-widget" style="width:100%"></div>
+		</div>
+
+	{% when 'trust__star_rating_product_page' %}
+		<div id="smi-integrate-app">
+			<div class="custom-vstar-rating-widget"></div>
+		</div>s
+
+	{% when 'trust__star_rating_other_page' %}
+		<div id="smi-integrate-app">
+			<div class="custom-vstar-rating-widget" data-product-id="{{ product.id }}"></div>
+		</div>
+	
+	{% when 'trust__image_and_text_carousel' %}
+		<div id="smi-integrate-app">
+			<div id="trustoo-card-carousel-widget" style="display:block;max-width:1200px;margin:0 auto"></div>
+		</div>
+		
+	{% when 'trust__text_carousel' %}
+		<div id="smi-integrate-app">
+			<div id="trustoo-text-carousel" style="display:block;max-width:1200px;margin:0 auto" data-type="block"></div>
+		</div>
+		
+	{% when 'trust__photo_carousel' %}
+		<div id="smi-integrate-app">
+			<div id="trustoo-photo-carousel" style="display:block;max-width:1200px;margin:0 auto" data-type="block"></div>
+		</div>
+
+	{% when 'trust__photo_carousel' %}
+		<div id="smi-integrate-app">
+			<div id="trustoo-photo-carousel" style="display:block;max-width:1200px;margin:0 auto" data-type="block"></div>
+		</div>
+
+	{% when 'trust__testimonials' %}
+		<div id="smi-integrate-app">
+			<div id="trustoo-barrage-carousel" style="display:block;max-width:1200px;margin:0 auto" data-type="block"></div>
+		</div>
+	<!-- LAI - Product Reviews --> 	
+	{% when 'lai__star_ratings' %}
+		<div id="smi-integrate-app">
+			<div class="scm-reviews-rate" data-rate-version2={{ product.metafields.scm_review_importer.reviewsData.reviewCountInfo | json | escape }} data-product-id= {{ product.id }}></div>
+		</div>
+	{% when 'lai__card_carousel' %}
+		<div id="smi-integrate-app">
+			<script>var sectionConfig={ "type_layout" : "cardCarousel", "source" : "default_layout"};</script>{% assign random_number = "now" | date: "%N" | modulo: 1000 | plus: 0 %}<script>var sectionConfig=  (typeof sectionConfig == "undefined" || sectionConfig == null) ? {} : sectionConfig;var scmCustomData= (typeof scmCustomData == "undefined" || scmCustomData == null) ? {} : scmCustomData;var scmCustomDataWigetAll= (typeof scmCustomDataWigetAll == "undefined" || scmCustomDataWigetAll == null) ? [] : scmCustomDataWigetAll; scmCustomDataWigetAll['{{ random_number }}'] ={ "id_iframe" : "{{ random_number }}","productId" : "","typePage" : 'homePage',"sectionConfig" : JSON.stringify(sectionConfig),"scmCustomData" : JSON.stringify(scmCustomData),'dataProduct' : []};sectionConfig= null;scmCustomData= null;</script><div class="scm-container" style="display: none;"><div class="scm-reviews-importer"><iframe class="scm-reviews-importer-iframe" width="100%" title="Sma reviews section Home Page" data-idIframe="{{ random_number }}"></iframe></div></div>
+		</div>
+	{% when 'lai__testimonial_carousel' %}
+		<div id="smi-integrate-app">
+			<script>var sectionConfig={ "type_layout" : "testimonial", "source" : "default_layout"};</script>{% assign random_number = "now" | date: "%N" | modulo: 1000 | plus: 0 %}<script>var sectionConfig=  (typeof sectionConfig == "undefined" || sectionConfig == null) ? {} : sectionConfig;var scmCustomData= (typeof scmCustomData == "undefined" || scmCustomData == null) ? {} : scmCustomData;var scmCustomDataWigetAll= (typeof scmCustomDataWigetAll == "undefined" || scmCustomDataWigetAll == null) ? [] : scmCustomDataWigetAll; scmCustomDataWigetAll['{{ random_number }}'] ={ "id_iframe" : "{{ random_number }}","productId" : "","typePage" : 'homePage',"sectionConfig" : JSON.stringify(sectionConfig),"scmCustomData" : JSON.stringify(scmCustomData),'dataProduct' : []};sectionConfig= null;scmCustomData= null;</script><div class="scm-container" style="display: none;"><div class="scm-reviews-importer"><iframe class="scm-reviews-importer-iframe" width="100%" title="Sma reviews section Home Page" data-idIframe="{{ random_number }}"></iframe></div></div>
+		</div>
+	{% when 'lai__media_gallery' %}
+		<div id="smi-integrate-app">
+			<script>var sectionConfig={ "type_layout" : "gallery", "source" : "default_layout"};</script>{% assign random_number = "now" | date: "%N" | modulo: 1000 | plus: 0 %}<script>var sectionConfig=  (typeof sectionConfig == "undefined" || sectionConfig == null) ? {} : sectionConfig;var scmCustomData= (typeof scmCustomData == "undefined" || scmCustomData == null) ? {} : scmCustomData;var scmCustomDataWigetAll= (typeof scmCustomDataWigetAll == "undefined" || scmCustomDataWigetAll == null) ? [] : scmCustomDataWigetAll; scmCustomDataWigetAll['{{ random_number }}'] ={ "id_iframe" : "{{ random_number }}","productId" : "","typePage" : 'homePage',"sectionConfig" : JSON.stringify(sectionConfig),"scmCustomData" : JSON.stringify(scmCustomData),'dataProduct' : []};sectionConfig= null;scmCustomData= null;</script><div class="scm-container" style="display: none;"><div class="scm-reviews-importer"><iframe class="scm-reviews-importer-iframe" width="100%" title="Sma reviews section Home Page" data-idIframe="{{ random_number }}"></iframe></div></div>
+		</div>
+	{% when 'lai__card_grid' %}
+		<div id="smi-integrate-app">
+			<script>var sectionConfig={ "type_layout" : "grid", "source" : "default_layout"};</script>{% assign random_number = "now" | date: "%N" | modulo: 1000 | plus: 0 %}<script>var sectionConfig=  (typeof sectionConfig == "undefined" || sectionConfig == null) ? {} : sectionConfig;var scmCustomData= (typeof scmCustomData == "undefined" || scmCustomData == null) ? {} : scmCustomData;var scmCustomDataWigetAll= (typeof scmCustomDataWigetAll == "undefined" || scmCustomDataWigetAll == null) ? [] : scmCustomDataWigetAll; scmCustomDataWigetAll['{{ random_number }}'] ={ "id_iframe" : "{{ random_number }}","productId" : "","typePage" : 'homePage',"sectionConfig" : JSON.stringify(sectionConfig),"scmCustomData" : JSON.stringify(scmCustomData),'dataProduct' : []};sectionConfig= null;scmCustomData= null;</script><div class="scm-container" style="display: none;"><div class="scm-reviews-importer"><iframe class="scm-reviews-importer-iframe" width="100%" title="Sma reviews section Home Page" data-idIframe="{{ random_number }}"></iframe></div></div>
+		</div>
+
+	<!-- Klaviyo - Product Reviews --> 	
+	{% when 'klaviyo__star_rating_widget' %}
+		<div id="smi-integrate-app">
+			<div class="klaviyo-star-rating-widget" data-id="{{product.id}}" data-product-title="{{product.title}}" data-product-type="{{product.type}}"></div>
+		</div>
+	{% when 'klaviyo__product_review_widget' %}
+		<div id="smi-integrate-app">
+			<div id="klaviyo-reviews-all" data-id="{{product.id}}"></div>
+		</div>
+	{% when 'klaviyo__review_summary_widget' %}
+		<div id="smi-integrate-app">
+			<div id="klaviyo-reviews-summary" data-id="{{product.id}}"></div>
+		</div>
+	{% when 'klaviyo__review_list_widget' %}
+		<div id="smi-integrate-app">
+			<div id="klaviyo-reviews-list" data-id="{{product.id}}"></div>
+		</div>
+	{% when 'klaviyo__all_reviews_widget' %}
+		<div id="smi-integrate-app">
+			<div id="klaviyo-reviews-all" data-id="all"></div>
+		</div>
+	{% when 'klaviyo__featured_review_carousel_widget' %}
+		<div id="smi-integrate-app">
+			<div id="klaviyo-featured-reviews-carousel"></div>
+		</div>
+
+
+
+
+
+	{% when 'recurpay_widget' %}
+		<div id="smi-integrate-app">
+			<div class="recurpay-pdp-widget" data-product-id="{{product.id}}" data-product-available="{{product.available}}" data-default-variant="{{product.selected_or_first_available_variant.id}}" data-only-subscription="{{product.requires_selling_plan}}"></div>
+		</div>
+	{% when 'kachingsub__subscriptions' %}
+		<div id="smi-integrate-app">
+			<kaching-subscriptions product-id='{{ product.id }}'></kaching-subscriptions>
+		</div>
+	{% when 'kachingbunble__bundles' %}
+		<div id="smi-integrate-app">
+			<kaching-bundle product-id="{{ product.id }}"></kaching-bundle>
+		</div>
+	{% when 'selleasy__fbtlist' %}
+		<div id="smi-integrate-app">
+			<div class="lb-widget-bl"></div>
+		</div>
+	{% when 'selleasy__fbtlistba' %}
+		<div id="smi-integrate-app">
+			<div class="lb-widget-ba"></div>
+		</div>
+	{% when 'selleasy__fbtlistbac' %}
+		<div id="smi-integrate-app">
+			<div class="lb-widget-bac"></div>
+		</div>
+	{% when 'selleasy__fbtlistpal' %}
+		<div id="smi-integrate-app">
+			<div class="lb-widget-pal"></div>
+		</div>
+	{% when 'selleasy__fbtpag' %}
+		<div id="smi-integrate-app">
+			<div class="lb-widget-pag"></div>
+		</div>
+	{% when 'selleasy__fbtpac' %}
+		<div id="smi-integrate-app">
+			<div class="lb-widget-pac"></div>
+		</div>
+	{% when 'selleasy__fbtcpal' %}
+		<div id="smi-integrate-app">
+			<div class="lb-widget-cpal"></div>
+		</div>
+	{% when 'selleasy__fbtcpag' %}
+		<div id="smi-integrate-app">
+			<div class="lb-widget-cpag"></div>
+		</div>
+	{% when 'selleasy__fbtcpac' %}
+		<div id="smi-integrate-app">
+			<div class="lb-widget-cpac"></div>
+		</div>
+	{% when 'gpo__product_variants' %}
+		<div id="smi-integrate-app">
+			<div class="gpo-product-variants"></div>
+		</div>
+	{% when 'easify__product_option' %}
+		<div id="smi-integrate-app">
+			<div class="easify-product-options"></div>
+		</div>
+	{% when 'aov_bundle_upsell__volumn_discount' %}
+		<div id="smi-integrate-app">
+			<div class="Avada-Bundle-Offer__Volume"></div>
+		</div>
+	
+	{% when 'aov_bundle_upsell__frequently_bought' %}
+		<div id="smi-integrate-app">
+			<div class="Avada-Bundle-Offer__BlockWrapper"></div>
+		</div>
+	{% when 'aov_bundle_upsell__child_product_list' %}
+		<div id="smi-integrate-app">
+			<div class="Avada-Bundle-Offer__Fixed"></div>
+		</div>
+	{% when 'aov_bundle_upsell__mix_match_bundle' %}
+		<div id="smi-integrate-app">
+			<div class="Avada-Bundle-Mix-Match-Offer__BlockWrapper"></div>
+		</div>
+
+	{% when 'aov_bundle_upsell__bundle_builder' %}
+		<div id="smi-integrate-app">
+			<div class="Avada-Bundle-Offer__BundleBuilder"></div>
+		</div>
+
+	{% when 'aov_bundle_upsell__bundle_builder' %}
+		<div id="smi-integrate-app">
+			<div class="Avada-Bundle-Offer__BundleBuilder"></div>
+		</div>
+
+	{% when 'bogos__freegifts_slider' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-gift-slider"></div>
+		</div>
+	{% when 'bogos__freegifts_icon' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-gift-icon"></div>
+		</div>
+	{% when 'bogos__freegifts_thumbnail' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-gift-thumbnail"></div>
+		</div>
+	{% when 'bogos__freegifts_classic_bundle' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-bundle"></div>
+		</div>
+	{% when 'bogos__freegifts_volume_discount' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-volume-discount"></div>
+		</div>
+	{% when 'bogos__freegifts_mix_match' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-mix-match"></div>
+		</div>
+	{% when 'bogos__freegifts_fbt' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-fbt-upsell"></div>
+		</div>
+	{% when 'bogos__freegifts_fbt' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-fbt-upsell"></div>
+		</div>
+
+	{% when 'bogos__freegifts_progressing_bar' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-progressing-bar"></div>
+		</div>
+	{% when 'bogos__freegifts_today_offer_block' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-to-block"></div>
+		</div>
+	{% when 'bogos__freegifts_cheapest_discount' %}
+		<div id="smi-integrate-app">
+			<div class="bogos-integration-page-builder-cheapest-discount"></div>
+		</div>
+
+	{% when 'swym_wishlist_plus__button' %}
+		<div id="smi-integrate-app">
+			<div id="swym-shared-wishlist-render-container"></div>
+			<style>
+				.atw-button-icon {
+					width: 24px !important;
+					height: 24px !important;
+				}
+			</style>
+		</div>
+
+	{% when 'klaviyo__embedded_form' %}
+		<div id="smi-integrate-app">
+			<div class="klaviyo-form-{{block.settings.formId }}"></div>
+		</div>
+	{% when 'koala__deals' %}
+		<div id="smi-integrate-app">
+			<koala-deal product-id="{{product.id}}"></koala-deal>
+		</div>
+	{% when 'koala__bundles' %}
+		<div id="smi-integrate-app">
+			<koala-bundle product-id="{{product.id}}"></koala-bundle>
+		</div>
+	{% comment %} Dang test chua done {% endcomment %}
+	{% comment %} {% when 'xb-wishlist__button' %} {% endcomment %}
+		{% comment %} <div id="smi-integrate-app">
+			<div class="xb-wishlist__btn-custom">
+				<button
+					class="xb-wishlist__add"
+					xb-product-id="{{product.id}}"
+					xb-product-title="{{ product.title }}"
+					xb-product-variant="{{ product.selected_or_first_available_variant.id }}"
+					xb-is-in-stock="{{ product.available }}"
+					xb-product-handle="{{ product.handle }}"
+				>
+					<span class="xb-wishlist__button-icon">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+						<path d="M223,57a58.07,58.07,0,0,0-81.92-.1L128,69.05,114.91,56.86A58,58,0,0,0,33,139l89.35,90.66a8,8,0,0,0,11.4,0L223,139a58,58,0,0,0,0-82Zm-11.35,70.76L128,212.6,44.3,127.68a42,42,0,0,1,59.4-59.4l.2.2,18.65,17.35a8,8,0,0,0,10.9,0L152.1,68.48l.2-.2a42,42,0,1,1,59.36,59.44Z"></path>
+					</svg>
+					</span>
+				</button>
+				<button class="xb-wishlist__loading" xb-product-id="{{product.id}}">
+					<span class="xb-wishlist__button-icon">
+					<span class="xb-wishlist__button-icon--loading"></span>
+					</span>
+				</button>
+				<button class="xb-wishlist__remove" xb-product-id="{{product.id}}" xb-is-in-stock="{{ product.available }}">
+					<span class="xb-wishlist__button-icon">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+						<path d="M240,98a57.63,57.63,0,0,1-17,41L133.7,229.62a8,8,0,0,1-11.4,0L33,139a58,58,0,0,1,82-82.1L128,69.05l13.09-12.19A58,58,0,0,1,240,98Z"></path>
+					</svg>
+					</span>
+				</button>
+				</div>
+		</div> {% endcomment %}
+	
+	{% endcase %}
+{% endif %}

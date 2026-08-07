@@ -1,0 +1,314 @@
+{{ 'modulo-section-marquee-sale.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  assign block_count = section.blocks.size
+
+  # ─── Motion
+  assign direction = section.settings.direction | default: 'left'
+  assign speed_d    = section.settings.speed_desktop | default: 26
+  assign speed_m    = section.settings.speed_mobile | default: 18
+  assign pause      = section.settings.pause_on_hover
+
+  # ─── Style
+  assign text_style   = section.settings.text_style | default: 'alternate'
+  assign show_ghost   = section.settings.show_ghost
+  assign emblem_float = section.settings.emblem_float
+
+  # ─── Typography
+  assign use_custom_font = section.settings.use_custom_font
+  assign font            = section.settings.font
+  assign use_font        = false
+  if use_custom_font and font != blank
+    assign use_font = true
+  endif
+  assign size_d    = section.settings.size_desktop | default: 64
+  assign size_m    = section.settings.size_mobile | default: 32
+  assign uppercase = section.settings.uppercase
+
+  # ─── Spacing
+  assign gap        = section.settings.gap | default: 44
+  assign pad_top    = section.settings.padding_top | default: 30
+  assign pad_bottom = section.settings.padding_bottom | default: 30
+  assign fade_edges = section.settings.fade_edges
+
+  # ─── Shape
+  assign full_width = section.settings.full_width
+  assign radius     = section.settings.border_radius | default: 20
+  assign max_w      = section.settings.max_width | default: 1200
+
+  # ─── Colors
+  assign bg_style   = section.settings.bg_style | default: 'solid'
+  assign bg_color   = section.settings.bg_color | default: '#14100C'
+  assign bg_color_2 = section.settings.bg_color_2 | default: '#241C13'
+  assign text_color = section.settings.text_color | default: '#F6F1E7'
+  assign accent     = section.settings.accent_color | default: '#FF5638'
+
+  assign bg_value = bg_color
+  if bg_style == 'gradient'
+    assign bg_value = 'radial-gradient(120% 340% at 50% 50%, ' | append: bg_color_2 | append: ' 0%, ' | append: bg_color | append: ' 72%)'
+  endif
+
+  # ─── Link
+  assign link = section.settings.link
+
+  # ─── Animate only with 2+ blocks (single block = static, no JS)
+  assign animate = false
+  if block_count > 1
+    assign animate = true
+  endif
+
+  # ─── Root classes
+  assign root_class = 'modulo-ms modulo-ms--text-' | append: text_style
+  if direction == 'right'
+    assign root_class = root_class | append: ' modulo-ms--dir-right'
+  else
+    assign root_class = root_class | append: ' modulo-ms--dir-left'
+  endif
+  if pause
+    assign root_class = root_class | append: ' modulo-ms--pausable'
+  endif
+  if fade_edges
+    assign root_class = root_class | append: ' modulo-ms--fade'
+  endif
+  if uppercase
+    assign root_class = root_class | append: ' modulo-ms--upper'
+  endif
+  if emblem_float
+    assign root_class = root_class | append: ' modulo-ms--float'
+  endif
+  if show_ghost
+    assign root_class = root_class | append: ' modulo-ms--has-ghost'
+  endif
+  unless full_width
+    assign root_class = root_class | append: ' modulo-ms--boxed'
+  endunless
+-%}
+
+{%- capture marquee_items -%}
+  {%- assign word_index = 0 -%}
+  {%- for block in section.blocks -%}
+    {%- case block.type -%}
+      {%- when 'text' -%}
+        {%- if block.settings.text != blank -%}
+          {%- liquid
+            assign word_index = word_index | plus: 1
+            assign is_out = false
+            if text_style == 'outline'
+              assign is_out = true
+            elsif text_style == 'alternate'
+              assign mod2 = word_index | modulo: 2
+              if mod2 == 0
+                assign is_out = true
+              endif
+            endif
+            assign word_class = 'modulo-ms__word'
+            if is_out
+              assign word_class = word_class | append: ' modulo-ms__word--out'
+            endif
+          -%}
+          <span class="{{ word_class }}" {{ block.shopify_attributes }}>{{ block.settings.text }}</span>
+        {%- endif -%}
+      {%- when 'emblem' -%}
+        {%- liquid
+          assign src = block.settings.source | default: 'library'
+          assign ewidth = block.settings.width | default: 120
+          assign concept = block.settings.icon | default: 'fire'
+        -%}
+        <span class="modulo-ms__emblem" style="--modulo-ms-emb:{{ ewidth }};" aria-hidden="true" {{ block.shopify_attributes }}>
+          {%- if src == 'image' and block.settings.image != blank -%}
+            <img class="modulo-ms__emblem-img" src="{{ block.settings.image | image_url: width: 220 }}" alt="" width="110" height="110" loading="lazy">
+          {%- elsif src == 'emoji' and block.settings.emoji != blank -%}
+            <span class="modulo-ms__emoji">{{ block.settings.emoji | escape }}</span>
+          {%- else -%}
+            <span class="modulo-ms__art modulo-ms__art--{{ concept }}"></span>
+          {%- endif -%}
+        </span>
+    {%- endcase -%}
+  {%- endfor -%}
+{%- endcapture -%}
+
+{%- capture ghost_words -%}
+  {%- for block in section.blocks -%}
+    {%- if block.type == 'text' and block.settings.text != blank -%}
+      <span class="modulo-ms__ghost-word">{{ block.settings.text | strip_html | escape }}</span>
+    {%- endif -%}
+  {%- endfor -%}
+{%- endcapture -%}
+
+{%- if use_font -%}
+  <style>{{ font | font_face: font_display: 'swap' }}</style>
+{%- endif -%}
+
+{%- if block_count > 0 -%}
+  <div
+    class="{{ root_class }}"
+    role="region"
+    aria-label="{{ 'Promotional marquee' | escape }}"
+    style="
+      --modulo-ms-bg:{{ bg_value }};
+      --modulo-ms-text:{{ text_color }};
+      --modulo-ms-accent:{{ accent }};
+      --modulo-ms-size-d:{{ size_d }}px;
+      --modulo-ms-size-m:{{ size_m }}px;
+      --modulo-ms-gap:{{ gap }}px;
+      --modulo-ms-pad-top:{{ pad_top }}px;
+      --modulo-ms-pad-bottom:{{ pad_bottom }}px;
+      --modulo-ms-speed-d:{{ speed_d }}s;
+      --modulo-ms-speed-m:{{ speed_m }}s;
+      --modulo-ms-radius:{{ radius }}px;
+      --modulo-ms-max-w:{{ max_w }}px;
+      {%- if use_font %}--modulo-ms-font:{{ font.family }}, {{ font.fallback_families }};{% endif %}
+    "
+  >
+    {%- if link != blank -%}
+      <a class="modulo-ms__overlay-link" href="{{ link }}" aria-label="{{ 'Promotional marquee' | escape }}"></a>
+    {%- endif -%}
+
+    {%- if show_ghost -%}
+      <div class="modulo-ms__ghost" aria-hidden="true">
+        <div class="modulo-ms__ghost-row" data-modulo-ms>
+          <div class="modulo-ms__track modulo-ms__track--ghost">{{ ghost_words }}</div>
+        </div>
+      </div>
+    {%- endif -%}
+
+    <div class="modulo-ms__row" data-modulo-ms>
+      <div class="modulo-ms__track">{{ marquee_items }}</div>
+    </div>
+  </div>
+{%- elsif request.design_mode -%}
+  <div class="modulo-ms modulo-ms--empty" role="region" aria-label="Sale marquee">
+    <span class="modulo-ms__word">Add a text or emblem block in the theme editor →</span>
+  </div>
+{%- endif -%}
+
+{%- if animate -%}
+  <script src="{{ 'modulo-section-marquee-sale.js' | asset_url }}" defer></script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Modulo: Sale Marquee",
+  "tag": "section",
+  "class": "modulo-ms-section",
+  "settings": [
+    { "type": "header", "content": "Motion" },
+    {
+      "type": "select", "id": "direction", "label": "Scroll direction", "default": "left",
+      "options": [
+        { "value": "left",  "label": "Left" },
+        { "value": "right", "label": "Right" }
+      ],
+      "info": "Flips automatically for right-to-left languages."
+    },
+    { "type": "range", "id": "speed_desktop", "label": "Speed (desktop)", "min": 10, "max": 80, "step": 2, "unit": "s", "default": 26, "info": "Seconds per loop. Lower = faster." },
+    { "type": "range", "id": "speed_mobile", "label": "Speed (mobile)", "min": 8, "max": 70, "step": 2, "unit": "s", "default": 18 },
+    { "type": "checkbox", "id": "pause_on_hover", "label": "Pause on hover", "default": true },
+
+    { "type": "header", "content": "Style" },
+    {
+      "type": "select", "id": "text_style", "label": "Text style", "default": "alternate",
+      "options": [
+        { "value": "solid",     "label": "All solid" },
+        { "value": "outline",   "label": "All outline" },
+        { "value": "alternate", "label": "Alternate solid + outline" }
+      ]
+    },
+    { "type": "checkbox", "id": "show_ghost", "label": "Ghost layer", "default": true, "info": "A faint oversized outline of your text drifting behind at half speed, for depth." },
+    { "type": "checkbox", "id": "emblem_float", "label": "Float the emblems", "default": true, "info": "A gentle idle bob + tilt on the 3D emblems. Respects reduced-motion." },
+
+    { "type": "header", "content": "Typography" },
+    { "type": "checkbox", "id": "use_custom_font", "label": "Use a custom font", "default": false, "info": "Off = use your theme's font." },
+    { "type": "font_picker", "id": "font", "label": "Font", "default": "assistant_n4", "visible_if": "{{ section.settings.use_custom_font }}" },
+    { "type": "range", "id": "size_desktop", "label": "Text size (desktop)", "min": 24, "max": 120, "step": 2, "unit": "px", "default": 64 },
+    { "type": "range", "id": "size_mobile", "label": "Text size (mobile)", "min": 16, "max": 64, "step": 1, "unit": "px", "default": 32 },
+    { "type": "checkbox", "id": "uppercase", "label": "Uppercase", "default": true },
+
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "gap", "label": "Space between items", "min": 8, "max": 140, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 120, "step": 2, "unit": "px", "default": 30 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 120, "step": 2, "unit": "px", "default": 30 },
+    { "type": "checkbox", "id": "fade_edges", "label": "Soft faded edges", "default": true },
+
+    { "type": "header", "content": "Shape" },
+    { "type": "checkbox", "id": "full_width", "label": "Full width", "default": true, "info": "Off = a boxed, rounded band with a max width." },
+    { "type": "range", "id": "border_radius", "label": "Corner radius", "min": 0, "max": 48, "step": 2, "unit": "px", "default": 20, "visible_if": "{{ section.settings.full_width == false }}" },
+    { "type": "range", "id": "max_width", "label": "Max width", "min": 600, "max": 1600, "step": 20, "unit": "px", "default": 1200, "visible_if": "{{ section.settings.full_width == false }}" },
+
+    { "type": "header", "content": "Colors" },
+    {
+      "type": "select", "id": "bg_style", "label": "Background style", "default": "solid",
+      "options": [
+        { "value": "solid",    "label": "Solid" },
+        { "value": "gradient", "label": "Gradient (center glow)" }
+      ]
+    },
+    { "type": "color", "id": "bg_color", "label": "Background", "default": "#14100C" },
+    { "type": "color", "id": "bg_color_2", "label": "Center glow", "default": "#241C13", "info": "The brighter centre of the gradient.", "visible_if": "{{ section.settings.bg_style == 'gradient' }}" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#F6F1E7" },
+    { "type": "color", "id": "accent_color", "label": "Accent (bold words)", "default": "#FF5638", "info": "Bold any word(s) in a text block to paint them this colour." },
+
+    { "type": "header", "content": "Link" },
+    { "type": "url", "id": "link", "label": "Link the whole marquee to", "info": "Optional — makes the entire band one link. Overrides any links inside individual words." }
+  ],
+  "blocks": [
+    {
+      "type": "text",
+      "name": "Text",
+      "settings": [
+        { "type": "inline_richtext", "id": "text", "label": "Text", "info": "Bold any word(s) to accent them. Select text to add a link.", "default": "Sale is on" }
+      ]
+    },
+    {
+      "type": "emblem",
+      "name": "3D emblem",
+      "settings": [
+        {
+          "type": "select", "id": "source", "label": "Source", "default": "library",
+          "options": [
+            { "value": "library", "label": "3D emblem set" },
+            { "value": "emoji",   "label": "Emoji" },
+            { "value": "image",   "label": "Upload image" }
+          ]
+        },
+        {
+          "type": "select", "id": "icon", "label": "Emblem", "default": "fire",
+          "options": [
+            { "value": "fire",     "label": "Fire — hot deal" },
+            { "value": "flash",    "label": "Lightning — flash sale" },
+            { "value": "gift",     "label": "Gift" },
+            { "value": "gift-box", "label": "Gift box" },
+            { "value": "bag",      "label": "Shopping bag" },
+            { "value": "crown",    "label": "Crown — VIP" },
+            { "value": "trophy",   "label": "Trophy — best seller" },
+            { "value": "rocket",   "label": "Rocket — new drop" },
+            { "value": "thumb-up", "label": "Thumbs up" }
+          ],
+          "visible_if": "{{ block.settings.source == 'library' }}"
+        },
+        { "type": "text", "id": "emoji", "label": "Emoji", "info": "Paste one emoji, e.g. 🛍️.", "visible_if": "{{ block.settings.source == 'emoji' }}" },
+        { "type": "image_picker", "id": "image", "label": "Image", "info": "A square PNG/SVG with a transparent background works best.", "visible_if": "{{ block.settings.source == 'image' }}" },
+        { "type": "range", "id": "width", "label": "Emblem size", "min": 40, "max": 220, "step": 4, "unit": "%", "default": 120, "info": "Size relative to the text height." }
+      ]
+    }
+  ],
+  "max_blocks": 16,
+  "presets": [
+    {
+      "name": "Modulo: Sale Marquee",
+      "blocks": [
+        { "type": "text",   "settings": { "text": "Sale is on" } },
+        { "type": "emblem", "settings": { "source": "library", "icon": "fire", "width": 120 } },
+        { "type": "text",   "settings": { "text": "Up to <b>50% off</b>" } },
+        { "type": "emblem", "settings": { "source": "library", "icon": "gift", "width": 120 } },
+        { "type": "text",   "settings": { "text": "Free shipping $75+" } },
+        { "type": "emblem", "settings": { "source": "library", "icon": "flash", "width": 116 } },
+        { "type": "text",   "settings": { "text": "Ends Sunday" } },
+        { "type": "emblem", "settings": { "source": "library", "icon": "crown", "width": 124 } },
+        { "type": "text",   "settings": { "text": "Members save more" } },
+        { "type": "emblem", "settings": { "source": "library", "icon": "trophy", "width": 120 } }
+      ]
+    }
+  ]
+}
+{% endschema %}

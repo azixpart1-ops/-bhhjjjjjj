@@ -1,0 +1,667 @@
+{{ 'modulo-section-collection-wall.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  # ─── Header
+  assign show_header     = section.settings.show_header
+  assign heading         = section.settings.heading
+  assign heading_size    = section.settings.heading_size | default: 34
+  assign subheading      = section.settings.subheading
+  assign subheading_size = section.settings.subheading_size | default: 16
+  assign alignment       = section.settings.alignment | default: 'left'
+
+  # ─── Tabs
+  assign tab_size          = section.settings.tab_size | default: 15
+  assign tab_size_mobile   = section.settings.tab_size_mobile | default: 14
+  assign tab_gap           = section.settings.tab_gap | default: 30
+  assign tabs_margin       = section.settings.tabs_margin_bottom | default: 34
+  assign tab_color         = section.settings.tab_color | default: '#605F5D'
+  assign tab_active_color  = section.settings.tab_active_color | default: '#1C1A17'
+
+  # ─── Grid
+  assign cols          = section.settings.columns | default: '4'
+  assign cols_mobile   = section.settings.columns_mobile | default: '2'
+  assign mobile_layout = section.settings.mobile_layout | default: 'rail'
+  assign card_gap      = section.settings.card_gap | default: 28
+  assign image_ratio   = section.settings.image_ratio | default: 'square'
+
+  # ─── Cards
+  assign image_fit          = section.settings.image_fit | default: 'cover'
+  assign image_hover        = section.settings.image_hover | default: 'second_image'
+  assign card_radius        = section.settings.card_radius | default: 6
+  assign show_vendor        = section.settings.show_vendor
+  assign show_compare_price = section.settings.show_compare_price
+  assign show_badges        = section.settings.show_badges
+
+  # ─── Typography
+  assign title_size   = section.settings.title_size | default: 14
+  assign title_lh     = section.settings.title_line_height | default: 135
+  assign title_color  = section.settings.title_color | default: '#1C1A17'
+  assign price_size   = section.settings.price_size | default: 14
+  assign price_color  = section.settings.price_color | default: '#1C1A17'
+  assign sale_color   = section.settings.sale_color | default: '#A8321C'
+
+  # ─── Colors
+  assign bg = section.settings.bg_color | default: '#FBFAF8'
+  # Read bg_color (NOT bg) so this survives the transparent branch below. It's
+  # the colour that sits ON the accent fill (CTA label, sold-out chip text).
+  # `bg` itself must never be used as a foreground: when the merchant ticks
+  # "Transparent background" it becomes the literal keyword `transparent`, and
+  # a var() fallback does NOT fire for a property that is defined and valid —
+  # so `color: var(--modulo-cw-bg, #FBFAF8)` would compute to `transparent`.
+  assign on_accent = section.settings.bg_color | default: '#FBFAF8'
+  if section.settings.bg_transparent
+    assign bg = 'transparent'
+  endif
+  assign text   = section.settings.text_color | default: '#1C1A17'
+  assign accent = section.settings.accent_color | default: '#2F4739'
+  assign tile   = section.settings.tile_color | default: '#EFECE6'
+
+  # ─── CTA
+  assign show_cta   = section.settings.show_cta
+  assign cta_style  = section.settings.cta_style | default: 'solid'
+  assign cta_size   = section.settings.cta_size | default: 14
+  assign cta_radius = section.settings.cta_radius | default: 6
+
+  # ─── Section layout
+  assign section_width  = section.settings.section_width | default: 'page'
+  assign outer_radius   = section.settings.section_outer_radius | default: 28
+  assign container_w    = section.settings.container_width | default: 'standard'
+  assign pad_top        = section.settings.padding_top | default: 64
+  assign pad_bottom     = section.settings.padding_bottom | default: 68
+  assign margin_top     = section.settings.margin_top | default: 0
+  assign margin_bottom  = section.settings.margin_bottom | default: 0
+
+  assign block_count = section.blocks.size
+
+  # ─── Derived sizing
+  # `sizes` hints, approximated from the column count so the browser doesn't
+  # over-fetch. 96 (not 100) leaves room for the gutters.
+  assign cols_n  = cols | plus: 0
+  assign colsm_n = cols_mobile | plus: 0
+  assign col_vw  = 96 | divided_by: cols_n
+  assign colm_vw = 96 | divided_by: colsm_n
+
+  # First row of the FIRST tab loads eager (likely LCP when placed high).
+  # Gating on the parent loop too is load-bearing: every other panel ships
+  # `hidden`, so eager-loading its first row would burn the LCP budget on
+  # content nobody sees.
+  #
+  # Sized to the DESKTOP row on purpose: `loading` is a static attribute, so
+  # sizing it to the mobile row would defer the desktop first row instead.
+  # fetchpriority is the part that must NOT follow it — marking a whole row
+  # "high" flattens the priority order and prioritizes nothing, and on a 1-up
+  # mobile rail it puts three off-screen images in a race with the real LCP
+  # candidate. Only the single leading card gets it.
+  assign eager_count = cols_n
+
+  # ─── JS is only for the traveling ink underline + panel swapping.
+  assign needs_js = false
+  if block_count > 1
+    assign needs_js = true
+  endif
+
+  # ─── Class assembly
+  assign root_class = 'modulo-section modulo-cw'
+  assign root_class = root_class | append: ' modulo-cw--width-' | append: section_width
+  assign root_class = root_class | append: ' modulo-cw--cw-' | append: container_w
+  assign root_class = root_class | append: ' modulo-cw--align-' | append: alignment
+  assign root_class = root_class | append: ' modulo-cw--cols-' | append: cols
+  assign root_class = root_class | append: ' modulo-cw--colsm-' | append: cols_mobile
+  assign root_class = root_class | append: ' modulo-cw--mob-' | append: mobile_layout
+  assign root_class = root_class | append: ' modulo-cw--ratio-' | append: image_ratio
+  assign root_class = root_class | append: ' modulo-cw--fit-' | append: image_fit
+  assign root_class = root_class | append: ' modulo-cw--hover-' | append: image_hover
+  assign root_class = root_class | append: ' modulo-cw--cta-' | append: cta_style
+
+  # ─── Demo data — keeps the zero-config editor preview polished before a tab
+  #     has a collection picked. `~` is the "no compare-at" sentinel: a Liquid
+  #     `split` array can't hold empty strings. NO COMMAS inside these strings.
+  assign demo_names   = 'Hudderton Backpack,Camp Stool,Iron Ranger Boot,Flannel Work Shirt,Scout Backpack,Woolfill Jacket,Dawson Trolley,Enamel Camp Bowl,Waxed Trucker Jacket,Ridgeline Daypack,Trail Water Bottle,Merino Ribbed Beanie' | split: ','
+  assign demo_prices  = '$98.00,$78.00,$310.00,$118.00,$128.00,$188.00,$278.00,$22.00,$172.00,$118.00,$30.00,$34.00' | split: ','
+  assign demo_compare = '~,~,~,~,~,$218.00,~,~,~,~,$38.00,~' | split: ','
+  # Per-item, so the editor preview's badge matches the prices beside it rather
+  # than printing one hardcoded percentage next to two different discounts.
+  assign demo_pct     = '~,~,~,~,~,14,~,~,~,~,21,~' | split: ','
+  assign demo_vendor  = 'Field Supply,Field Supply,Heritage Works,Field Supply,Field Supply,Heritage Works,Heritage Works,Field Supply,Heritage Works,Field Supply,Field Supply,Field Supply' | split: ','
+-%}
+
+<section
+  class="{{ root_class }}"
+  data-modulo-cw
+  style="
+    --modulo-cw-bg:{{ bg }};
+    --modulo-cw-on-accent:{{ on_accent }};
+    --modulo-cw-text:{{ text }};
+    --modulo-cw-accent:{{ accent }};
+    --modulo-cw-tile:{{ tile }};
+    --modulo-cw-fit:{{ image_fit }};
+    --modulo-cw-title-color:{{ title_color }};
+    --modulo-cw-price-color:{{ price_color }};
+    --modulo-cw-sale:{{ sale_color }};
+    --modulo-cw-tab-color:{{ tab_color }};
+    --modulo-cw-tab-active:{{ tab_active_color }};
+    --modulo-cw-heading-size:{{ heading_size }}px;
+    --modulo-cw-sub-size:{{ subheading_size }}px;
+    --modulo-cw-tab-size:{{ tab_size }}px;
+    --modulo-cw-tab-size-m:{{ tab_size_mobile }}px;
+    --modulo-cw-tab-gap:{{ tab_gap }}px;
+    --modulo-cw-tabs-mb:{{ tabs_margin }}px;
+    --modulo-cw-gap:{{ card_gap }}px;
+    --modulo-cw-card-radius:{{ card_radius }}px;
+    --modulo-cw-title-size:{{ title_size }}px;
+    --modulo-cw-title-lh:{{ title_lh }}%;
+    --modulo-cw-price-size:{{ price_size }}px;
+    --modulo-cw-cta-size:{{ cta_size }}px;
+    --modulo-cw-cta-radius:{{ cta_radius }}px;
+    --modulo-cw-outer-radius:{{ outer_radius }}px;
+    --modulo-cw-pad-top:{{ pad_top }}px;
+    --modulo-cw-pad-bottom:{{ pad_bottom }}px;
+    --modulo-cw-mt:{{ margin_top }}px;
+    --modulo-cw-mb:{{ margin_bottom }}px;
+  "
+>
+  <div class="modulo-cw__inner">
+
+    {%- comment -%} ─── Layer 2: header (optional — off = tabs at top) ─── {%- endcomment -%}
+    {%- if show_header -%}
+      {%- if heading != blank or subheading != blank -%}
+        <div class="modulo-cw__head">
+          {%- if heading != blank -%}
+            <h2 class="modulo-cw__heading">{{ heading }}</h2>
+          {%- endif -%}
+          {%- if subheading != blank -%}
+            <p class="modulo-cw__sub">{{ subheading | escape | newline_to_br }}</p>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+    {%- endif -%}
+
+    {%- comment -%} ─── Layer 3: tabs + traveling ink underline ─── {%- endcomment -%}
+    {%- if block_count > 1 -%}
+      {%- comment -%}
+        Two elements, deliberately. The OUTER hosts the hairline + the traveling
+        ink bar (which sits at bottom:-1px, i.e. outside the padding box). The
+        INNER carries overflow-x — because `overflow-x: auto` forces overflow-y
+        to compute to `auto` as well, so hosting both on one element would clip
+        the bar in half. role="tablist" stays on the direct parent of the tabs
+        so ARIA ownership isn't broken by an intermediate node.
+      {%- endcomment -%}
+      <div class="modulo-cw__tabs">
+        <div class="modulo-cw__tabs-rail" role="tablist" aria-label="Collections" data-cw-tablist>
+        {%- for block in section.blocks -%}
+          {%- liquid
+            assign tab_label = block.settings.label
+            if tab_label == blank
+              assign tab_label = block.settings.collection.title
+            endif
+            if tab_label == blank
+              assign tab_label = 'Collection'
+            endif
+          -%}
+          <button
+            class="modulo-cw__tab"
+            type="button"
+            role="tab"
+            id="modulo-cw-{{ section.id }}-tab-{{ forloop.index0 }}"
+            aria-controls="modulo-cw-{{ section.id }}-panel-{{ forloop.index0 }}"
+            aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+            tabindex="{% if forloop.first %}0{% else %}-1{% endif %}"
+            data-cw-tab="{{ forloop.index0 }}"
+            {{ block.shopify_attributes }}
+          >{{ tab_label | escape }}</button>
+        {%- endfor -%}
+        </div>
+      </div>
+    {%- endif -%}
+
+    {%- comment -%} ─── Layer 4: one panel per tab (grid + its own CTA) ─── {%- endcomment -%}
+    {%- for block in section.blocks -%}
+      {%- liquid
+        assign coll       = block.settings.collection
+        assign plist      = block.settings.product_list
+        assign prod_count = block.settings.products_count | default: 8
+
+        # Two sources, one loop. A hand-picked list OVERRIDES the collection and
+        # renders in full — capping it with `products_count` would silently drop
+        # the merchant's later picks.
+        # `.size`, not `.count` — a Liquid array only supports size/first/last.
+        # `.count` exists solely on metafield list drops, so `plist.count` is
+        # nil, `nil > 0` is silently false, and the whole picker would be dead.
+        assign has_plist = false
+        if plist != blank and plist.size > 0
+          assign has_plist = true
+        endif
+        assign has_coll = false
+        if coll != blank and coll.products.size > 0
+          assign has_coll = true
+        endif
+
+        assign source = coll.products
+        assign eff_limit = prod_count
+        assign has_source = false
+        if has_plist
+          assign source = plist
+          assign eff_limit = plist.size
+          assign has_source = true
+        elsif has_coll
+          assign source = coll.products
+          assign eff_limit = prod_count
+          assign has_source = true
+        endif
+
+        # CTA — label auto-derives from the tab so the merchant never types it.
+        assign tab_label = block.settings.label
+        if tab_label == blank
+          assign tab_label = coll.title
+        endif
+        if tab_label == blank
+          assign tab_label = 'Collection'
+        endif
+
+        assign cta_label = block.settings.cta_label
+        if cta_label == blank
+          assign cta_label = 'Shop all ' | append: tab_label
+        endif
+
+        assign cta_link = block.settings.cta_link
+        if cta_link == blank
+          assign cta_link = coll.url
+        endif
+        if cta_link == blank
+          assign cta_link = routes.all_products_collection_url
+        endif
+
+        assign is_first_panel = forloop.first
+        assign demo_offset = forloop.index0 | times: 3
+      -%}
+      {%- comment -%}
+        Tab semantics are gated on the same condition as the tablist: with a
+        single block there are no tabs, so a role="tabpanel" whose
+        aria-labelledby points at an id that was never rendered would be a
+        dangling reference. One block = a plain container.
+      {%- endcomment -%}
+      <div
+        class="modulo-cw__panel{% if forloop.first %} is-active{% endif %}"
+        id="modulo-cw-{{ section.id }}-panel-{{ forloop.index0 }}"
+        {% if block_count > 1 %}role="tabpanel" aria-labelledby="modulo-cw-{{ section.id }}-tab-{{ forloop.index0 }}"{% endif %}
+        data-cw-panel="{{ forloop.index0 }}"
+        {% unless forloop.first %}hidden{% endunless %}
+      >
+        <div class="modulo-cw__grid">
+          {%- if has_source -%}
+            {%- for product in source limit: eff_limit -%}
+              {%- liquid
+                # ─── Availability
+                assign sold_out = false
+                unless product.available
+                  assign sold_out = true
+                endunless
+
+                # ─── Sale + Save%. `product.compare_at_price` is compare_at_MIN,
+                #     so on a multi-variant product with only some variants
+                #     discounted the comparison is meaningless — guard on
+                #     price_varies and only claim a sale when it's unambiguous.
+                assign on_sale = false
+                assign discount_pct = 0
+                unless product.price_varies
+                  if product.compare_at_price > product.price
+                    assign on_sale = true
+                    # `times: 100.0` — a float, or integer division truncates to 0.
+                    assign discount_ratio = product.compare_at_price | minus: product.price | times: 100.0 | divided_by: product.compare_at_price
+                    assign discount_pct = discount_ratio | round
+                  endif
+                endunless
+
+                # ─── Badge priority: sold-out > sale > none. No "New" badge —
+                #     it needs a date heuristic that lies.
+                assign badge_label = ''
+                assign badge_class = 'modulo-cw__badge'
+                if show_badges
+                  if sold_out
+                    assign badge_label = 'Sold out'
+                    assign badge_class = 'modulo-cw__badge modulo-cw__badge--out'
+                  elsif on_sale
+                    if discount_pct > 0
+                      assign badge_label = 'Save ' | append: discount_pct | append: '%'
+                    endif
+                  endif
+                endif
+
+                # ─── Images
+                assign primary_image = product.featured_image
+                assign secondary_image = null
+                if image_hover == 'second_image' and product.images.size > 1
+                  assign secondary_image = product.images[1]
+                endif
+
+                # Only fade the primary out on hover when a 2nd image exists,
+                # else a single-image card blanks to the bare tile colour.
+                assign card_class = 'modulo-cw__card'
+                if secondary_image != blank
+                  assign card_class = card_class | append: ' modulo-cw__card--dual'
+                endif
+
+                # ─── Accessible name. aria-label REPLACES the subtree text, so
+                #     it must carry availability + price or a screen reader
+                #     can't tell a sold-out card from an in-stock one.
+                assign price_str = product.price | money
+                if product.price_varies
+                  assign pmin = product.price_min | money
+                  assign price_str = 'From ' | append: pmin
+                endif
+                assign aria_label = product.title
+                if sold_out
+                  assign aria_label = aria_label | append: ', Sold out'
+                endif
+                assign aria_label = aria_label | append: ', ' | append: price_str
+
+                assign eager = false
+                assign lcp = false
+                if is_first_panel and forloop.index0 < eager_count
+                  assign eager = true
+                endif
+                if is_first_panel and forloop.index0 == 0
+                  assign lcp = true
+                endif
+              -%}
+              <article class="{{ card_class }}">
+                <a class="modulo-cw__media" href="{{ product.url }}" aria-label="{{ aria_label | strip_html | escape }}">
+                  {%- if badge_label != blank -%}
+                    <span class="{{ badge_class }}">{{ badge_label | escape }}</span>
+                  {%- endif -%}
+                  {%- if primary_image != blank -%}
+                    <img
+                      class="modulo-cw__img modulo-cw__img--primary"
+                      src="{{ primary_image | image_url: width: 640 }}"
+                      srcset="{{ primary_image | image_url: width: 360 }} 360w, {{ primary_image | image_url: width: 640 }} 640w, {{ primary_image | image_url: width: 960 }} 960w"
+                      sizes="(max-width: 860px) {{ colm_vw }}vw, {{ col_vw }}vw"
+                      alt=""
+                      width="{{ primary_image.width }}"
+                      height="{{ primary_image.height }}"
+                      {% if eager %}loading="eager"{% if lcp %} fetchpriority="high"{% endif %}{% else %}loading="lazy"{% endif %}
+                    >
+                    {%- if secondary_image != blank -%}
+                      <img
+                        class="modulo-cw__img modulo-cw__img--alt"
+                        src="{{ secondary_image | image_url: width: 640 }}"
+                        srcset="{{ secondary_image | image_url: width: 360 }} 360w, {{ secondary_image | image_url: width: 640 }} 640w, {{ secondary_image | image_url: width: 960 }} 960w"
+                        sizes="(max-width: 860px) {{ colm_vw }}vw, {{ col_vw }}vw"
+                        alt=""
+                        width="{{ secondary_image.width }}"
+                        height="{{ secondary_image.height }}"
+                        loading="lazy"
+                        fetchpriority="low"
+                        aria-hidden="true"
+                      >
+                    {%- endif -%}
+                  {%- else -%}
+                    {%- assign ph_n = forloop.index0 | modulo: 6 | plus: 1 -%}
+                    {{ 'product-' | append: ph_n | placeholder_svg_tag: 'modulo-cw__img modulo-cw__placeholder-svg' }}
+                  {%- endif -%}
+                </a>
+                <div class="modulo-cw__body">
+                  {%- if show_vendor and product.vendor != blank -%}
+                    <p class="modulo-cw__vendor">{{ product.vendor | escape }}</p>
+                  {%- endif -%}
+                  <h3 class="modulo-cw__title"><a href="{{ product.url }}" tabindex="-1">{{ product.title | escape }}</a></h3>
+                  <p class="modulo-cw__price">
+                    {%- if product.price_varies -%}
+                      <span class="modulo-cw__from">From </span>{{ product.price_min | money }}
+                    {%- else -%}
+                      {%- if show_compare_price and on_sale -%}
+                        <s>{{ product.compare_at_price | money }}</s>
+                        <span class="modulo-cw__now">{{ product.price | money }}</span>
+                      {%- else -%}
+                        {{ product.price | money }}
+                      {%- endif -%}
+                    {%- endif -%}
+                  </p>
+                </div>
+              </article>
+            {%- endfor -%}
+
+          {%- else -%}
+            {%- comment -%}
+              Onboarding preview — no collection or products picked yet.
+              Placeholder names/prices are Dawn-parity and fine on a live
+              storefront; a fabricated Save% chip is NOT, so it's gated on
+              request.design_mode (Omnibus / FTC).
+            {%- endcomment -%}
+            {%- for i in (1..prod_count) -%}
+              {%- liquid
+                assign d_idx = forloop.index0 | plus: demo_offset | modulo: 12
+                assign svg_num = forloop.index0 | modulo: 6 | plus: 1
+                assign d_name = demo_names[d_idx]
+                assign d_price = demo_prices[d_idx]
+                assign d_compare = demo_compare[d_idx]
+                assign d_pct = demo_pct[d_idx]
+                assign d_vendor = demo_vendor[d_idx]
+                # The ENTIRE fabricated sale — strikethrough price included, not
+                # just the badge — is editor-only. A published section with no
+                # collection would otherwise show real shoppers a struck-out
+                # $218.00 next to $188.00 for a product that doesn't exist
+                # (Omnibus / FTC). Placeholder names + a single price are
+                # Dawn-parity and fine; a fabricated discount is not.
+                assign d_on_sale = false
+                if d_compare != '~'
+                  if request.design_mode
+                    assign d_on_sale = true
+                  endif
+                endif
+                assign show_demo_badge = false
+                if show_badges and d_on_sale
+                  assign show_demo_badge = true
+                endif
+                assign ph_name = 'product-' | append: svg_num
+                assign ph_classes = 'modulo-cw__img modulo-cw__placeholder-svg modulo-cw__img--demo-' | append: svg_num
+              -%}
+              <article class="modulo-cw__card">
+                <a class="modulo-cw__media" href="{{ routes.all_products_collection_url }}" aria-label="{{ d_name }}, {{ d_price }}">
+                  {%- if show_demo_badge -%}
+                    <span class="modulo-cw__badge">Save {{ d_pct }}%</span>
+                  {%- endif -%}
+                  {{ ph_name | placeholder_svg_tag: ph_classes }}
+                </a>
+                <div class="modulo-cw__body">
+                  {%- if show_vendor -%}
+                    <p class="modulo-cw__vendor">{{ d_vendor }}</p>
+                  {%- endif -%}
+                  <h3 class="modulo-cw__title"><a href="{{ routes.all_products_collection_url }}" tabindex="-1">{{ d_name }}</a></h3>
+                  <p class="modulo-cw__price">
+                    {%- if show_compare_price and d_on_sale -%}
+                      <s>{{ d_compare }}</s>
+                      <span class="modulo-cw__now">{{ d_price }}</span>
+                    {%- else -%}
+                      {{ d_price }}
+                    {%- endif -%}
+                  </p>
+                </div>
+              </article>
+            {%- endfor -%}
+          {%- endif -%}
+        </div>
+
+        {%- comment -%} ─── Layer 6: CTA — lives INSIDE the panel so it swaps with the tab, no JS ─── {%- endcomment -%}
+        {%- if show_cta -%}
+          <div class="modulo-cw__foot">
+            <a class="modulo-cw__cta" href="{{ cta_link }}">
+              <span>{{ cta_label | escape }}</span>
+              <svg class="modulo-cw__cta-arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+          </div>
+        {%- endif -%}
+      </div>
+    {%- endfor -%}
+
+  </div>
+</section>
+
+{%- if needs_js -%}
+  <script src="{{ 'modulo-section-collection-wall.js' | asset_url }}" defer></script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Modulo: Collection Wall",
+  "tag": "section",
+  "class": "modulo-section-wrapper",
+  "settings": [
+    { "type": "header", "content": "Header" },
+    { "type": "checkbox", "id": "show_header", "label": "Show heading", "default": true, "info": "Turn this off to lead with the tabs." },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Built to be <strong>used</strong>.", "info": "Bold any word(s) to highlight them in the accent color." },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 24, "max": 56, "step": 2, "unit": "px", "default": 34 },
+    { "type": "textarea", "id": "subheading", "label": "Subheading", "info": "Optional. Leave empty to hide." },
+    { "type": "range", "id": "subheading_size", "label": "Subheading size", "min": 13, "max": 22, "step": 1, "unit": "px", "default": 16 },
+    {
+      "type": "select", "id": "alignment", "label": "Alignment", "default": "left",
+      "info": "Applies to the heading, tabs, and button.",
+      "options": [
+        { "value": "left",   "label": "Left" },
+        { "value": "center", "label": "Center" }
+      ]
+    },
+
+    { "type": "header", "content": "Tabs" },
+    { "type": "range", "id": "tab_size", "label": "Tab text size (desktop)", "min": 13, "max": 22, "step": 1, "unit": "px", "default": 15 },
+    { "type": "range", "id": "tab_size_mobile", "label": "Tab text size (mobile)", "min": 12, "max": 18, "step": 1, "unit": "px", "default": 14 },
+    { "type": "range", "id": "tab_gap", "label": "Space between tabs", "min": 12, "max": 48, "step": 2, "unit": "px", "default": 30 },
+    { "type": "range", "id": "tabs_margin_bottom", "label": "Space below tabs", "min": 12, "max": 72, "step": 2, "unit": "px", "default": 34 },
+    { "type": "color", "id": "tab_color", "label": "Tab text", "default": "#605F5D" },
+    { "type": "color", "id": "tab_active_color", "label": "Active tab text", "default": "#1C1A17", "info": "The underline uses the accent color." },
+
+    { "type": "header", "content": "Grid" },
+    {
+      "type": "select", "id": "columns", "label": "Products per row (desktop)", "default": "4",
+      "options": [
+        { "value": "2", "label": "2" },
+        { "value": "3", "label": "3" },
+        { "value": "4", "label": "4" }
+      ]
+    },
+    {
+      "type": "select", "id": "columns_mobile", "label": "Products per row (mobile)", "default": "2",
+      "options": [
+        { "value": "1", "label": "1" },
+        { "value": "2", "label": "2" }
+      ]
+    },
+    {
+      "type": "select", "id": "mobile_layout", "label": "Mobile layout", "default": "rail",
+      "info": "Swipe shows a peek of the next product to invite scrolling.",
+      "options": [
+        { "value": "rail", "label": "Swipe" },
+        { "value": "grid", "label": "Stacked grid" }
+      ]
+    },
+    { "type": "range", "id": "card_gap", "label": "Space between products", "min": 8, "max": 48, "step": 2, "unit": "px", "default": 28 },
+    {
+      "type": "select", "id": "image_ratio", "label": "Image orientation", "default": "square",
+      "options": [
+        { "value": "square",    "label": "Square (1:1)" },
+        { "value": "portrait",  "label": "Portrait (3:4)" },
+        { "value": "landscape", "label": "Landscape (4:3)" }
+      ]
+    },
+
+    { "type": "header", "content": "Product cards" },
+    {
+      "type": "select", "id": "image_fit", "label": "Image fit", "default": "cover",
+      "info": "\"Contain\" suits cut-out product shots on a plain background; \"Cover\" suits photos that already have their own backdrop.",
+      "options": [
+        { "value": "cover",   "label": "Cover (fill the frame)" },
+        { "value": "contain", "label": "Contain (show the whole photo)" }
+      ]
+    },
+    {
+      "type": "select", "id": "image_hover", "label": "Image hover effect", "default": "second_image",
+      "options": [
+        { "value": "none",         "label": "None" },
+        { "value": "zoom",         "label": "Zoom" },
+        { "value": "second_image", "label": "Show second image" }
+      ]
+    },
+    { "type": "range", "id": "card_radius", "label": "Image roundness", "min": 0, "max": 24, "step": 2, "unit": "px", "default": 6 },
+    { "type": "checkbox", "id": "show_vendor", "label": "Show vendor", "default": false },
+    { "type": "checkbox", "id": "show_compare_price", "label": "Show compare-at price", "default": true },
+    { "type": "checkbox", "id": "show_badges", "label": "Show badges", "default": true, "info": "\"Save %\" is calculated from the real compare-at price and \"Sold out\" from real stock. Nothing is ever faked." },
+
+    { "type": "header", "content": "Product title & price" },
+    { "type": "range", "id": "title_size", "label": "Title size", "min": 12, "max": 20, "step": 1, "unit": "px", "default": 14 },
+    { "type": "range", "id": "title_line_height", "label": "Title line height", "min": 100, "max": 180, "step": 5, "unit": "%", "default": 135 },
+    { "type": "color", "id": "title_color", "label": "Title", "default": "#1C1A17" },
+    { "type": "range", "id": "price_size", "label": "Price size", "min": 12, "max": 20, "step": 1, "unit": "px", "default": 14 },
+    { "type": "color", "id": "price_color", "label": "Price", "default": "#1C1A17" },
+    { "type": "color", "id": "sale_color", "label": "Sale price", "default": "#A8321C", "info": "Also used for the \"Save %\" badge." },
+
+    { "type": "header", "content": "Section colors" },
+    { "type": "checkbox", "id": "bg_transparent", "label": "Transparent background", "default": false },
+    { "type": "color", "id": "bg_color", "label": "Background", "default": "#FBFAF8", "visible_if": "{{ section.settings.bg_transparent == false }}" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#1C1A17" },
+    { "type": "color", "id": "accent_color", "label": "Accent (heading words, tab underline, button)", "default": "#2F4739" },
+    { "type": "color", "id": "tile_color", "label": "Image background", "default": "#EFECE6" },
+
+    { "type": "header", "content": "Button" },
+    { "type": "checkbox", "id": "show_cta", "label": "Show button", "default": true, "info": "Each tab gets its own button. The label reads \"Shop all {tab name}\" unless you override it on the tab." },
+    {
+      "type": "select", "id": "cta_style", "label": "Button style", "default": "solid",
+      "options": [
+        { "value": "solid",   "label": "Solid" },
+        { "value": "outline", "label": "Outline" },
+        { "value": "link",    "label": "Text link" }
+      ]
+    },
+    { "type": "range", "id": "cta_size", "label": "Button text size", "min": 12, "max": 20, "step": 1, "unit": "px", "default": 14 },
+    { "type": "range", "id": "cta_radius", "label": "Button roundness", "min": 0, "max": 30, "step": 2, "unit": "px", "default": 6 },
+
+    { "type": "header", "content": "Section layout" },
+    {
+      "type": "select", "id": "section_width", "label": "Section width", "default": "page",
+      "options": [
+        { "value": "page",  "label": "Full width" },
+        { "value": "boxed", "label": "Boxed (rounded corners)" }
+      ]
+    },
+    { "type": "range", "id": "section_outer_radius", "label": "Outer corner radius", "min": 0, "max": 48, "step": 2, "unit": "px", "default": 28, "visible_if": "{{ section.settings.section_width == 'boxed' }}" },
+    {
+      "type": "select", "id": "container_width", "label": "Content width", "default": "standard",
+      "visible_if": "{{ section.settings.section_width == 'page' }}",
+      "options": [
+        { "value": "standard", "label": "Standard (1140px)" },
+        { "value": "wide",     "label": "Wide (1400px)" },
+        { "value": "full",     "label": "Full bleed" }
+      ]
+    },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 68 },
+    { "type": "range", "id": "margin_top", "label": "Margin top", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 0 },
+    { "type": "range", "id": "margin_bottom", "label": "Margin bottom", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 0 }
+  ],
+  "blocks": [
+    {
+      "type": "tab",
+      "name": "Tab",
+      "limit": 8,
+      "settings": [
+        { "type": "text", "id": "label", "label": "Tab name", "info": "Falls back to the collection name when empty." },
+        { "type": "collection", "id": "collection", "label": "Collection", "info": "Leave empty to show preview products while you set the section up." },
+        { "type": "product_list", "id": "product_list", "label": "Or hand-pick products", "limit": 16, "info": "Overrides the collection. All picks render — the count below is ignored." },
+        { "type": "range", "id": "products_count", "label": "Products to show", "min": 2, "max": 16, "step": 1, "default": 8 },
+        { "type": "text", "id": "cta_label", "label": "Button label", "info": "Optional. Defaults to \"Shop all {tab name}\"." },
+        { "type": "url", "id": "cta_link", "label": "Button link", "info": "Optional. Defaults to the collection." }
+      ]
+    }
+  ],
+  "max_blocks": 8,
+  "presets": [
+    {
+      "name": "Modulo: Collection Wall",
+      "blocks": [
+        { "type": "tab", "settings": { "label": "Best Sellers" } },
+        { "type": "tab", "settings": { "label": "New Arrivals" } },
+        { "type": "tab", "settings": { "label": "Everyday Carry" } },
+        { "type": "tab", "settings": { "label": "Last Chance" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

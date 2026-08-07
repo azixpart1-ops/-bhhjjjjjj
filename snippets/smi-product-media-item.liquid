@@ -1,0 +1,133 @@
+{% comment %}#component#["settings/slider-arrows","settings/slider-dots-v2","settings/buttons-product","settings/product-form"]#endcomponent#{% endcomment %}
+{% capture aspect_ratio -%}
+    --aspect-ratio: {{ media.aspect_ratio | default: 1.0 }}; --preview-ratio: {{ media.preview_image.aspect_ratio | default: 1.0 }};
+  {%- endcapture %}
+  {% capture preview_image %}
+    <div class="smi-preview-image">
+      {{
+        media
+        | image_url: width: 2000
+        | image_tag:
+        loading: lazy_load,
+        widths: '400,500,600,700,800,1000,1200,1400,1600',
+        sizes: '(max-width: 767px) 100vw, 50vw',
+        class: 'smi-media__image-item'
+      }}
+      <div class="smi-preview-image__button smi-play-button-component smi-icon-bottom-label-m">
+        <div class="__smi-icon">
+          {{- icon_play -}}
+        </div>
+      </div>
+    </div>
+  {% endcapture %}
+  {% capture attributes %}
+    data-pswp-width="{{ media.preview_image.width }}"
+    data-pswp-height="{{ media.preview_image.height }}"
+    style="{{ aspect_ratio }}"
+  {% endcapture %}
+  <div
+    class="smi-swiper-slide {%- if media.media_type == 'model' %} smi-no-swiping{%- endif -%}"
+    data-media-id="{{ media.id }}"
+    {% if variant_id_reference %}
+      data-media-variants="{{ variant_id_reference }}"
+      data-media-metafield="1"
+    {% endif %}
+  >
+    {% case media.media_type %}
+      {% when 'image' %}
+        <div
+          class="smi-media smi-media--image smi-border smi-shadow"
+          style="{{ aspect_ratio }}"
+        >
+          {{
+            media
+            | image_url: width: 2000
+            | image_tag:
+              widths: '400,500,600,700,800,1000,1200,1400,1600',
+              sizes: '(max-width: 767px) 100vw, 50vw',
+              class: 'smi-media__image-item smi-image-magnify-hover smi-lightbox-item',
+              fetchpriority: fetchpriority,
+              loading: lazy_load
+          }}
+          {% if section.settings.image_zoom == 'open-lightbox' %}
+            <span class="smi-media__icon-zoom">
+              {{ icon_zoom }}
+            </span>
+          {% endif %}
+        </div>
+      {% when 'external_video' %}
+        <div
+          class="smi-media smi-media--external-video smi-border smi-shadow smi-lightbox-locked"
+          data-media-host="{{ media.host }}"
+          {{ attributes }}
+        >
+          {{ preview_image }}
+          {{
+            media
+            | external_video_url: loop: video_looping, playlist: media.external_id, mute: true, portrait: false
+            | external_video_tag: loading: 'lazy', class: 'smi-lightbox-item'
+          }}
+        </div>
+      {% when 'video' %}
+        <div
+          class="smi-media smi-media--video smi-border smi-shadow smi-lightbox-locked"
+          {{ attributes }}
+        >
+          {{ preview_image }}
+          <div class="smi-video-upload smi-stretch-out">
+            {{
+              media
+              | video_tag:
+                loop: section.settings.video_looping,
+                controls: true,
+                muted: true,
+                playsinline: true,
+                loading: 'lazy',
+                class: 'smi-d-lazy smi-lightbox-item',
+                alt: media.alt
+            }}
+          </div>
+        </div>
+      {% when 'model' %}
+        <div
+          class="smi-media smi-media--model smi-border smi-shadow smi-lightbox-locked"
+          {{ attributes }}
+        >
+          {{ preview_image }}
+          {{ media | model_viewer_tag: class: 'smi-lightbox-item'}}
+          <div class="smi-media__model-control">
+              <span class="_smi-zoom-in">
+                {{ icon_plus }}
+              </span>
+            <span class="_smi-zoom-out">
+              {{ icon_minus }}
+            </span>
+          </div>
+        </div>
+      {% else %}
+        <div class="smi-media" data-media-id="{{ media.id }}">
+          {{ media | media_tag }}
+        </div>
+    {% endcase %}
+    {% if has_thumbnail == true %}
+      <div
+        class="smi-thumb smi-d-none"
+        data-class="smi-swiper-slide"
+        data-media-id="{{ media.id }}"
+        {% if variant_id_reference %}
+          data-media-variants="{{ variant_id_reference }}"
+          data-media-metafield="1"
+        {% endif %}
+      >
+        <div class="smi-thumb__image">
+          {{ media | image_url: width: 88, height: 100 | image_tag: loading: lazy_load }}
+        </div>
+        {% case media.media_type %}
+          {% when 'external_video' or 'video' %}
+            <span class="smi-thumb__icon">{{ icon_play }}</span>
+          {% when 'model' %}
+            <span class="smi-thumb__icon">{{ icon_3d }}</span>
+        {% endcase %}
+      </div>
+    {% endif %}
+  </div>{%comment%}#includeFile##endIncludeFile#{%endcomment%}

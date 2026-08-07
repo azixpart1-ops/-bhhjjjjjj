@@ -1,0 +1,632 @@
+<link rel="stylesheet" type="text/css" href="{{ 'smi-product-upsells.min.css' | asset_url }}" media="screen" onload="this.onload=null;this.media='all'">
+<script src="{{ 'smi-product-upsells.min.js' | asset_url }}" defer data-id="smi-product-upsells.min.js"></script>
+<link rel="stylesheet" type="text/css" href="{{ 'smi-swiper-bundle-v11.min.css' | asset_url }}" media="screen" onload="this.onload=null;this.media='all'">
+<script src="{{ 'smi-swiper-bundle-v11.min.js' | asset_url }}" defer data-id="smi-swiper-bundle-v11.min.js"></script>
+{%- assign heading = target_element.heading | strip -%}
+{% if heading != blank %}
+	<div class="smi-heading-component smi-mb-lg smi-heading-component--align-{{target_element.heading_alignment}} smi-link-wrapper">
+		<div class="smi-heading-inner">
+			<h2 class="{{ target_element.heading_size }} {% if description != blank %}smi-mb-sm{% endif %} smi-heading-component__heading" >{{- heading -}}</h2>
+		</div>
+	</div>
+{% endif %}
+{%  liquid 
+	assign _is_grid_view = target_element.grid_view
+	assign _number_column_desk = target_element.number_of_columns_on_desktop
+	assign _number_column_mobile = target_element.number_of_columns_on_mobile
+	assign _items_per_page = target_element.number_product_per_page
+	assign st_pagination = target_element.sticky_page_dot_style
+	assign _check_box = target_element.type_checkbox
+	assign bundle_class_media = 'smi-product-bundle-img smi-h-auto'
+	if target_element.use_media_style
+		assign bundle_class_media = bundle_class_media | append: ' smi-media-wrapper smi-border smi-shadow'
+	endif
+	assign currency_code_enabled = settings.smi_currency_code_enabled | default: shop.metafields.smind.settings.value.showCurrencyCode | default: false
+	if currency_code_enabled
+		assign currency_full = true
+	else
+		assign currency_full = false
+	endif
+	assign enable_dynamic = target_element.enable_dynamic
+	if enable_dynamic
+		assign list_product = recommendations.products
+		assign products_count = list_product.size | plus: 0
+	else 
+		assign list_product = target_element.product_list
+		assign products_count = list_product | size | plus: 0
+		for handle in list_product
+			assign products_count = forloop.index
+		endfor
+	endif
+	assign use_add_to_cart = target_element.use_add_to_cart
+%}
+<smi-block-upsell-products
+	id="smi_upsell_products_{{ section.id }}"
+	data-id="smi_upsell_products_{{ section.id }}"
+	data-section-id="{{ section.id }}"
+	data-route="{{ routes.product_recommendations_url }}"
+	data-product-id="{{ product.id }}"
+	data-product-title="{{ product.title }}"
+	data-bundle="{% if currency_full %}{{ shop.money_with_currency_format }}{% else %}{{ shop.money_format }}{% endif %}"
+	data-enable-click-item="{{ target_element.enabled_click }}"
+	data-block-id-app="{{ target_element.block_id }}"
+	data-enable-dynammic="{{ target_element.enable_dynamic }}"
+	data-free-price-text="{{ target_element.free_text_price }}"
+	data-use-atc="{{ target_element.use_add_to_cart }}"
+>
+{%- if products_count > 0 -%}
+	{%- if products_count > 0 -%}
+		<div class="smi-items smi-shadow {% if _is_grid_view == false %}smi-items-grid-container{% endif %}{% if _is_grid_view == true %}smi-swiper-grid{% endif %} {% if target_element.content_max_width < 442 %}smi-block-small-container{% endif %} smi-text-lg"
+			data-recommendation-count={{ products_count }}
+		>
+			<div class="smi-items-container {% if _is_grid_view == true %}smi-swiper-grid{% endif %}" style=" overflow: hidden;">
+				<div 
+					class="smi-swiper " 
+					id="smi_bundle_block_{{ section.id }}"
+					style="--media-ratio: {{ target_element.media_ratio }}; overflow: visible;"
+				>
+					<div class="smi-swiper-wrapper {% if _is_grid_view == true %}smi-pb-lg smi-swiper-wrapper-grid-desk-{{ _number_column_desk }} smi-swiper-wrapper-grid-mob-{{_number_column_mobile}}{% endif %}"
+						data-grid-column-desktop="{{ _number_column_desk }}"
+						data-grid-column-mobile="{{ _number_column_mobile }}"
+						data-view-grid="{{ _is_grid_view }}"
+						data-auto-play="{{ target_element.auto_rotate_slides }}"
+						data-change-slide-every="{{ target_element.change_slides_every }}"
+						data-page-dot-type="{{ st_pagination }}"
+					>
+						{% if _is_grid_view == true %}
+							{%  liquid 
+								assign all_list_bundle = products_count
+								assign number_of_columns_on_desktop = target_element.number_of_columns_on_desktop
+								assign number_of_columns_on_mobile = target_element.number_of_columns_on_mobile
+							%}
+							{% for index_item in  list_product %}
+								{% liquid
+									assign index_product_recomment = forloop.index
+									assign current_product = list_product[index_product_recomment]
+									for product in list_product
+										if forloop.index == index_product_recomment
+											assign current_product = product
+										endif
+									endfor
+								%}
+								{% assign has_available_variant = false %}
+	{% for variant in current_product.variants %}
+		{% if variant.available %}
+			{% assign has_available_variant = true %}
+			{% break %}
+		{% endif %}
+	{% endfor %}
+<div class="smi-swiper-slide smi-swiper-slide-grid smi-swiper-slide-grid-mobile-{{ target_element.number_of_columns_on_mobile }} smi-swiper-slide-grid-{{ target_element.number_of_columns_on_desktop }} smi-d-flex smi-flex-wrap smi-row-gap-md smi-justify-content-center" {% if has_available_variant == false %}style="opacity: 0.55;"{% endif %}>
+	<div class="smi-d-flex smi-flex-wrap smi-row-gap-md smi-justify-content-center" style="height: fit-content;">
+		{% unless use_add_to_cart %}
+			{% if target_element.checkbox_position == 'left' %}
+				<div class="smi-check-product {% if _is_grid_view == true %}smi-w-100 smi-d-flex smi-justify-content-center{% endif %} smi-checkbox-type-{{ _check_box }} {% if _check_box != "toggle_switch" %}_is_checkbox{% else %}_is_not_checkbox{% endif %}"
+	data-checkbox-id="{{ current_product.id }}"
+{% if has_available_variant == false %}style="pointer-events: none;"{% endif %}
+>
+	{% if _check_box != "toggle_switch" %}
+		<div class="smi-check-box-container smi-checkbox smi-d __{{ _check_box }} {% if has_available_variant == true %}__checked{% endif %}" data-product-id="{{ current_product.id }}">
+			<span class="smi-check-icon">{% render 'smi-icons', icon: 'tick' %}</span>
+			<span class="smi-plus-icon smi-d-none">{% render 'smi-icons', icon: 'plus' %}</span>
+			<input type="checkbox" class="smi-d-none">
+		</div>
+	{% else %}
+		<div class="smi-check-box-container smi-checkbox-toogle_switch {% if has_available_variant == true %}__checked{% endif %}" data-product-id="{{ current_product.id }}">
+			<label>
+				<input type="checkbox" checked="checked" class="smi-d-none">
+				<span>
+					<i></i>
+				</span>
+			</label>
+		</div>
+	{% endif %}
+</div>
+			{% endif %}
+		{% endunless %}
+		<div class="smi-content-container-detail smi-d-flex smi-flex-wrap smi-justify-content-center smi-row-gap-md">
+			<div class="smi-product-bundle-media smi-d-flex smi-justify-content-center">
+				{% if current_product.featured_image != null and current_product.featured_image != undefined %}
+					{% if is_reference %}
+						{{
+							images[current_product.featured_image]
+							| image_url: width: 200
+							| image_tag: loading: 'lazy', class: bundle_class_media
+						}}
+					{% else %}
+						{{
+							current_product.featured_image
+							| image_url: width: 200
+							| image_tag: loading: 'lazy', class: bundle_class_media
+						}}
+					{% endif %}
+				{% endif %}
+			</div>
+			<div class="smi-product-bundle-detail smi-align-items-center smi-w-100 smi-d-flex smi-flex-wrap smi-justify-content-center smi-row-gap-xxs smi-column-gap-xl">
+				<div class="smi-product-bundle-detail-info smi-d-flex smi-flex-wrap smi-justify-content-center smi-w-100">
+				{% if  target_element.enabled_click == false %}<a href="{{ current_product.url }}"  class="smi-bundle-title smi-w-100 smi-h5">{{ current_product.title }}</a> {% else %} <h2 class="smi-bundle-title smi-w-100 smi-h5">{{ current_product.title }}</h2> {% endif %}
+					{% if current_product.variants.size > 1 and has_available_variant %}
+						<div class="__variant-options smi-w-100 smi-d-flex smi-column-gap-xxs smi-mt-xxs">
+							<div class="smi-inputs-wrapper smi-w-100 smi-border smi-shadow smi-p-relative smi-d-flex smi-align-items-center">
+								<select class="smi-text-sm smi-pl-sm smi-w-100 smi-pr-lg smi-0 smi-py-xxs"
+									data-product-id="{{ current_product.id }}"
+								>
+									{% for variant in current_product.variants %}
+										{% if variant.available %}
+											<option
+												class="smi-text-sm {% if forloop.index != 1 %} smi-color-text-75{% endif %}"
+												value="{{ variant.id }}"
+											>
+												{{ variant.title }}
+											</option>
+										{% endif %}
+									{% endfor %}
+								</select>
+								{% render 'smi-icons', icon: 'arrow-down' %}
+							</div>
+						</div>
+					{% endif %}
+				</div>
+				<div class="{% if use_add_to_cart %}smi-mb-xs {% endif %}smi-product-bundle-price smi-d-flex smi-flex-wrap smi-column-gap-xxs smi-align-items-center smi-justify-content-center smi-w-100">
+					{% if current_product.selected_or_first_available_variant.available %}
+						<div class="smi-compare--price smi-text-price-md {% if product.selected_or_first_available_variant.compare_at_price and product.selected_or_first_available_variant.price > product.selected_or_first_available_variant.compare_at_price %}smi-d-none{% endif %}">
+							{% if current_product.selected_or_first_available_variant.compare_at_price > 0 %}
+								{% if currency_full %}
+									{{- current_product.selected_or_first_available_variant.compare_at_price | json | money_with_currency -}}
+								{% else %}
+									{{- current_product.selected_or_first_available_variant.compare_at_price | json | money -}}
+								{% endif %}
+							{% endif %}
+						</div>
+						<div class="smi--price smi-text-price-lg">
+							{% if current_product.selected_or_first_available_variant.price == 0 %}
+								{{ target_element.free_text_price }}
+							{% else %}
+								{% if currency_full %}
+									{{- current_product.selected_or_first_available_variant.price | json | money_with_currency -}}
+								{% else %}
+									{{- current_product.selected_or_first_available_variant.price | json | money -}}
+								{% endif %}
+							{% endif %}
+						</div>
+					{% else %}
+						<div class="smi-compare--price smi-text-price-md {% if product.selected_or_first_available_variant.compare_at_price and product.selected_or_first_available_variant.price > product.selected_or_first_available_variant.compare_at_price %}smi-d-none{% endif %}">
+						</div>
+						<div class="smi--price smi-text-price-lg">
+							{{ 'smind.product.sold_out' | t }}
+						</div>
+					{% endif %}
+				</div>
+				{% if use_add_to_cart %}
+					<div class="smi-upsells-atc-btn">
+	{%-liquid
+    unless card_product
+        assign card_product = product
+    endunless
+    unless product_form_id
+        assign product_form_id = 'product-form-' | append: section.id | append: block.id
+    endunless
+    assign target = card_product.selected_or_first_available_variant
+    if error_selector == nil
+        assign error_selector = ''
+    endif
+    if enable_soldout == nil
+        assign enable_soldout = false
+    endif
+    if form_type == nil
+        assign form_type = 'normal'
+    endif
+-%}
+<smi-product-form
+    data-soldout="false"
+    data-error-selector="{{error_selector}}"
+    data-enable-soldout = "{{enable_soldout}}"
+>
+    {%- form 'product',
+        card_product,
+        id: product_form_id,
+        class: 'form',
+        novalidate: 'novalidate',
+        data-type: 'add-to-cart-form'
+    -%}
+        <input
+            type="hidden"
+            name="id"
+            value="{{ current_product.selected_or_first_available_variant.id }}"
+            class="product-variant-id"
+            {% if current_product.selected_or_first_available_variant.available == false %}
+                disabled
+            {% endif %}
+        />
+		{% liquid 
+			assign atc_style = 'solid'
+		%}
+		<button
+			type="submit"
+			id="buy_group_add_to_cart_{{ section.id }}"
+			class="smi-button-add-cart smi-button-wrapper smi-button smi-cursor-pointer smi-border smi-shadow smi-text-button smi-button--{{ atc_style }}
+			{{ section.settings.button_animation }}
+			{% liquid
+				echo ' smi-product-add-to-card-' | append: section.id
+				if show_buy_quantity_btn == true
+					echo ' smi-button-add-to-card-cal-' | append: section.id
+				endif
+				if target.available == false
+					echo ' _soldout'
+				endif
+				if block.settings.show_dynamic_checkout == true
+					echo ' smi-button-add-to-cart'
+				endif
+			%}"
+		>
+			<span class="smi-text-cart">
+				{{ target_element.button_label }}  
+			</span>
+			<span class="smi-text-soldout smi-d-none">
+				{{- 'smind.product.sold_out' | t -}}
+			</span>
+			<span class="smi-text-loading"></span>
+		</button>
+        <input type="hidden" name="form-type" value="{{form_type}}" />
+    {%- endform -%}
+</smi-product-form>
+</div>
+				{% endif %}
+			</div>
+		</div>
+		{% unless use_add_to_cart %}
+			{% if target_element.checkbox_position != 'left' %}
+				<div class="smi-check-product {% if _is_grid_view == true %}smi-w-100 smi-d-flex smi-justify-content-center{% endif %} smi-checkbox-type-{{ _check_box }} {% if _check_box != "toggle_switch" %}_is_checkbox{% else %}_is_not_checkbox{% endif %}"
+	data-checkbox-id="{{ current_product.id }}"
+{% if has_available_variant == false %}style="pointer-events: none;"{% endif %}
+>
+	{% if _check_box != "toggle_switch" %}
+		<div class="smi-check-box-container smi-checkbox smi-d __{{ _check_box }} {% if has_available_variant == true %}__checked{% endif %}" data-product-id="{{ current_product.id }}">
+			<span class="smi-check-icon">{% render 'smi-icons', icon: 'tick' %}</span>
+			<span class="smi-plus-icon smi-d-none">{% render 'smi-icons', icon: 'plus' %}</span>
+			<input type="checkbox" class="smi-d-none">
+		</div>
+	{% else %}
+		<div class="smi-check-box-container smi-checkbox-toogle_switch {% if has_available_variant == true %}__checked{% endif %}" data-product-id="{{ current_product.id }}">
+			<label>
+				<input type="checkbox" checked="checked" class="smi-d-none">
+				<span>
+					<i></i>
+				</span>
+			</label>
+		</div>
+	{% endif %}
+</div>
+			{% endif %}
+		{% endunless %}
+	</div>
+</div>
+							{% endfor %}
+						{% else %}
+							<div class="smi-swiper-slide smi-swiper-slide_not_grid smi-detail-product-bundle"> 
+	{% assign all_list_bundle = products_count %}
+	{% for index_item in list_product %}
+		{% assign num_modulo = forloop.index | minus: 1 | modulo: _items_per_page %}
+		{% if num_modulo == 0 and forloop.index > 1 %}
+			</div>
+			<div class="smi-swiper-slide smi-swiper-slide_not_grid smi-detail-product-bundle">
+		{% endif %}
+		{% liquid
+			assign index_product_recomment = forloop.index
+			assign current_product = list_product[index_product_recomment]
+			for product in list_product
+				if forloop.index == index_product_recomment
+					assign current_product = product
+				endif
+			endfor
+		%}
+		{% assign has_available_variant = false %}
+		{% for variant in current_product.variants %}
+			{% if variant.available %}
+				{% assign has_available_variant = true %}
+				{% break %}
+			{% endif %}
+		{% endfor %}
+	<div class="smi-detail-product-bundle-in smi-w-100 smi-d-flex smi-column-gap-md smi-align-items-center"  {% if has_available_variant == false %}style="opacity: 0.55;"{% endif %}>
+		{% unless use_add_to_cart %}
+			{% if target_element.checkbox_position == 'left' %}
+				<div class="smi-check-product {% if _is_grid_view == true %}smi-w-100 smi-d-flex smi-justify-content-center{% endif %} smi-checkbox-type-{{ _check_box }} {% if _check_box != "toggle_switch" %}_is_checkbox{% else %}_is_not_checkbox{% endif %}"
+	data-checkbox-id="{{ current_product.id }}"
+{% if has_available_variant == false %}style="pointer-events: none;"{% endif %}
+>
+	{% if _check_box != "toggle_switch" %}
+		<div class="smi-check-box-container smi-checkbox smi-d __{{ _check_box }} {% if has_available_variant == true %}__checked{% endif %}" data-product-id="{{ current_product.id }}">
+			<span class="smi-check-icon">{% render 'smi-icons', icon: 'tick' %}</span>
+			<span class="smi-plus-icon smi-d-none">{% render 'smi-icons', icon: 'plus' %}</span>
+			<input type="checkbox" class="smi-d-none">
+		</div>
+	{% else %}
+		<div class="smi-check-box-container smi-checkbox-toogle_switch {% if has_available_variant == true %}__checked{% endif %}" data-product-id="{{ current_product.id }}">
+			<label>
+				<input type="checkbox" checked="checked" class="smi-d-none">
+				<span>
+					<i></i>
+				</span>
+			</label>
+		</div>
+	{% endif %}
+</div>
+			{% endif %}
+		{% endunless %}	
+			<div class="smi-product-bundle-media smi-d-flex">
+				{% if current_product.featured_image != null and current_product.featured_image != undefined %}
+					{% if is_reference %}
+						{{
+							images[current_product.featured_image]
+							| image_url: width: 200
+							| image_tag: loading: 'lazy', class: bundle_class_media
+						}}
+					{% else %}
+						{{
+							current_product.featured_image
+							| image_url: width: 200
+							| image_tag: loading: 'lazy', class: bundle_class_media
+						}}
+					{% endif %}
+				{% endif %}
+			</div>
+			<div class="smi-content-container-detail smi-product-bundle-detail smi-align-items-center smi-w-100 smi-d-flex smi-column-gap-xl">
+				<div class="smi-product-bundle-detail-info smi-w-100">
+				{% if  target_element.enabled_click == false %}<a href="{{ current_product.url }}"  class="smi-bundle-title smi-h5 smi-mb-sm">{{ current_product.title }}</a> {% else %} <h2 class="smi-bundle-title smi-h5 smi-mb-sm">{{ current_product.title }}</h2> {% endif %}
+					{% if current_product.variants.size > 1 and has_available_variant %}
+						<div class="__variant-options smi-w-100 smi-d-flex smi-column-gap-xxs">
+							<div class="smi-inputs-wrapper smi-w-100 smi-border smi-shadow smi-p-relative smi-d-flex smi-align-items-center">
+								<select class="smi-text-sm smi-pl-sm smi-w-100 smi-pr-lg smi-0 smi-py-xxs"
+									data-product-id="{{ current_product.id }}"
+								>
+									{% for variant in current_product.variants %}
+										{% if variant.available %}
+											<option
+												class="smi-text-sm {% if forloop.index != 1 %} smi-color-text-75{% endif %}"
+												value="{{ variant.id }}"
+											>
+												{{ variant.title }}
+											</option>
+										{% endif %}
+									{% endfor %}
+								</select>
+								{% render 'smi-icons', icon: 'arrow-down' %}
+							</div>
+						</div>
+					{% endif %}
+				</div>
+				<div class="smi-product-bundle-price">
+					<div class="smi-d-flex smi-column-gap-xxs smi-align-items-center smi-justify-content-end smi-mb-xs">
+						{% if current_product.selected_or_first_available_variant.available %}
+							<div class="smi-compare--price smi-text-price-md {% if product.selected_or_first_available_variant.compare_at_price and product.selected_or_first_available_variant.price > product.selected_or_first_available_variant.compare_at_price %}smi-d-none{% endif %}">
+								{% if current_product.selected_or_first_available_variant.compare_at_price > 0 %}
+									{% if currency_full %}
+										{{- current_product.selected_or_first_available_variant.compare_at_price | json | money_with_currency -}}
+									{% else %}
+										{{- current_product.selected_or_first_available_variant.compare_at_price | json | money -}}
+									{% endif %}
+								{% endif %}
+							</div>
+							<div class="smi--price smi-text-price-lg">
+								{% if current_product.selected_or_first_available_variant.price == 0 %}
+									{{ target_element.free_text_price }}
+								{% else %}
+									{% if currency_full %}
+										{{- current_product.selected_or_first_available_variant.price | json | money_with_currency -}}
+									{% else %}
+										{{- current_product.selected_or_first_available_variant.price | json | money -}}
+									{% endif %}
+								{% endif %}
+							</div>
+						{% else %}
+							<div class="smi-compare--price smi-text-price-md {% if product.selected_or_first_available_variant.compare_at_price and product.selected_or_first_available_variant.price > product.selected_or_first_available_variant.compare_at_price %}smi-d-none{% endif %}">
+							</div>
+							<div class="smi--price smi-text-price-lg">
+								{{ 'smind.product.sold_out' | t }}
+							</div>
+						{% endif %}
+					</div>
+					{% if use_add_to_cart %}
+						<div class="smi-upsells-atc-btn">
+	{%-liquid
+    unless card_product
+        assign card_product = product
+    endunless
+    unless product_form_id
+        assign product_form_id = 'product-form-' | append: section.id | append: block.id
+    endunless
+    assign target = card_product.selected_or_first_available_variant
+    if error_selector == nil
+        assign error_selector = ''
+    endif
+    if enable_soldout == nil
+        assign enable_soldout = false
+    endif
+    if form_type == nil
+        assign form_type = 'normal'
+    endif
+-%}
+<smi-product-form
+    data-soldout="false"
+    data-error-selector="{{error_selector}}"
+    data-enable-soldout = "{{enable_soldout}}"
+>
+    {%- form 'product',
+        card_product,
+        id: product_form_id,
+        class: 'form',
+        novalidate: 'novalidate',
+        data-type: 'add-to-cart-form'
+    -%}
+        <input
+            type="hidden"
+            name="id"
+            value="{{ current_product.selected_or_first_available_variant.id }}"
+            class="product-variant-id"
+            {% if current_product.selected_or_first_available_variant.available == false %}
+                disabled
+            {% endif %}
+        />
+		{% liquid 
+			assign atc_style = 'solid'
+		%}
+		<button
+			type="submit"
+			id="buy_group_add_to_cart_{{ section.id }}"
+			class="smi-button-add-cart smi-button-wrapper smi-button smi-cursor-pointer smi-border smi-shadow smi-text-button smi-button--{{ atc_style }}
+			{{ section.settings.button_animation }}
+			{% liquid
+				echo ' smi-product-add-to-card-' | append: section.id
+				if show_buy_quantity_btn == true
+					echo ' smi-button-add-to-card-cal-' | append: section.id
+				endif
+				if target.available == false
+					echo ' _soldout'
+				endif
+				if block.settings.show_dynamic_checkout == true
+					echo ' smi-button-add-to-cart'
+				endif
+			%}"
+		>
+			<span class="smi-text-cart">
+				{{ target_element.button_label }}  
+			</span>
+			<span class="smi-text-soldout smi-d-none">
+				{{- 'smind.product.sold_out' | t -}}
+			</span>
+			<span class="smi-text-loading"></span>
+		</button>
+        <input type="hidden" name="form-type" value="{{form_type}}" />
+    {%- endform -%}
+</smi-product-form>
+</div>
+					{% endif %}
+				</div>
+			</div>
+			{% unless use_add_to_cart %}
+				{% if target_element.checkbox_position != 'left' %}
+					<div class="smi-check-product {% if _is_grid_view == true %}smi-w-100 smi-d-flex smi-justify-content-center{% endif %} smi-checkbox-type-{{ _check_box }} {% if _check_box != "toggle_switch" %}_is_checkbox{% else %}_is_not_checkbox{% endif %}"
+	data-checkbox-id="{{ current_product.id }}"
+{% if has_available_variant == false %}style="pointer-events: none;"{% endif %}
+>
+	{% if _check_box != "toggle_switch" %}
+		<div class="smi-check-box-container smi-checkbox smi-d __{{ _check_box }} {% if has_available_variant == true %}__checked{% endif %}" data-product-id="{{ current_product.id }}">
+			<span class="smi-check-icon">{% render 'smi-icons', icon: 'tick' %}</span>
+			<span class="smi-plus-icon smi-d-none">{% render 'smi-icons', icon: 'plus' %}</span>
+			<input type="checkbox" class="smi-d-none">
+		</div>
+	{% else %}
+		<div class="smi-check-box-container smi-checkbox-toogle_switch {% if has_available_variant == true %}__checked{% endif %}" data-product-id="{{ current_product.id }}">
+			<label>
+				<input type="checkbox" checked="checked" class="smi-d-none">
+				<span>
+					<i></i>
+				</span>
+			</label>
+		</div>
+	{% endif %}
+</div>
+				{% endif %}
+			{% endunless %}
+		</div>
+	{% endfor %}
+</div>
+						{% endif %}
+					</div>
+					<div class="smi-swiper-controls">
+	{% unless target_element.sticky_page_dot_style == 'none' %}
+		{%-liquid
+			if st_pagination == null 
+				assign st_pagination = target_element.sticky_page_dot_style
+			endif
+		-%}
+		{% if st_pagination != 'none' %}
+		{%- liquid
+			assign pagination_style = 'default'
+			if st_pagination contains 'text-style'
+				assign pagination_style = 'fraction'
+			elsif st_pagination == 'dynamic'
+				assign pagination_style = 'dynamic'
+			elsif st_pagination == 'scrollbar'
+				assign pagination_style = 'scrollbar'
+			endif
+		-%}
+		<div class="smi-slider-dot-container smi-pt-xl smi-w-100" data-pagination="{{ pagination_style }}">
+			{%- if st_pagination contains 'text-style' -%}
+				<div class="smi-component-sticky-page-dot">
+					<div class="smi-slider-action">
+					<div class="smi-arrows {{ st_pagination }}">
+						<div data-control="textPrevSlide" class="smi-arrow dot-arrow-slider smi-text-sm">
+						{% render 'smi-icons', icon: 'arrow-left' %}
+						</div>
+						<div class="text-pagination smi-pagination smi-slider-pagination smi-text-sm smi-arrow"></div>
+						<div data-control="textNextSlide" class="smi-arrow dot-arrow-slider smi-text-sm">
+						{% render 'smi-icons', icon: 'arrow-right' %}
+						</div>
+					</div>
+					</div>
+				</div>
+			{%- elsif st_pagination == 'scrollbar' -%}
+				<div class="smi-swiper-scrollbar"></div>
+			{%- elsif st_pagination == 'dynamic' -%}
+				<div class="smi-pagination"></div>
+			{%- else -%}
+				<div class="dot-container {{ st_pagination }}">
+					<div
+					class="smi-swiper-pagination smi-pagination"
+					{% if st_pagination == 'dot-style-4' %}
+						style="display: flex;"
+					{% endif %}
+					></div>
+				</div>
+			{%- endif -%}
+		</div>
+		{% endif %}
+	{% endunless %}
+</div>
+				</div>
+			</div>
+		</div>
+	{%- endif -%}
+	<script type="application/json" data_product_recommendations_block>
+	{
+		"productId": "{{- product.id -}}",
+		"price": "{{ product.price}}",
+		"price_max": "{{ product.price_max}}",
+		"first_selected": "{{ product.selected_or_first_available_variant.id }}",
+		"current": [
+		{%- for variant in product.variants -%}
+			{
+			"id": "{{ variant.id }}",
+			"product_id": {{ product.id}},
+			"img_url":"{{ variant.image | image_url }}",
+			"price": {{ variant.price}},
+			"compare_at_price": {% if variant.compare_at_price and variant.compare_at_price > 0 %}{{ variant.compare_at_price }}{% else %}null{%endif%}
+			}
+		{%- if forloop.last == false -%},{%- endif -%}
+		{% endfor %}
+		],
+		"recommendations": [
+		{% for product in list_product %}
+			{
+			"id": "{{ product.id}}",
+			"first_selected": "{{ product.selected_or_first_available_variant.id }}",
+			"variants": [
+				{%- for variant in product.variants -%}
+				{
+					"id": "{{ variant.id }}",
+					"product_id": {{ product.id}},
+					"img_url":"{{ variant.image | image_url }}",
+					"price": {{ variant.price}},
+					"compare_at_price": {% if variant.compare_at_price and variant.compare_at_price > 0 %}{{ variant.compare_at_price }}{% else %}null{%endif%}
+				}
+				{%- if forloop.last == false -%},{%- endif -%}
+				{%- endfor -%}
+			]
+			}
+			{%- if forloop.last == false -%},{%- endif -%}
+		{% endfor %}
+		]
+	}
+	</script>
+{%- endif -%}
+</smi-block-upsell-products>{%comment%}#includeFile#assets/smi-product-upsells.min.css,assets/smi-product-upsells.min.js,assets/smi-swiper-bundle-v11.min.css,assets/smi-swiper-bundle-v11.min.js,snippets/smi-icons#endIncludeFile#{%endcomment%}

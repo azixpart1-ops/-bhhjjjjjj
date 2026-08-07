@@ -1,0 +1,201 @@
+/* ============================================================
+   Modulo: Icon Ticker — header-group announcement bar WITH icons.
+   Prefix: .modulo-ai__*  /  --modulo-ai-*
+   Motion engine: shared modulo-section-feature-scroll.js
+   (clone-to-fill; JS sets --modulo-fs-cycle + data-modulo-fs-ready=1
+   on the track → seamless loop, no jump. Degrades to a static,
+   centered, wrapped row when JS is off or the ticker is disabled.)
+   Sibling of section-announcement-bar (text-only); adds inline
+   cap-height Google Material icons + emoji + custom images.
+   ============================================================ */
+
+/* ─── Layer 1: sticky on the outer section wrapper ───────────
+   The shopify-section wrapper carries `modulo-ai-section` (schema
+   "class"). Sticky must live here, not on the inner root, because the
+   inner root's containing block is only bar-height. */
+.modulo-ai-section:has(.modulo-ai--sticky) {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+/* ─── Layer 2: root ──────────────────────────────────────── */
+.modulo-ai {
+  width: 100%;
+  overflow: hidden;
+  background: var(--modulo-ai-bg, #F6F7F1);
+  color: var(--modulo-ai-text, #1C1D17);
+  font-family: var(--modulo-ai-font, inherit);
+  font-size: var(--modulo-ai-size-d, 13px);
+  font-weight: var(--modulo-ai-weight, 600);
+  line-height: 1.2;
+  letter-spacing: .012em;
+  padding-top: var(--modulo-ai-pad-top, 12px);
+  padding-bottom: var(--modulo-ai-pad-bottom, 12px);
+}
+.modulo-ai--upper .modulo-ai__text { text-transform: uppercase; letter-spacing: .07em; }
+
+/* ─── Layer 3: viewport + track + animation ──────────────── */
+.modulo-ai__viewport { overflow: hidden; }
+
+/* Edge fade only when actually scrolling — a static centered bar shouldn't
+   have its outer messages clipped by the mask. */
+.modulo-ai--ticker.modulo-ai--fade .modulo-ai__viewport {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--modulo-ai-edge-fade, 56px), #000 calc(100% - var(--modulo-ai-edge-fade, 56px)), transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 var(--modulo-ai-edge-fade, 56px), #000 calc(100% - var(--modulo-ai-edge-fade, 56px)), transparent 100%);
+}
+
+.modulo-ai--boxed .modulo-ai__viewport {
+  max-width: var(--modulo-ai-max-w, 1200px);
+  margin-inline: auto;
+}
+
+.modulo-ai__track {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--modulo-ai-gap, 44px);
+  width: max-content;
+  will-change: transform;
+}
+
+/* Animation attaches only after JS has measured + cloned (ready=1),
+   so there's no jumpy first paint. */
+.modulo-ai--dir-left  .modulo-ai__track[data-modulo-fs-ready="1"] {
+  animation: modulo-ai-scroll-left var(--modulo-ai-speed, 30s) linear infinite;
+}
+.modulo-ai--dir-right .modulo-ai__track[data-modulo-fs-ready="1"] {
+  animation: modulo-ai-scroll-right var(--modulo-ai-speed, 30s) linear infinite;
+}
+@keyframes modulo-ai-scroll-left {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(calc(-1 * var(--modulo-fs-cycle, 0px)), 0, 0); }
+}
+@keyframes modulo-ai-scroll-right {
+  from { transform: translate3d(calc(-1 * var(--modulo-fs-cycle, 0px)), 0, 0); }
+  to   { transform: translate3d(0, 0, 0); }
+}
+/* RTL: flip so messages read in the natural direction */
+html[dir="rtl"] .modulo-ai--dir-left  .modulo-ai__track { animation-name: modulo-ai-scroll-right; }
+html[dir="rtl"] .modulo-ai--dir-right .modulo-ai__track { animation-name: modulo-ai-scroll-left; }
+
+/* Pause on hover / keyboard focus */
+.modulo-ai--pausable .modulo-ai__viewport:hover .modulo-ai__track,
+.modulo-ai--pausable .modulo-ai__viewport:focus-within .modulo-ai__track {
+  animation-play-state: paused;
+}
+
+/* Ticker OFF (single message or ticker disabled) → center + wrap the
+   originals, no scroll. This is a SEPARATE class (not :not([ready])) so the
+   ticker-ON track stays single-line pre-ready and never flashes a taller
+   wrapped layout before the JS attaches — avoids first-paint CLS on this
+   sticky, above-the-fold header bar. (The reduced-motion block below still
+   wraps the ticker track so its content stays visible when it won't scroll.) */
+.modulo-ai__track--static {
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  padding-inline: 16px;
+}
+
+/* ─── Layer 4: items ─────────────────────────────────────── */
+.modulo-ai__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--modulo-ai-icon-gap, 10px);
+  white-space: nowrap;
+  color: inherit;
+  text-decoration: none;
+}
+.modulo-ai__text b,
+.modulo-ai__text strong {
+  color: var(--modulo-ai-accent, #B23B12);
+  font-weight: 800;
+}
+/* Inline links inside a message (added via inline_richtext selection) */
+.modulo-ai__text a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.modulo-ai__text a:hover { text-decoration-thickness: 2px; }
+/* Whole-message link */
+.modulo-ai__item--link:hover .modulo-ai__text {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.modulo-ai__item--link:focus-visible {
+  outline: 2px solid var(--modulo-ai-accent, #B23B12);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* Icons — inline, cap-height (not badged) */
+.modulo-ai__icon { display: inline-flex; flex: none; }
+.modulo-ai__icon svg {
+  width: var(--modulo-ai-icon-size, 18px);
+  height: var(--modulo-ai-icon-size, 18px);
+  display: block;
+  color: var(--modulo-ai-icon, #1C1D17);
+  transform: translateY(-0.06em);
+}
+.modulo-ai__icon-img {
+  width: var(--modulo-ai-icon-size, 18px);
+  height: var(--modulo-ai-icon-size, 18px);
+  object-fit: contain;
+  display: block;
+}
+.modulo-ai__emoji {
+  font-size: calc(var(--modulo-ai-icon-size, 18px) + 3px);
+  line-height: 1;
+  transform: translateY(-0.02em);
+}
+
+/* Optional "drive-bob" — subtle motion, best on the delivery truck */
+@keyframes modulo-ai-drive {
+  0%, 100% { transform: translate(-1.6px, -1px); }
+  45%      { transform: translate(1.6px, -2px); }
+  55%      { transform: translate(1.6px, -1px); }
+}
+.modulo-ai__item--drive .modulo-ai__icon svg {
+  animation: modulo-ai-drive 1.2s ease-in-out infinite;
+}
+
+/* Dividers between messages */
+.modulo-ai__divider {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--modulo-ai-accent, #B23B12);
+  opacity: .8;
+  font-size: .8em;
+  user-select: none;
+}
+
+/* Empty state (theme editor only) */
+.modulo-ai--empty { text-align: center; opacity: .85; padding: 8px 16px; }
+
+/* ─── Mobile ─────────────────────────────────────────────── */
+@media (max-width: 749px) {
+  .modulo-ai { font-size: var(--modulo-ai-size-m, 12px); }
+}
+@media (max-width: 480px) {
+  .modulo-ai { --modulo-ai-edge-fade: 24px; }
+}
+
+/* ─── Reduced motion: no scroll / no bob; wrap + center originals ─ */
+@media (prefers-reduced-motion: reduce) {
+  .modulo-ai__track {
+    animation: none !important;
+    transform: none !important;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+  .modulo-ai__item--drive .modulo-ai__icon svg { animation: none !important; }
+  .modulo-ai--fade .modulo-ai__viewport {
+    -webkit-mask-image: none;
+            mask-image: none;
+  }
+}

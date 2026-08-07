@@ -1,0 +1,321 @@
+{{ 'modulo-section-trust-checkout.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  # ─── Header (optional — off by default)
+  assign show_header      = section.settings.show_header
+  assign eyebrow          = section.settings.eyebrow
+  assign heading          = section.settings.heading
+  assign subheading       = section.settings.subheading
+  assign header_alignment = section.settings.header_alignment | default: 'left'
+
+  # ─── Claims
+  assign claim_size           = section.settings.claim_size | default: 13
+  assign show_claim_dividers  = section.settings.show_claim_dividers
+
+  # ─── Payments
+  assign pay_mode   = section.settings.pay_mode | default: 'auto'
+  assign pay_height = section.settings.pay_height | default: 24
+  assign note       = section.settings.note
+
+  # ─── Card
+  assign card_style  = section.settings.card_style | default: 'card'
+  assign card_radius = section.settings.card_radius | default: 14
+
+  # ─── Colors
+  assign bg = section.settings.bg_color | default: '#FFFFFF'
+  if section.settings.bg_transparent
+    assign bg = 'transparent'
+  endif
+  assign card_bg      = section.settings.card_bg | default: '#F7F7F8'
+  assign text_color   = section.settings.text_color | default: '#1A1A2E'
+  assign muted_color  = section.settings.muted_color | default: '#5B6472'
+  assign divider_color = section.settings.divider_color | default: '#E5E7EB'
+  assign accent_color = section.settings.accent_color | default: '#1A1A2E'
+
+  # ─── Width & spacing
+  assign section_width        = section.settings.section_width | default: 'page'
+  assign container_width      = section.settings.container_width | default: 'standard'
+  assign section_outer_radius = section.settings.section_outer_radius | default: 24
+  assign padding_top          = section.settings.padding_top | default: 40
+  assign padding_bottom       = section.settings.padding_bottom | default: 40
+
+  case container_width
+    when 'wide'
+      assign container_max = 1440
+    when 'full'
+      assign container_max = 100000
+    else
+      assign container_max = 1200
+  endcase
+
+  # ─── Block partition (positional — Shopify has no per-type block collections)
+  assign claim_blocks = section.blocks | where: 'type', 'claim'
+  assign logo_blocks  = section.blocks | where: 'type', 'logo'
+
+  # ─── Does the payment row have anything real to show?
+  # Both branches must probe real CONTENT, not container counts. `image_picker` has no
+  # `default`, so a freshly-added logo block is always imageless — gating on
+  # `logo_blocks.size` would render the empty bordered strip this gate exists to prevent.
+  # `where:` can't reach a nested `settings.image`, so count it.
+  assign real_logos = 0
+  for b in logo_blocks
+    if b.settings.image != blank
+      assign real_logos = real_logos | plus: 1
+    endif
+  endfor
+
+  assign has_pay = false
+  if pay_mode == 'auto' and shop.enabled_payment_types.size > 0
+    assign has_pay = true
+  elsif pay_mode == 'custom' and real_logos > 0
+    assign has_pay = true
+  endif
+
+  assign has_evidence = false
+  if has_pay
+    assign has_evidence = true
+  elsif note != blank
+    assign has_evidence = true
+  endif
+
+  # Nothing to say at all -> render no card, rather than an empty bordered sliver.
+  assign has_card = false
+  if claim_blocks.size > 0
+    assign has_card = true
+  elsif has_evidence
+    assign has_card = true
+  endif
+
+  # ─── Root class
+  assign root_class = 'modulo-section modulo-tc'
+  assign root_class = root_class | append: ' modulo-tc--card-' | append: card_style
+  assign root_class = root_class | append: ' modulo-tc--width-' | append: section_width
+  assign root_class = root_class | append: ' modulo-tc--container-' | append: container_width
+  assign root_class = root_class | append: ' modulo-tc--header-' | append: header_alignment
+  if show_claim_dividers
+    assign root_class = root_class | append: ' modulo-tc--dividers'
+  endif
+-%}
+
+<section
+  class="{{ root_class }}"
+  style="
+    --modulo-tc-bg:{{ bg }};
+    --modulo-tc-card:{{ card_bg }};
+    --modulo-tc-text:{{ text_color }};
+    --modulo-tc-muted:{{ muted_color }};
+    --modulo-tc-divider:{{ divider_color }};
+    --modulo-tc-accent:{{ accent_color }};
+    --modulo-tc-radius:{{ card_radius }}px;
+    --modulo-tc-claim:{{ claim_size }}px;
+    --modulo-tc-pay-h:{{ pay_height }}px;
+    --modulo-tc-container-max:{{ container_max }}px;
+    --modulo-tc-outer-radius:{{ section_outer_radius }}px;
+    --modulo-tc-pad-top:{{ padding_top }}px;
+    --modulo-tc-pad-bottom:{{ padding_bottom }}px;
+  "
+>
+  <div class="modulo-tc__container">
+
+    {%- if show_header and heading != blank -%}
+      <div class="modulo-tc__header">
+        {%- if eyebrow != blank -%}
+          <p class="modulo-tc__eyebrow">{{ eyebrow | escape }}</p>
+        {%- endif -%}
+        <h2 class="modulo-tc__heading">{{ heading }}</h2>
+        {%- if subheading != blank -%}
+          <p class="modulo-tc__subheading">{{ subheading | escape }}</p>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    {%- if has_card -%}
+    <div class="modulo-tc__card">
+
+      {%- if claim_blocks.size > 0 -%}
+        <div class="modulo-tc__claims">
+          {%- for block in claim_blocks -%}
+            <span class="modulo-tc__claim" {{ block.shopify_attributes }}>
+              <span class="modulo-tc__claim-icon">{%- render 'modulo-icons', name: block.settings.icon -%}</span>
+              {%- if block.settings.label != blank -%}
+                <span class="modulo-tc__claim-label">{{ block.settings.label | escape }}</span>
+              {%- endif -%}
+            </span>
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+
+      {%- if has_evidence -%}
+        {%- if claim_blocks.size > 0 -%}
+          {%- comment -%} The seam: the hairline between the claim and its evidence. {%- endcomment -%}
+          <div class="modulo-tc__seam"></div>
+        {%- endif -%}
+
+        <div class="modulo-tc__evidence">
+          {%- if has_pay -%}
+            <div class="modulo-tc__pay">
+              {%- if pay_mode == 'auto' -%}
+                {%- comment -%}
+                  Shopify's own full-colour SVGs for whatever the merchant actually accepts.
+                  Zero uploads, zero brand-asset risk, always accurate. NEVER bundle our own
+                  Visa/Mastercard/PayPal marks. Full colour is mandated by Shopify's theme
+                  store requirements — that's why there is no greyscale setting.
+                {%- endcomment -%}
+                {%- for type in shop.enabled_payment_types -%}
+                  {{ type | payment_type_svg_tag: class: 'modulo-tc__mark' }}
+                {%- endfor -%}
+              {%- else -%}
+                {%- for block in logo_blocks -%}
+                  {%- if block.settings.image != blank -%}
+                    {%- comment -%} mirrors the real_logos count above — keep the two in step {%- endcomment -%}
+                    <img
+                      class="modulo-tc__mark modulo-tc__mark--custom"
+                      src="{{ block.settings.image | image_url: width: 152 }}"
+                      alt="{{ block.settings.image.alt | escape }}"
+                      width="38"
+                      height="24"
+                      loading="lazy"
+                      {{ block.shopify_attributes }}
+                    >
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- endif -%}
+            </div>
+          {%- endif -%}
+
+          {%- if note != blank -%}
+            <p class="modulo-tc__note">{{ note | escape }}</p>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+    </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Modulo: Trust Checkout",
+  "tag": "section",
+  "class": "modulo-section-wrapper",
+  "settings": [
+    { "type": "header", "content": "Section header (optional)" },
+    { "type": "checkbox", "id": "show_header", "label": "Show a header above the card", "default": false },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "visible_if": "{{ section.settings.show_header }}" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "info": "Bold any word(s) to highlight them in the accent color.", "visible_if": "{{ section.settings.show_header }}" },
+    { "type": "textarea", "id": "subheading", "label": "Subheading", "visible_if": "{{ section.settings.show_header }}" },
+    {
+      "type": "select", "id": "header_alignment", "label": "Header alignment", "default": "left",
+      "visible_if": "{{ section.settings.show_header }}",
+      "options": [
+        { "value": "left",   "label": "Left" },
+        { "value": "center", "label": "Center" }
+      ]
+    },
+
+    { "type": "header", "content": "Claims" },
+    { "type": "range", "id": "claim_size", "label": "Claim size", "min": 11, "max": 20, "step": 1, "unit": "px", "default": 13 },
+    { "type": "checkbox", "id": "show_claim_dividers", "label": "Dividers between claims", "default": true },
+
+    { "type": "header", "content": "Payment methods" },
+    {
+      "type": "select", "id": "pay_mode", "label": "Payment icons", "default": "auto",
+      "info": "Automatic uses the payment methods you've enabled in Settings → Payments, with Shopify's official icons. Nothing to upload, and it stays accurate on its own.",
+      "options": [
+        { "value": "auto",   "label": "Automatic (recommended)" },
+        { "value": "custom", "label": "My own logos" },
+        { "value": "off",    "label": "Don't show payment icons" }
+      ]
+    },
+    { "type": "range", "id": "pay_height", "label": "Icon height", "min": 16, "max": 40, "step": 2, "unit": "px", "default": 24, "visible_if": "{{ section.settings.pay_mode != 'off' }}" },
+    { "type": "text", "id": "note", "label": "Note below the icons", "info": "Optional. Anything you write here is your store's claim, so keep it to what you can stand behind." },
+
+    { "type": "header", "content": "Card" },
+    {
+      "type": "select", "id": "card_style", "label": "Card style", "default": "card",
+      "options": [
+        { "value": "card",  "label": "Card (filled, bordered)" },
+        { "value": "plain", "label": "Plain (no card)" }
+      ]
+    },
+    { "type": "range", "id": "card_radius", "label": "Card corner radius", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 14, "visible_if": "{{ section.settings.card_style == 'card' }}" },
+
+    { "type": "header", "content": "Background & colors" },
+    { "type": "checkbox", "id": "bg_transparent", "label": "Transparent background", "default": false },
+    { "type": "color", "id": "bg_color", "label": "Background color", "default": "#FFFFFF", "visible_if": "{{ section.settings.bg_transparent == false }}" },
+    { "type": "color", "id": "card_bg", "label": "Card color", "default": "#F7F7F8", "visible_if": "{{ section.settings.card_style == 'card' }}" },
+    { "type": "color", "id": "text_color", "label": "Claim color", "default": "#1A1A2E" },
+    { "type": "color", "id": "muted_color", "label": "Note color", "default": "#5B6472" },
+    { "type": "color", "id": "divider_color", "label": "Border & divider color", "default": "#E5E7EB" },
+    { "type": "color", "id": "accent_color", "label": "Icon color", "default": "#1A1A2E" },
+
+    { "type": "header", "content": "Section width & spacing" },
+    {
+      "type": "select", "id": "section_width", "label": "Section width", "default": "page",
+      "options": [
+        { "value": "page",  "label": "Page" },
+        { "value": "boxed", "label": "Boxed (rounded, centered)" }
+      ]
+    },
+    {
+      "type": "select", "id": "container_width", "label": "Content width", "default": "standard",
+      "visible_if": "{{ section.settings.section_width == 'page' }}",
+      "options": [
+        { "value": "standard", "label": "Standard" },
+        { "value": "wide",     "label": "Wide" },
+        { "value": "full",     "label": "Full width" }
+      ]
+    },
+    { "type": "range", "id": "section_outer_radius", "label": "Outer corner radius", "min": 0, "max": 48, "step": 2, "unit": "px", "default": 24, "visible_if": "{{ section.settings.section_width == 'boxed' }}" },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 160, "step": 2, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 160, "step": 2, "unit": "px", "default": 40 }
+  ],
+  "blocks": [
+    {
+      "type": "claim",
+      "name": "Claim",
+      "settings": [
+        {
+          "type": "select", "id": "icon", "label": "Icon", "default": "encrypted",
+          "info": "These are all one icon family, so any combination stays visually consistent.",
+          "options": [
+            { "value": "encrypted",            "label": "Encrypted (secure checkout)" },
+            { "value": "local_shipping",       "label": "Delivery van" },
+            { "value": "delivery_truck_speed", "label": "Fast delivery" },
+            { "value": "autorenew",            "label": "Returns" },
+            { "value": "package_2",            "label": "Package" },
+            { "value": "support_agent",        "label": "Support agent" },
+            { "value": "savings",              "label": "Savings (pay later)" },
+            { "value": "stopwatch",            "label": "Stopwatch (fast)" },
+            { "value": "redeem",               "label": "Gift" },
+            { "value": "military_tech",        "label": "Tested" },
+            { "value": "workspace_premium",    "label": "Premium" },
+            { "value": "emoji_events",         "label": "Award" }
+          ]
+        },
+        { "type": "text", "id": "label", "label": "Claim", "default": "Secure checkout" }
+      ]
+    },
+    {
+      "type": "logo",
+      "name": "Payment logo",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Logo", "info": "Only used when Payment icons is set to \"My own logos\". Most stores should leave it on Automatic." }
+      ]
+    }
+  ],
+  "max_blocks": 12,
+  "presets": [
+    {
+      "name": "Modulo: Trust Checkout",
+      "blocks": [
+        { "type": "claim", "settings": { "icon": "encrypted", "label": "Secure checkout" } },
+        { "type": "claim", "settings": { "icon": "local_shipping", "label": "Free delivery over $75" } },
+        { "type": "claim", "settings": { "icon": "autorenew", "label": "30-day returns" } },
+        { "type": "claim", "settings": { "icon": "support_agent", "label": "Real human support" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

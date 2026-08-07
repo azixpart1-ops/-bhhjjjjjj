@@ -1,0 +1,79 @@
+{% comment %}#component#["settings/slider-arrows","settings/slider-dots-v2","settings/buttons-product","settings/product-form"]#endcomponent#{% endcomment %}
+<div class="smi-product-detail-element smi-block-inventory-status smi-mt-lg smi-w-100" {{ block.shopify_attributes }}
+    data-low-inventory="{{ block.settings.low_inventory_threshold }}"
+    data-show-inventory="{{ block.settings.show_inventory_count }}"
+>
+    {%  liquid 
+        assign low_inventory = block.settings.low_inventory_threshold
+        assign show_inventory_count = block.settings.show_inventory_count
+        assign track_quantity =  target.inventory_management
+        assign status = "sold"
+        if target.available
+            if target.inventory_quantity > low_inventory
+                assign status = "in"
+            else
+                if track_quantity != 'shopify'
+                    assign status = "in"
+                else 
+                    if target.inventory_policy == 'deny'
+                        assign status = "low"
+                    else
+                        assign status = "in"
+                    endif
+                endif
+            endif
+        endif
+    %}
+    <div class="smi-d-flex smi-block-inventory-color smi-align-items-center smi-column-gap-xs"
+        style="min-height: 25px; --inventory-status-color: {% if status == "sold" %}200,200,200{% elsif status == 'in' %}62,214,96{% else %}238,148,65{% endif %};"
+    >
+        <div class="smi-inventory-icon smi-overflow-hidden">
+            <div class="smi-wh-100 smi-d-block smi-status-icon-inner"></div>
+        </div>
+        <div class="smi-d-flex smi-align-items-center">
+            <span class="{{- 'smi-inventory-num-in smi-inventory-num-manage smi-inventory-num-detail' -}}
+                {%  liquid 
+                    unless status == 'in' and show_inventory_count and track_quantity == 'shopify' and target.inventory_quantity > 0
+                        echo ' smi-d-none'
+                    endunless
+                %}"
+            >
+            </span>
+            <span class="smi-inventory-ele-main smi-inventory-s-in {{- ' smi-color-text-75' -}}
+                {%  liquid 
+                    unless status == 'in'
+                        echo ' smi-d-none'
+                    endunless
+                %}"
+            >
+                {{ "smind.product.in_stock" | t }}
+            </span>
+            <span class="smi-inventory-ele-main smi-inventory-s-low {{- ' smi-color-text-75' -}}
+            {%  liquid 
+                    unless status == 'low'
+                        echo ' smi-d-none'
+                    endunless
+            %}"
+            >
+                {{ "smind.product.low_stock" | t }}
+            </span>
+            <span class="smi-inventory-ele-main smi-inventory-s-sold {{- ' smi-color-text-75' -}}
+            {%  liquid 
+                    unless status == 'sold'
+                        echo ' smi-d-none'
+                    endunless
+            %}">
+                {{ "smind.product.out_of_stock" | t }}
+            </span>
+            <span class="{{- 'smi-inventory-num-low smi-inventory-num-manage' -}}
+                {%  liquid 
+                    unless status == 'low'and show_inventory_count and track_quantity == 'shopify' and target.inventory_quantity > 0
+                        echo ' smi-d-none'
+                    endunless
+                %}"
+            >
+                <span class="smi-color-text-75">:&nbsp;</span><span class="smi-inventory-num-detail">{{ target.inventory_quantity }}&nbsp;</span><span class="smi-color-text-75">{{ "smind.product.item_left" | t }}</span>
+            </span>
+        </div>
+    </div>
+</div>{%comment%}#includeFile##endIncludeFile#{%endcomment%}

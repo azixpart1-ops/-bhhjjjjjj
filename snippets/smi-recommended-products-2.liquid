@@ -1,0 +1,437 @@
+{% comment %}#component#["settings/slider-arrows","settings/slider-dots-v2","settings/buttons-product","settings/product-form"]#endcomponent#{% endcomment %}
+{% liquid
+  assign dot_style = block.settings.sticky_page_dot_style
+  assign number_product_per_page = block.settings.number_product_per_page
+  assign currency_code_enabled = settings.smi_currency_code_enabled | default: shop.metafields.smind.settings.value.showCurrencyCode | default: false
+  if currency_code_enabled
+      assign currency_full = true
+  else
+    assign currency_full = false
+  endif
+  if settings.smi_animations_reveal_on_scroll != null
+    assign animation_scroll = settings.smi_animations_reveal_on_scroll
+  else
+    assign global_settings = shop.metafields.smind.settings.value
+    assign animation_scroll = global_settings.revealOnScroll
+  endif
+  assign heading = block.settings.heading | strip
+  assign sub_heading = block.settings.sub_heading | strip
+  assign description = block.settings.description | strip
+  unless blockType
+    assign blockType = block.type
+  endunless
+  if section_id_origin == nil
+  	assign section_id_origin = section.id
+  endif
+%}
+<div
+  class="smi-product-detail-element smi-recommend-{{ blockType }} smi-d-none smi-recommend-extend-products smi-w-100 smi-py-lg {{- ' smi-mt-lg' -}}
+  {% liquid
+    if block.settings.use_content_container
+      echo ' smi-content-wrapper smi-border smi-shadow'
+    else
+      echo ' smi-complementary-bundle-products-border'
+    endif
+  %}"
+  id="bundle_product_{{ section.id }}"
+  {{- block.shopify_attributes -}} 
+>
+  <div class="smi-heading-component smi-px-lg smi-link-wrapper">
+    <div class="{{- ' smi-heading-inner smi-w-100' -}}
+      {%- if animation_scroll %} smi-scroll-trigger smi-animate--slide-in{% endif -%}"
+    >
+      {%- assign sub_heading = block.settings.sub_heading | strip -%}
+      {% if sub_heading != blank %}
+          <p class="smi-text-sub smi-mb-xxs smi-heading-component__subheading">{{- sub_heading -}}</p>
+      {% endif %}
+      {%- assign description = block.settings.description | strip -%}
+      {%- assign heading = block.settings.heading | strip -%}
+      {% if heading != blank %}
+          <h2 class="{{ block.settings.heading_size }} {% if description != blank %}smi-mb-xxs{% endif %} smi-heading-component__heading">{{- heading -}}</h2>
+      {% endif %}
+      {%- assign description = block.settings.description | strip -%}
+      {% if description != blank %}
+          <div class="smi-text-md smi-heading-component__description">{{ description }}</div>
+      {% endif %}
+    </div>
+  </div>
+  <smi-recommend-product
+    id="smi_bundle_products_{{ section.id }}"
+    class="smi-recommend-product-{{ section.id }} smi-recommend-product-container smi-recommened-in-{{ blockType }}"
+    data-section-id="{{ section.id }}"
+    data-product-id="{{ product.id }}"
+    data-recommended-type="{{blockType}}"
+    data-url="{{ routes.product_recommendations_url }}?section_id={{ section_id_origin }}&product_id={{ current_product.id }}&intent=complementary"
+    data-bundle="{% if currency_full %}{{ shop.money_with_currency_format }}{% else %}{{ shop.money_format }}{% endif %}"
+  >
+    {%- if recommendations.performed and recommendations.products_count > 0 -%}
+      {% assign products_count = recommendations.products_count | plus: 0 %}
+      {%- if products_count > 0 -%}
+        <div class="smi-items smi-p-relative smi-items--overflow-false smi-overflow-hidden smi-pt-md">
+          {% assign st_pagination = block.settings.sticky_page_dot_style %}
+          <div 
+            class="smi-swiper" 
+            id="smi_bundle_block_{{ section.id }}"
+            style="--media-ratio: {{ block.settings.media_ratio }}; overflow: visible;"
+          >
+            {% liquid
+              assign bundle_class_media = 'smi-product-complementary-bundle-img smi-mr-md smi-h-auto'
+              if blockType == 'products_bundles'
+                assign  bundle_class_media = bundle_class_media | append: ' smi-ml-sm'
+              endif
+              if block.settings.use_media_style
+                assign bundle_class_media = bundle_class_media | append: ' smi-media-wrapper smi-border smi-shadow'
+              endif
+            %}
+            <div class="smi-swiper-wrapper">
+              <div class="smi-swiper-slide smi-px-lg smi-detail-product-bundle">
+                {% liquid
+                  assign products_count = recommendations.products_count
+									if blockType contains 'bundle'
+										assign all_list_bundle = products_count | plus: 1
+									else
+										assign all_list_bundle = products_count
+									endif
+                %}
+                {% for index_item in  (1..all_list_bundle) %}
+                  {% assign num_modulo = forloop.index | minus: 1 | modulo: number_product_per_page %}
+                  {% if num_modulo == 0 and forloop.index > 1 %}
+                    </div>
+                    <div class="smi-swiper-slide smi-px-lg smi-detail-product-bundle">
+                  {% endif %}
+									{% liquid
+										if forloop.index == 1 and blockType contains 'bundle'
+											assign current_product = product
+										else
+											assign index_product_recomment = forloop.index
+											if blockType contains 'bundle'
+												assign index_product_recomment = forloop.index |  minus: 1
+											endif
+											assign current_product = recommendations.products[index_product_recomment]
+											for product in recommendations.products
+												if forloop.index == index_product_recomment
+													assign current_product = product
+												endif
+											endfor
+										endif
+									%}
+									<div class="smi-detail-product-bundle-in smi-d-flex {{- ' smi-mb-md' -}}
+										{%  liquid
+											if blockType == 'products_bundles'
+												echo ' smi-align-items-center'
+											else
+												echo ' smi-align-items-start'
+											endif
+										%}"
+									>
+										<div class="smi-checked-bundle-container {{- ' smi-align-items-center' -}}
+                        {%  liquid
+											if blockType == 'products_bundles'
+												echo ' smi-d-flex'
+											else
+												echo ' smi-d-none'
+											endif
+										%}"
+										>
+											<div class="smi-checked-bundle-product  smi-d-block smi-p-relative smi-pl-md">
+												<label class="container">
+													<input
+														type="checkbox"
+														data-product-id="{{ current_product.id }}"
+														aria-label="Select product bundle"
+														checked="checked"
+                          {% if forloop.index == 1 %}disabled{% endif %} 
+													>
+													<span class="checkmark smi-p-absolute"></span>
+												</label>
+											</div>
+										</div>
+										{% if current_product.featured_image != null and current_product.featured_image != undefined %}
+											{{
+											current_product.featured_image
+											| image_url: width: 200
+											| image_tag: loading: 'lazy', class: bundle_class_media
+											}}
+										{% else %}
+											<span style="width: 70px" class={{ bundle_class_media }}>{{ 'collection-1' | placeholder_svg_tag }}</span>
+										{% endif %}
+										<div class="product-bundle-content smi-product-complementary-bundle-content smi-w-100 smi-h-auto">
+											<a href="{{ current_product.url }}" class="smi-h6 smi-mb-xxs">
+												{% if forloop.index == 1 and blockType contains 'bundle' %}{{ 'smind.product.this_item' | t }}: {% endif %}{{ current_product.title }}
+											</a>
+											<div class="smi-detail-product-bundle-price smi-d-flex smi-column-gap-xs smi-mb-xxs">
+												<span class="smi-text-price-md sale-price-compare {{- " smi-color-text-55" -}}
+															{%  liquid
+													unless current_product.selected_or_first_available_variant.price <= current_product.selected_or_first_available_variant.compare_at_price
+														echo ' smi-d-none'
+													endunless
+												%}"
+												>
+													{% if currency_full %}
+														{{- current_product.selected_or_first_available_variant.compare_at_price | json | money_with_currency -}}
+													{% else %}
+														{{- current_product.selected_or_first_available_variant.compare_at_price | json | money -}}
+													{% endif %}
+												</span>
+												<span class="smi-text-price-md sale-price">
+													{% if currency_full %}
+														{{- current_product.selected_or_first_available_variant.price | json | money_with_currency -}}
+													{% else %}
+														{{- current_product.selected_or_first_available_variant.price | json | money -}}
+													{% endif %}
+												</span>
+											</div>
+											{% if current_product.variants.size > 1 and current_product.available %}
+												<div class="smi-bundle-select-variant smi-p-relative smi-d-flex smi-align-items-center {{- ' smi-column-gap-xs' -}}
+													{% liquid
+														if blockType == 'products_bundles'
+															echo ' smi-d-flex'
+														else
+															echo ' smi-d-none'
+														endif
+														if current_product.variants.size > 1
+															echo ' smi-inputs-wrapper smi-border smi-shadow smp-input-border-text-color'
+														endif
+													%}"
+												>
+													{% if current_product.variants.size > 1 %}
+														{% assign variant_show_dd_first = 0 %}
+														{% for variant in current_product.variants %}
+															{% assign variant_show_dd_first = variant_show_dd_first | plus: 1 %}
+														{% endfor %}
+														{% if variant_show_dd_first > 0 %}
+															<select class="smi-btn-select-variant smi-p-relative smi-d-flex smi-align-items-center smi-w-100 smi-overflow-hidden smi-input smi-text-sm"
+																aria-label="Bundle"
+																data-product-id="{{ current_product.id }}"
+															>
+																{% for variant in current_product.variants %}
+																	{% if variant.available %}
+																		<option
+																			class="smi-text-sm {% if forloop.index != 1 %} smi-color-text-75{% endif %}"
+																			value="{{ variant.id }}"
+																		>
+																			{{ variant.title }}
+																		</option>
+																	{% endif %}
+																{% endfor %}
+															</select>
+															{% render 'smi-icons', icon: 'arrow-down' %}
+														{% endif %}
+													{% endif %}
+												</div>
+											{% endif %}
+										</div>
+									</div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          <div class="smi-swiper-controls">
+              {% unless section.settings.sticky_page_dot_style == 'none' %}
+                {%- liquid
+	if st_pagination == null
+		assign st_pagination = section.settings.sticky_page_dot_style
+	endif
+-%}
+{% if st_pagination != 'none' %}
+	{%- liquid
+		assign pagination_style = 'default'
+		if st_pagination contains 'text-style'
+			assign pagination_style = 'fraction'
+		elsif st_pagination == 'dynamic'
+			assign pagination_style = 'dynamic'
+		elsif st_pagination == 'scrollbar'
+			assign pagination_style = 'scrollbar'
+		endif
+	-%}
+	<div class="smi-slider-dot-container smi-pt-xl smi-w-100" data-pagination="{{ pagination_style }}">
+		{%- if st_pagination contains 'text-style' -%}
+			<div class="smi-component-sticky-page-dot">
+				<div class="smi-slider-action">
+					<div class="smi-arrows {{ st_pagination }}" smind-key="sticky_page_dot_style,pagination_alignment" smind-attributes smind-attr-pagination>
+						<div data-control="textPrevSlide" class="smi-arrow dot-arrow-slider smi-text-sm">
+							{% render 'smi-icons', icon: 'arrow-left' %}
+						</div>
+						<div class="text-pagination smi-pagination smi-slider-pagination smi-text-sm smi-arrow"></div>
+						<div data-control="textNextSlide" class="smi-arrow dot-arrow-slider smi-text-sm">
+							{% render 'smi-icons', icon: 'arrow-right' %}
+						</div>
+					</div>
+				</div>
+			</div>
+		{%- elsif st_pagination == 'scrollbar' -%}
+			<div class="smi-swiper-scrollbar" smind-key="sticky_page_dot_style,pagination_alignment" smind-attributes smind-attr-pagination></div>
+		{%- elsif st_pagination == 'dynamic' -%}
+			<div class="smi-pagination" smind-key="sticky_page_dot_style,pagination_alignment" smind-attributes smind-attr-pagination></div>
+		{%- else -%}
+			<div class="dot-container {{ st_pagination }}">
+				<div
+					class="smi-swiper-pagination smi-pagination"
+					{% if st_pagination == 'dot-style-4' %}
+						style="display: flex;"
+					{% endif %}
+					smind-key="sticky_page_dot_style,pagination_alignment" smind-attributes smind-attr-pagination
+				></div>
+			</div>
+		{%- endif -%}
+	</div>
+{% endif %}
+              {% endunless %}
+          </div>
+        </div>
+        {% if blockType == 'products_bundles' %}
+          <div class="smi-divider-bundle smi-mr-lg smi-ml-lg">divider</div>
+          <div class="bundle-product-price smi-d-flex smi-column-gap-sm smi-align-items-center smi-mt-md smi-mb-xs smi-px-lg">
+            <span class="smi-text-md">{{ 'smind.product.total_price_product_bundle' | t }}:</span>
+            <span class="smi-text-price-lg sale-price-compare smi-total-recommended-compare-price unchecked-bundle-55"> </span> 
+            <span class="smi-text-price-xl smi-total-recommended-price"> </span>
+          </div>
+          <div class="smi-px-lg">
+            {% capture content_form  %}
+                <button 
+                    type="submit"
+                    class="smi-button-add-cart smi-button-wrapper smi-mx-lg smi-button smi-cursor-pointer smi-button-full-width-true smi-text-button smi-button--solid smi-border smi-shadow button-purchase-bundle smi-w-100
+                  {{- ' smi-hover-' | append: settings.smi_animations_hover_elements | default: shop.metafields.smind.settings.value.buttonHoverEffect | default: 'none' -}}"
+                  id="btn_add_to_cart_bundle_{{ section.id }}"
+                >
+                  <!-- Add&nbsp;<span id="purchase_buddle_{{ section.id }}"></span>&nbsp;items to cart -->
+                    <span class="smi-text-cart smi-text-cart-re-all-items smi-text-button" id="purchase_buddle_all_{{ section.id }}">
+                    {{ "smind.product.add_all_item_to_cart_product_bundle_html" | t }}
+                    </span>
+                    <span class="smi-text-cart smi-text-cart-specific-items smi-d-none smi-text-button" id="purchase_buddle_{{ section.id }}">
+                    {{ "smind.product.add_item_to_cart_product_bundle_html" | t }}
+                    </span>
+                    <span class="smi-text-soldout smi-d-none">
+                        {{- 'smind.product.sold_out' | t -}}
+                    </span>
+                    <span class="smi-text-loading"></span>
+                </button>
+            {% endcapture  %}
+            {%-liquid
+                assign product_form_id = 'product-form-' | append: section.id | append: block.id
+                assign error_selector = '#smi-bundle-product-error-' | append: section.id | append: ' .smi-errors'
+                assign show_soldout = false
+                assign form_type = 'bundles'
+            -%}
+            {%-liquid
+    unless card_product
+        assign card_product = product
+    endunless
+    unless product_form_id
+        assign product_form_id = 'product-form-' | append: section.id | append: block.id
+    endunless
+    assign target = card_product.selected_or_first_available_variant
+    if error_selector == nil
+        assign error_selector = ''
+    endif
+    if enable_soldout == nil
+        assign enable_soldout = false
+    endif
+    if form_type == nil
+        assign form_type = 'normal'
+    endif
+	assign data_form_type = 'add-to-cart-form'
+	if cart_edit_previewing == true
+		assign data_form_type = 'edit-cart-form'
+	endif
+-%}
+{% if card_product != blank and card_product != empty %}
+<smi-product-form
+    data-soldout="false"
+    data-error-selector="{{error_selector}}"
+    data-enable-soldout = "{{enable_soldout}}"
+>
+    {%- form 'product',
+        card_product,
+        id: product_form_id,
+        class: 'form',
+        novalidate: 'novalidate',
+        data-type: data_form_type
+    -%}
+        <input
+            type="hidden"
+            name="id"
+            value="{{ card_product.selected_or_first_available_variant.id }}"
+            class="product-variant-id"
+            {% if card_product.selected_or_first_available_variant.available == false %}
+                disabled
+            {% endif %}
+        />
+        {% if content_form == nil %}
+<div id="buy_group_add_to_cart_container_{{ section.id }}">
+    <button
+        type="submit"
+        id="buy_group_add_to_cart_{{ section.id }}"
+        class="smi-purchase-action text-uppercase smi-text-button smi-w-100 smi-h-100 smi-shadow smi-button-wrapper smi-button smi-button--solid smi-border smi-shadow 
+        {% if block.settings.button_animation contains 'none' -%}
+            smi-hover-{{- settings.smi_animations_hover_elements | default: shop.metafields.smind.settings.value.buttonHoverEffect | default: 'none' }}
+        {%- else -%}
+            {{ block.settings.button_animation }}
+        {% endif %} {{- ' smi-product-add-to-card-custom' -}}
+          {% liquid
+            if target.available == false
+              echo ' smi-disabled-purchase'
+            endif
+          %}"
+          style="{% if target.available == false %}cursor: no-drop; {% else %}cursor: pointer; {% endif %}{% if target.inventory_management != 'shopify' %}{% else %}{% if target.available == true and target.inventory_policy == 'deny' and cart_qty >= target.inventory_quantity %} pointer-events: none; {% endif %} {% endif %}"
+    >
+        {{ block.settings.button_label }}
+    </button>
+</div>
+        {% else %}
+            {{ content_form }}
+        {% endif %}
+        <input type="hidden" name="form-type" value="{{form_type}}" />
+    {%- endform -%}
+</smi-product-form>
+{% endif %}
+            <div id="smi-bundle-product-error-{{section.id}}">
+                <div class="smi-errors smi-mb-sm"></div>            
+            </div>
+          </div>
+          <script type="application/json" data-product-recommendations>
+          {
+            "productId": "{{- product.id -}}",
+            "price": "{{ product.price}}",
+            "price_max": "{{ product.price_max}}",
+            "first_selected": "{{ product.selected_or_first_available_variant.id }}",
+            "current": [
+              {%- for variant in product.variants -%}
+                {
+                  "id": "{{ variant.id }}",
+                  "product_id": {{ product.id}},
+                  "img_url":"{{ variant.image | image_url }}",
+                  "price": {{ variant.price}},
+                  "compare_at_price": {% if variant.compare_at_price and variant.compare_at_price > 0 %}{{ variant.compare_at_price }}{% else %}null{%endif%}
+                }
+              {%- if forloop.last == false -%},{%- endif -%}
+              {% endfor %}
+            ],
+            "recommendations": [
+              {% for product in recommendations.products %}
+                {
+                  "id": "{{ product.id}}",
+                  "first_selected": "{{ product.selected_or_first_available_variant.id }}",
+                  "variants": [
+                    {%- for variant in product.variants -%}
+                     {
+                        "id": "{{ variant.id }}",
+                        "product_id": {{ product.id}},
+                        "img_url":"{{ variant.image | image_url }}",
+                        "price": {{ variant.price}},
+                        "compare_at_price": {% if variant.compare_at_price and variant.compare_at_price > 0 %}{{ variant.compare_at_price }}{% else %}null{%endif%}
+                     }
+                     {%- if forloop.last == false -%},{%- endif -%}
+                    {%- endfor -%}
+                  ]
+                }
+                {%- if forloop.last == false -%},{%- endif -%}
+              {% endfor %}
+            ]
+          }
+          </script>
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  </smi-recommend-product>
+</div>{%comment%}#includeFile#snippets/smi-icons#endIncludeFile#{%endcomment%}

@@ -1,0 +1,70 @@
+{% comment %}#component#["settings/slider-arrows","settings/slider-dots-v2","settings/buttons-product","settings/product-form"]#endcomponent#{% endcomment %}
+{%  liquid 
+  assign hasOg = false
+  if block.settings.show_product_type == true and product.type != '' and product.type != blank
+    assign hasOg = true
+  endif
+  if block.settings.show_vendor == true and product.vendor != '' and product.vendor != blank
+    assign hasOg = true
+  endif
+  if block.settings.show_collections == true and product.collections != blank
+    assign hasOg = true
+  endif
+  if block.settings.show_tags == true and product.tags != blank and product.tags.size > 0
+    assign hasOg = true
+  endif
+%}
+{% if hasOg %}
+  <div
+    class="smi-product-detail-element smi-product-organization smi-w-100 smi-d-flex smi-flex-wrap smi-column-gap-sm smi-text-sm smi-mt-lg"
+    {{ block.shopify_attributes }}
+  >
+    {% if block.settings.show_product_type == true and product.type != '' and product.type != blank %}
+      <div class="smi-product-organization-part smi-d-flex smi-w-100 smi-mb-xs">
+        <span class="product-organization-title smi-color-text-75"> {{ 'smind.product.product_type' | t }}:&nbsp;</span>
+        {{ product.type }}
+      </div>
+    {% endif %}
+    {% if block.settings.show_vendor == true and product.vendor != '' and product.vendor != blank %}
+      {%- capture vendor -%} {{ product.vendor | link_to_vendor }} {%- endcapture -%}
+      <div class="smi-product-organization-part smi-d-flex smi-w-100 smi-mb-xs">
+        <span class="product-organization-title smi-color-text-75"> {{ 'smind.product.vendor' | t }}:&nbsp; </span>
+        {{ vendor }}
+      </div>
+    {% endif %}
+    {% if block.settings.show_collections == true and product.collections != blank %}
+      <div class="smi-product-organization-part smi-d-flex smi-w-100 smi-mb-xs">
+        <span class="product-organization-title smi-color-text-75"> {{ 'smind.product.collections' | t }}:&nbsp;</span>
+        <div>
+          {% for collection in product.collections %}
+            {% assign collection_coll = collection.url %}
+            {{ collection.title | capitalize | link_to: collection_coll -}}
+            {%- unless forloop.last %},{% endunless %}
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+    {% if block.settings.show_tags == true and product.tags != blank %}
+      {% if product.tags.size > 0 %}
+        <div class="smi-product-organization-part smi-d-flex smi-w-100">
+          <span class="product-organization-title smi-color-text-75"> {{ 'smind.product.tags' | t }}:&nbsp;</span>
+          <div class="product-tag smi-d-flex smi-flex-wrap smi-column-gap-xxs smi-row-gap-xxs">
+            {% if block.settings.tag_style == 'text' %}
+              {% for tag in product.tags %}
+                {% assign tag_coll = '/collections/all/' | append: tag %}
+                {{ tag | link_to: tag_coll -}}
+                {%- unless forloop.last %},&nbsp;{% endunless %}
+              {% endfor %}
+            {% elsif block.settings.tag_style == 'highlight' %}
+              {% for tag in product.tags %}
+                <a class="tag-highlight smi-px-xs" href="/collections/all/{{ tag | handleize }}">
+                  {{ tag }}
+                </a>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endif %}{%comment%}#includeFile##endIncludeFile#{%endcomment%}

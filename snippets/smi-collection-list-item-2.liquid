@@ -1,0 +1,200 @@
+{% comment %}#component#["settings/image.picture","settings/button-without-url"]#endcomponent#{% endcomment %}
+{% liquid
+  assign placeholder_name = 'collection-1'
+  assign collection = block.settings.collection
+  if is_reference 
+	assign collection = collections[block.settings.collection]
+	endif
+  if block.settings.link != blank
+    assign link = block.settings.link
+  elsif collection != blank
+    assign link = collection.url
+  endif
+  if block.settings.heading != blank
+    assign heading = block.settings.heading
+  elsif collection != blank
+    assign heading = collection.title
+  else
+    assign heading = ''
+  endif
+  assign content_position_md = block.settings.desktop_content_position | split: '_'
+  assign content_position = block.settings.mobile_content_position | split: '_'
+  assign card_hover_effect = settings.smi_animations_hover_card | default: shop.metafields.smind.settings.value.cardHoverEffect | default: 'none'
+  unless content_max_width
+		assign content_max_width = block.settings.content_max_width
+  endunless
+  unless mobile_content_max_width
+		assign mobile_content_max_width = block.settings.mobile_content_max_width
+  endunless
+%}
+{% if content_max_width %}
+	<style>
+		#smi-{{ block.id }} .__smi-inner {
+			--content-max-width: {{ content_max_width }}px;
+			width: var(--content-max-width);
+			max-width: 100%;
+		}
+		@media(max-width:767.98px) {
+			#smi-{{ block.id }} .__smi-inner { 
+				--content-max-width: {{ mobile_content_max_width }}px;
+			}
+		}
+	</style>
+{% endif %}
+<div
+	id="smi-{{ block.id }}"
+  class="
+    {%- liquid
+      echo ' smi-collection-item-2 '
+      echo content_color
+    -%}
+	{{- ' smi-card-hover-' | append: card_hover_effect -}}
+  "
+  {{ block.shopify_attributes }}
+  style="{% if block.settings.image_overlay != blank %}--image-overlay: {{ block.settings.image_overlay }};{% endif %}"
+>
+  <div
+    class="
+      {%- liquid
+          echo ' smi-collection-item-2__media smi-lh-0 smi-mh-100'
+          if media_height == false
+              echo ' smi-h-100'
+          else
+              echo ' smi-media-h-' | append: section.settings.media_height
+          endif
+      -%}
+    "
+  >
+    {% if block.settings.image != blank %}
+		{% assign image_object = block.settings.image %}
+		{% if is_reference %}
+			{% assign image_object = images[block.settings.image] %}
+		{% endif %}
+    {% elsif collection.image != blank %}
+      	{% assign image_object = collection.image %}
+    {% endif %}
+	{% assign image_object_mobile = block.settings.mobile_image_optional %}
+	{% assign image_classes = 'smi-bg-image' %}
+	{% assign placeholder_class = "smi-bg-image smi-placeholder-dark" %}
+{% assign image_width = image_width | default: 2500 %}
+{% assign placeholder_name = placeholder_name | default: "lifestyle-1" %}
+{% assign placeholder_class = placeholder_class | default: "smi-placeholder-light" %}
+<picture>
+  {% if image_object_mobile != blank %}
+    <source
+      media="(max-width:767px)"
+      srcset="
+        {%- if image_object_mobile.width >= 400 -%}{{ image_object_mobile | image_url: width: 400 }} 400w,{%- endif -%}
+        {%- if image_object_mobile.width >= 500 -%}{{ image_object_mobile | image_url: width: 500 }} 500w,{%- endif -%}
+        {%- if image_object_mobile.width >= 600 -%}{{ image_object_mobile | image_url: width: 500 }} 600w,{%- endif -%}
+        {%- if image_object_mobile.width >= 700 -%}{{ image_object_mobile | image_url: width: 500 }} 700w,{%- endif -%}
+        {%- if image_object_mobile.width >= 800 -%}{{ image_object_mobile | image_url: width: 500 }} 800w,{%- endif -%}
+        {%- if image_object_mobile.width >= 1000 -%}{{ image_object_mobile | image_url: width: 500 }} 1000w,{%- endif -%}
+        {{ image_object_mobile | image_url }} {{ image_object_mobile.width }}w
+      "
+    >
+  {% endif %}
+  {% if image_object != blank %}
+    {{
+      image_object
+      | image_url: width: image_width
+      | image_tag:
+        widths: '400,500,600,700,800,1000,1200,1400,1600,1920,2500',
+        sizes: sizes,
+        loading: lazy_loading,
+        fetchpriority: fetchpriority,
+        class: image_classes
+    }}
+  {% else %}
+    {% if image_object_mobile == blank %}
+      {{ placeholder_name | placeholder_svg_tag: placeholder_class }}
+    {% else %}
+      {% assign svg_class = 'smi-d-none smi-d-md-block ' | append: placeholder_class %}
+      {{ placeholder_name | placeholder_svg_tag: svg_class }}
+      <img
+        class="smi-d-block smi-d-md-none"
+        src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+        alt="placeholder"
+      >
+    {% endif %}
+  {% endif %}
+</picture>
+  </div>
+  <div
+    draggable="false"
+    class="
+      {{- 'smi-collection-item-2__content' -}}
+      {{- ' smi-justify-content-' | append: content_position.last -}}
+      {{- ' smi-justify-content-md-' | append: content_position_md.last -}}
+      {{- ' smi-align-items-' | append: content_position.first -}}
+      {{- ' smi-align-items-md-' | append: content_position_md.first -}}
+    "
+    {% if link != blank %}
+      onclick="window.location.href='{{- link -}}';"
+    {% endif %}
+  >
+    <div
+      class="
+        {{- '__smi-inner smi-justify-content-inherit' -}}
+        {{- ' smi-text-' | append: content_position.last -}}
+        {{- ' smi-text-md-' | append: content_position_md.last -}}
+      "
+    >
+      {%- if block.settings.subheading != blank %}
+        <div class="__smi-subheading smi-text-sub smi-color-subtext smi-link-wrapper" data-type="item-subheading">
+          {{ block.settings.subheading }}
+        </div>
+      {% endif %}
+      {% if heading != blank %}
+        <div
+          class="__smi-heading {{ section.settings.content_heading_size | default: block.settings.heading_size | default: 'smi-h4' }} smi-link-wrapper"
+          data-type="item-heading"
+        >
+          {{ heading }} 
+        </div>
+      {% endif %}
+      {% if block.settings.description != blank %}
+        <div
+          class="__smi-description smi-mt-xxs smi-text-md smi-color-text-75 smi-link-wrapper"
+          data-type="item-description"
+        >
+          {{ block.settings.description }}
+        </div>
+      {% endif %}
+      {% if block.settings.button_label != blank %}
+        <div class="smi-mt-sm smi-mw-100 smi-d-flex smi-justify-content-inherit">
+{% liquid
+  assign button_label = block.settings.button_label
+  assign button_style = block.settings.button_style
+%}
+<div class="smi-component-button-without-link smi-button-wrapper">
+  {% if button_label != blank %}
+    <a
+      href="{{ button_link | default: '#' }}"
+      class="
+        {%- liquid
+          echo 'smi-button smi-text-button smi-border smi-shadow'
+          echo button_style | split: '_' | first | prepend: ' smi-button--'
+          if button_style contains 'arrow'
+            echo ' smi-has-icon'
+          endif
+          echo settings.smi_animations_hover_elements | default: shop.metafields.smind.settings.value.buttonHoverEffect | default: 'none' | prepend: ' smi-hover-'
+        -%}
+      "
+    >
+      <span>
+        {{- button_label | escape -}}
+      </span>
+      {% if button_style contains 'arrow' %}
+        <div class="smi-d-flex smi-align-content-center">
+          {% render 'smi-icons', icon: 'arrow-right-2' %}
+        </div>
+      {% endif %}
+    </a>
+  {% endif %}
+</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>{%comment%}#includeFile#snippets/smi-icons#endIncludeFile#{%endcomment%}

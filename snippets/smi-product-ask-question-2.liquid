@@ -1,0 +1,108 @@
+{% if block.settings.collapse_heading != blank %}
+    <div class="smi-product-detail-element smi-block-ask-question smi-block-collapse-des smi-mt-lg smi-w-100 smi-product-block-{{ section.id }} {{- ' smi-link-wrapper' -}}
+    {% liquid 
+      if block.settings.show_desc_below
+        echo ' smi-show-after-mob'
+      endif
+    %}"
+      {{ block.shopify_attributes }}
+    >
+      <div class="smi-collapse-heading smi-d-flex smi-py-sm smi-justify-content-between smi-w-100">
+        <div class="smi-text-md smi-d-flex smi-align-items-center smi-column-gap-xs" style="--svg-size: {{ block.settings.icon_size }}px;">
+          {% if block.settings.upload_icon != blank %}
+              {% assign sizes = block.settings.icon_size | append: 'px' %}
+              {% if is_reference %}
+				{{
+					images[block.settings.upload_icon]
+					| image_url: width: 300
+					| image_tag: widths: '100,200,300', sizes: sizes
+				  }}
+			{% else %}
+				{{
+					block.settings.upload_icon
+					| image_url: width: 300
+					| image_tag: widths: '100,200,300', sizes: sizes
+				}}
+			{% endif %}
+          {% else %}
+              {% if block.settings.icon != "none" %}
+                {%- render 'smi-custom-icons', icon: block.settings.icon -%}
+              {% endif %}
+          {% endif %}
+          <h3 class="{{ block.settings.heading_size }}">{{ block.settings.collapse_heading }}</h3>
+        </div>
+        <div class="smi-collapse-heading__icon smi-collapse-heading__icon--arrow"></div>
+      </div>
+      <div class="smi-collapse-content">
+        <div class="{% if block.settings.collapse_content != blank or block.settings.collapse_content_page != blank %} smi-pb-sm {% endif %}">
+            {% form 'contact' %}
+                {{ form.errors | default_errors }}
+                <div class="ask-question-product-link smi-mb-sm">
+                  <div class="smi-text-sm smi-color-text-75">{{ 'smind.product.ask_a_question.product_link' | t }}</div>
+                  <input
+                    placeholder="https://shinecommerce.myshopify.com/products/ball-crew-shirt"
+                    class="smi-inputs-wrapper smi-input smi-border smi-shadow smi-w-100 smi-py-xs smi-px-sm"
+                    type="tel"
+                    name="contact[product]"
+                    name="product"
+                    id="product"
+                    value="{{shop.url}}{{ product.url }}"
+                  >
+                </div>
+                <div class="ask-quest-name-email smi-d-flex smi-column-gap-sm smi-mb-sm">
+                  <div class="ask-question-name">
+                    <div class="smi-text-sm smi-color-text-75">{{ 'smind.product.ask_a_question.name' | t }}</div>
+                    <input class="smi-inputs-wrapper smi-w-100 smi-input smi-border smi-shadow smi-py-xs smi-px-sm" type="text" name="contact[name]" name="name" id="ask_question_name">
+                  </div>
+                  <div class="ask-question-email">
+                    <div class="smi-text-sm smi-color-text-75">{{ 'smind.product.ask_a_question.email' | t }} *</div>
+                    <input
+                      class="smi-inputs-wrapper smi-w-100 smi-input smi-border smi-shadow smi-py-xs smi-px-sm"
+                      required
+                      type="email"
+                      name="contact[email]"
+                      name="email"
+                      id="ask_question_email"
+                    >
+                  </div>
+                </div>
+                {% if block.settings.show_phone_number_field == true%}
+                <div class="ask-question-phone smi-mb-sm">
+                  <div class="smi-text-sm smi-color-text-75">{{ 'smind.product.ask_a_question.phone_number' | t }}</div>
+                  <input class="smi-inputs-wrapper smi-w-100 smi-input smi-border smi-shadow smi-py-xs smi-px-sm" type="tel" name="contact[phone]" name="phone" id="phone">
+                </div>
+              {% endif %}
+                <div class="ask-question-question smi-mb-md">
+                  <div class="smi-text-sm smi-color-text-75">{{ 'smind.product.ask_a_question.question' | t }} *</div>
+                  <textarea
+                    required
+                    class="smi-inputs-wrapper smi-w-100 smi-d-block smi-input smi-border smi-shadow smi-py-xs smi-px-sm"
+                    rows="5"
+                    name="contact[body]"
+                    name="question"
+                    id="ask_question_content"
+                  ></textarea>
+                </div>
+                {%- if form.posted_successfully? -%}
+                    {%- assign message_class = 'success' -%}
+                    {%- assign message_text = 'smind.product.ask_a_question.submit_success' | t -%}
+                    {%- assign icon_name = 'success' -%}
+                  {%- elsif form.errors -%}
+                    {%- assign message_class = 'error' -%}
+                    {%- assign message_text = 'smind.product.ask_a_question.submit_failed' | t -%}
+                    {%- assign icon_name = 'error' -%}
+                  {%- endif -%}
+                  {%- if message_class -%}
+                    <div class="smi-form-message smi-d-flex smi-align-items-center smi-column-gap-xxs smi-form-{{ message_class }} smi-mb-md">
+                      {% render 'smi-icons', icon: icon_name %}
+                      <span>{{ message_text }}</span>
+                    </div>
+                  {%- endif -%}
+                <div class="submit-form smi-w-100 smi-d-flex smi-justify-content-center smi-button-wrapper">
+                  <button type="submit" class="submit-form smi-button-wrapper smi-mb-sm smi-button smi-border smi-shadow smi-text-button smi-ask-button-submit smi-button--solid smi-hover-{{- settings.smi_animations_hover_elements | default: shop.metafields.smind.settings.value.buttonHoverEffect | default: 'none' }}">{{ 'smind.product.ask_a_question.submit' | t }}</button>
+                </div>
+            {% endform %}
+        </div>
+      </div>
+    </div>
+  {% endif %}{%comment%}#includeFile#snippets/smi-custom-icons,snippets/smi-icons#endIncludeFile#{%endcomment%}

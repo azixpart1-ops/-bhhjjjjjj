@@ -1,0 +1,656 @@
+{% comment %}#component#["settings/product-form"]#endcomponent#{% endcomment %}
+{%- liquid
+	unless custom_image
+		assign is_custom_image = false
+	else
+		assign is_custom_image = true
+	endunless
+	unless name_product_size
+	  assign name_product_size = 'smi-h5'
+	endunless
+	unless card_product
+		assign card_product = product
+	endunless
+	if setting_obj == 'block'
+		assign setting_obj = block.settings
+	else
+		assign setting_obj = section.settings
+	endif
+	unless global_settings
+		assign global_settings = shop.metafields.smind.settings.value
+	endunless
+	unless card_type
+		if settings.smi_card_style
+			assign card_type = settings.smi_card_style
+		else
+			assign card_type = global_settings.productCardStyle | default: 'standard'
+		endif
+	endunless
+	unless media_ratio
+		assign media_ratio = setting_obj.media_ratio
+	endunless
+	unless media_shape
+		assign media_shape = setting_obj.media_shape
+	endunless
+	unless content_alignment
+		assign content_alignment = setting_obj.content_alignment
+	endunless
+	if show_add_to_cart == nil
+		assign show_add_to_cart = setting_obj.show_add_to_cart
+	endif
+	unless add_to_cart_button_style 
+	  assign add_to_cart_button_style = setting_obj.add_to_cart_button_style
+	endunless
+	if show_tag == nil
+		assign show_tag = setting_obj.show_tag
+	endif
+	unless tags_style
+	  assign tags_style = setting_obj.tags_style
+	endunless
+	unless maximum_tags
+	  assign maximum_tags = setting_obj.maximum_tags
+	endunless
+	if show_price == nil
+		assign show_price = setting_obj.show_price
+	endif
+	if show_second_image == nil
+		assign show_second_image = setting_obj.show_second_image
+	endif
+	if show_vendor == nil
+		assign show_vendor = setting_obj.show_vendor
+	endif
+	if show_swatch_color == nil
+		assign show_swatch_color = setting_obj.show_swatch_color
+	endif
+	unless color_schema
+		assign color_schema = setting_obj.product_color_scheme
+	endunless
+	if show_description == nil
+		assign show_description = setting_obj.show_description
+	endif
+	unless max_character_description
+	  	assign max_character_description = setting_obj.max_character_description
+	endunless
+	unless description_maximum_lines
+		assign description_maximum_lines = setting_obj.description_maximum_lines
+	endunless
+	unless number_columns_desktop
+		assign number_columns_desktop = setting_obj.number_of_columns_on_desktop | default: 4
+	endunless
+	unless number_columns_mobile
+		assign number_columns_mobile = setting_obj.number_of_columns_on_mobile | default: 2
+	endunless
+	unless loop_index
+		assign loop_index = 1
+	endunless
+	if media_ratio == 'auto'
+		assign media_ratio = card_product.featured_media.aspect_ratio | default: 1
+	endif
+	comment
+		Check if can add to cart in case has_only_default_variant false
+	endcomment
+	assign can_add_to_cart = true
+	unless card_product.has_only_default_variant
+		for option in card_product.options_with_values
+			if option.values.size > 1
+				assign can_add_to_cart = false
+				break
+			endif
+		endfor
+	endunless
+	if settings.smi_enable_badges != null
+		assign enable_badges = settings.smi_enable_badges
+	else
+		assign enable_badges = global_settings.enableBadges
+		if enable_badges == null
+			assign enable_badges = true
+		endif
+	endif
+	assign button_hover_effect = settings.smi_animations_hover_elements | default: global_settings.buttonHoverEffect | default: 'none'
+	assign target = card_product.selected_or_first_available_variant
+	assign compare_at_price = target.compare_at_price
+	assign price = target.price
+	assign available = target.available | default: false
+	if available == false and target.inventory_policy == 'continue'
+		assign available = true
+	endif
+	assign has_second_image = false
+	if card_product.media[1] != null and show_second_image
+		assign has_second_image = true
+	endif
+	assign card_classes = ' smi-product-card smi-product-card-wrapper smi-product-card--' | append: card_type | append: ' smi-text-' | append: content_alignment
+	assign card_styles = '--media-ratio: ' | append: media_ratio | append: ';--alignment: ' | append: content_alignment | append: ';'
+	assign thumbnail_classes = 'smi-product-card__thumbnail smi-p-relative smi-mb-sm smi-' | append: media_shape
+	unless media_shape != 'default'
+		unless media_ratio contains '/'
+			assign thumbnail_classes = thumbnail_classes | append: ' smi-rectangle-adapt'
+		endunless
+	endunless
+	assign thumbnail_styles = ''
+	assign thumbnail_inner_classes = 'smi-thumbnail-inner smi-gradient smi-color-' | append: color_schema | append: ' smi-' | append: media_shape
+	assign image_link_classes = 'smi-thumbnail-link smi-d-block smi-p-relative smi-overflow-hidden smi-lh-0 smi-' | append: media_shape
+	assign image_first_classes = 'smi-first-image smi-p-relative smi-wh-100 smi-object-fit-cover'
+	assign image_second_classes = 'smi-second-image smi-p-absolute smi-top-left-0 smi-wh-100 smi-object-fit-cover'
+	if media_shape == 'shape-blob'
+		assign thumbnail_classes = thumbnail_classes | append: ' smi-blob-wrapper'
+		assign thumbnail_inner_classes = 'smi-thumbnail-inner'
+		assign shape_index = loop_index | modulo: 6
+		if shape_index == 0
+			assign shape_index = 6
+		endif
+		assign shape_hover_index = shape_index | plus: 1
+		if shape_hover_index > 6
+			assign shape_hover_index = 1
+		endif
+		assign image_link_classes = image_link_classes | append: ' smi-shape-blob-' | append: shape_index
+		assign thumbnail_styles = '--shape-hover: var(--shape-blob-' | append: shape_hover_index | append: ');'
+	else
+		if card_type == 'standard'
+			assign thumbnail_classes = thumbnail_classes | append: ' smi-border smi-shadow'
+		endif
+	endif
+	if card_type == 'card'
+		assign thumbnail_inner_classes = 'smi-thumbnail-inner'
+		assign card_classes = card_classes | append: ' smi-h-100' | append: ' smi-gradient smi-color-' | append: color_schema
+		assign card_classes = card_classes | append: ' smi-border smi-shadow'
+	endif
+	assign card_hover_effect = settings.smi_animations_hover_card | default: shop.metafields.smind.settings.value.cardHoverEffect | default: 'none'
+	assign card_classes = card_classes | append: ' smi-card-hover-' | append: card_hover_effect
+	if has_second_image == true
+		assign thumbnail_classes = thumbnail_classes | append: ' smi-has-second-image'
+	endif
+	unless image_lazy
+		assign image_lazy = 'eager'
+	else
+		assign image_lazy = 'lazy'
+	endunless
+	assign svg_classes = 'smi-default-svg smi-placeholder-light ' | append: image_first_classes
+	assign __type_review = settings.integrated_review_app
+	assign review_rating_position = settings.review_rating_position
+	unless __type_review
+		assign __type_review = shop.metafields.smind.settings.value.integratedReviewApp
+	endunless
+	unless review_rating_position
+		assign review_rating_position = shop.metafields.smind.settings.value.reviewRatingPosition
+	endunless
+-%}	
+<div class="{{- card_classes -}}" style="{{- card_styles -}}" smind-key="media_ratio,show_swatch_color,product_1" smind-attributes smind-attr-product>
+	<div class="{{- thumbnail_classes -}}" style="{{- thumbnail_styles -}}">
+		<div class="{{- thumbnail_inner_classes -}}">
+			<a aria-label="image_link" class="{{- image_link_classes -}}" href="{{- card_product.url -}}">
+				{%- if card_product != "null" and card_product != blank -%}
+					{% if is_custom_image %}
+						{% liquid
+								assign item_xs = 100 | divided_by: number_columns_mobile | append: 'vw'
+								assign item_lg = 100 | divided_by: number_columns_desktop | append: 'vw'
+							%}
+							{%- assign product_image_sizes = '(max-width: 767px)' | append: item_xs | append: ', (max-width: 991px) 50vw, ' | append: item_lg -%}
+							{{- custom_image | image_url: width: 1600 | image_tag: alt: card_product.title, widths: '400,500,600,800,1000,1200,1400,1600', sizes: product_image_sizes, loading: image_lazy, class: image_first_classes -}}
+					{% else %}
+						{%- if card_product.featured_media -%}
+							{% liquid
+								assign item_xs = 100 | divided_by: number_columns_mobile | append: 'vw'
+								assign item_lg = 100 | divided_by: number_columns_desktop | append: 'vw'
+							%}
+							{%- assign product_image_sizes = '(max-width: 767px)' | append: item_xs | append: ', (max-width: 991px) 50vw, ' | append: item_lg -%}
+							{{- card_product.featured_media | image_url: width: 1600 | image_tag: alt: card_product.title, widths: '400,500,600,800,1000,1200,1400,1600', sizes: product_image_sizes, loading: image_lazy, class: image_first_classes -}}
+							{%- if has_second_image -%}
+								{{- card_product.media[1] | image_url: width: 1600 | image_tag: alt: card_product.title, widths: '400,500,600,800,1000,1200,1400,1600', sizes: product_image_sizes, loading: 'lazy', class: image_second_classes -}}
+							{%- endif -%}
+						{%- else -%}
+							{{- 'product-1' | placeholder_svg_tag: svg_classes -}}
+						{%- endif -%}
+					{% endif %}
+				{%- else -%}
+					{{- 'product-1' | placeholder_svg_tag: svg_classes -}}
+				{%- endif -%}
+			</a>
+			{% if show_scroll_text %}
+				{{ scrolling_text }}
+			{% endif %}
+			<div class="smi-product-card__actions">
+				{%- if show_add_to_cart and card_product != "null" -%}
+    {% assign enable_soldout = true %}
+    {%-liquid
+    unless card_product
+        assign card_product = product
+    endunless
+    unless product_form_id
+        assign product_form_id = 'product-form-' | append: section.id | append: block.id
+    endunless
+    assign target = card_product.selected_or_first_available_variant
+    if error_selector == nil
+        assign error_selector = ''
+    endif
+    if enable_soldout == nil
+        assign enable_soldout = false
+    endif
+    if form_type == nil
+        assign form_type = 'normal'
+    endif
+	assign data_form_type = 'add-to-cart-form'
+	if cart_edit_previewing == true
+		assign data_form_type = 'edit-cart-form'
+	endif
+-%}
+{% if card_product != blank and card_product != empty %}
+<smi-product-form
+    data-soldout="false"
+    data-error-selector="{{error_selector}}"
+    data-enable-soldout = "{{enable_soldout}}"
+>
+    {%- form 'product',
+        card_product,
+        id: product_form_id,
+        class: 'form',
+        novalidate: 'novalidate',
+        data-type: data_form_type
+    -%}
+        <input
+            type="hidden"
+            name="id"
+            value="{{ card_product.selected_or_first_available_variant.id }}"
+            class="product-variant-id"
+            {% if card_product.selected_or_first_available_variant.available == false %}
+                disabled
+            {% endif %}
+        />
+        {% if content_form == nil %}
+            {%- assign button_class = 'smi-button-add-cart smi-w-100 smi-d-flex smi-align-items-center smi-justify-content-center smi-text-center smi-button smi-text-button smi-border smi-hover-' | append: button_hover_effect -%}
+{%- if card_product.has_only_default_variant or can_add_to_cart -%}
+    {%- assign cart_now = true -%}
+{%- else -%}
+    {%- assign cart_now = false -%}
+{%- endif -%}
+<div class="smi-button-cart {% if cart_now %}_cart_now{% endif %} smi-p-absolute smi-opacity-0 smi-visibility-hidden smi-button-wrapper">
+    {%- if cart_now -%}
+        <button
+            id="{{ product_form_id }}-submit"
+            type="submit"
+            name="add"
+            class="{{button_class}} smi-button--{{ add_to_cart_button_style }}"
+            {% if card_product.selected_or_first_available_variant.available == false %}
+                disabled="true"
+            {% endif %}
+        >
+            <span class="smi-text-cart">
+                {%- if card_product.selected_or_first_available_variant.available -%}
+                    {{- 'smind.product.add_to_cart' | t -}}
+                {%- else -%}
+                    {{- 'smind.product.sold_out' | t -}}
+                {%- endif -%}         
+            </span>
+            <span class="smi-text-soldout smi-d-none">
+                {{- 'smind.product.sold_out' | t -}}
+            </span>
+            <span class="smi-text-loading"></span>
+        </button>
+    {%- else -%}
+        <a href="{{- card_product.url -}}?variant={{- target.id -}}" class="smi-extend-select-option {{ button_class }} smi-button--{{ add_to_cart_button_style }}">
+            {{- 'smind.product.select_options' | t -}}
+        </a>
+    {%- endif -%}
+</div>
+        {% else %}
+            {{ content_form }}
+        {% endif %}
+        <input type="hidden" name="form-type" value="{{form_type}}" />
+    {%- endform -%}
+</smi-product-form>
+{% endif %}
+{%- endif -%}
+				<div class="smi-product-card-extend-general">
+					{%- if card_product != "null" -%}
+						{%- if show_add_to_cart and card_product != blank and card_product != "null"  -%}
+	{% assign enable_soldout = true %}
+	{%- liquid
+		assign button_class_extend = 'smi-button-add-cart smi-w-100 smi-d-flex smi-align-items-center smi-justify-content-center smi-text-center'
+		unless card_product
+			assign card_product = product
+		endunless
+		unless product_form_id
+			assign product_form_id = 'product-form-' | append: section.id | append: block.id
+		endunless
+		assign target = card_product.selected_or_first_available_variant
+		if error_selector == nil
+			assign error_selector = ''
+		endif
+		if enable_soldout == nil
+			assign enable_soldout = false
+		endif
+		if form_type == nil
+			assign form_type = 'normal'
+		endif
+	-%}	
+	<div class="smi-button-cart__mobile smi-d-flex smi-d-md-none">
+		<smi-product-form data-soldout="false" data-error-selector="{{ error_selector }}"
+						  data-enable-soldout="{{ enable_soldout }}">
+			{%- form 'product',
+				card_product,
+				id: product_form_id,
+				class: 'form',
+				novalidate: 'novalidate',
+				data-type: 'add-to-cart-form'
+			-%}
+				<input type="hidden" name="id" value="{{ card_product.selected_or_first_available_variant.id }}"
+					   class="product-variant-id" {% if card_product.selected_or_first_available_variant.available == false %} disabled {% endif %} />
+				<div class="smi-button-cart {% if cart_now %}_cart_now{% endif %}">
+					{%- if cart_now and card_product.selected_or_first_available_variant.available -%}
+						<button id="{{ product_form_id }}-submit" type="submit" name="add"
+								class="{{ button_class_extend }}" {% if
+							card_product.selected_or_first_available_variant.available == false %} disabled="true" {% endif %}>
+							<span
+								class="smi-d-flex smi-text-cart smi-align-items-center">
+								{% if icon_button_cart != blank %}
+									{{- icon_button_cart | image_url: width: 100 | image_tag: widths: '100,200,300', loading: false -}}
+								{% else %}
+								{% render 'smi-icons', icon: 'cart' %}
+								{% endif %}
+							</span>
+							<span class="smi-text-loading"></span>
+						</button>
+					{% else %}
+						<a href="{{- card_product.url -}}?variant={{- target.id -}}"
+						   class="smi-extend-select-option {{ button_class_extend -}}">
+							<span
+								class="smi-d-flex smi-align-items-center">
+								{% if icon_button_cart != blank %}
+									{{- icon_button_cart | image_url: width: 100 | image_tag: widths: '100,200,300', loading: false -}}
+								{% else %}
+								{% render 'smi-icons', icon: 'cart' %}
+								{% endif %}
+							</span>
+						</a>
+					{% endif %}
+				</div>
+				<input type="hidden" name="form-type" value="{{ form_type }}" />
+			{%- endform -%}
+		</smi-product-form>
+	</div>
+{%- endif -%}
+					{% endif %}
+				</div>
+			</div>
+		</div>
+		{%- if enable_badges -%}
+    <div class="smi-labels smi-p-absolute smi-d-flex smi-flex-column smi-align-items-start smi-row-gap-xs">
+        {%- if compare_at_price > price -%}
+            {%- liquid
+                assign sale_percent = compare_at_price | minus: price | times: 100.0 | divided_by: compare_at_price | round | append: '%'
+                assign sale_price = compare_at_price | minus: price | json | money
+            -%}
+            <div class="smi-badges smi-text-badge smi-d-inline-block smi-px-sm smi-label smi-sale">
+                {{- 'smind.product.sale' | t: sale_percent: sale_percent, sale_amount: sale_price -}}
+            </div>
+        {% endif -%}
+        {%- if available == false %}
+            <div class="smi-badges smi-badges--sold-out  smi-text-badge smi-d-inline-block smi-label smi-px-sm">
+                {{- 'smind.product.sold_out' | t -}}
+            </div>
+        {% endif -%}
+    </div>
+{%- endif -%}
+	</div>
+	<div class="smi-product-card__info smi-lh-0">
+		{%- if card_product == "null" -%}
+			<h3 class="smi-product-title {{ name_product_size }}">
+				<a href="#" class="smi-color-text">Product title</a>
+			</h3>
+			<div
+				class="smi-price smi-d-flex smi-column-gap-xs smi-flex-wrap smi-justify-content-{{- content_alignment -}}">
+				<span class="smi-price__sale smi-text-price-md smi-color-text">$99.9</span>
+			</div>
+		{%- else -%}
+			{%- if show_tag and card_product.tags.size > 0-%}
+				<div class="{% if tags_style == 'text' %}smi-column-gap-xs {% else %}smi-column-gap-xxs {% endif %} smi-d-flex smi-product-tags smi-row-gap-xxs smi-mb-xxs smi-justify-content-{{- content_alignment -}}">
+					{% for tag in card_product.tags limit: maximum_tags %}
+						 {% assign tag_coll = '/collections/all/' | append: tag %}
+						<a href="/collections/all/{{ tag | handleize }}" class="smi-product-tag smi-text-sm smi-color-text-75 smi-tag-style-{{ tags_style }}">{{ tag }}</a>
+					{% endfor %}
+				</div>
+			{%- endif -%}	 
+			{%- if show_vendor -%}
+				<div
+					class="smi-product-vendor smi-text-sm smi-color-text-75 smi-lsmi-03">{{- card_product.vendor -}}</div>
+			{%- endif -%}
+			<h3 class="smi-product-title {{ name_product_size }}">
+				<a href="{{- card_product.url -}}" class="smi-color-text">
+					{% if card_product != blank and card_product != 'null' %}{{ card_product.title | escape }}{% else %}Product title{% endif %}
+				</a>
+			</h3>
+			{% if __type_review and __type_review != 'none' %}
+				<div class="smi-product-card__reviews smi-d-dlex">
+					{% liquid
+						assign __type_review = settings.integrated_review_app
+						unless __type_review
+							assign __type_review = shop.metafields.smind.settings.value.integratedReviewApp
+						endunless
+					%}
+					{% case __type_review %}
+						{% when 'judge' %}
+							<!-- Start of Judge.me code -->
+							<div class='jdgm-widget jdgm-preview-badge' data-id='{{ card_product.id }}'>
+								{{ card_product.metafields.judgeme.badge }}
+							</div>
+							<!-- End of Judge.me code -->
+						{% when 'loox' %}
+							<div class="loox-rating" data-id="{{ card_product.id }}" data-rating="{{ card_product.metafields.loox.avg_rating }}" data-raters="{{ card_product.metafields.loox.num_reviews }}"></div>
+						{% when 'air' %}
+							<div
+								class="AirReviews-Widget AirReviews-Widget--Stars"
+								style="margin-top:0.7rem"
+								data-review-avg="{{ card_product.metafields.air_reviews_product.review_avg }}"
+								data-review-count="{{ card_product.metafields.air_reviews_product.review_count }}"
+							></div>
+						{% when 'lai' %}
+							<div class="scm-reviews-rate" data-rate-version2={{ card_product.metafields.scm_review_importer.reviewsData.reviewCountInfo | json | escape }} data-product-id= {{ card_product.id }}></div>
+						{% when 'trustoo' %}
+							<div class="custom-vstar-rating-widget" data-product-id="{{ card_product.id }}"></div>
+						{% when 'yotpo' %}
+							<div class="yotpo bottomLine"
+							data-product-id="{{ card_product.id }}">
+							</div>
+					{% endcase %}
+				</div>
+			{% endif %}
+			{%- if show_description and max_character_description -%}
+				<div class="smi-product-description smi-text-md smi-color-text-75">{{ card_product.description | strip_html | truncate: max_character_description }}</div>
+			{%- endif -%}
+			{%- if show_price -%}
+				{%- liquid
+					if settings.smi_currency_code_enabled != nil
+						assign currency_code_enabled = settings.smi_currency_code_enabled
+					else
+						assign currency_code_enabled = global_settings.showCurrencyCode | default: false
+					endif
+					if currency_code_enabled
+						assign money_price = price | money_with_currency
+					else
+						assign money_price = price | money
+					endif
+					if target == product and card_product.price_varies
+						assign money_price = 'smind.product.from_price_html' | t: price: money_price
+					endif
+				-%}
+				<div
+					class="smi-price smi-d-flex smi-column-gap-xs smi-flex-wrap smi-justify-content-{{- content_alignment -}}">
+					{% if card_product != blank and card_product != 'null' %}
+						{%- unless card_product.price_varies == false and card_product.compare_at_price_varies %}
+							{%- if compare_at_price != blank and compare_at_price > price -%}
+								<span
+									class="smi-price__origin smi-text-price-md smi-color-text-55 smi-text-decoration-line-through">
+                                {%- if currency_code_enabled -%}
+									{{- compare_at_price | money_with_currency -}}
+								{%- else -%}
+									{{- compare_at_price | money -}}
+								{%- endif -%}
+                            </span>
+							{%- endif -%}
+						{%- endunless -%}
+						<span class="smi-price__sale smi-text-price-md smi-color-text">{{- money_price -}}</span>
+					{% else %}
+						<span class="smi-price__sale smi-text-price-md smi-color-text">$99</span>
+					{% endif %}
+				</div>
+			{%- endif -%}
+			{%- if show_swatch_color and can_add_to_cart == false -%} 
+    {%- unless card_product.has_only_default_variant -%}
+        {%-liquid
+            if settings.smi_color_configuration
+                assign color_configuration_br = settings.smi_color_configuration | newline_to_br | split: '<br />'
+            else
+                assign color_configuration_br = global_settings.variantValue | newline_to_br | split: '<br />'
+            endif
+            if settings.smi_color_variant_name
+                assign smi_color_variant_name_dc = settings.smi_color_variant_name | strip | downcase
+            else
+                assign smi_color_variant_name_dc = global_settings.variantName | strip | downcase
+            endif
+        -%}
+        <div class="smi-variant-wrapper smi-variants smi-mt-xs smi-d-inline-flex smi-column-gap-xs smi-row-gap-fix-xs smi-flex-wrap">
+        {%- for option in card_product.options_with_values -%}
+			{%- liquid
+				assign list_option_name_default = 'color,colour,colors,colours,couleur,farbe,colore,kleur'
+				assign option_name = option.name | strip | downcase
+				assign matchOption = false
+				if smi_color_variant_name_dc != blank
+					assign smi_color_variant_name_dc = smi_color_variant_name_dc | append: ',' | append: list_option_name_default
+					assign custom_option_list = smi_color_variant_name_dc | downcase | split: ','
+					if custom_option_list contains option_name
+						assign matchOption = true
+					endif
+				else
+					assign default_option_list = list_option_name_default | split: ','
+					if default_option_list contains option_name
+						assign matchOption = true
+					endif
+				endif
+			-%}
+            {% if matchOption == true %}
+                {%- assign product_option_position_0index = option.position | minus: 1 -%}
+                {%- assign number_options = option.values.size | times: 1 -%}
+                {%- for product_option_value in option.values -%}
+                    {%- liquid
+                    assign option_value_variant = false
+                    for variant in card_product.variants
+                        if variant.options[product_option_position_0index] == product_option_value
+                            assign option_value_variant = variant
+                            break
+                        endif
+                    endfor
+                    assign is_unavailable = true
+                    for variant in card_product.variants
+                        if variant.available and variant.options[product_option_position_0index] == product_option_value
+                            assign is_unavailable = false
+                            break
+                        endif
+                    endfor
+                    assign img_url = option_value_variant.featured_media | img_url: '1x1' | replace: '_1x1.', '_500x.'
+                    assign color_name = product_option_value | escape | downcase
+                    assign swatch = product_option_value.swatch
+                    assign class_desktop_hidden = ''
+                    assign class_mobile_hidden = ''
+                    if forloop.index > 4 and number_options != 5
+                        assign class_desktop_hidden = 'smi-variants__item--desktop-hidden'
+                    endif
+                    if forloop.index > 3 and number_options != 4
+                        assign class_mobile_hidden = 'smi-variants__item--mobile-hidden'
+                    endif
+                    -%}
+                    <div
+                    class="smi-variants__item smi-p-relative smi-cursor-pointer {{ class_desktop_hidden }} {{ class_mobile_hidden }}"
+                    {% if option_value_variant.featured_media %}
+                        data-media-url="{{ img_url }}"
+                    {% endif %}
+                    data-price="{{ option_value_variant.price | money }}"
+                    data-id="{{option_value_variant.id}}"
+                    data-smi-tooltip="{{- product_option_value -}}"
+                    >
+                    {%- liquid
+                        assign is_image = false
+                        if swatch
+                            if swatch.image
+                                assign is_image = true
+                                assign color_name = swatch.image | image_url: width: 32
+                            elsif swatch.color
+                                assign color_name = swatch.color
+                            endif
+                        else
+                            for color_str in color_configuration_br
+                                assign color_temp = color_str | strip | split: ':'
+                                if color_temp.size == 2
+                                    assign color_temp_0 = color_temp[0] | strip | escape | downcase
+                                    assign color_temp_1 = color_temp[1] | strip | escape
+                                    if color_name == color_temp_0
+                                        if color_temp_1 contains '.jpg' or color_temp_1 contains '.JPG' or color_temp_1 contains '.png' or color_temp_1 contains '.PNG' or color_temp_1 contains '.gif' or color_temp_1 contains '.GIF' or color_temp_1 contains '.jpeg'
+                                            assign is_image = true
+                                            assign color_name = color_temp_1 | file_img_url: 'icon'
+                                        else
+                                            assign color_name = color_temp_1
+                                        endif
+                                        break
+                                    endif
+                                endif
+                            endfor
+                        endif
+                    -%}
+                    {%- if is_image -%}
+                        <span class="smi-d-block smi-wh-100 smi-p-relative smi-overflow-hidden">
+                        <img
+                            src="{{ color_name }}"
+                            width="32"
+                            height="32"
+                            alt="{{ product_option_value }}"
+                            loading="lazy"
+                            class="smi-wh-100 smi-object-fit-cover smi-p-absolute"
+                        >
+                        </span>
+                    {%- else -%}
+                        <span class="smi-d-block smi-wh-100" style="background:{{ color_name }}"></span>
+                    {%- endif -%}
+                    </div>
+                {% endfor %}
+                {% if number_options > 4 and number_options != 5 %}
+                    <div class="smi-variants__item smi-p-relative smi-variants__item--more smi-cursor-pointer smi-align-items-center smi-justify-content-center smi-d-none smi-d-md-flex">
+                    <span class="smi-text-xs smi-color-text smi-lsmi-03">+{{ number_options | minus: 4 }}</span>
+                    </div>
+                {% endif %}
+                {% if number_options > 3 and number_options != 4 %}
+                    <div class="smi-variants__item smi-p-relative smi-variants__item--more smi-cursor-pointer smi-align-items-center smi-justify-content-center smi-d-flex smi-d-md-none">
+                    <span class="smi-text-xs smi-color-text smi-lsmi-03">+{{ number_options | minus: 3 }}</span>
+                    </div>
+                {% endif %}
+                {% break %}
+            {% endif %}
+        {% endfor %}
+        </div>
+    {% endunless %}
+{%- endif -%} 
+			{%- if show_description and description_maximum_lines -%}
+				<div class="smi-product-description smi-mt-xs smi-text-md smi-color-text-75 {% if description_maximum_lines %} smi-has-maximum-lines smi-maximum-lines-{{ description_maximum_lines }} {% endif %}">{{ card_product.description }}</div>
+			{%- endif -%}
+			{%- if shop_now_button_style and shop_now_button_style != 'none'  -%}
+				<div class="smi-button-wrapper smi-view-all smi-mt-lg smi-d-flex smi-justify-content-center">
+					<a
+						href="{{- card_product.url -}}"
+						class="smi-button smi-button--{{- shop_now_button_style | split: '_' | first }} smi-text-button {% if shop_now_button_style contains "text" %} {% else %}smi-border smi-shadow{% endif %}{{- settings.smi_animations_hover_elements | default: shop.metafields.smind.settings.value.buttonHoverEffect | default: 'none' | prepend: ' smi-hover-' }}"
+					>
+						<span>{{ 'smind.product.shop_now' | t }}</span>
+						{% if shop_now_button_style contains 'arrow' %}{% render 'smi-icons', icon: 'arrow-right-2' %}{% endif %}
+					</a>
+				</div>
+			{%- endif -%}
+		{%- endif -%}
+	</div>
+	{%- if card_product != "null" -%}
+		<script type="application/json" class="smi-product-data">
+			{
+				"id": "{{- card_product.id -}}",
+                "url": "{{- card_product.url -}}",
+                "selected_or_first_available_variant": {
+                    "id": "{{- card_product.selected_or_first_available_variant.id -}}"
+                }
+            }
+		</script>
+	{% endif %}
+</div>{%comment%}#includeFile#snippets/smi-icons#endIncludeFile#{%endcomment%}

@@ -1,0 +1,169 @@
+{% comment %}#component#["settings/image"]#endcomponent#{% endcomment %}
+{% liquid
+  assign show_tags = section.settings.show_tags
+  assign show_date = section.settings.show_date
+  assign show_author = section.settings.show_author
+  assign show_comment_count = section.settings.show_comment_count
+  assign show_excerpt = section.settings.show_excerpt
+  assign isEmpty = true
+  unless media_shape
+	assign media_shape = section.settings.media_shape
+  endunless
+  if article.title != blank and article.title != ''
+    assign isEmpty = false
+  endif
+  assign card_hover_effect = settings.smi_animations_hover_card | default: shop.metafields.smind.settings.value.cardHoverEffect | default: 'none'
+%}
+<div class="{{- 'smi-article smi-article-detail-container smi-article-card-wrapper' -}}
+  {% liquid
+   if card_style == 'card'
+    echo ' smi-border smi-shadow'
+    echo ' smi-article--card'
+   else
+    echo ' smi-article--standard'
+   endif
+   echo ' smi-card-hover-' | append: card_hover_effect
+  %}"
+    style="--media-ratio: {{ media_ratio }};"
+	smind-key="desktop_media_width,media_ratio,button_style" smind-attributes smind-attr-article-card
+  >
+  <div class="smi-article-detail-content {% if card_style == 'card' %}{{ blog_color }}{% endif %}">
+    {% liquid
+      assign media_wrapper_classes = media_wrapper_classes
+      if card_style == 'standard' 
+      assign media_wrapper_classes = media_wrapper_classes | replace: "smi-media-wrapper", "smi-article-card-wrapper"
+      endif
+    %}
+    {% if article.image != blank or isEmpty == true %}
+      <div class="smi-article__thumbnail {{ media_wrapper_classes }} {% if card_style != 'card' and section.settings.media_ratio != 'none'  %}smi-border smi-shadow{% endif %} smi-ratio-{{ media_ratio }} smi-{{ media_shape }}"
+        {% if media_shape contains 'blob' %} style="--media-ratio: {{ media_ratio }}; --shape-hover: var({{ shape_hover }})" {% endif %}>
+        <a href="{{ article.url }}" class="smi-d-block smi-ratio-{{ media_ratio }} __{{ media_shape }} {{- 'smi-article__thumbnail-inner' -}}
+          {% liquid
+          unless card_style == 'card'
+            unless media_shape contains 'blob'
+              echo blog_color
+            endunless
+          endunless
+          %}">
+          {% assign imageHoverClasses = settings.smi_animations_hover_image | default: shop.metafields.smind.settings.value.imageHoverEffect | default: 'none' |  prepend: ' smi-hover-image-' %}
+          <div class="smi-article__thumbnail-detail {% unless media_shape contains 'blob' %}{{ imageHoverClasses }}{% endunless %}">
+            {% if isEmpty == true %}
+              {% assign media_classes = media_classes | append: ' smi-placeholder-light'  %}
+              {{ 'image' | placeholder_svg_tag: media_classes }}
+            {% else %}
+              {% if article.image != blank %}
+                {% liquid
+                  assign image_object = article.image
+                  assign image_classes = media_classes
+                %}
+{{
+  image_object
+  | image_url: width: image_width
+  | image_tag: class: image_classes, widths: '400,500,600,700,800,1000,1200,1400,1600,1900,2500', sizes: sizes
+}}
+              {% endif %}
+            {% endif %}
+          </div>
+        </a>
+      </div>
+    {% endif %}
+    <div class="smi-article-content-detail smi-article-content-{%- if card_style == 'card' %}card{% else %}--standard{% endif -%}">
+      <div class="{{- 'blog-card-container' -}}
+        {% liquid
+          if card_style == 'card' 
+            echo ' smi-px-lg smi-py-lg'
+          elsif card_style == "standard"
+            echo ' smi-pt-lg'
+            if section.settings.content_alignment == 'left' 
+              echo ' smi-pr-md'
+            elsif section.settings.content_alignment == 'right'
+              echo ' smi-pl-md'
+            else
+              echo ' smi-px-md'
+            endif
+          endif
+        %}">
+        {% if show_tags == true and isEmpty != true and article.tags.size > 0 %}
+          <div class="article-item  article-tag smi-color-text-75 card-item-full-width smi-mb-xs {{ classes_position_content }}">
+            {%- for tag in article.tags limit:3 -%}
+              <span class="smi-text-sm article-tag-item ">{{ tag }}</span>
+              {% if forloop.index < article.tags.size and forloop.index < 3 %}
+                <div class="tag-dot">dot</div>
+              {% endif %}
+            {%- endfor -%}
+          </div>
+        {% endif %}
+        {% if show_date != false
+          or show_author != false
+          or show_comment_count != false
+        %}
+          <div class="article-item article-date-author smi-color-text-75 smi-mb-sm {{ classes_position_content }}">
+            {% if show_date == true and isEmpty != true %}
+              <div>
+                {% render 'smi-icons', icon: 'calendar' %}
+                <span class="smi-text-sm ">{{ article.published_at | date: '%d/%m/%Y' }}</span>
+              </div>
+            {% endif %}
+            {% if show_author == true and isEmpty != true %}
+              <div>
+                {% render 'smi-custom-icons', icon: 'avatar' %}
+                <span class="smi-text-sm ">{{- article.author -}}</span>
+              </div>
+            {% endif %}
+            {% if show_comment_count == true and isEmpty != true %}
+              <div>
+                {% render 'smi-icons', icon: 'comment' %}
+                <span class="smi-text-sm ">
+                  {{- article.comments_count }}
+                  {% if article.comments_count <= 1 %} comment {% else %} comments {% endif -%}
+                </span>
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+        <div class="article-item title-blog card-item-full-width {{ classes_position_content }}">
+          <a href="{{ article.url }}" class="article-title smi-h4">{% if isEmpty != true %}{{ article.title }}{% else %}Blog post{% endif %}</a>
+        </div>
+        {% if show_excerpt == true %} 
+          <div class="article-item article-content smi-color-text-75 smi-text-md {% if show_excerpt == false %} smi-mt-md {% else %} smi-mt-xxs {% endif %} {{ classes_position_content }}">
+            {% if isEmpty != true %}
+              {% assign stripExcerpt = article.excerpt | strip %}
+              {% if stripExcerpt != blank and stripExcerpt != '' %}
+                {{ article.excerpt }}
+              {% else %}
+                {{ article.content | strip_html }}
+              {% endif %}
+            {% else %}
+              Give your customers a summary of your blog post
+            {% endif %}
+          </div>
+        {% endif %}
+        {% if button_style != 'none' and isEmpty != true %}
+          <div class="article-item smi-d-flex smi-flex-wrap {{ classes_position_content }}">
+            <div class="smi-button-wrapper smi-component-buttons">
+              <a
+                href="{{ article.url }}"
+                class="smi-button--{{ button_style | split: '_' | first }} {{- settings.smi_animations_hover_elements | default: shop.metafields.smind.settings.value.buttonHoverEffect | default: 'none' | prepend: ' smi-hover-' }}{{- ' smi-mt-md smi-button smi-text-button' -}}
+                {% liquid
+                  unless button_style contains "text"
+                    echo ' smi-shadow smi-border'
+                  endunless
+                  if button_style contains 'arrow'
+                    echo ' smi-has-icon'
+                  endif
+                %}"
+              >
+                <span>{{ 'smind.general.read_more' | t }}</span>
+                {% if button_style contains 'arrow' %}
+                  <div>
+                    {% render 'smi-icons', icon: 'arrow-right-2' %}
+                  </div>
+                {% endif %}
+              </a>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>{%comment%}#includeFile#snippets/smi-icons,snippets/smi-custom-icons#endIncludeFile#{%endcomment%}

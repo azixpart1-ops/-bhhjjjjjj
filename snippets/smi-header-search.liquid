@@ -1,0 +1,453 @@
+{% comment %}#component#["settings/slider-arrows","layout/slider","settings/image.vars","settings/slider-dots-v2"]#endcomponent#{% endcomment %}
+{%-liquid
+    assign search_block = section.blocks | where: 'type', 'header_search' | first
+    assign block = search_block
+    assign enable_recent = search_block.settings.enable_recent
+    assign search_keywords = search_block.settings.search_keywords | strip
+    capture icon_close
+        render 'smi-icons', icon: 'close'
+    endcapture
+    capture icon_search
+        render 'smi-icons', icon: 'search'
+    endcapture
+-%}
+<div class="smi-actions__search">
+    <div class="smi-search-cover smi-p-fixed smi-wh-100 smi-top-left-0 smi-opacity-0 smi-visibility-hidden"></div>
+    <button type="button" aria-label="Button search" class="smi-search-button smi-d-block smi-lh-0 {{ class_search }}">
+        {{- icon_search -}}
+    </button>
+    <div class="smi-search-panel smi-color-{{ color_schema }} smi-row-gap-lg smi-pt-md smi-pb-xl smi-gradient smi-p-fixed smi-w-100 smi-top-left-0 smi-d-flex smi-flex-column smi-opacity-0 smi-visibility-hidden">
+        <div class="smi-search-panel__bar smi-d-flex smi-align-items-start smi-column-gap-md smi-mx-auto smi-mw-100">
+            <div class="smi-p-relative smi-flex-1">
+                <div class="smi-inputs-wrapper smi-input smi-border smi-shadow smi-d-flex smi-align-items-center smi-column-gap-md smi-px-md smi-p-relative smi-flex-1">
+                    <input type="text" placeholder="{{ 'smind.general.search' | t }}" value="{{ search.terms | escape }}" class="smi-p-absolute smi-border-none smi-flex-1">
+                    <div class="smi-icons smi-d-flex smi-align-items-center smi-column-gap-sm smi-ms-auto smi-cursor-pointer">
+                        <button type="button" aria-label="Clear search" class="smi-icon-clear smi-lh-0 smi-d-flex smi-align-items-center smi-column-gap-sm"><div class="_inner smi-d-flex  smi-align-items-center smi-justify-content-center">{{- icon_close -}}</div><span class="smi-d-block"></span></button>
+                        <button aria-label="Search button" class="smi-icon-search smi-lh-0 smi-p-relative">{{- icon_search -}} <span class="smi-loader smi-p-absolute smi-t-50-percent smi-l-50-percent smi-d-none"></span></button>
+                    </div>
+                </div>
+                <p id="smi-no-result" class="smi-no-result smi-text-md smi-color-text-75 smi-text-center smi-mw-100 smi-w-100 smi-mx-auto">No results could be found. Please try again with a different query.</p>
+            </div>
+            <button aria-label="Close search" class="smi-search-close smi-cursor-pointer smi-lh-0">
+                {{- icon_close -}}
+            </button>
+        </div>
+        {%- if search_block -%}
+            <div class="smi-search-inner smi-lazyer smi-d-flex smi-flex-column smi-row-gap-lg" id="smi-lazyer-{{search_block.id}}">
+                {%- if lazyer == false -%}
+                    <div class="smi-container smi-search-wrapper smi-d-none">
+                        <div id="smi-search-result" class="smi-search-result smi-w-100"></div>
+                    </div>
+                    {%- if enable_recent -%}
+                        <div class="smi-search-panel__recent smi-tags smi-d-dlex smi-flex-column smi-column-gap-xxs smi-hidden smi-mx-auto smi-mw-100">
+                            <div class="smi-tags__heading smi-text-sm smi-color-text-75">
+                                {{ 'smind.general.recent_searches' | t }}
+                            </div>
+                            <div class="smi-d-flex smi-align-items-center smi-column-gap-xs smi-row-gap-xs smi-flex-wrap" id="smi-search-recent"></div>
+                        </div>
+                    {%- endif -%}
+                    {%- if search_keywords != blank -%}
+                        <div class="smi-search-panel__keywords smi-tags smi-d-dlex smi-flex-column smi-column-gap-xxs smi-mx-auto smi-mw-100">
+                            <div class="smi-tags__heading smi-text-sm smi-color-text-75">
+                                {{ 'smind.general.popular_searches' | t }}
+                            </div>
+                            {%- assign search_keywords = search_keywords | split: ',' -%}
+                            <div class="smi-d-flex smi-align-items-center smi-column-gap-xs smi-row-gap-xs smi-flex-wrap">
+                                {%- for keyword in search_keywords -%}
+                                    {%- assign keyword_strip = keyword | strip -%}
+                                    <a href="#" class="smi-tags__item smi-d-inline-block smi-px-sm smi-text-sm smi-color-text">{{ keyword_strip }}</a>
+                                {%- endfor -%}
+                            </div>
+                        </div>
+                    {%- endif -%}
+                    {%- if search_block.settings.product_list.count > 0 -%}
+                        {%-liquid
+                          assign search_heading = search_block.settings.search_heading | strip
+                          assign heading_size = search_block.settings.heading_size
+                        -%}
+                        <div class="smi-container-search">
+                            <div class="smi-mega-products smi-mega-swiper smi-pt-lg smi-mt-lg">
+                                <div class="smi-mega-products__heading smi-mb-md smi-d-flex smi-align-items-center smi-justify-content-between">
+                                    <h4 class="{{- heading_size }} smi-color-text">
+                                        {{- search_heading -}}
+                                    </h4>
+                                    <div class="smi-custom-dots smi-custom-navigation">{% liquid
+  unless st_navigation
+    assign st_navigation = section.settings.arrow_style   
+  endunless
+%}
+{% if st_navigation != 'none' %}
+  {% liquid
+    case st_navigation
+      when 'arr-style-2' or 'arr-square-style-4' or 'arr-square-style-5' or 'arr-square-style-6' or 'arr-circle-style-4' or 'arr-circle-style-5' or 'arr-rounded-rectangle-bg' or 'arr-rounded-rectangle'
+        capture st_navigation_left
+          render 'smi-icons', icon: 'arrow-left-2'
+        endcapture
+      else
+        capture st_navigation_left
+          render 'smi-icons', icon: 'arrow-left'
+        endcapture
+    endcase
+  %}
+  <div class="smi-component-arrow-slider">
+    <div class="arrow-slider-content">
+      <div class="{{ st_navigation }} arrow-icon arrow-slider-left smi-cursor-pointer">
+        {{ st_navigation_left }}
+      </div>
+      <div class="{{ st_navigation }} arrow-icon arrow-icon--flip arrow-slider-right smi-cursor-pointer">
+            {{ st_navigation_left }}
+      </div>
+    </div>
+  </div>
+{% endif %}
+</div>
+                                </div>
+                                {%- liquid
+                                    assign default_object_loop = "null,null,null,null,null,null" | split: ","
+                                    assign object_loop = search_block.settings.product_list | default: default_object_loop
+                                    assign object_limit = object_loop.count
+                                    assign enable_spacing_between_items = false
+                                    assign show_view_all = false
+                                    assign border_style = 'product'
+                                    assign media_ratio = search_block.settings.media_ratio
+                                    assign media_shape = search_block.settings.media_shape
+                                    assign content_alignment = search_block.settings.content_alignment
+                                    assign show_add_to_cart = search_block.settings.show_add_to_cart
+                                    assign show_price = search_block.settings.show_price
+                                    assign show_second_image = search_block.settings.show_second_image
+                                    assign show_vendor = search_block.settings.show_vendor
+                                    assign show_swatch_color = search_block.settings.show_swatch_color    
+                                    assign color_schema = search_block.settings.product_color_scheme
+                                    assign number_columns_desktop = search_block.settings.number_column
+                                    assign number_columns_mobile = 1
+                                    assign enable_spacing_between_items = search_block.settings.enable_spacing                                   
+                                    assign number_of_columns_on_desktop = search_block.settings.number_column
+                                    assign number_of_columns_on_mobile = 1
+                                    assign auto_rotate_slides = false
+                                    assign change_slides_every = 5
+                                    assign slider_overflow = false
+                                    assign no_js = true
+                                    assign show_navigation = false
+                                    assign st_pagination = 'none'
+                                    assign slider_wrapper = '.smi-container-search'
+                                -%}
+{% liquid
+  if object_limit == null
+    assign object_length = object_loop | size | times: 1
+  else
+    assign object_length = object_limit | times: 1
+  endif
+  case border_style
+    when 'none'
+      assign border_classes = ' '
+    when 'content'
+      assign border_classes = ' smi-content-wrapper'
+    when 'blog'
+      assign border_classes = ' smi-article-card-wrapper'
+      if settings.smi_blog_card_style
+        assign card_style = settings.smi_blog_card_style
+      else
+        assign global_settings = shop.metafields.smind.settings.value
+        assign card_style = global_settings.blogCardStyle | default: 'standard'
+      endif
+      if card_style == 'standard'
+        assign show_border = false
+      endif
+    when 'product'
+      assign border_classes = ' smi-product-card-wrapper'
+      if settings.smi_card_style
+        assign card_style = settings.smi_card_style
+      else
+        assign global_settings = shop.metafields.smind.settings.value
+        assign card_style = global_settings.productCardStyle | default: 'standard'
+      endif
+      if card_style == 'standard'
+        assign show_border = false
+      endif
+    else
+      assign border_classes = ' smi-media-wrapper'
+  endcase
+  if enable_spacing_between_items == null
+    assign enable_spacing_between_items = section.settings.enable_spacing_between_items
+  endif
+  if number_of_columns_on_desktop == null
+    assign number_of_columns_on_desktop = section.settings.number_of_columns_on_desktop
+  endif
+  assign number_of_columns_on_desktop = number_of_columns_on_desktop | times: 1
+  if number_of_columns_on_mobile == null
+    assign number_of_columns_on_mobile = section.settings.number_of_columns_on_mobile
+  endif
+  assign number_of_columns_on_mobile = number_of_columns_on_mobile | times: 1
+  if auto_rotate_slides == null
+    assign auto_rotate_slides = section.settings.auto_rotate_slides
+  endif
+  if change_slides_every == null
+    assign change_slides_every = section.settings.change_slides_every
+  endif
+  if slider_overflow == null
+    assign slider_overflow = section.settings.slider_overflow
+  endif
+  if show_view_all == null
+    assign show_view_all = false
+  endif
+  unless view_all_button_style
+    assign view_all_button_style = section.settings.view_all_button_style
+  endunless
+  unless view_all_button_link
+    assign view_all_button_link = '#'
+  endunless
+%}
+<link rel="stylesheet" type="text/css" href="{{ 'smi-swiper-bundle-v11.min.css' | asset_url }}" media="screen" onload="this.onload=null;this.media='all'"> <script src="{{ 'smi-swiper-bundle-v11.min.js' | asset_url }}" defer data-id="smi-swiper-bundle-v11.min.js"></script> <link rel="stylesheet" type="text/css" href="{{ 'smi-layout-slider.min.css' | asset_url }}" media="screen" onload="this.onload=null;this.media='all'">
+<script src="{{ 'smi-slider-2.min.js' | asset_url }}" defer data-id="smi-slider-2.min.js"></script>
+{% liquid
+  if enable_spacing_between_items == false
+    assign space_between_mobile = '0px'
+    assign space_between_desktop = '0px'
+  else
+    assign space_between_mobile = 'var(--grid-mobile-horizontal-spacing)'
+    assign space_between_desktop = 'var(--grid-desktop-horizontal-spacing)'
+  endif
+  assign slides_per_view_desktop = number_of_columns_on_desktop | at_least: 1
+  assign slides_per_view_laptop = slides_per_view_laptop | default: 3 | at_most: slides_per_view_desktop
+  assign slides_per_view_tablet = slides_per_view_tablet | default: 2 | at_most: slides_per_view_desktop
+  assign slides_per_view_mobile = number_of_columns_on_mobile | at_least: 1
+  if object_length <= slides_per_view_mobile
+    assign offset_swiper_mobile = '0px'
+  else
+    if enable_spacing_between_items == false
+      assign offset_swiper_mobile = '(30px + var(--media-border-width))'
+    else
+      assign offset_swiper_mobile = '30px'
+    endif
+  endif
+  assign number_of_loop = 0
+  comment
+    Center if item is less than the number of columns in settings
+  endcomment
+  if object_length < number_of_columns_on_mobile
+    assign flex_justify_content = ' smi-justify-content-center'
+  elsif object_length < 3 and object_length < number_of_columns_on_desktop
+    assign flex_justify_content = ' smi-justify-content-lg-center'
+  elsif object_length < number_of_columns_on_desktop
+    assign flex_justify_content = ' smi-justify-content-xl-center'
+  endif
+%}
+{% liquid
+  assign item_mobile = slides_per_view_mobile
+  assign item_tablet = slides_per_view_tablet
+  assign item_desktop = slides_per_view_desktop
+%}
+{% liquid
+    unless image_width
+        assign image_width = 1600
+    endunless
+    unless sizes
+        assign percent_item_mobile = 100 | divided_by: item_mobile | default: 100
+        assign percent_item_tablet = 100 | divided_by: item_tablet | default: 100
+        assign percent_item_desktop = 100 | divided_by: item_desktop | default: 100
+        assign sizes = '(max-width: 767px)' | append: percent_item_mobile | append: 'vw, (max-width: 991px) ' | append: percent_item_tablet | append: 'vw, ' | append: percent_item_desktop | append: 'vw'
+    endunless
+%} 
+<style>
+  #shopify-section-{{ section.id }} {{ slider_wrapper }} {
+      --space-between-mobile : {{ space_between_mobile }};
+      --space-between-desktop : {{ space_between_desktop }};
+      --item-width-xs: calc((100% - (({{ slides_per_view_mobile | minus: 1 }} * var(--space-between-mobile)) + var(--offset-swiper-mobile,{{ offset_swiper_mobile }})))/{{ slides_per_view_mobile }});
+      --item-width-md: calc((100% - ({{ slides_per_view_tablet | minus: 1 }} * var(--space-between-desktop)))/{{ slides_per_view_tablet }});
+      --item-width-lg: calc((100% - ({{ slides_per_view_laptop | minus: 1 }} * var(--space-between-desktop)))/{{ slides_per_view_laptop }});
+      --item-width-xl: calc((100% - ({{ slides_per_view_desktop | minus: 1 }} * var(--space-between-desktop)))/{{ slides_per_view_desktop }});
+  }
+</style>
+<div
+  class="
+    {{- 'smi-layout-slider smi-position-relative' -}}
+    {%- if slider_overflow == true %} smi-slider-overflow{% else %} smi-slider-not-overflow{% endif -%}
+    {%- liquid
+      echo border_classes | default: ' smi-media-wrapper'
+      if enable_spacing_between_items == false
+        echo ' smi-border-radius-0'
+        if show_border == false
+          echo ' smi-gap-0--standard'
+        else
+          echo ' smi-gap-0'
+        endif
+      else
+        echo ' smi-gap-1'
+      endif
+      if slides_per_view_desktop == 1
+        echo ' smi-content-max-width-800'
+      endif
+  -%}
+  "
+>
+  <div
+    class="smi-swiper"
+    {%- if auto_rotate_slides == true %}
+      data-swiper-autoplay--delay="{{- change_slides_every | default: 5 | times: 1000 -}}"
+    {% endif -%}
+  >
+    <div class="smi-swiper-wrapper {{ flex_justify_content }}">
+      {% for item in object_loop limit: object_length %}
+        {% liquid
+          if exclude contains item.type
+            continue
+          endif
+          assign number_of_loop = number_of_loop | plus: 1
+        %}
+        <div
+          class="
+            {%- liquid
+              echo 'smi-swiper-slide'
+              if show_border != false
+                echo ' smi-border'
+                if enable_spacing_between_items != false
+                  echo ' smi-shadow'
+                endif
+              endif
+            -%}
+          "
+          data-swiper-slide-index="{{ forloop.index0 }}"
+          {{ item.shopify_attributes }}
+        >
+          {%- liquid
+    assign global_settings = shop.metafields.smind.settings.value
+    if settings.smi_card_style
+        assign card_type = settings.smi_card_style
+    else
+        assign card_type = global_settings.productCardStyle | default: 'standard'
+    endif
+-%}
+{% render 'smi-product-card', 
+    card_product: item,
+    card_type: card_type,
+    media_ratio: media_ratio,
+    media_shape: media_shape,  
+    content_alignment: content_alignment,
+    show_add_to_cart: show_add_to_cart,
+    show_price: show_price,
+    show_second_image: show_second_image,
+    show_vendor: show_vendor,
+    show_swatch_color: show_swatch_color,     
+    color_schema: color_schema,
+    number_columns_desktop: number_of_columns_on_desktop,
+    number_columns_mobile: number_of_columns_on_mobile,
+    image_lazy: true,
+    loop_index: forloop.index
+%}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="smi-slider-controls">
+    {% if show_navigation != false %}
+      {% liquid
+  unless st_navigation
+    assign st_navigation = section.settings.arrow_style   
+  endunless
+%}
+{% if st_navigation != 'none' %}
+  {% liquid
+    case st_navigation
+      when 'arr-style-2' or 'arr-square-style-4' or 'arr-square-style-5' or 'arr-square-style-6' or 'arr-circle-style-4' or 'arr-circle-style-5' or 'arr-rounded-rectangle-bg' or 'arr-rounded-rectangle'
+        capture st_navigation_left
+          render 'smi-icons', icon: 'arrow-left-2'
+        endcapture
+      else
+        capture st_navigation_left
+          render 'smi-icons', icon: 'arrow-left'
+        endcapture
+    endcase
+  %}
+  <div class="smi-component-arrow-slider">
+    <div class="arrow-slider-content">
+      <div class="{{ st_navigation }} arrow-icon arrow-slider-left smi-cursor-pointer">
+        {{ st_navigation_left }}
+      </div>
+      <div class="{{ st_navigation }} arrow-icon arrow-icon--flip arrow-slider-right smi-cursor-pointer">
+            {{ st_navigation_left }}
+      </div>
+    </div>
+  </div>
+{% endif %}
+    {% endif %}
+    {%-liquid
+    if st_pagination == null 
+        assign st_pagination = section.settings.sticky_page_dot_style
+    endif
+-%}
+{% if st_pagination != 'none' %}
+  {%- liquid
+      assign pagination_style = 'default'
+      if st_pagination contains 'text-style'
+        assign pagination_style = 'fraction'
+      elsif st_pagination == 'dynamic'
+        assign pagination_style = 'dynamic'
+      elsif st_pagination == 'scrollbar'
+        assign pagination_style = 'scrollbar'
+      endif
+  -%}
+  <div class="smi-slider-dot-container smi-pt-xl smi-w-100" data-pagination="{{ pagination_style }}">
+    {%- if st_pagination contains 'text-style' -%}
+      <div class="smi-component-sticky-page-dot">
+        <div class="smi-slider-action">
+          <div class="smi-arrows {{ st_pagination }}">
+            <div data-control="textPrevSlide" class="smi-arrow dot-arrow-slider smi-text-sm">
+              {% render 'smi-icons', icon: 'arrow-left' %}
+            </div>
+            <div class="text-pagination smi-pagination smi-slider-pagination smi-text-sm smi-arrow"></div>
+            <div data-control="textNextSlide" class="smi-arrow dot-arrow-slider smi-text-sm">
+              {% render 'smi-icons', icon: 'arrow-right' %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {%- elsif st_pagination == 'scrollbar' -%}
+      <div class="smi-swiper-scrollbar"></div>
+    {%- elsif st_pagination == 'dynamic' -%}
+      <div class="smi-pagination"></div>
+    {%- else -%}
+      <div class="dot-container {{ st_pagination }}">
+        <div
+          class="smi-swiper-pagination smi-pagination"
+          {% if st_pagination == 'dot-style-4' %}
+            style="display: flex;"
+          {% endif %}
+        ></div>
+      </div>
+    {%- endif -%}
+  </div>
+{% endif %}
+  </div>
+  {%- if show_view_all != false and view_all_button_style != 'none' and number_of_loop > 0 -%}
+    <div class="smi-button-wrapper smi-view-all smi-mt-xl smi-d-flex smi-justify-content-center">
+      <a
+        href="{{- view_all_button_link -}}"
+        class="smi-button smi-button--{{- view_all_button_style | split: '_' | first }} smi-text-button {% if view_all_button_style contains "text" %} {% else %}smi-border smi-shadow{% endif %}{{- settings.smi_animations_hover_elements | default: shop.metafields.smind.settings.value.buttonHoverEffect | default: 'none' | prepend: ' smi-hover-' }}"
+      >
+        <span>{{ 'smind.general.view_all' | t }}</span>
+        {% if view_all_button_style contains 'arrow' %}{% render 'smi-icons', icon: 'arrow-right-2' %}{% endif %}
+      </a>
+    </div>
+  {%- endif -%}
+</div>
+{% if no_js != true %}
+  <script type="text/javascript">
+    window.smind?.initializeWhenReady(() => {
+      const containerEl = document.getElementById('#SECTION_ID#');
+      const layoutSlider = new SMI_LayoutSlider(containerEl);
+      layoutSlider.sliderInit();
+    }, ['SMI_LayoutSlider']);
+  </script>
+{% endif %}
+                            </div>
+                        </div>
+                    {%- endif -%}     
+                {%- else -%}        
+                    <div class="smi-lazyer-loader smi-d-flex smi-align-items-center smi-justify-content-center">
+                        <div class="smi-loader-1 smi-loader-1--2x"></div>
+                    </div>
+                {%- endif -%}   
+            </div>  
+        {%- endif -%} 
+    </div>
+</div>{%comment%}#includeFile#assets/smi-swiper-bundle-v11.min.css,assets/smi-swiper-bundle-v11.min.js,assets/smi-layout-slider.min.css,assets/smi-slider-2.min.js,snippets/smi-product-card,snippets/smi-icons#endIncludeFile#{%endcomment%}

@@ -1,0 +1,115 @@
+{% comment %}#component#["settings/slider-arrows","settings/slider-dots-v2","settings/buttons-product","settings/product-form"]#endcomponent#{% endcomment %}
+{% if block.settings.button_label != blank %}
+	<div class="smi-product-detail-element smi-product-custom-buy smi-d-flex smi-align-items-end smi-pbg-purchase smi-w-100 smi-mt-lg" {{ block.shopify_attributes }}>
+		<div class="smi-w-100 smi-d-flex smi-column-gap-sm">
+			{% if has_buy_group == false and show_buy_quantity_btn == true %}
+			<div class="smi-atc-element smi-product-quantity smi-px-0 smi-py-0 smi-h-auto smi-d-flex smi-align-items-center smi-inputs-wrapper smi-input smi-border smi-shadow">
+				<span class="smi-d-flex smi-align-items-center smi-quantity-action smi-disabled-purchase smi-minus-quantity smi-h-100 smi-px-md">{% render 'smi-icons', icon: 'minus' %}</span>
+				<input type="number" value="1" name="quantity" class="smi-product-quantity-input" form="{{ product_form_id }}"  /> 
+				<span class="smi-d-flex smi-align-items-center smi-quantity-action smi-plus-quantity smi-h-100 smi-px-md">{% render 'smi-icons', icon: 'plus' %}</span>
+			</div>
+			{% endif %}
+			{% if block.settings.button_action == 'add' %}
+			<div class="smi-w-100 smi-add-to-cart-btn-main">
+				<div class="smi-errors"></div>
+				{%  liquid 
+				assign error_selector = '#smi-' | append: section.id | append: ' .smi-product-custom-buy' | append: ' .smi-errors' 
+				assign product_form_id = 'product-form-' | append: section.id
+				%}
+				{%-liquid
+    unless card_product
+        assign card_product = product
+    endunless
+    unless product_form_id
+        assign product_form_id = 'product-form-' | append: section.id | append: block.id
+    endunless
+    assign target = card_product.selected_or_first_available_variant
+    if error_selector == nil
+        assign error_selector = ''
+    endif
+    if enable_soldout == nil
+        assign enable_soldout = false
+    endif
+    if form_type == nil
+        assign form_type = 'normal'
+    endif
+	assign data_form_type = 'add-to-cart-form'
+	if cart_edit_previewing == true
+		assign data_form_type = 'edit-cart-form'
+	endif
+-%}
+{% if card_product != blank and card_product != empty %}
+<smi-product-form
+    data-soldout="false"
+    data-error-selector="{{error_selector}}"
+    data-enable-soldout = "{{enable_soldout}}"
+>
+    {%- form 'product',
+        card_product,
+        id: product_form_id,
+        class: 'form',
+        novalidate: 'novalidate',
+        data-type: data_form_type
+    -%}
+        <input
+            type="hidden"
+            name="id"
+            value="{{ card_product.selected_or_first_available_variant.id }}"
+            class="product-variant-id"
+            {% if card_product.selected_or_first_available_variant.available == false %}
+                disabled
+            {% endif %}
+        />
+        {% if content_form == nil %}
+<div id="buy_group_add_to_cart_container_{{ section.id }}">
+    <button
+        type="submit"
+        id="buy_group_add_to_cart_{{ section.id }}"
+        class="smi-purchase-action text-uppercase smi-text-button smi-w-100 smi-h-100 smi-shadow smi-button-wrapper smi-button smi-button--solid smi-border smi-shadow 
+        {% if block.settings.button_animation contains 'none' -%}
+            smi-hover-{{- settings.smi_animations_hover_elements | default: shop.metafields.smind.settings.value.buttonHoverEffect | default: 'none' }}
+        {%- else -%}
+            {{ block.settings.button_animation }}
+        {% endif %} {{- ' smi-product-add-to-card-custom' -}}
+          {% liquid
+            if target.available == false
+              echo ' smi-disabled-purchase'
+            endif
+          %}"
+          style="{% if target.available == false %}cursor: no-drop; {% else %}cursor: pointer; {% endif %}{% if target.inventory_management != 'shopify' %}{% else %}{% if target.available == true and target.inventory_policy == 'deny' and cart_qty >= target.inventory_quantity %} pointer-events: none; {% endif %} {% endif %}"
+    >
+        {{ block.settings.button_label }}
+    </button>
+</div>
+        {% else %}
+            {{ content_form }}
+        {% endif %}
+        <input type="hidden" name="form-type" value="{{form_type}}" />
+    {%- endform -%}
+</smi-product-form>
+{% endif %}
+			</div>
+			{% else %}
+			<div class="smi-product-form-add-to-cart smi-button-wrapper smi-w-100 smi-purchase-action">
+				<input
+				type="hidden"
+				name="id"
+				id="product_checkout_id_{{ section.id }}"
+				value="{{ product.selected_or_first_available_variant.id }}"
+				class="product-variant-id-custom-buy product-variant-id"
+				>
+				<input type="hidden" name="quantity" class="smi-quantity-buy-now" id="quantity_checkout_group_{{ section.id }}" min="1" value="1">
+				<a class="smi-purchase-action smi-w-100 text-uppercase smi-text-button smi-border smi-shadow smi-button-wrapper smi-button smi-button--solid {{ block.settings.button_animation }} {{- ' smi-product-buy-it-now-custom' -}}
+				{% liquid
+					if target.available == false
+					echo ' smi-disabled-purchase'
+					endif
+				%}"
+				>
+				{{ block.settings.button_label }}
+				</a>
+			</div>
+			{% endif %}
+		</div>
+	</div>
+{% endif %}	{%comment%}#includeFile#snippets/smi-icons#endIncludeFile#{%endcomment%}

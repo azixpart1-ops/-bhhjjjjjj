@@ -1,0 +1,370 @@
+{{ 'modulo-section-footer-columns.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  # ─── Brand
+  assign logo_image = section.settings.logo_image
+  assign brand_name = section.settings.brand_name
+  if brand_name == blank
+    assign brand_name = shop.name
+  endif
+  assign tagline = section.settings.tagline
+
+  # ─── Menus (link_list pickers — empty picker shows polished fallback links)
+  assign menu_1_title = section.settings.menu_1_title
+  assign menu_1       = section.settings.menu_1
+  assign menu_2_title = section.settings.menu_2_title
+  assign menu_2       = section.settings.menu_2
+  assign menu_3_title = section.settings.menu_3_title
+  assign menu_3       = section.settings.menu_3
+
+  # ─── Legal (link_list; blank = auto shop policy pages)
+  assign legal_menu = section.settings.legal_menu
+
+  # ─── Socials (empty url = icon not rendered)
+  assign socials_title    = section.settings.socials_title | default: "Let's be social"
+  assign social_x         = section.settings.social_x
+  assign social_linkedin  = section.settings.social_linkedin
+  assign social_instagram = section.settings.social_instagram
+  assign social_facebook  = section.settings.social_facebook
+  assign social_youtube   = section.settings.social_youtube
+  assign social_tiktok    = section.settings.social_tiktok
+  assign social_pinterest = section.settings.social_pinterest
+  assign has_any_social = false
+  if social_x != blank or social_linkedin != blank or social_instagram != blank or social_facebook != blank or social_youtube != blank or social_tiktok != blank or social_pinterest != blank
+    assign has_any_social = true
+  endif
+
+  # ─── Newsletter
+  assign show_newsletter = section.settings.show_newsletter
+  assign ns_heading      = section.settings.ns_heading
+  assign ns_placeholder  = section.settings.ns_placeholder | default: 'Email'
+  assign ns_cta_label    = section.settings.ns_cta_label   | default: 'Join'
+  assign customer_tag    = section.settings.customer_tag   | default: 'newsletter'
+
+  # ─── Bottom-of-brand
+  assign show_payments  = section.settings.show_payments
+  assign show_copyright = section.settings.show_copyright
+  assign copy_text = section.settings.copy_text
+  if copy_text == blank
+    assign current_year = 'now' | date: '%Y'
+    assign copy_text = '© ' | append: current_year | append: ' ' | append: brand_name
+  endif
+
+  # Legal fallback: any shop policy present?
+  assign has_policy = false
+  if shop.privacy_policy != blank or shop.terms_of_service != blank or shop.refund_policy != blank or shop.shipping_policy != blank
+    assign has_policy = true
+  endif
+
+  # ─── Layout
+  assign section_width = section.settings.section_width      | default: 'page'
+  assign outer_radius  = section.settings.section_outer_radius | default: 16
+  assign container_max = section.settings.container_max      | default: 1280
+  assign pad_top       = section.settings.padding_top        | default: 72
+  assign pad_bottom    = section.settings.padding_bottom     | default: 28
+  assign pad_inline    = section.settings.padding_inline     | default: 48
+  assign border_top    = section.settings.border_top_width   | default: 1
+
+  # ─── Typography
+  assign logo_w         = section.settings.logo_width_desktop | default: 140
+  assign logo_w_m       = section.settings.logo_width_mobile  | default: 120
+  assign col_title_size  = section.settings.col_title_size    | default: 15
+  assign link_size       = section.settings.link_size         | default: 14
+  assign social_size     = section.settings.social_size       | default: 20
+
+  # ─── Colors
+  assign bg_style     = section.settings.bg_style     | default: 'solid'
+  assign bg_color     = section.settings.bg_color     | default: '#F7F7F8'
+  assign bg_grad      = section.settings.bg_gradient_color | default: '#F1F1F3'
+  assign text_color   = section.settings.text_color   | default: '#18181B'
+  assign link_color   = section.settings.link_color   | default: '#3F3F46'
+  assign muted_color  = section.settings.muted_color  | default: '#71717A'
+  assign divider_color = section.settings.divider_color | default: '#E4E4E7'
+  assign input_bg     = section.settings.input_bg     | default: '#FFFFFF'
+  assign input_border = section.settings.input_border | default: '#D4D4D8'
+  assign button_bg    = section.settings.button_bg    | default: '#18181B'
+  assign button_text  = section.settings.button_text  | default: '#FFFFFF'
+
+  # ─── Class assembly
+  assign root_class = 'modulo-section modulo-fcl modulo-fcl--width-' | append: section_width
+  if bg_style == 'gradient'
+    assign root_class = root_class | append: ' modulo-fcl--bg-gradient'
+  endif
+-%}
+
+<section
+  class="{{ root_class }}"
+  style="
+    --modulo-fcl-bg:{{ bg_color }};
+    --modulo-fcl-bg-2:{{ bg_grad }};
+    --modulo-fcl-text:{{ text_color }};
+    --modulo-fcl-link:{{ link_color }};
+    --modulo-fcl-muted:{{ muted_color }};
+    --modulo-fcl-divider:{{ divider_color }};
+    --modulo-fcl-input-bg:{{ input_bg }};
+    --modulo-fcl-input-border:{{ input_border }};
+    --modulo-fcl-btn-bg:{{ button_bg }};
+    --modulo-fcl-btn-text:{{ button_text }};
+    --modulo-fcl-container-max:{{ container_max }}px;
+    --modulo-fcl-outer-radius:{{ outer_radius }}px;
+    --modulo-fcl-pad-top:{{ pad_top }}px;
+    --modulo-fcl-pad-bottom:{{ pad_bottom }}px;
+    --modulo-fcl-pad-inline:{{ pad_inline }}px;
+    --modulo-fcl-border-top:{{ border_top }}px;
+    --modulo-fcl-logo-w:{{ logo_w }}px;
+    --modulo-fcl-logo-w-m:{{ logo_w_m }}px;
+    --modulo-fcl-col-title-size:{{ col_title_size }}px;
+    --modulo-fcl-link-size:{{ link_size }}px;
+    --modulo-fcl-social-size:{{ social_size }}px;
+  "
+>
+  <div class="modulo-fcl__inner">
+    <div class="modulo-fcl__grid">
+
+      {%- comment -%} ─── Brand block ─── {%- endcomment -%}
+      <div class="modulo-fcl__brand">
+        <a class="modulo-fcl__logo" href="{{ routes.root_url }}" aria-label="{{ brand_name | escape }}">
+          {%- if logo_image != blank -%}
+            <img
+              class="modulo-fcl__logo-img"
+              src="{{ logo_image | image_url: width: 400 }}"
+              alt="{{ brand_name | escape }}"
+              width="{{ logo_image.width }}"
+              height="{{ logo_image.height }}"
+              loading="lazy"
+            >
+          {%- else -%}
+            <span class="modulo-fcl__wordmark">{{ brand_name | escape }}</span>
+          {%- endif -%}
+        </a>
+
+        {%- if tagline != blank -%}
+          <p class="modulo-fcl__tagline">{{ tagline | escape }}</p>
+        {%- endif -%}
+
+        {%- comment -%} Legal links: chosen menu → shop policy pages → nothing {%- endcomment -%}
+        {%- if legal_menu != blank -%}
+          <ul class="modulo-fcl__legal">
+            {%- for link in legal_menu.links -%}
+              <li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>
+            {%- endfor -%}
+          </ul>
+        {%- elsif has_policy -%}
+          <ul class="modulo-fcl__legal">
+            {%- if shop.privacy_policy != blank -%}<li><a href="{{ shop.privacy_policy.url }}">{{ shop.privacy_policy.title | escape }}</a></li>{%- endif -%}
+            {%- if shop.terms_of_service != blank -%}<li><a href="{{ shop.terms_of_service.url }}">{{ shop.terms_of_service.title | escape }}</a></li>{%- endif -%}
+            {%- if shop.refund_policy != blank -%}<li><a href="{{ shop.refund_policy.url }}">{{ shop.refund_policy.title | escape }}</a></li>{%- endif -%}
+            {%- if shop.shipping_policy != blank -%}<li><a href="{{ shop.shipping_policy.url }}">{{ shop.shipping_policy.title | escape }}</a></li>{%- endif -%}
+          </ul>
+        {%- endif -%}
+
+        {%- if show_payments and shop.enabled_payment_types.size > 0 -%}
+          <div class="modulo-fcl__payments" aria-label="Accepted payment methods">
+            {%- for type in shop.enabled_payment_types limit: 10 -%}
+              {{ type | payment_type_svg_tag: class: 'modulo-fcl__pay' }}
+            {%- endfor -%}
+          </div>
+        {%- endif -%}
+
+        {%- if show_copyright and copy_text != blank -%}
+          <span class="modulo-fcl__copy">{{ copy_text | escape }}</span>
+        {%- endif -%}
+      </div>
+
+      {%- comment -%} ─── Menu columns ─── {%- endcomment -%}
+      <nav class="modulo-fcl__menus" aria-label="Footer">
+        {%- if menu_1 != blank -%}
+          <div class="modulo-fcl__col">
+            {%- if menu_1_title != blank -%}<h3 class="modulo-fcl__col-title">{{ menu_1_title | escape }}</h3>{%- endif -%}
+            <ul>
+              {%- for link in menu_1.links -%}<li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>{%- endfor -%}
+            </ul>
+          </div>
+        {%- elsif menu_1_title != blank -%}
+          <div class="modulo-fcl__col">
+            <h3 class="modulo-fcl__col-title">{{ menu_1_title | escape }}</h3>
+            <ul>
+              <li><a href="{{ routes.all_products_collection_url }}">Shop all</a></li>
+              <li><a href="/collections/new">New arrivals</a></li>
+              <li><a href="/collections/all">Best sellers</a></li>
+            </ul>
+          </div>
+        {%- endif -%}
+
+        {%- if menu_2 != blank -%}
+          <div class="modulo-fcl__col">
+            {%- if menu_2_title != blank -%}<h3 class="modulo-fcl__col-title">{{ menu_2_title | escape }}</h3>{%- endif -%}
+            <ul>
+              {%- for link in menu_2.links -%}<li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>{%- endfor -%}
+            </ul>
+          </div>
+        {%- elsif menu_2_title != blank -%}
+          <div class="modulo-fcl__col">
+            <h3 class="modulo-fcl__col-title">{{ menu_2_title | escape }}</h3>
+            <ul>
+              <li><a href="/pages/about">About</a></li>
+              <li><a href="/blogs/news">Journal</a></li>
+              <li><a href="/pages/contact">Contact</a></li>
+            </ul>
+          </div>
+        {%- endif -%}
+
+        {%- if menu_3 != blank -%}
+          <div class="modulo-fcl__col">
+            {%- if menu_3_title != blank -%}<h3 class="modulo-fcl__col-title">{{ menu_3_title | escape }}</h3>{%- endif -%}
+            <ul>
+              {%- for link in menu_3.links -%}<li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>{%- endfor -%}
+            </ul>
+          </div>
+        {%- elsif menu_3_title != blank -%}
+          <div class="modulo-fcl__col">
+            <h3 class="modulo-fcl__col-title">{{ menu_3_title | escape }}</h3>
+            <ul>
+              <li><a href="/pages/contact">Help center</a></li>
+              <li><a href="/pages/shipping">Shipping</a></li>
+              <li><a href="/pages/returns">Returns</a></li>
+            </ul>
+          </div>
+        {%- endif -%}
+      </nav>
+
+      {%- comment -%} ─── Right rail: socials + newsletter ─── {%- endcomment -%}
+      <div class="modulo-fcl__rail">
+        {%- if has_any_social -%}
+          <div class="modulo-fcl__rail-block">
+            {%- if socials_title != blank -%}<h3 class="modulo-fcl__rail-title">{{ socials_title | escape }}</h3>{%- endif -%}
+            <div class="modulo-fcl__socials">
+              {%- if social_x != blank -%}<a class="modulo-fcl__social" href="{{ social_x }}" aria-label="X" rel="noopener" target="_blank"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg></a>{%- endif -%}
+              {%- if social_linkedin != blank -%}<a class="modulo-fcl__social" href="{{ social_linkedin }}" aria-label="LinkedIn" rel="noopener" target="_blank"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.063 2.063 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg></a>{%- endif -%}
+              {%- if social_instagram != blank -%}<a class="modulo-fcl__social" href="{{ social_instagram }}" aria-label="Instagram" rel="noopener" target="_blank"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.849.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.849.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg></a>{%- endif -%}
+              {%- if social_facebook != blank -%}<a class="modulo-fcl__social" href="{{ social_facebook }}" aria-label="Facebook" rel="noopener" target="_blank"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>{%- endif -%}
+              {%- if social_youtube != blank -%}<a class="modulo-fcl__social" href="{{ social_youtube }}" aria-label="YouTube" rel="noopener" target="_blank"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>{%- endif -%}
+              {%- if social_tiktok != blank -%}<a class="modulo-fcl__social" href="{{ social_tiktok }}" aria-label="TikTok" rel="noopener" target="_blank"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43v-6.82a8.16 8.16 0 0 0 4.77 1.52V6.92a4.85 4.85 0 0 1-1.84-.23z"/></svg></a>{%- endif -%}
+              {%- if social_pinterest != blank -%}<a class="modulo-fcl__social" href="{{ social_pinterest }}" aria-label="Pinterest" rel="noopener" target="_blank"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.347-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.748-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.624 0 11.99-5.367 11.99-11.987C24.007 5.367 18.641.001 12.017.001z"/></svg></a>{%- endif -%}
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- if show_newsletter -%}
+          <div class="modulo-fcl__rail-block">
+            {%- if ns_heading != blank -%}<h3 class="modulo-fcl__ns-heading">{{ ns_heading | escape }}</h3>{%- endif -%}
+            {%- form 'customer', class: 'modulo-fcl__ns-form' -%}
+              <input type="hidden" name="contact[tags]" value="{{ customer_tag | escape }}">
+              <label class="modulo-fcl__vh" for="FooterColumnsEmail-{{ section.id }}">Email address</label>
+              <input
+                type="email"
+                name="contact[email]"
+                id="FooterColumnsEmail-{{ section.id }}"
+                class="modulo-fcl__ns-input"
+                placeholder="{{ ns_placeholder | escape }}"
+                autocomplete="email"
+                required
+              >
+              <button type="submit" class="modulo-fcl__ns-submit">{{ ns_cta_label | escape }}</button>
+              {%- if form.posted_successfully? -%}
+                <p class="modulo-fcl__ns-status modulo-fcl__ns-status--ok" role="status">Thanks — you're on the list.</p>
+              {%- elsif form.errors -%}
+                <p class="modulo-fcl__ns-status modulo-fcl__ns-status--err" role="alert">{{ form.errors | default_errors }}</p>
+              {%- endif -%}
+            {%- endform -%}
+          </div>
+        {%- endif -%}
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Modulo: Footer Columns",
+  "tag": "section",
+  "class": "modulo-section-wrapper",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "header", "content": "Brand" },
+    { "type": "image_picker", "id": "logo_image", "label": "Logo image", "info": "Leave empty to show your store name as a text wordmark." },
+    { "type": "range", "id": "logo_width_desktop", "label": "Logo width (desktop)", "min": 80, "max": 240, "step": 4, "unit": "px", "default": 140 },
+    { "type": "range", "id": "logo_width_mobile", "label": "Logo width (mobile)", "min": 64, "max": 200, "step": 4, "unit": "px", "default": 120 },
+    { "type": "text", "id": "brand_name", "label": "Brand name", "info": "Used for the wordmark fallback and copyright. Leave empty to use the shop name." },
+    { "type": "textarea", "id": "tagline", "label": "Tagline (optional)" },
+
+    { "type": "header", "content": "Menus", "info": "Pick menus from Online Store → Navigation. Empty pickers show fallback links until you assign one." },
+    { "type": "text",      "id": "menu_1_title", "label": "Column 1 title", "default": "Shop" },
+    { "type": "link_list", "id": "menu_1",       "label": "Column 1 menu" },
+    { "type": "text",      "id": "menu_2_title", "label": "Column 2 title", "default": "Company" },
+    { "type": "link_list", "id": "menu_2",       "label": "Column 2 menu" },
+    { "type": "text",      "id": "menu_3_title", "label": "Column 3 title", "default": "Support" },
+    { "type": "link_list", "id": "menu_3",       "label": "Column 3 menu" },
+
+    { "type": "header", "content": "Legal links", "info": "Shown under the logo. Leave the menu empty to auto-show your store's policy pages." },
+    { "type": "link_list", "id": "legal_menu", "label": "Legal menu" },
+
+    { "type": "header", "content": "Social links", "info": "Only filled URLs render as icons." },
+    { "type": "text", "id": "socials_title", "label": "Rail title", "default": "Let's be social" },
+    { "type": "range", "id": "social_size", "label": "Icon size", "min": 16, "max": 28, "step": 2, "unit": "px", "default": 20 },
+    { "type": "url", "id": "social_x",         "label": "X (Twitter) URL" },
+    { "type": "url", "id": "social_linkedin",  "label": "LinkedIn URL" },
+    { "type": "url", "id": "social_instagram", "label": "Instagram URL" },
+    { "type": "url", "id": "social_facebook",  "label": "Facebook URL" },
+    { "type": "url", "id": "social_youtube",   "label": "YouTube URL" },
+    { "type": "url", "id": "social_tiktok",    "label": "TikTok URL" },
+    { "type": "url", "id": "social_pinterest", "label": "Pinterest URL" },
+
+    { "type": "header", "content": "Newsletter" },
+    { "type": "checkbox", "id": "show_newsletter", "label": "Show newsletter", "default": true },
+    { "type": "text", "id": "ns_heading", "label": "Heading (optional)" },
+    { "type": "text", "id": "ns_placeholder", "label": "Input placeholder", "default": "Email" },
+    { "type": "text", "id": "ns_cta_label", "label": "Button label", "default": "Join" },
+    { "type": "text", "id": "customer_tag", "label": "Customer tag", "default": "newsletter", "info": "Tag applied to the new customer in Shopify so you can segment signups." },
+
+    { "type": "header", "content": "Payments & copyright" },
+    { "type": "checkbox", "id": "show_payments", "label": "Show payment icons", "info": "Auto-fetched from Settings → Payments.", "default": true },
+    { "type": "checkbox", "id": "show_copyright", "label": "Show copyright", "default": true },
+    { "type": "text", "id": "copy_text", "label": "Copyright text", "info": "Leave empty for '© YEAR {brand}'." },
+
+    { "type": "header", "content": "Layout" },
+    {
+      "type": "select", "id": "section_width", "label": "Section width", "default": "page",
+      "options": [
+        { "value": "page",  "label": "Full width" },
+        { "value": "boxed", "label": "Boxed (centered card)" }
+      ]
+    },
+    { "type": "range", "id": "section_outer_radius", "label": "Outer radius (boxed)", "min": 0, "max": 48, "step": 2, "unit": "px", "default": 16, "visible_if": "{{ section.settings.section_width == 'boxed' }}" },
+    { "type": "range", "id": "container_max", "label": "Content max width", "min": 1040, "max": 1600, "step": 20, "unit": "px", "default": 1280 },
+    { "type": "range", "id": "padding_top",    "label": "Padding top",    "min": 24, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 12, "max": 120, "step": 4, "unit": "px", "default": 28 },
+    { "type": "range", "id": "padding_inline", "label": "Horizontal padding", "min": 16, "max": 96, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "border_top_width", "label": "Top border thickness", "min": 0, "max": 6, "step": 1, "unit": "px", "default": 1 },
+
+    { "type": "header", "content": "Typography" },
+    { "type": "range", "id": "col_title_size",  "label": "Menu header size",  "min": 12, "max": 20, "step": 1, "unit": "px", "default": 15 },
+    { "type": "range", "id": "link_size",       "label": "Menu link size",    "min": 12, "max": 18, "step": 1, "unit": "px", "default": 14 },
+
+    { "type": "header", "content": "Colors — Section" },
+    {
+      "type": "select", "id": "bg_style", "label": "Background style", "default": "solid",
+      "options": [
+        { "value": "solid",    "label": "Solid" },
+        { "value": "gradient", "label": "Gradient" }
+      ]
+    },
+    { "type": "color", "id": "bg_color", "label": "Background", "default": "#F7F7F8" },
+    { "type": "color", "id": "bg_gradient_color", "label": "Background gradient bottom", "default": "#F1F1F3", "visible_if": "{{ section.settings.bg_style == 'gradient' }}" },
+    { "type": "color", "id": "text_color",    "label": "Headers, brand & icons", "default": "#18181B" },
+    { "type": "color", "id": "link_color",    "label": "Links",       "default": "#3F3F46" },
+    { "type": "color", "id": "muted_color",   "label": "Muted text",  "default": "#71717A" },
+    { "type": "color", "id": "divider_color", "label": "Borders & dividers", "default": "#E4E4E7" },
+
+    { "type": "header", "content": "Colors — Newsletter" },
+    { "type": "color", "id": "input_bg",     "label": "Input background", "default": "#FFFFFF" },
+    { "type": "color", "id": "input_border", "label": "Input border",     "default": "#D4D4D8" },
+    { "type": "color", "id": "button_bg",    "label": "Button background", "default": "#18181B" },
+    { "type": "color", "id": "button_text",  "label": "Button text",       "default": "#FFFFFF" }
+  ],
+  "presets": [
+    { "name": "Modulo: Footer Columns" }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,461 @@
+{{ 'modulo-section-hero-highlight.css' | asset_url | stylesheet_tag }}
+{%- liquid
+  # ─── Image (the photo side)
+  assign image        = section.settings.image
+  assign mobile_image = section.settings.mobile_image
+  assign image_side   = section.settings.image_side | default: 'right'
+  assign image_width  = section.settings.image_width | default: 50
+  assign focal_x      = section.settings.image_focal_x | default: 'center'
+  assign focal_y      = section.settings.image_focal_y | default: 'center'
+  assign focal        = focal_x | append: ' ' | append: focal_y
+  assign content_w    = 100 | minus: image_width
+
+  # ─── Panel background
+  assign panel_bg   = section.settings.panel_bg | default: '#EEF1F4'
+  assign panel_bg2  = section.settings.panel_bg_2 | default: '#E7EAF0'
+  assign grad_angle = section.settings.gradient_angle | default: 135
+  assign panel_fill = panel_bg
+  if section.settings.panel_gradient
+    assign panel_fill = 'linear-gradient(' | append: grad_angle | append: 'deg, ' | append: panel_bg | append: ', ' | append: panel_bg2 | append: ')'
+  endif
+
+  # ─── Layout
+  assign section_height = section.settings.section_height | default: 'fixed'
+  assign fixed_height   = section.settings.fixed_height | default: 620
+  assign align_x        = section.settings.content_align_x | default: 'left'
+  assign align_y        = section.settings.content_align_y | default: 'middle'
+  assign content_max_w  = section.settings.content_max_width | default: 560
+  assign content_gap    = section.settings.content_gap | default: 22
+
+  # ─── Band
+  assign show_band  = section.settings.show_band
+  assign band_text  = section.settings.band_text
+  assign band_sep   = section.settings.band_separator | default: 'dot'
+  assign band_speed = section.settings.band_speed | default: 30
+  assign has_band   = false
+  if show_band and band_text != blank
+    assign has_band = true
+  endif
+
+  # ─── Typography
+  assign rating_size = section.settings.rating_size | default: 15
+
+  # ─── Colors
+  assign text_color   = section.settings.text_color | default: '#141414'
+  assign body_accent  = section.settings.body_accent_color | default: '#0E7C5A'
+  assign accent       = section.settings.accent_color | default: '#FFDA4A'
+  assign accent_text  = section.settings.accent_text_color | default: '#1A1A1A'
+  assign star_color   = section.settings.star_color | default: '#00B67A'
+  assign btn_bg       = section.settings.button_bg | default: '#141414'
+  assign btn_text     = section.settings.button_text | default: '#FFFFFF'
+  assign btn2_fg      = section.settings.button2_color | default: '#141414'
+  assign band_bg      = section.settings.band_bg | default: '#141414'
+  assign band_text_c  = section.settings.band_text_color | default: '#FFFFFF'
+  assign border_color = section.settings.border_color | default: '#141414'
+  assign border_w     = section.settings.border_width | default: 0
+
+  # ─── Spacing & shape
+  assign section_width = section.settings.section_width | default: 'page'
+  assign outer_radius  = section.settings.section_outer_radius | default: 0
+  assign pad_x  = section.settings.padding_x | default: 56
+  assign pad_y  = section.settings.padding_y | default: 56
+  assign m_top  = section.settings.margin_top | default: 0
+  assign m_bot  = section.settings.margin_bottom | default: 0
+
+  # ─── Does any heading block rotate? (gates the marker JS)
+  assign has_rotator = false
+  for block in section.blocks
+    if block.type == 'heading'
+      assign rw = block.settings.rotating_words | split: ','
+      if rw.size > 1
+        assign has_rotator = true
+      endif
+    endif
+  endfor
+
+  assign needs_js = false
+  if has_rotator or has_band
+    assign needs_js = true
+  endif
+
+  # ─── Root class
+  assign root_class = 'modulo-section modulo-hh'
+  assign root_class = root_class | append: ' modulo-hh--photo-' | append: image_side
+  assign root_class = root_class | append: ' modulo-hh--height-' | append: section_height
+  assign root_class = root_class | append: ' modulo-hh--ax-' | append: align_x
+  assign root_class = root_class | append: ' modulo-hh--ay-' | append: align_y
+  assign root_class = root_class | append: ' modulo-hh--width-' | append: section_width
+-%}
+
+<section
+  class="{{ root_class }}"
+  style="
+    --modulo-hh-panel-bg:{{ panel_fill }};
+    --modulo-hh-panel-solid:{{ panel_bg }};
+    --modulo-hh-text:{{ text_color }};
+    --modulo-hh-body-accent:{{ body_accent }};
+    --modulo-hh-accent:{{ accent }};
+    --modulo-hh-accent-text:{{ accent_text }};
+    --modulo-hh-star:{{ star_color }};
+    --modulo-hh-btn-bg:{{ btn_bg }};
+    --modulo-hh-btn-text:{{ btn_text }};
+    --modulo-hh-b2-fg:{{ btn2_fg }};
+    --modulo-hh-band-bg:{{ band_bg }};
+    --modulo-hh-band-text:{{ band_text_c }};
+    --modulo-hh-border-color:{{ border_color }};
+    --modulo-hh-border-width:{{ border_w }}px;
+    --modulo-hh-content-w:{{ content_w }}%;
+    --modulo-hh-image-focal:{{ focal }};
+    --modulo-hh-fixed-height:{{ fixed_height }}px;
+    --modulo-hh-content-max-w:{{ content_max_w }}px;
+    --modulo-hh-content-gap:{{ content_gap }}px;
+    --modulo-hh-rating-size:{{ rating_size }}px;
+    --modulo-hh-outer-radius:{{ outer_radius }}px;
+    --modulo-hh-pad-x:{{ pad_x }}px;
+    --modulo-hh-pad-y:{{ pad_y }}px;
+    --modulo-hh-margin-top:{{ m_top }}px;
+    --modulo-hh-margin-bottom:{{ m_bot }}px;
+    --modulo-hh-band-duration:{{ band_speed }}s;
+  "
+>
+  <div class="modulo-hh__row">
+
+    <div class="modulo-hh__panel">
+      <div class="modulo-hh__stack">
+        {%- assign btn_group_done = false -%}
+        {%- for block in section.blocks -%}
+          {%- case block.type -%}
+
+            {%- when 'rating' -%}
+              {%- liquid
+                assign r_stars = block.settings.stars | default: 4.9
+                assign r_value = block.settings.value
+                assign r_caption = block.settings.caption
+                assign fill_pct = r_stars | times: 20 | round
+                assign r_aria = r_value | default: r_stars
+              -%}
+              <div class="modulo-hh__rating{% if block.settings.pill %} modulo-hh__rating--pill{% endif %}" {{ block.shopify_attributes }}>
+                <span class="modulo-hh__stars" role="img" aria-label="Rated {{ r_aria | escape }} out of 5">
+                  <span class="modulo-hh__stars-row modulo-hh__stars-base" aria-hidden="true">{% for i in (1..5) %}{% render 'modulo-icons', name: 'star' %}{% endfor %}</span>
+                  <span class="modulo-hh__stars-clip" aria-hidden="true" style="width:{{ fill_pct }}%;"><span class="modulo-hh__stars-row modulo-hh__stars-fill">{% for i in (1..5) %}{% render 'modulo-icons', name: 'star' %}{% endfor %}</span></span>
+                </span>
+                {%- if r_value != blank -%}<b class="modulo-hh__rating-v">{{ r_value | escape }}</b>{%- endif -%}
+                {%- if r_caption != blank -%}<span class="modulo-hh__rating-c">{{ r_caption | escape }}</span>{%- endif -%}
+              </div>
+
+            {%- when 'heading' -%}
+              {%- liquid
+                assign h_before = block.settings.before_text
+                assign h_after  = block.settings.after_text
+                assign h_raw    = block.settings.rotating_words
+                assign h_words  = h_raw | split: ','
+                assign h_size   = block.settings.size | default: 60
+                assign h_fit    = block.settings.marker_fit | default: 'stable'
+                assign maxlen = 0
+                assign longest = h_words.first | strip
+                for w in h_words
+                  assign wl = w | strip | size
+                  if wl > maxlen
+                    assign maxlen = wl
+                    assign longest = w | strip
+                  endif
+                endfor
+              -%}
+              <h2 class="modulo-hh__heading{% if block.settings.uppercase %} modulo-hh__heading--upper{% endif %}" style="--modulo-hh-heading-size:{{ h_size }}px;" {{ block.shopify_attributes }}>
+                {%- if h_before != blank -%}<span class="modulo-hh__h-line">{{ h_before | escape }}</span>{%- endif -%}
+                {%- if h_raw != blank -%}
+                  <span class="modulo-hh__markerline">
+                    <span class="modulo-hh__marker" data-hh-marker data-hh-words="{{ h_raw | escape }}" data-hh-fit="{{ h_fit }}" style="--modulo-hh-marker-minch:{{ maxlen }};">
+                      <span class="modulo-hh__marker-vp"><span class="modulo-hh__mword">{{ h_words.first | strip | escape }}</span></span>
+                      <span class="modulo-hh__msizer" aria-hidden="true">{{ longest | escape }}</span>
+                    </span>
+                  </span>
+                {%- endif -%}
+                {%- if h_after != blank -%}<span class="modulo-hh__h-line modulo-hh__h-line--sub">{{ h_after | escape }}</span>{%- endif -%}
+              </h2>
+
+            {%- when 'text' -%}
+              {%- if block.settings.body != blank -%}
+                <div class="modulo-hh__text" style="--modulo-hh-text-size:{{ block.settings.size | default: 17 }}px;" {{ block.shopify_attributes }}>{{ block.settings.body }}</div>
+              {%- endif -%}
+
+            {%- when 'button' -%}
+              {%- unless btn_group_done -%}
+                {%- assign btn_group_done = true -%}
+                <div class="modulo-hh__cta">
+                  {%- for b in section.blocks -%}
+                    {%- if b.type == 'button' and b.settings.label != blank -%}
+                      <a class="modulo-hh__btn modulo-hh__btn--{{ b.settings.style | default: 'solid' }}" href="{{ b.settings.link | default: '#' }}" {{ b.shopify_attributes }}>
+                        <span>{{ b.settings.label | escape }}</span>
+                        {%- if b.settings.show_arrow -%}<span class="modulo-hh__btn-arw" aria-hidden="true">{%- render 'modulo-icons', name: 'arrow_right' -%}</span>{%- endif -%}
+                      </a>
+                    {%- endif -%}
+                  {%- endfor -%}
+                </div>
+              {%- endunless -%}
+
+            {%- when 'feature' -%}
+              {%- if block.settings.text != blank -%}
+                <span class="modulo-hh__feature" {{ block.shopify_attributes }}>
+                  {%- assign f_icon = block.settings.icon | default: 'check_circle' -%}
+                  {%- if f_icon != 'none' -%}<span class="modulo-hh__feature-ic" aria-hidden="true">{%- render 'modulo-icons', name: f_icon -%}</span>{%- endif -%}
+                  <span>{{ block.settings.text | escape }}</span>
+                </span>
+              {%- endif -%}
+
+          {%- endcase -%}
+        {%- endfor -%}
+      </div>
+    </div>
+
+    <div class="modulo-hh__photo">
+      {%- if image != blank -%}
+        {%- if mobile_image != blank -%}
+          <picture>
+            <source media="(max-width: 860px)" srcset="{{ mobile_image | image_url: width: 1200 }}">
+            <img class="modulo-hh__img" src="{{ image | image_url: width: 1800 }}" alt="{{ image.alt | escape }}" width="{{ image.width }}" height="{{ image.height }}" loading="eager" fetchpriority="high" decoding="async">
+          </picture>
+        {%- else -%}
+          <img class="modulo-hh__img" src="{{ image | image_url: width: 1800 }}" alt="{{ image.alt | escape }}" width="{{ image.width }}" height="{{ image.height }}" loading="eager" fetchpriority="high" decoding="async">
+        {%- endif -%}
+      {%- else -%}
+        {{ 'lifestyle-1' | placeholder_svg_tag: 'modulo-hh__img modulo-hh__placeholder-svg' }}
+      {%- endif -%}
+    </div>
+
+  </div>
+
+  {%- if has_band -%}
+    {%- assign phrases = band_text | split: '|' -%}
+    <div class="modulo-hh__band" aria-hidden="true">
+      <div class="modulo-hh__band-track" data-hh-band>
+        {%- for p in phrases -%}
+          {%- assign phrase = p | strip -%}
+          {%- if phrase != blank -%}
+            <span class="modulo-hh__band-item">{{ phrase | escape }}</span>
+            {%- case band_sep -%}
+              {%- when 'none' -%}
+              {%- when 'slash' -%}<span class="modulo-hh__band-sep">/</span>
+              {%- when 'dot' -%}<span class="modulo-hh__band-sep modulo-hh__band-sep--dot"></span>
+              {%- else -%}<span class="modulo-hh__band-sep modulo-hh__band-sep--icon">{%- render 'modulo-icons', name: band_sep -%}</span>
+            {%- endcase -%}
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+    </div>
+  {%- endif -%}
+</section>
+
+{%- if needs_js -%}
+  <script src="{{ 'modulo-section-hero-highlight.js' | asset_url }}" defer></script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Modulo: Hero Highlight",
+  "settings": [
+    { "type": "header", "content": "Image" },
+    { "type": "image_picker", "id": "image", "label": "Photo", "info": "Leave empty to show a Shopify placeholder until you upload." },
+    { "type": "image_picker", "id": "mobile_image", "label": "Mobile photo", "info": "Optional — falls back to the main photo." },
+    {
+      "type": "select", "id": "image_side", "label": "Photo side", "default": "right",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "right", "label": "Right" }
+      ]
+    },
+    { "type": "range", "id": "image_width", "label": "Photo width", "min": 34, "max": 62, "step": 2, "unit": "%", "default": 50 },
+    {
+      "type": "select", "id": "image_focal_x", "label": "Horizontal focal point", "default": "center",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "right", "label": "Right" }
+      ]
+    },
+    {
+      "type": "select", "id": "image_focal_y", "label": "Vertical focal point", "default": "center",
+      "options": [
+        { "value": "top", "label": "Top" },
+        { "value": "center", "label": "Center" },
+        { "value": "bottom", "label": "Bottom" }
+      ]
+    },
+
+    { "type": "header", "content": "Panel background" },
+    { "type": "color", "id": "panel_bg", "label": "Panel color", "default": "#EEF1F4", "info": "The color behind your text. First stop when a gradient is on." },
+    { "type": "checkbox", "id": "panel_gradient", "label": "Use gradient", "default": true },
+    { "type": "color", "id": "panel_bg_2", "label": "Gradient second color", "default": "#E7EAF0", "visible_if": "{{ section.settings.panel_gradient }}" },
+    { "type": "range", "id": "gradient_angle", "label": "Gradient angle", "min": 0, "max": 360, "step": 5, "unit": "deg", "default": 135, "visible_if": "{{ section.settings.panel_gradient }}" },
+
+    { "type": "header", "content": "Layout & alignment" },
+    {
+      "type": "select", "id": "section_height", "label": "Section height", "default": "fixed",
+      "options": [
+        { "value": "auto", "label": "Auto (content height)" },
+        { "value": "fixed", "label": "Fixed (px)" },
+        { "value": "full-screen", "label": "Full screen (100vh)" }
+      ]
+    },
+    { "type": "range", "id": "fixed_height", "label": "Fixed height", "min": 360, "max": 900, "step": 20, "unit": "px", "default": 620, "visible_if": "{{ section.settings.section_height == 'fixed' }}" },
+    {
+      "type": "select", "id": "content_align_x", "label": "Text alignment", "default": "left",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "right", "label": "Right" }
+      ]
+    },
+    {
+      "type": "select", "id": "content_align_y", "label": "Text vertical placement", "default": "middle",
+      "options": [
+        { "value": "top", "label": "Top" },
+        { "value": "middle", "label": "Middle" },
+        { "value": "bottom", "label": "Bottom" }
+      ]
+    },
+    { "type": "range", "id": "content_max_width", "label": "Text column max width", "min": 360, "max": 760, "step": 20, "unit": "px", "default": 560 },
+    { "type": "range", "id": "content_gap", "label": "Gap between blocks", "min": 8, "max": 44, "step": 2, "unit": "px", "default": 22 },
+
+    { "type": "header", "content": "Scrolling band" },
+    { "type": "checkbox", "id": "show_band", "label": "Show scrolling band", "default": true },
+    { "type": "text", "id": "band_text", "label": "Band phrases", "info": "Separate each phrase with a vertical bar |", "default": "Free shipping over $50 | Easy 30-day returns | Loved by thousands | Ships in 24 hours" },
+    {
+      "type": "select", "id": "band_separator", "label": "Separator", "default": "dot",
+      "options": [
+        { "value": "dot", "label": "Dot" },
+        { "value": "sparkle", "label": "Sparkle" },
+        { "value": "star", "label": "Star" },
+        { "value": "bolt", "label": "Bolt" },
+        { "value": "slash", "label": "Slash" },
+        { "value": "none", "label": "None" }
+      ]
+    },
+    { "type": "range", "id": "band_speed", "label": "Scroll duration", "min": 10, "max": 60, "step": 5, "unit": "s", "default": 30, "info": "Higher = slower. Respects reduced-motion." },
+
+    { "type": "header", "content": "Typography" },
+    { "type": "range", "id": "rating_size", "label": "Rating size", "min": 12, "max": 20, "step": 1, "unit": "px", "default": 15 },
+
+    { "type": "header", "content": "Colors" },
+    { "type": "color", "id": "text_color", "label": "Text color", "default": "#141414" },
+    { "type": "color", "id": "body_accent_color", "label": "Body accent (bold words)", "default": "#0E7C5A", "info": "Bold any words in a Text block to color them." },
+    { "type": "color", "id": "accent_color", "label": "Highlighter color", "default": "#FFDA4A" },
+    { "type": "color", "id": "accent_text_color", "label": "Highlighter text", "default": "#1A1A1A" },
+    { "type": "color", "id": "star_color", "label": "Rating star color", "default": "#00B67A" },
+    { "type": "color", "id": "button_bg", "label": "Button color", "default": "#141414" },
+    { "type": "color", "id": "button_text", "label": "Button text", "default": "#FFFFFF" },
+    { "type": "color", "id": "button2_color", "label": "Outline button color", "default": "#141414" },
+    { "type": "color", "id": "band_bg", "label": "Band background", "default": "#141414" },
+    { "type": "color", "id": "band_text_color", "label": "Band text", "default": "#FFFFFF" },
+    { "type": "color", "id": "border_color", "label": "Border color", "default": "#141414" },
+
+    { "type": "header", "content": "Spacing & shape" },
+    {
+      "type": "select", "id": "section_width", "label": "Section width", "default": "page",
+      "options": [
+        { "value": "page", "label": "Full width" },
+        { "value": "boxed", "label": "Boxed" }
+      ]
+    },
+    { "type": "range", "id": "section_outer_radius", "label": "Corner radius", "min": 0, "max": 40, "step": 2, "unit": "px", "default": 0 },
+    { "type": "range", "id": "border_width", "label": "Border width", "min": 0, "max": 6, "step": 1, "unit": "px", "default": 0 },
+    { "type": "range", "id": "padding_x", "label": "Panel padding (horizontal)", "min": 16, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_y", "label": "Panel padding (vertical)", "min": 24, "max": 140, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "margin_top", "label": "Margin top", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 0 },
+    { "type": "range", "id": "margin_bottom", "label": "Margin bottom", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 0 }
+  ],
+  "blocks": [
+    {
+      "type": "rating",
+      "name": "Rating",
+      "limit": 1,
+      "settings": [
+        { "type": "range", "id": "stars", "label": "Stars", "min": 0, "max": 5, "step": 0.1, "default": 4.9 },
+        { "type": "text", "id": "value", "label": "Score", "default": "4.9" },
+        { "type": "text", "id": "caption", "label": "Caption", "default": "Excellent" },
+        { "type": "checkbox", "id": "pill", "label": "Show in a pill", "default": true }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 2,
+      "settings": [
+        { "type": "text", "id": "before_text", "label": "Line before highlight", "default": "Wear the change" },
+        { "type": "text", "id": "rotating_words", "label": "Highlighted word(s)", "default": "Lightweight, Breathable, Effortless", "info": "The word inside the highlighter box. Add more, comma-separated, to rotate them. One word = static." },
+        { "type": "text", "id": "after_text", "label": "Line after highlight", "default": "made to move" },
+        {
+          "type": "select", "id": "marker_fit", "label": "Highlighter width", "default": "stable",
+          "options": [
+            { "value": "stable", "label": "Stable (fits longest word)" },
+            { "value": "hug", "label": "Hug each word" }
+          ]
+        },
+        { "type": "checkbox", "id": "uppercase", "label": "Uppercase", "default": true },
+        { "type": "range", "id": "size", "label": "Heading size", "min": 28, "max": 96, "step": 2, "unit": "px", "default": 60 }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Text",
+      "limit": 2,
+      "settings": [
+        { "type": "richtext", "id": "body", "label": "Text", "default": "<p>Add a short line that backs up your headline. Bold a phrase to accent it.</p>" },
+        { "type": "range", "id": "size", "label": "Text size", "min": 14, "max": 24, "step": 1, "unit": "px", "default": 17 }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "limit": 2,
+      "settings": [
+        { "type": "text", "id": "label", "label": "Label", "default": "Shop now" },
+        { "type": "url", "id": "link", "label": "Link" },
+        {
+          "type": "select", "id": "style", "label": "Style", "default": "solid",
+          "options": [
+            { "value": "solid", "label": "Solid" },
+            { "value": "outline", "label": "Outline" }
+          ]
+        },
+        { "type": "checkbox", "id": "show_arrow", "label": "Show arrow", "default": true }
+      ]
+    },
+    {
+      "type": "feature",
+      "name": "Trust note",
+      "limit": 3,
+      "settings": [
+        {
+          "type": "select", "id": "icon", "label": "Icon", "default": "check_circle",
+          "options": [
+            { "value": "check_circle", "label": "Check" },
+            { "value": "verified_solid", "label": "Verified seal" },
+            { "value": "shield", "label": "Shield" },
+            { "value": "local_shipping", "label": "Shipping" },
+            { "value": "spa", "label": "Spa" },
+            { "value": "leaf", "label": "Leaf" },
+            { "value": "bolt", "label": "Bolt" },
+            { "value": "none", "label": "No icon" }
+          ]
+        },
+        { "type": "text", "id": "text", "label": "Text", "default": "Machine washable, built to last" }
+      ]
+    }
+  ],
+  "max_blocks": 12,
+  "presets": [
+    {
+      "name": "Modulo: Hero Highlight",
+      "blocks": [
+        { "type": "rating", "settings": { "stars": 4.9, "value": "4.9", "caption": "Excellent" } },
+        { "type": "heading", "settings": { "before_text": "Wear the change", "rotating_words": "Lightweight, Breathable, Effortless", "after_text": "made to move", "size": 60 } },
+        { "type": "text", "settings": { "body": "<p>Colorful essentials spun from yarn made of recycled bottles — <strong>less waste, more movement.</strong></p>" } },
+        { "type": "button", "settings": { "label": "Shop the drop", "style": "solid", "show_arrow": true } },
+        { "type": "button", "settings": { "label": "Our materials", "style": "outline", "show_arrow": false } },
+        { "type": "feature", "settings": { "icon": "check_circle", "text": "Machine washable, built to last" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

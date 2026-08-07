@@ -1,0 +1,442 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Modulo: Collection Wall — tabs over a wrapped product grid
+   Prefix: cw   ·   Breakpoints: 860 / 480 (house rule 23)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Layer 1: section root ─── */
+.modulo-cw {
+  /* Derived tokens. Muted is mixed toward #ffffff (never var(--bg) — the bg can
+     be `transparent`). 70%, not 64%: at 64% the mix is #6e6c6b, which is only
+     4.43:1 on the default #EFECE6 tile and 4.50:1 on a merchant's #EEEEEE —
+     both fail/graze AA. 70% -> #605f5d = 6.11:1 on paper, 5.50:1 on #EEE,
+     5.41:1 on the tile. Verified by arithmetic, not by eye. A dark background
+     self-corrects: it pairs with a light text_color, which re-lightens the mix. */
+  --modulo-cw-muted: #605f5d;
+  --modulo-cw-hair: #e3dfd8;
+
+  background: var(--modulo-cw-bg, #FBFAF8);
+  color: var(--modulo-cw-text, #1C1A17);
+  font-family: inherit;
+  padding-top: var(--modulo-cw-pad-top, 64px);
+  padding-bottom: var(--modulo-cw-pad-bottom, 68px);
+  margin-top: var(--modulo-cw-mt, 0);
+  margin-bottom: var(--modulo-cw-mb, 0);
+  box-sizing: border-box;
+}
+.modulo-cw *,
+.modulo-cw *::before,
+.modulo-cw *::after { box-sizing: border-box; }
+
+@supports (color: color-mix(in srgb, red, blue)) {
+  .modulo-cw {
+    --modulo-cw-muted: color-mix(in srgb, var(--modulo-cw-text, #1C1A17) 70%, #ffffff);
+    --modulo-cw-hair: color-mix(in srgb, var(--modulo-cw-text, #1C1A17) 14%, transparent);
+  }
+}
+
+.modulo-cw__inner {
+  max-width: 1140px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+.modulo-cw--cw-wide .modulo-cw__inner { max-width: 1400px; }
+.modulo-cw--cw-full .modulo-cw__inner { max-width: none; }
+
+/* Boxed: only clip when boxed, so a page-width section can't clip anything. */
+.modulo-cw--width-boxed {
+  max-width: 1400px;
+  margin-inline: auto;
+  border-radius: var(--modulo-cw-outer-radius, 28px);
+  overflow: hidden;
+}
+
+/* ─── Layer 2: header ─── */
+.modulo-cw__head { margin-bottom: 26px; }
+.modulo-cw--align-center .modulo-cw__head { text-align: center; }
+
+.modulo-cw__heading {
+  font-size: var(--modulo-cw-heading-size, 34px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin: 0;
+  text-wrap: balance;
+}
+.modulo-cw__heading strong,
+.modulo-cw__heading b {
+  font-weight: inherit;
+  color: var(--modulo-cw-accent, #2F4739);
+}
+
+.modulo-cw__sub {
+  font-size: var(--modulo-cw-sub-size, 16px);
+  line-height: 1.55;
+  color: var(--modulo-cw-muted);
+  margin: 10px 0 0;
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+.modulo-cw--align-center .modulo-cw__sub { margin-inline: auto; }
+
+/* ─── Layer 3: tabs + traveling ink underline ─── */
+/* OUTER: hosts the hairline + the ink bar. Must NOT scroll — the bar lives at
+   bottom:-1px (outside the padding box), and `overflow-x: auto` forces
+   overflow-y to compute to `auto` too, which would clip the bar in half. */
+.modulo-cw__tabs {
+  position: relative;
+  border-bottom: 1px solid var(--modulo-cw-hair);
+  margin-bottom: var(--modulo-cw-tabs-mb, 34px);
+}
+
+/* INNER: the scroller. padding-block reserves room for the focus ring, which
+   `overflow-x: auto` would otherwise clip; the negative margin cancels it so
+   the vertical rhythm is unchanged. */
+.modulo-cw__tabs-rail {
+  display: flex;
+  gap: var(--modulo-cw-tab-gap, 30px);
+  overflow-x: auto;
+  padding-block: 5px;
+  margin-block: -5px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.modulo-cw__tabs-rail::-webkit-scrollbar { display: none; }
+
+/* `safe center` start-aligns instead of centering when the tabs overflow, so
+   the first tab stays reachable. Older engines drop the whole declaration, so
+   the plain `center` line must come first as the fallback. */
+.modulo-cw--align-center .modulo-cw__tabs-rail { justify-content: center; }
+.modulo-cw--align-center .modulo-cw__tabs-rail { justify-content: safe center; }
+
+/* One traveling bar for the whole rail, not a per-tab border. `left: 0` is
+   fixed and travel rides translateX (compositor-friendly). The `0px` fallbacks
+   are what make the pre-JS state safe: a zero-width bar is invisible rather
+   than mis-placed, so there's no flash and no CLS. */
+.modulo-cw__tabs::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  width: var(--ink-w, 0px);
+  background: var(--modulo-cw-accent, #2F4739);
+  transform: translateX(var(--ink-x, 0px));
+  transition: transform 0.34s cubic-bezier(0.4, 0, 0.15, 1),
+              width 0.34s cubic-bezier(0.4, 0, 0.15, 1);
+}
+
+/* min-height meets the 44px touch floor without moving the baseline: the box
+   grows upward (align-items: flex-end) and padding-bottom still positions the
+   text above the ink bar. Expand the hit area behind the visual, never shrink
+   the visual to meet the floor. */
+.modulo-cw__tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: flex-end;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0 0 13px;
+  white-space: nowrap;
+  font-family: inherit;
+  font-size: var(--modulo-cw-tab-size, 15px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--modulo-cw-tab-color, #605F5D);
+  transition: color 0.2s ease;
+}
+.modulo-cw__tab:hover { color: var(--modulo-cw-tab-active, #1C1A17); }
+
+/* aria-selected is rendered server-side, so the active tab paints correctly at
+   TTFB with zero JS — only the 2px bar needs hydration. */
+.modulo-cw__tab[aria-selected="true"] {
+  color: var(--modulo-cw-tab-active, #1C1A17);
+  font-weight: 600;
+}
+.modulo-cw__tab:focus-visible {
+  outline: 2px solid var(--modulo-cw-accent, #2F4739);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* ─── Layer 4: panels + grid ─── */
+.modulo-cw__panel[hidden] { display: none; }
+
+.modulo-cw__grid {
+  display: grid;
+  gap: 38px var(--modulo-cw-gap, 28px);
+}
+
+/* Column count is a modifier CLASS, never an inline var — an inline var can't
+   be overridden inside a @media rule. The mobile overrides below are written at
+   the SAME (0,2,0) specificity and win by source order. */
+.modulo-cw--cols-2 .modulo-cw__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.modulo-cw--cols-3 .modulo-cw__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.modulo-cw--cols-4 .modulo-cw__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* ─── Layer 5: card ─── */
+.modulo-cw__card { position: relative; min-width: 0; }
+
+.modulo-cw__media {
+  position: relative;
+  display: block;
+  background: var(--modulo-cw-tile, #EFECE6);
+  border-radius: var(--modulo-cw-card-radius, 6px);
+  overflow: hidden;
+  margin-bottom: 13px;
+}
+.modulo-cw__media:focus-visible {
+  outline: 2px solid var(--modulo-cw-accent, #2F4739);
+  outline-offset: 3px;
+}
+
+/* Class selectors, never `img.foo` — these rules must also catch the
+   placeholder_svg_tag <svg> in the unconfigured state.
+   `cover` is the default (house convention, matches product-slider +
+   collection-promo): most Shopify product shots carry their own backdrop, so
+   filling the tile is what makes the grid read as one photographic set. Only
+   the opt-in `contain` inset gets padding — applying it unconditionally
+   letterboxes every photo inside the tile colour, which double-frames each
+   card (the photo's own background inside the tile's). */
+.modulo-cw__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: var(--modulo-cw-fit, cover);
+}
+.modulo-cw--fit-contain .modulo-cw__img { padding: 8%; }
+.modulo-cw--ratio-square .modulo-cw__media { aspect-ratio: 1 / 1; }
+.modulo-cw--ratio-portrait .modulo-cw__media { aspect-ratio: 3 / 4; }
+.modulo-cw--ratio-landscape .modulo-cw__media { aspect-ratio: 4 / 3; }
+
+.modulo-cw__img--alt {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.modulo-cw__placeholder-svg { background: transparent; }
+
+/* Hover. The primary-fade is scoped to --dual (a real 2nd image exists) so a
+   single-image card never fades to the bare tile colour — it only zooms. The
+   whole block sits inside (hover: hover) and (pointer: fine) so a touch tap
+   can't latch :hover and leave a card blanked. */
+@media (hover: hover) and (pointer: fine) {
+  .modulo-cw__img--primary,
+  .modulo-cw__img--alt {
+    transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.3, 0, 0.2, 1);
+  }
+  .modulo-cw--hover-zoom .modulo-cw__card:hover .modulo-cw__img--primary,
+  .modulo-cw--hover-second_image .modulo-cw__card:hover .modulo-cw__img { transform: scale(1.04); }
+
+  .modulo-cw--hover-second_image .modulo-cw__card--dual:hover .modulo-cw__img--primary { opacity: 0; }
+  .modulo-cw--hover-second_image .modulo-cw__card--dual:hover .modulo-cw__img--alt { opacity: 1; }
+}
+
+/* Badge — real data only (computed Save% / real sold-out state). */
+.modulo-cw__badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 6px 9px;
+  border-radius: 4px;
+  background: var(--modulo-cw-sale, #A8321C);
+  color: #ffffff;
+}
+.modulo-cw__badge--out {
+  background: var(--modulo-cw-text, #1C1A17);
+  color: var(--modulo-cw-on-accent, #FBFAF8);
+}
+
+.modulo-cw__body { min-width: 0; }
+
+.modulo-cw__vendor {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--modulo-cw-muted);
+  margin: 0 0 5px;
+}
+
+.modulo-cw__title {
+  font-size: var(--modulo-cw-title-size, 14px);
+  line-height: var(--modulo-cw-title-lh, 135%);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--modulo-cw-title-color, #1C1A17);
+  margin: 0 0 5px;
+}
+/* The card link already owns the accessible name + focus ring; this inner link
+   is a mouse convenience and is removed from the tab order (tabindex="-1" in
+   the Liquid) so the grid isn't two tab stops per card. */
+.modulo-cw__title a { color: inherit; text-decoration: none; }
+.modulo-cw__title a:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+.modulo-cw__price {
+  margin: 0;
+  font-size: var(--modulo-cw-price-size, 14px);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--modulo-cw-price-color, #1C1A17);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+/* Sale is dual-coded — strikethrough AND colour — so colour is never the sole
+   channel carrying the meaning (WCAG 1.4.1). */
+.modulo-cw__price s {
+  color: var(--modulo-cw-muted);
+  font-weight: 400;
+}
+.modulo-cw__price .modulo-cw__now { color: var(--modulo-cw-sale, #A8321C); }
+.modulo-cw__from { font-weight: 400; color: var(--modulo-cw-muted); }
+
+/* ─── Layer 6: CTA (lives inside each panel, so it swaps with the tab) ─── */
+.modulo-cw__foot {
+  display: flex;
+  margin-top: 46px;
+}
+.modulo-cw--align-center .modulo-cw__foot { justify-content: center; }
+
+.modulo-cw__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: inherit;
+  font-size: var(--modulo-cw-cta-size, 14px);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  border-radius: var(--modulo-cw-cta-radius, 6px);
+  padding: 15px 28px;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+.modulo-cw__cta:focus-visible {
+  outline: 2px solid var(--modulo-cw-text, #1C1A17);
+  outline-offset: 3px;
+}
+.modulo-cw__cta-arw { transition: transform 0.2s ease; flex: 0 0 auto; }
+.modulo-cw__cta:hover .modulo-cw__cta-arw { transform: translateX(3px); }
+
+.modulo-cw--cta-solid .modulo-cw__cta {
+  background: var(--modulo-cw-accent, #2F4739);
+  color: var(--modulo-cw-on-accent, #FBFAF8);
+}
+/* Lighten on hover, never darken — darkening a fill under light text is the
+   direction that loses contrast. Solid fallback first: where color-mix is
+   unsupported the declaration is dropped, and without this line the hover
+   would have no background at all. */
+.modulo-cw--cta-solid .modulo-cw__cta:hover {
+  background: var(--modulo-cw-accent, #2F4739);
+  background: color-mix(in srgb, var(--modulo-cw-accent, #2F4739) 86%, #ffffff);
+  transform: translateY(-1px);
+}
+.modulo-cw--cta-outline .modulo-cw__cta {
+  background: transparent;
+  color: var(--modulo-cw-accent, #2F4739);
+  border-color: var(--modulo-cw-accent, #2F4739);
+}
+.modulo-cw--cta-outline .modulo-cw__cta:hover {
+  background: var(--modulo-cw-accent, #2F4739);
+  color: var(--modulo-cw-on-accent, #FBFAF8);
+}
+.modulo-cw--cta-link .modulo-cw__cta {
+  background: transparent;
+  color: var(--modulo-cw-accent, #2F4739);
+  padding: 4px 0;
+  border-radius: 2px;
+}
+.modulo-cw--cta-link .modulo-cw__cta:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ─── Mobile (≤860px) ─── */
+@media (max-width: 860px) {
+  .modulo-cw__inner { padding-inline: 18px; }
+  .modulo-cw__tab { font-size: var(--modulo-cw-tab-size-m, 14px); }
+  .modulo-cw__grid { gap: 26px var(--modulo-cw-gap, 28px); }
+
+  /* Written at the same (0,2,0) specificity as the desktop --cols rules above
+     and placed later in source order, so these win. A (0,1,0) selector here
+     would silently lose — media queries add no specificity. */
+  .modulo-cw--colsm-1 .modulo-cw__grid { grid-template-columns: minmax(0, 1fr); }
+  .modulo-cw--colsm-2 .modulo-cw__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* Swipe rail. --cpv-m and --gap-m are declared in the STYLESHEET (not
+     injected inline by Liquid), so setting them inside this @media is safe —
+     the inline-var trap only applies to overriding a var Liquid wrote into
+     style="". Reading the inline --modulo-cw-gap into a calc here is fine. */
+  .modulo-cw--colsm-1 { --cpv-m: 1.2; }
+  .modulo-cw--colsm-2 { --cpv-m: 2.3; }
+
+  .modulo-cw--mob-rail .modulo-cw__grid {
+    /* Half the desktop gutter. At the full 28px, two ~150px cards eat the
+       strip and the third card peeks by only 12.8px (8% of a card) — a sliver
+       that reads as a clipping bug, not as "swipe me". Halved, the peek is
+       ~36% of a card and unmistakable. Floored at 10px so a merchant who sets
+       card_gap to 8 doesn't get cards fused together. */
+    --gap-m: max(10px, calc(var(--modulo-cw-gap, 28px) * 0.5));
+    display: flex;
+    grid-template-columns: none;
+    column-gap: var(--gap-m);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 18px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    margin-inline: -18px;
+    padding-inline: 18px;
+    /* Vertical bleed for the card focus ring, which overflow-x would otherwise
+       clip along the rail's top edge; the negative margin cancels it. */
+    padding-block: 5px 6px;
+    margin-block: -5px -6px;
+  }
+  .modulo-cw--mob-rail .modulo-cw__grid::-webkit-scrollbar { display: none; }
+  /* Standard carousel width: N cards per view need (N-1) gaps between them. */
+  .modulo-cw--mob-rail .modulo-cw__card {
+    flex: 0 0 calc((100% - (var(--cpv-m, 2.3) - 1) * var(--gap-m)) / var(--cpv-m, 2.3));
+    scroll-snap-align: start;
+  }
+
+  .modulo-cw__foot { margin-top: 30px; }
+  .modulo-cw--mob-rail .modulo-cw__foot { margin-top: 26px; }
+}
+
+/* ─── Mobile (≤480px) ─── */
+@media (max-width: 480px) {
+  .modulo-cw__head { margin-bottom: 18px; }
+  .modulo-cw__heading { font-size: clamp(21px, var(--modulo-cw-heading-size, 34px) * 0.68, 34px); }
+  .modulo-cw__cta { width: 100%; justify-content: center; }
+  .modulo-cw--cta-link .modulo-cw__cta { width: auto; }
+  .modulo-cw__badge { top: 7px; left: 7px; font-size: 10px; padding: 5px 7px; }
+}
+
+/* ─── Reduced motion ─── */
+/* Kill transitions/animations wholesale, but scope any transform reset to the
+   :hover state only. A blanket `transform: none !important` would also flatten
+   resting transforms used for layout. */
+@media (prefers-reduced-motion: reduce) {
+  .modulo-cw *,
+  .modulo-cw *::before,
+  .modulo-cw *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+  .modulo-cw__grid { scroll-behavior: auto; }
+  /* Specificity must MATCH the hover-zoom rules it overrides — a bare
+     `.modulo-cw__card:hover .modulo-cw__img` (0,2,0 + pseudo) loses to
+     `.modulo-cw--hover-zoom .modulo-cw__card:hover .modulo-cw__img--primary`
+     and the reset would be dead code. Media queries add no specificity. */
+  .modulo-cw--hover-zoom .modulo-cw__card:hover .modulo-cw__img--primary,
+  .modulo-cw--hover-second_image .modulo-cw__card:hover .modulo-cw__img { transform: none; }
+  .modulo-cw--cta-solid .modulo-cw__cta:hover { transform: none; }
+  .modulo-cw__cta:hover .modulo-cw__cta-arw { transform: none; }
+}

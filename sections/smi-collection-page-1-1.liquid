@@ -1,0 +1,1987 @@
+{% comment %}#component#["settings/display-settings-2","settings/container-full_width-2","settings/product-card","settings/section-padding","settings/section-margin","blocks/background","settings/media-settings-3","settings/design-mode"]#endcomponent#{% endcomment %}
+<link rel="stylesheet" type="text/css" href="{{ 'smi-product-card.min.css' | asset_url }}" media="screen" onload="this.onload=null;this.media='all'"> <script src="{{ 'smi-product-card.min.js' | asset_url }}" defer data-id="smi-product-card.min.js" data-section-id="smi-{{ section.id }}"></script>
+<link rel="stylesheet" type="text/css" href="{{ 'smi-layout-grid.min.css' | asset_url }}" media="screen" onload="this.onload=null;this.media='all'">
+<script src="{{ 'smi-layout-grid.min.js' | asset_url }}" defer data-id="smi-layout-grid.min.js" data-section-id="smi-{{ section.id }}"></script>
+<link rel="stylesheet" type="text/css" href="{{ 'smi-product-listing-page.min.css' | asset_url }}" media="screen" onload="this.onload=null;this.media='all'">
+<script src="{{ 'smi-product-listing-page.min.js' | asset_url }}" defer data-id="smi-product-listing-page.min.js" data-section-id="smi-{{ section.id }}"></script>
+{% liquid
+  assign product_color_schema = section.settings.product_color_scheme
+  assign st = section.settings
+  assign showToolbar = true
+  if st.show_total_results == false and st.show_columns_switcher == false and st.enable_sorting == false
+    assign showToolbar = false
+  endif
+  assign product_color_schema = section.settings.product_color_scheme
+  assign global_settings = shop.metafields.smind.settings.value
+  if settings.smi_card_style
+    assign card_type = settings.smi_card_style
+  else
+    assign card_type = global_settings.productCardStyle | default: 'standard'
+  endif
+%}
+<style>
+    {% if block_color %}
+    {% endif %}
+  {% assign colorblock = section.blocks | where: 'type', 'color' | first %}
+{% if colorblock %}
+      #shopify-section-{{ section.id }},
+      #shopify-section-{{ section.id }} .smi-color-{{ section.settings.color_scheme }},
+      #shopify-section-{{ section.id }} .smi-block-custom-color {
+        --color-background: {{ colorblock.settings.background_color.red }}, {{ colorblock.settings.background_color.green }},{{ colorblock.settings.background_color.blue }};        
+        {% if colorblock.settings.background_gradient_color == blank %}
+            --gradient-background: {{ colorblock.settings.background_color }};
+        {% else %}
+            --gradient-background: {{ colorblock.settings.background_gradient_color }};
+        {% endif %}
+		{% if colorblock.settings.heading_color != blank and colorblock.settings.heading_color != 'rgba(0,0,0,0)' %}
+			--color-heading: {{ colorblock.settings.heading_color.red }}, {{ colorblock.settings.heading_color.green }},{{ colorblock.settings.heading_color.blue }};
+		{% endif %}	
+        --color-foreground: {{ colorblock.settings.text_color.red }}, {{ colorblock.settings.text_color.green }},{{ colorblock.settings.text_color.blue }};
+		--color-shadow: {{ colorblock.settings.shadow_color.red }}, {{ colorblock.settings.shadow_color.green }},{{ colorblock.settings.shadow_color.blue }};
+        --color-button: {{ colorblock.settings.solid_background_button_color.red }}, {{ colorblock.settings.solid_background_button_color.green }},{{ colorblock.settings.solid_background_button_color.blue }};
+        --color-button-text: {{ colorblock.settings.solid_button_label_color.red }}, {{ colorblock.settings.solid_button_label_color.green }},{{ colorblock.settings.solid_button_label_color.blue }};
+		{% if colorblock.settings.solid_background_button_hover_color != blank and colorblock.settings.solid_background_button_hover_color != 'rgba(0,0,0,0)' %}
+			--color-button-hover: {{ colorblock.settings.solid_background_button_hover_color.red }}, {{ colorblock.settings.solid_background_button_hover_color.green }},{{ colorblock.settings.solid_background_button_hover_color.blue }};
+		{% else %}
+			--color-button-hover: {{ colorblock.settings.solid_background_button_color.red }}, {{ colorblock.settings.solid_background_button_color.green }},{{ colorblock.settings.solid_background_button_color.blue }};
+		{% endif %}		
+		{% if colorblock.settings.solid_button_label_hover_color != blank and colorblock.settings.solid_button_label_hover_color != 'rgba(0,0,0,0)' %}
+			--color-button-hover-text: {{ colorblock.settings.solid_button_label_hover_color.red }}, {{ colorblock.settings.solid_button_label_hover_color.green }},{{ colorblock.settings.solid_button_label_hover_color.blue }};
+		{% else %}
+			--color-button-hover-text: {{ colorblock.settings.solid_button_label_color.red }}, {{ colorblock.settings.solid_button_label_color.green }},{{ colorblock.settings.solid_button_label_color.blue }};
+		{% endif %}	
+        --color-shadow-product: {{ colorblock.settings.shadow_color.red }}, {{ colorblock.settings.shadow_color.green }},{{ colorblock.settings.shadow_color.blue }};
+        --color-border-product: {{ colorblock.settings.text_color.red }}, {{ colorblock.settings.text_color.green }},{{ colorblock.settings.text_color.blue }};
+    }
+    #shopify-section-{{ section.id }} .smi-product-card-wrapper .smi-color-{{ section.settings.product_color_scheme }} {
+        --color-background: {{ colorblock.settings.product_background_color.red }}, {{ colorblock.settings.product_background_color.green }},{{ colorblock.settings.product_background_color.blue }};        
+        {% if colorblock.settings.product_background_gradient_color == blank %}
+            --gradient-background: {{ colorblock.settings.product_background_color }};
+        {% else %}
+            --gradient-background: {{ colorblock.settings.product_background_gradient_color }};
+        {% endif %}
+		{% if colorblock.settings.product_heading_color != blank and colorblock.settings.product_heading_color != 'rgba(0,0,0,0)' %}
+			--color-heading: {{ colorblock.settings.product_heading_color.red }}, {{ colorblock.settings.product_heading_color.green }},{{ colorblock.settings.product_heading_color.blue }};
+		{% endif %}
+        --color-foreground: {{ colorblock.settings.product_text_color.red }}, {{ colorblock.settings.product_text_color.green }},{{ colorblock.settings.product_text_color.blue }};
+        --color-button: {{ colorblock.settings.product_solid_background_button_color.red }}, {{ colorblock.settings.product_solid_background_button_color.green }},{{ colorblock.settings.product_solid_background_button_color.blue }};
+        --color-button-text: {{ colorblock.settings.product_solid_button_label_color.red }}, {{ colorblock.settings.product_solid_button_label_color.green }},{{ colorblock.settings.product_solid_button_label_color.blue }};
+		{% if colorblock.settings.product_solid_background_button_hover_color != blank and colorblock.settings.product_solid_background_button_hover_color != 'rgba(0,0,0,0)' %}
+			--color-button-hover: {{ colorblock.settings.product_solid_background_button_hover_color.red }}, {{ colorblock.settings.product_solid_background_button_hover_color.green }},{{ colorblock.settings.product_solid_background_button_hover_color.blue }};
+		{% else %}
+			--color-button-hover: {{ colorblock.settings.product_solid_background_button_color.red }}, {{ colorblock.settings.product_solid_background_button_color.green }},{{ colorblock.settings.product_solid_background_button_color.blue }};
+		{% endif %}		
+		{% if colorblock.settings.product_solid_button_label_hover_color != blank and colorblock.settings.product_solid_button_label_hover_color != 'rgba(0,0,0,0)' %}
+			--color-button-hover-text: {{ colorblock.settings.product_solid_button_label_hover_color.red }}, {{ colorblock.settings.product_solid_button_label_hover_color.green }},{{ colorblock.settings.product_solid_button_label_hover_color.blue }};
+		{% else %}
+			--color-button-hover-text: {{ colorblock.settings.product_solid_button_label_color.red }}, {{ colorblock.settings.product_solid_button_label_color.green }},{{ colorblock.settings.product_solid_button_label_color.blue }};
+		{% endif %}
+        --color-shadow: {{ colorblock.settings.product_shadow_color.red }}, {{ colorblock.settings.product_shadow_color.green }},{{ colorblock.settings.product_shadow_color.blue }};
+    }
+    #shopify-section-{{ section.id }} .smi-badges {
+        --color-badge-foreground: {{ colorblock.settings.badge_sale_text_color.red }}, {{ colorblock.settings.badge_sale_text_color.green }},{{ colorblock.settings.badge_sale_text_color.blue }};
+		--color-badge-border-sale: {{ colorblock.settings.sale_badge_border_color.red }},{{ colorblock.settings.sale_badge_border_color.green }},{{ colorblock.settings.sale_badge_border_color.blue }};
+		--color-badge-background: {{ colorblock.settings.badge_sale_background_color.red }}, {{ colorblock.settings.badge_sale_background_color.green }},{{ colorblock.settings.badge_sale_background_color.blue }};
+		{% if colorblock.settings.sale_badge_background_gradient != blank %}
+			--color-badge-background-gradient: {{ colorblock.settings.sale_badge_background_gradient }};
+			{% else %}
+			--color-badge-background-gradient: rgba(var(--color-badge-background), 1);
+		{% endif %}
+    }
+    #shopify-section-{{ section.id }} .smi-badges--sold-out {
+        --color-badge-foreground: {{ colorblock.settings.badge_sold_out_text_color.red }}, {{ colorblock.settings.badge_sold_out_text_color.green }},{{ colorblock.settings.badge_sold_out_text_color.blue }};
+		--color-sold-badge-border: {{ colorblock.settings.sale_badge_sold_out_border_color.red }},{{ colorblock.settings.sale_badge_sold_out_border_color.green }},{{ colorblock.settings.sale_badge_sold_out_border_color.blue }};
+		--color-sold-badge-background: {{ colorblock.settings.badge_sold_out_background_color.red }}, {{ colorblock.settings.badge_sold_out_background_color.green }},{{ colorblock.settings.badge_sold_out_background_color.blue }};
+		{% if colorblock.settings.sold_out_badge_background_gradient != blank %}
+			--color-sold-badge-background-gradient: {{ colorblock.settings.sold_out_badge_background_gradient }};
+			{%  else %}
+			--color-sold-badge-background-gradient: rgba(var(--color-sold-badge-background), 1);
+		{% endif %}
+    }
+{% endif %}
+  #shopify-section-{{ section.id }}{
+      --section-padding-top: {{ section.settings.padding_top }}px;
+--section-padding-bottom: {{ section.settings.padding_bottom }}px;
+--section-padding-top-mobile: {{ section.settings.padding_top_mobile }}px;
+--section-padding-bottom-mobile: {{ section.settings.padding_bottom_mobile }}px;
+	  --section-margin-sides: {{ section.settings.margin_sides }}px;
+--section-margin-sides-mobile: {{ section.settings.margin_sides_mobile }}px;
+	  {% if  section.settings.custom_width == true and section.settings.container_full_width == false %}
+--page-width: {{ section.settings.section_width }}px;
+{% endif %}
+      --col-md: {{ section.settings.number_of_columns_on_desktop }};
+      --col-xs: {{ section.settings.number_of_columns_on_mobile }};
+      --sidebar-size: {{ section.settings.sidebar_size }};
+      --widget-height: {% if section.settings.limit_filter_widget_height %}275px{% else %}unset{% endif %};
+  }
+  #shopify-section-{{ section.id }} .smi-product-card-wrapper {
+      --color-shadow-section: var(--color-shadow);
+      --color-border-section: var(--color-foreground);
+  }
+@media screen and (max-width: 767.8px){.smi-display-settings.smi-display-desktop{display:none !important}}@media screen and (min-width: 768px){.smi-display-settings.smi-display-mobile{display:none !important}}
+</style>
+<div class="smi-d-none smi-profesyonel-item">&nbsp; </div>
+<div
+  id="smi-{{ section.id }}"
+  class="smi-{{ section.id }} smi-display-settings smi-display-{{ section.settings.display_on }} smi-section__inner smi-nro-item smi-gradient smi-product-listing-page smi-product-listing-page--filter-default smi-section-collection-page-1 smi-color-{{ section.settings.color_scheme }}"
+  data-section="collection-page-1"
+  data-name="✧Collection page 1"
+>
+  
+  {% liquid
+    assign background_block = section.blocks | where: 'type', 'background' | first
+    if background_block
+      render 'smi-background'
+    endif
+  %}
+  <div
+    class="
+      smi-collection-page-1-main smi-position-relative
+      {%- if section.settings.container_full_width == true %} smi-container-fluid {%- else %} smi-container {%- endif -%}
+    "
+  >
+    <div class="smi-loading-overlay"></div>
+    <aside class="smi-sidebar smi-d-lazy {% if section.blocks.size == 0 %}smi-d-none{% endif %}">
+        {% assign filter_block = section.blocks | where: 'type', 'filter' | first %}
+        {% liquid
+            if filter_block != blank
+                assign show_filter = true
+            else
+                assign show_filter = false
+                assign hidden_classes = ' smi-d-none'
+            endif
+            assign filter_classes = hidden_classes | append: ' smi-filter--vertical'
+        %}
+        {% liquid
+  assign color_options = settings.smi_color_variant_name | default: shop.metafields.smind.settings.value.colorVariantName | downcase | replace: ', ', ',' | replace: ' , ', ',' | replace: ' ,', ',' | split: ','
+  if color_options == blank
+    assign color_options = 'color, colour, colors, colours, couleur, farbe' | downcase | replace: ', ', ',' | replace: ' , ', ',' | replace: ' ,', ',' | split: ','
+  endif
+  assign tag_heading = block.settings.tag_heading | default: section.settings.tag_heading
+  assign tag_options = tag_heading | downcase | replace: ', ', ',' | replace: ' , ', ',' | replace: ' ,', ',' | split: ','
+%}
+{% capture icon_minus %}
+  {% render 'smi-icons', icon: 'minus' %}
+{% endcapture %}
+{% capture icon_arrow_down %}
+  {% render 'smi-icons', icon: 'arrow-down' %}
+{% endcapture %}
+{% capture icon_close %}
+  {% render 'smi-icons', icon: 'close' %}
+{% endcapture %}
+<smi-cp-filter
+  class="smi-w-100 {{- filter_classes -}}"
+  sort-by="{{ collection.sort_by | default: collection.default_sort_by }}"
+  {%- if section.settings.pagination == 'default' %}
+    pagination-default
+  {% endif -%}
+  {{ filter_block.shopify_attributes }}
+>
+  <div class="smi-filter-heading smi-d-flex smi-justify-content-between smi-py-md smi-px-lg smi-d-lg-none">
+    <span class="smi-h4">Filter</span>
+    {{ icon_close }}
+  </div>
+  {%- for filter in collection.filters -%}
+    {%- liquid
+      assign tag_style = block.settings.tag_style | default: section.settings.tag_style
+      assign is_color = false
+      assign is_tags = false
+      assign f_name = filter.label | downcase
+      assign filter_attribute = ''
+      if color_options contains f_name or filter.presentation == 'swatch'
+        assign presentation = filter.presentation
+        assign is_color = true
+        assign filter_attribute = 'smi-sb-widget--scroll smi-filter-item--swatch smi-variant-wrapper'
+        assign color_config = settings.smi_color_configuration | default: shop.metafields.smind.settings.value.variantValue | downcase | remove: " " | newline_to_br | split: '<br />'
+        assign color_metaobjects = shop.metaobjects.shopify--color-pattern.values
+      elsif tag_options contains f_name and tag_style != 'default'
+        assign is_tags = true
+        assign filter_attribute = 'smi-sb-widget--scroll smi-filter-item--tags smi-filter-item--tags-' | append: tag_style
+      else
+        assign filter_attribute = 'smi-sb-widget--scroll'
+      endif
+    -%}
+    <div class="smi-filter-item smi-sb-widget {{ filter_item_classes }} {{ filter_attribute }}">
+      <div class="smi-filter-title smi-sb-widget__title smi-sb-widget__click-area {{ filter_title_classes }} {{ section.settings.heading_size | default: "smi-h5" }}">
+        <span>{{ filter.label }}</span>
+        <div class="smi-sb-widget__btn">
+          {{ icon_minus }}
+          {{ icon_minus }}
+        </div>
+        <div class="smi-sb-widget__btn-arrow">
+          {{ icon_arrow_down }}
+        </div>
+      </div>
+      <div class="smi-filter-content smi-sb-widget__content">
+        {%- case filter.type -%}
+          {%- when 'boolean' -%}
+            <ul>
+              <li>
+                <label for="Filter-{{ filter.param_name }}-{{ filter.true_value.value }}">
+                  <input
+                    type="checkbox"
+                    name="{{ filter.param_name }}"
+                    value="{{ filter.true_value.value }}"
+                    id="Filter-{{ filter.param_name }}"
+                    {% if filter.true_value.active -%}
+                      checked
+                    {%- endif %}
+                    {% if filter.true_value.count == 0 and filter.true_value.active == false -%}
+                      disabled
+                    {%- endif -%}
+                  >
+                  {{- filter.true_value.label -}}
+                </label>
+              </li>
+              <li>
+                <label for="Filter-{{ filter.param_name }}-{{ filter.false_value.value }}">
+                  <input
+                    type="checkbox"
+                    name="{{ filter.param_name }}"
+                    value="{{ filter.false_value.value }}"
+                    id="Filter-{{ filter.param_name }}"
+                    {% if filter.false_value.active -%}
+                      checked
+                    {%- endif %}
+                    {% if filter.false_value.count == 0 and filter.false_value.active == false -%}
+                      disabled
+                    {%- endif %}
+                  >
+                  {{- filter.false_value.label -}}
+                </label>
+              </li>
+            </ul>
+            <div>
+              <input type="submit" value="Apply">
+            </div>
+          {%- when 'list' -%}
+            <ul class="smi-filter--list">
+              {%- for filter_value in filter.values -%}
+                <li class="smi-mb-sm">
+                  <label for="Filter-{{ filter.param_name }}-{{ forloop.index }}">
+                    <input
+                      type="checkbox"
+                      name="{{ filter_value.param_name }}"
+                      value="{{ filter_value.value }}"
+                      id="Filter-{{ filter.param_name }}-{{ forloop.index }}"
+                      {% if filter_value.active -%}
+                        checked
+                      {%- endif %}
+                      {% if filter_value.count == 0 and filter_value.active == false -%}
+                        disabled
+                      {%- endif %}
+                    >
+                    {%- if is_color -%}
+                      {% liquid
+  assign image_filename = null
+  assign color_code = null
+  assign image_object = null
+  case filter.presentation
+    when 'text'
+      if color_config.size > 0
+        comment
+          reference by color config settings
+        endcomment
+        assign color_label = filter_value.label | downcase | strip | remove: ' ' | escape
+        assign file_type = 'jpg,JPG,png,PNG,gif,GIF,jpeg' | split: ','
+        for cc in color_config
+          assign cc_key = cc | split: ':' | first | strip | escape
+          assign cc_value = cc | split: ':' | last | strip
+          if cc_key == color_label and cc_value != blank
+            assign file_extension = false
+            assign file_extension = cc_value | split: '.' | last
+            if file_type contains file_extension
+              assign image_filename = cc_value
+              break
+            else
+              assign color_code = cc_value
+              break
+            endif
+          endif
+        endfor
+      endif
+      unless color_code and image_filename
+        comment
+          reference by color shopify metaobject
+        endcomment
+        for entry in color_metaobjects
+          if entry.label == filter_value.label
+            assign image_object = entry.image.value
+            assign color_code = entry.color
+            break
+          endif
+        endfor
+        assign color_label = filter_value.label | remove: ' '
+      endunless
+    when 'swatch'
+      assign image_object = filter_value.swatch.image
+      assign color_code = filter_value.swatch.color
+  endcase
+%}
+<span class="smi-swatch-label" data-smi-tooltip="{{- filter_value.label -}}">
+  {% if image_filename %}
+    <span class="__s-image smi-d-block smi-wh-100 smi-p-relative smi-overflow-hidden">
+      <img
+        src="{{ image_filename | file_img_url: 'icon' }}"
+        alt="{{ image_filename }}"
+        width="32"
+        height="32"
+        loading="lazy"
+        class="smi-wh-100 smi-object-fit-cover smi-p-absolute"
+      >
+    </span>
+  {% elsif image_object %}
+    <span class="__s-image smi-d-block smi-wh-100 smi-p-relative smi-overflow-hidden">
+      {{
+        image_object
+        | image_url: width: 32, height: 32
+        | image_tag: class: 'smi-wh-100 smi-object-fit-cover smi-p-absolute', loading: 'lazy'
+      }}
+    </span>
+  {% else %}
+    <span class="__s-color" style="background: {{ color_code | default: color_label }}"></span>
+  {% endif %}
+</span>
+                    {% elsif is_tags %}
+                      <span class="smi-label">{{ filter_value.label }}</span>
+                      {% if section.settings.show_count %}
+                        <span class="smi-count"> ({{ filter_value.count }})</span>
+                      {% endif %}
+                    {%- else -%}
+                      <span class="smi-checkbox-label"></span>
+                      <span class="smi-label smi-pl-sm">{{ filter_value.label }}</span>
+                      {% if section.settings.show_count %}
+                        <span class="smi-count smi-ms-auto">{{ filter_value.count }}</span>
+                      {% endif %}
+                    {%- endif -%}
+                  </label>
+                </li>
+              {%- endfor -%}
+            </ul>
+          {%- when 'price_range' -%}
+            <div class="smi-filter-price-range">
+  {%- liquid
+    assign min_value = filter.min_value.value | default: 0 | divided_by: 100.0
+    assign max_value = filter.max_value.value | default: filter.range_max | divided_by: 100.0
+    assign step_value = 1
+    assign min_value_ceil = min_value | ceil
+    assign max_value_ceil = max_value | ceil
+    assign range_max_ceil = filter.range_max | divided_by: 100.0 | ceil
+  -%}
+  <div class="slider">
+    <div class="progress"></div>
+  </div>
+  <div class="range-input">
+    <input
+      type="range"
+      class="range-min"
+      aria-label="Range min"
+      min="0"
+      max="{{ range_max_ceil }}"
+      step="{{ step_value }}"
+      value="{% if filter.min_value.value %}{{ min_value_ceil }}{% else %}0{% endif %}"
+    >
+    <input
+      type="range"
+      aria-label="Range max"
+      class="range-max"
+      min="0"
+      max="{{ range_max_ceil }}"
+      step="{{ step_value }}"
+      value="{% if filter.max_value.value %}{{ max_value_ceil }}{% else %}{{ range_max_ceil }}{% endif %}"
+    >
+  </div>
+  <div class="price-input">
+    <div class="field smi-inputs-wrapper">
+      <span>{{ cart.currency.symbol }}</span>
+      <input
+        type="number"
+        aria-label="Price min"
+        class="input-min"
+        name="filter.v.price.gte"
+        inputmode="numeric"
+        type="number"
+        min="0"
+        max="{{ range_max_ceil }}"
+        {%- if filter.min_value.value %}
+          value="{{ min_value_ceil }}"
+        {% else %}
+          placeholder="0"
+        {% endif -%}
+      >
+    </div>
+    <div class="separator smi-color-text-75">{{ 'smind.collection.to' | t | downcase }}</div>
+    <div class="field smi-inputs-wrapper">
+      <span>{{ cart.currency.symbol }}</span>
+      <input
+        type="number"
+        aria-label="price max"
+        class="input-max"
+        name="filter.v.price.lte"
+        inputmode="numeric"
+        min="0"
+        max="{{ range_max_ceil }}"
+        {%- if filter.max_value.value %}
+          value="{{ max_value_ceil }}"
+        {% else %}
+          placeholder="{{ range_max_ceil }}"
+        {% endif -%}
+      >
+    </div>
+  </div>
+</div>
+        {%- endcase -%}
+      </div>
+    </div>
+  {%- endfor -%}
+</smi-cp-filter>
+      {%- for block in section.blocks -%}
+        {%- case block.type -%}
+          {%- when 'categories' -%}
+            <div class="smi-block-categories smi-sb-widget smi-mw-100" {{ block.shopify_attributes }}>
+    <div class="smi-sb-widget__title smi-sb-widget__click-area {{ section.settings.heading_size }}">
+        <span class="smi-link-wrapper" smind-key="heading" smind-attributes smind-attr-text>{{ block.settings.heading }}</span>
+        <div class="smi-sb-widget__btn">
+            {% render 'smi-icons', icon: 'minus' %}
+            {% render 'smi-icons', icon: 'minus' %}
+        </div>
+    </div>
+    <div class="smi-sb-widget__content">
+        <ul>
+            {% assign menu = block.settings.menu %}
+            {% for link in menu.links -%}
+                <li class="smi-mb-sm {% if link.active %} active{% endif %}">
+                    {{ link.title | link_to: link.url }}
+                </li>
+            {% else %}
+                <li class="smi-mb-sm">
+                    <a href="#" title="">Example category link</a>
+                </li>
+            {%- endfor %}
+        </ul>
+    </div>
+</div>
+          {%- when 'gallery' -%}
+            {% assign imageHoverClasses = settings.smi_animations_hover_image | default: shop.metafields.smind.settings.value.imageHoverEffect | default: 'none' |  prepend: ' smi-hover-image-' %}
+<div class="smi-block-gallery smi-sb-widget {%- if st.enable_collapsible_sidebar_on_mobile %} smi-sb-widget--hide{% endif -%}" {{ block.shopify_attributes }}>
+    <div class="smi-sb-widget__title smi-sb-widget__click-area {{ section.settings.heading_size }}">
+        <span class="smi-link-wrapper" smind-key="heading" smind-attributes smind-attr-text>{{ block.settings.heading }}</span>
+        <div class="smi-sb-widget__btn">
+            {% render 'smi-icons', icon: 'minus' %}
+            {% render 'smi-icons', icon: 'minus' %}
+        </div>
+    </div>
+    <div class="smi-sb-widget__content
+            {%- if block.settings.use_media_style_from_theme_settings %} smi-media-wrapper{% endif -%}">
+        {% assign check = 0 %}
+        {% for i in (1..6) %}
+            {% liquid
+                assign imgKey = 'image_' | append: i
+                assign linkKey = 'link_' | append: i
+            %}
+            {% if block.settings[imgKey] != blank %}
+                {% assign check = 1 %}
+                <a href="{{ block.settings[linkKey] | default: '#' }}" aria-label="image"
+                    {% if block.settings.open_link_in_new_tab %}target="_blank"{% endif %}
+                   class="{%- if block.settings.use_media_style_from_theme_settings %} smi-border smi-shadow{% endif -%} {{ imageHoverClasses }}">
+				   {% if is_reference %}
+						{{ images[block.settings[imgKey]] | image_url: width: 150 | image_tag: loading: 'lazy'}}
+				   {% else %}
+						{{ block.settings[imgKey] | image_url: width: 150 | image_tag: loading: 'lazy'}}
+				   {% endif %}
+                </a>
+            {% endif %}
+        {% endfor %}
+        {% if check == 0 %}
+            <a href="#" aria-label="placeholder">
+                {{ 'image' | placeholder_svg_tag: 'smi-placeholder smi-w-100 smi-h-auto smi-placeholder-light' }}
+            </a>
+        {% endif %}
+    </div>
+</div>
+          {%- when 'social_media' -%}
+<div class="smi-block-social smi-sb-widget smi-mw-100" {{ block.shopify_attributes }}>
+    <div class="smi-sb-widget__title smi-sb-widget__click-area {{ section.settings.heading_size }}">
+        <span class="smi-link-wrapper" smind-key="heading" smind-attributes smind-attr-text>{{ block.settings.heading }}</span>
+        <div class="smi-sb-widget__btn">
+            {% render 'smi-icons', icon: 'minus' %}
+            {% render 'smi-icons', icon: 'minus' %}
+        </div>
+    </div>
+    <div class="smi-sb-widget__content">
+        <div class="smi-d-flex smi-flex-wrap smi-column-gap-sm smi-row-gap-sm">
+            {% assign arr = "facebook,instagram,youtube,tiktok,twitter,snapchat1,pinterest,tumblr,vimeo" | split: ',' %}
+            {% for i in arr %}
+                {% liquid
+                    assign optionKey = "smi_social_" | append: i | append: "_link"
+                    if settings[optionKey]
+                        assign url = settings[optionKey] | strip
+                    else
+                        assign url = shop.metafields.smind.settings.value.socialMedia[i] | strip
+                    endif
+                %}
+                {% if url != blank %}
+                    <a target="_blank"
+                       href="{{ url }}"
+                       class="smi-social2-item smi-social2-item--{{ block.settings.icon_style }}"
+                       style="--social2-size: {{ block.settings.icon_size }}px"
+                       aria-label="Social link"
+                    >
+                        {% render 'smi-icons', icon: i %}
+                    </a>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+          {%- when 'image_banner' -%}
+            {% assign imageHoverClasses = settings.smi_animations_hover_image | default: shop.metafields.smind.settings.value.imageHoverEffect | default: 'none' |  prepend: ' smi-hover-image-' %}
+<div class="smi-block-image-banner smi-sb-widget smi-mw-100" {{ block.shopify_attributes }}>
+    <div class="smi-sb-widget__content {%- if block.settings.use_media_style_from_theme_settings %} smi-media-wrapper smi-border smi-shadow {% endif %} smi-overflow-hidden smi-lh-0">
+        <a href="{{ block.settings.link | default: '#' }}" aria-label="banner"
+           {% if block.settings.open_link_in_new_tab %}target="_blank"{% endif %}
+           class="{{ imageHoverClasses }} smi-d-block">
+            {%- if block.settings.image != blank -%}
+                {{ block.settings.image | image_url: width: 330 | image_tag: loading: 'lazy', class: 'smi-h-auto'}}
+            {% else %}
+                {{ 'image' | placeholder_svg_tag: 'smi-placeholder smi-mw-100 smi-h-auto smi-placeholder-light' }}
+            {%- endif -%}
+        </a>
+    </div>
+</div>
+        {%- endcase -%}
+      {%- endfor -%}
+    </aside>
+    <div class="smi-popup-overlay smi-d-none"></div>
+    <div class="smi-product-wrap {% if section.blocks.size > 0 %} smi-pl-xl{% endif %}">
+      <aside class="smi-toolbar smi-row-gap-lg {% if showToolbar %} smi-mb-xl{% endif %}" smind-key="show_total_results,enable_sorting" smind-attributes smind-attr-toolbar>
+        {% if show_filter == true %}
+          <div class="smi-filter-toggle-button">
+            {% render 'smi-icons', icon: 'filter' %}
+              <span>{{ 'smind.collection.filter' | t }}</span>
+          </div>
+        {% endif %}
+        {% if section.settings.show_total_results %}
+          {% liquid
+    assign filters_applied = false
+    for filter in collection.filters
+        if filter.type == "price_range"
+            if filter.min_value.value != nil or filter.max_value.value != nil
+                assign filters_applied = true
+            endif
+        else
+            if filter.active_values.size > 0
+                assign filters_applied = true
+            endif
+        endif
+    endfor
+%}
+<smi-cp-amount class="smi-color-text-75 smi-d-flex smi-align-items-center">
+    {%- if filters_applied == true -%}
+        {{- 'smind.collection.product_count'
+        | t: product_count: collection.products_count, count: collection.all_products_count -}}
+    {%- else -%}
+        {{- 'smind.collection.product_count'
+        | t: product_count: collection.products_count, count: collection.all_products_count
+        | remove: 'found' -}}
+    {%- endif -%}
+</smi-cp-amount>
+        {% endif %}
+        {% if section.settings.show_columns_switcher %}
+          <smi-cp-grid-mode
+  class="
+    smi-column-gap-sm smi-d-none smi-d-md-flex
+    {%- liquid
+      if section.settings.show_total_results == false
+          echo ' smi-justify-content-lg-start'
+      elsif section.settings.enable_sorting == false
+          echo ' smi-justify-content-lg-end'
+      else
+          echo ' smi-justify-content-lg-center'
+      endif
+    -%}
+  "
+>
+  <span
+    {% if section.settings.number_of_columns_on_desktop == '1' %}
+      class="active"
+    {% endif %}
+    data-grid-mode="1"
+  >
+    {% render 'smi-icons', icon: 'list' %}
+  </span>
+  <span
+    {% if section.settings.number_of_columns_on_desktop == '2' %}
+      class="active"
+    {% endif %}
+    data-grid-mode="2"
+  >
+    {% render 'smi-icons', icon: '2-column' %}
+  </span>
+  <span
+    {% if section.settings.number_of_columns_on_desktop == '3' %}
+      class="active"
+    {% endif %}
+    data-grid-mode="3"
+  >
+    {% render 'smi-icons', icon: '3-column' %}
+  </span>
+  <span
+    {% if section.settings.number_of_columns_on_desktop == '4' %}
+      class="active"
+    {% endif %}
+    data-grid-mode="4"
+  >
+    {% render 'smi-icons', icon: '4-column' %}
+  </span>
+</smi-cp-grid-mode>
+        {% endif %}
+        {% if section.settings.enable_sorting %}
+          <smi-cp-sorter>
+    <div id="smi-sort-by-{{ section.id }}" class="smi-sorter-wrap">
+        {% assign sort_by = collection.sort_by | default: collection.default_sort_by %}
+        {% for option in collection.sort_options %}
+            {% if option.value == sort_by %}
+                <div class="smi-sorter-label smi-d-flex smi-justify-content-start smi-column-gap-sm">
+                    <span class="smi-color-text-75 smi-d-none smi-d-md-block">
+                        {{ 'smind.collection.sort_by' | t }}
+                    </span>
+                    <div class="smi-sorter-btn smi-column-gap-xs open {{ sorter_btn_classes }}" data-value="{{ option.value }}">
+                        <span class="smi-d-none smi-d-md-block">
+                            {{ option.name }}
+                        </span>
+                        <span class="smi-d-block smi-d-md-none">
+                            {{ 'smind.collection.sort_by' | t | remove: ':' }}
+                        </span>
+                        {% render 'smi-icons', icon: 'arrow-down' %}
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+        <div class="smi-sorter-dropdown smi-flex-wrap smi-dropdown-popup-wrapper smi-border smi-shadow smi-d-lazy">
+            <div class="smi-sorter-dropdown__header smi-w-100 smi-d-flex smi-align-items-center smi-justify-content-between smi-px-xs-lg smi-py-md smi-d-md-none">
+                <div class="_title smi-h4">
+                    {{ 'smind.collection.sort_by' | t | remove: ':' }}
+                </div>
+                <div class="_close-btn smi-d-flex smi-align-items-center">
+                    {% render 'smi-icons', icon: 'close' %}
+                </div>
+            </div>
+            <div class="smi-sorter-dropdown__content smi-px-md smi-px-xs-lg smi-py-md smi-w-100">
+                {% for option in collection.sort_options %}
+                    <div class="smi-sorter-item {%- if option.value == sort_by %} selected{% else %} smi-color-text-75{% endif -%}" data-value="{{ option.value }}">
+                        {{ option.name }}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</smi-cp-sorter>
+        {% endif %}
+        <smi-cp-filter-current class="smi-column-gap-xs smi-row-gap-xs {% unless showToolbar %} smi-mb-xl{% endunless %}">
+    {%- for filter in collection.filters -%}
+        {%- if filter.type == "price_range" -%}
+            {%- if filter.min_value.value != nil or filter.max_value.value != nil -%}
+                <div class="smi-fc-item smi-px-sm">
+                    <a href="{{ filter.url_to_remove }}">
+                        {%- assign min_value = filter.min_value.value | default: 0 -%}
+                        {%- assign max_value = filter.max_value.value | default: filter.range_max -%}
+                        {{ min_value | money }} - {{ max_value | money }} {% render 'smi-icons', icon: 'close' %}
+                    </a>
+                </div>
+            {%- endif -%}
+        {%- else -%}
+            {%- for filter_value in filter.active_values -%}
+                <div class="smi-fc-item smi-px-sm">
+                    <a href="{{ filter_value.url_to_remove }}" class="smi-column-gap-xxs">
+                        {{ filter_value.label }} {% render 'smi-icons', icon: 'close' %}
+                    </a>
+                </div>
+            {%- endfor -%}
+        {%- endif -%}
+    {%- endfor -%}
+    <div class="smi-fc-item smi-fc-item--clear-all smi-color-text-75">
+        <a href="{{ collection.url }}?sort_by={{ collection.sort_by }}">{{ 'smind.collection.clear_all' | t }}</a>
+    </div>
+</smi-cp-filter-current>
+      </aside>
+      <div
+        class="
+          {%- liquid
+            echo 'smi-layout-grid'
+              echo ' smi-product-grid smi-product-card-wrapper'
+              if section.settings.number_of_columns_on_desktop == '1'
+                 echo ' smi-layout-grid--list'
+              endif
+              if section.settings.enable_spacing_between_items == false
+                 echo ' smi-layout-grid--gap-0'
+              endif
+              if settings.smi_card_style
+                assign card_type = settings.smi_card_style
+              else
+                assign global_settings = shop.metafields.smind.settings.value
+                assign card_type = global_settings.productCardStyle | default: 'standard'
+              endif
+              echo ' smi-layout-grid--' | append: card_type
+          -%}
+        "
+        style="--col-md:{{- section.settings.number_of_columns_on_desktop -}};--col-xs:{{ section.settings.number_of_columns_on_mobile }}"
+      >
+        {% paginate collection.products by section.settings.products_per_page %}
+          {% for product in collection.products %}
+            <div class="smi-item smi-col-item">
+{%-liquid
+    assign media_ratio = section.settings.media_ratio
+    assign media_shape = section.settings.media_shape
+    assign media_classes = 'smi-w-100 smi-object-fit-cover '
+    if media_shape != 'default' and media_shape != 'round'
+        if shape_index > 6
+            assign shape_index = 1
+        endif
+        if shape_index < 6 
+            assign forloop_next = shape_index | plus: 1
+        else
+            assign forloop_next = 1
+        endif
+        assign media_classes = media_classes | append: ' smi-shape-blob-' | append: shape_index
+        assign shape_index = shape_index | plus: 1
+        assign shape_hover = '--shape-blob-' | append: forloop_next
+    endif
+    if media_ratio == 'auto' 
+        assign media_classes = media_classes | append: ' smi-h-auto'
+    else
+        assign media_classes = media_classes | append: ' smi-h-100 smi-p-absolute'
+    endif
+    assign media_wrapper_classes = 'smi-media-wrapper smi-border smi-shadow smi-lh-0 smi-overflow-hidden smi-p-relative smi-' | append: media_shape
+    if media_shape contains 'blob'
+        assign media_wrapper_classes = media_wrapper_classes | append: ' smi-blob-wrapper smi-has-blob'
+    endif
+-%}
+              {% render 'smi-product-card',
+                card_product: product,
+                card_type: card_type,
+                media_ratio: section.settings.media_ratio,
+                media_shape: section.settings.media_shape,
+                content_alignment: section.settings.content_alignment,
+                show_add_to_cart: section.settings.show_add_to_cart,
+                show_price: section.settings.show_price,
+                show_second_image: section.settings.show_second_image,
+                show_vendor: section.settings.show_vendor,
+                show_swatch_color: section.settings.show_swatch_color,
+                color_schema: section.settings.product_color_scheme,
+                number_columns_desktop: section.settings.number_of_columns_on_desktop,
+                number_columns_mobile: section.settings.number_of_columns_on_mobile,
+                loop_index: forloop.index
+              %}
+            </div>
+          {% endfor %}
+        {% endpaginate %}
+      </div>
+      <div class="smi-pagination smi-mt-xl smi-d-flex smi-justify-content-center" smind-key="pagination,default_pagination_style" smind-attributes smind-attr-pagination>
+    {% paginate collection.products by section.settings.products_per_page %}
+        {% case section.settings.pagination %}
+            {% when "default" %}
+                <smi-cp-pagination class="smi-pagination-default smi-visibility-hidden
+                    {{- ' smi-dps-' | append: section.settings.default_pagination_style -}}">
+                    <div class="smi-d-none smi-data-next-arrow">{% render 'smi-icons', icon: 'arrow-right' %}</div>
+                    {{ paginate | default_pagination }}
+                </smi-cp-pagination>
+            {% when "load_more"%}
+                <smi-cp-pagination class="smi-pagination-load-more">
+                    <a href="{{ paginate.next.url }}" class="smi-text-button">
+                        {{- 'smind.collection.load_more' | t -}}
+                    </a>
+                </smi-cp-pagination>
+            {% when "infinite_loading" %}
+                <smi-cp-pagination class="smi-pagination-infinite">
+                    <a href="{{ paginate.next.url }}">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M17.9236 12.2976C17.5257 13.6699 16.7782 14.9153 15.7543 15.9119C14.7304 16.9085 13.4652 17.6221 12.0826 17.9828C10.7001 18.3435 9.24755 18.3389 7.86729 17.9696C6.48703 17.6002 5.22636 16.8787 4.20874 15.8757C3.19112 14.8727 2.45144 13.6226 2.06213 12.2478C1.67283 10.8731 1.64724 9.42075 1.98789 8.03312C2.32854 6.64549 3.02373 5.37012 4.0054 4.33191C4.98706 3.2937 6.22154 2.52823 7.58794 2.11049" stroke="#1F1F21" stroke-width="2" stroke-linecap="round" stroke-linejoin="bevel"/>
+                        </svg>
+                    </a>
+                </smi-cp-pagination>
+        {% endcase %}
+    {% endpaginate %}
+</div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  window.smind?.initializeWhenReady(() => {
+    const sectionEl = document.getElementById('smi-{{ section.id }}')
+    const element = sectionEl?.querySelector('.smi-layout-grid')
+    new SMI_LayoutGrid(element)
+    new SMI_ProductListingPage().init(sectionEl)
+  }, ['SMI_LayoutGrid', 'SMI_ProductListingPage']);
+</script>{%comment%}#includeFile#assets/smi-product-card.min.css,assets/smi-product-card.min.js,assets/smi-layout-grid.min.css,assets/smi-layout-grid.min.js,assets/smi-product-listing-page.min.css,assets/smi-product-listing-page.min.js,snippets/smi-product-card.liquid#endIncludeFile#{%endcomment%}
+{% schema %}
+{
+	"name": "✧Collection page 1-1",
+	"tag": "section",
+	"class": "smi-section smi-zawo-item smi-collection-page-1",
+	"limit": 1,
+	"disabled_on": {
+		"templates": [
+			"404",
+			"article",
+			"blog",
+			"cart",
+			"customers/account",
+			"customers/activate_account",
+			"customers/addresses",
+			"customers/login",
+			"customers/order",
+			"customers/register",
+			"customers/reset_password",
+			"index",
+			"list-collections",
+			"page",
+			"password",
+			"search",
+			"product"
+		],
+		"groups": [
+			"header",
+			"footer",
+			"aside"
+		]
+	},
+	"settings": [
+		{
+			"type": "select",
+			"id": "display_on",
+			"label": "Display on",
+			"options": [
+				{
+					"value": "desktop",
+					"label": "Desktop only"
+				},
+				{
+					"value": "mobile",
+					"label": "Mobile only"
+				},
+				{
+					"value": "all",
+					"label": "All device"
+				}
+			],
+			"default": "all"
+		},
+		{
+			"type": "checkbox",
+			"id": "container_full_width",
+			"label": "Container full-width",
+			"default": false
+		},
+		{
+			"type": "checkbox",
+			"id": "custom_width",
+			"label": "Custom width",
+			"default": false,
+			"visible_if": "{{ section.settings.container_full_width == false }}"
+		},
+		{
+			"type": "range",
+			"id": "section_width",
+			"label": "Section width",
+			"min": 800,
+			"max": 2000,
+			"step": 20,
+			"unit": "px",
+			"default": 1200,
+			"visible_if": "{{ section.settings.container_full_width == false and section.settings.custom_width == true }}"
+		},
+		{
+			"type": "checkbox",
+			"id": "enable_spacing_between_items",
+			"label": "Enable spacing between items",
+			"default": true
+		},
+		{
+			"type": "header",
+			"content": "Sidebar settings"
+		},
+		{
+			"type": "select",
+			"id": "sidebar_size",
+			"label": "Sidebar size",
+			"options": [
+				{
+					"value": "240px",
+					"label": "S"
+				},
+				{
+					"value": "270px",
+					"label": "M"
+				},
+				{
+					"value": "330px",
+					"label": "L"
+				}
+			],
+			"default": "270px"
+		},
+		{
+			"type": "select",
+			"id": "heading_size",
+			"label": "Heading size",
+			"options": [
+				{
+					"value": "smi-h6",
+					"label": "XXS"
+				},
+				{
+					"value": "smi-h5",
+					"label": "XS"
+				},
+				{
+					"value": "smi-h4",
+					"label": "S"
+				},
+				{
+					"value": "smi-h3",
+					"label": "M"
+				}
+			],
+			"default": "smi-h5"
+		},
+		{
+			"type": "checkbox",
+			"id": "limit_filter_widget_height",
+			"label": "Limit filter widget height",
+			"default": true
+		},
+		{
+			"type": "checkbox",
+			"id": "show_count",
+			"label": "Show count",
+			"default": true
+		},
+		{
+			"type": "header",
+			"content": "Toolbar settings"
+		},
+		{
+			"type": "checkbox",
+			"id": "show_total_results",
+			"label": "Show total results",
+			"default": true
+		},
+		{
+			"type": "checkbox",
+			"id": "show_columns_switcher",
+			"label": "Show columns switcher",
+			"default": true
+		},
+		{
+			"type": "checkbox",
+			"id": "enable_sorting",
+			"label": "Enable sorting",
+			"default": true
+		},
+		{
+			"type": "header",
+			"content": "Layout settings"
+		},
+		{
+			"type": "range",
+			"id": "products_per_page",
+			"min": 8,
+			"max": 24,
+			"step": 1,
+			"default": 16,
+			"label": "Products per page"
+		},
+		{
+			"type": "select",
+			"id": "number_of_columns_on_desktop",
+			"label": "Number of columns on desktop",
+			"options": [
+				{
+					"value": "1",
+					"label": "1"
+				},
+				{
+					"value": "2",
+					"label": "2"
+				},
+				{
+					"value": "3",
+					"label": "3"
+				},
+				{
+					"value": "4",
+					"label": "4"
+				}
+			],
+			"default": "4"
+		},
+		{
+			"type": "select",
+			"id": "number_of_columns_on_mobile",
+			"label": "Number of columns on mobile",
+			"options": [
+				{
+					"value": "1",
+					"label": "1"
+				},
+				{
+					"value": "2",
+					"label": "2"
+				}
+			],
+			"default": "2"
+		},
+		{
+			"type": "select",
+			"id": "pagination",
+			"label": "Pagination",
+			"options": [
+				{
+					"value": "default",
+					"label": "Default"
+				},
+				{
+					"value": "load_more",
+					"label": "Load more"
+				},
+				{
+					"value": "infinite_loading",
+					"label": "Infinite loading"
+				}
+			],
+			"default": "default"
+		},
+		{
+			"type": "select",
+			"id": "default_pagination_style",
+			"label": "Default pagination style",
+			"options": [
+				{
+					"value": "square-style-1",
+					"label": "Square style 1"
+				},
+				{
+					"value": "square-style-2",
+					"label": "Square style 2"
+				},
+				{
+					"value": "circle-style-1",
+					"label": "Circle style 1"
+				},
+				{
+					"value": "circle-style-2",
+					"label": "Circle style 2"
+				},
+				{
+					"value": "circle-style-3",
+					"label": "Circle style 3"
+				},
+				{
+					"value": "text-style-1",
+					"label": "Text style 1"
+				}
+			],
+			"default": "square-style-1",
+			"info": "This option is only applied when choosing “Default” pagination."
+		},
+		{
+			"type": "header",
+			"content": "Product card"
+		},
+		{
+			"type": "paragraph",
+			"content": "To edit the product card style or select a review app, open the Smind app and go to Settings → Global Settings → Card."
+		},
+		{
+			"type": "select",
+			"id": "media_ratio",
+			"label": "Media ratio",
+			"options": [
+				{
+					"value": "auto",
+					"label": "Adapt"
+				},
+				{
+					"value": "3/2",
+					"label": "Landscape"
+				},
+				{
+					"value": "1/1",
+					"label": "Square"
+				},
+				{
+					"value": "3/4",
+					"label": "Portrait"
+				}
+			],
+			"default": "3/4"
+		},
+		{
+			"type": "select",
+			"id": "media_shape",
+			"label": "Media shape",
+			"options": [
+				{
+					"value": "default",
+					"label": "Default"
+				},
+				{
+					"value": "round",
+					"label": "Round"
+				},
+				{
+					"value": "shape-blob",
+					"label": "Blob"
+				}
+			],
+			"default": "default",
+			"info": "Media theme settings don't apply to the \"Blob\" shape."
+		},
+		{
+			"type": "text_alignment",
+			"id": "content_alignment",
+			"label": "Content alignment",
+			"default": "left"
+		},
+		{
+			"type": "checkbox",
+			"id": "show_add_to_cart",
+			"label": "Show \"Add to cart\" button",
+			"default": true
+		},
+		{
+			"type": "select",
+			"id": "add_to_cart_button_style",
+			"label": "Button style",
+			"options": [
+				{
+					"value": "outline",
+					"label": "Outline"
+				},
+				{
+					"value": "solid",
+					"label": "Solid"
+				}
+			],
+			"default": "solid",
+			"visible_if": "{{ section.settings.show_add_to_cart }}"
+		},
+		{
+			"type": "checkbox",
+			"id": "show_tag",
+			"label": "Show tag",
+			"default": false
+		},
+		{
+			"type": "select",
+			"id": "tags_style",
+			"label": "Tag style",
+			"options": [
+				{
+					"value": "text",
+					"label": "Text"
+				},
+				{
+					"value": "outline",
+					"label": "Outline"
+				}
+			],
+			"default": "outline",
+			"visible_if": "{{ section.settings.show_tag }}"
+		},
+		{
+			"type": "range",
+			"id": "maximum_tags",
+			"min": 1,
+			"max": 5,
+			"step": 1,
+			"label": "Maximum tags",
+			"default": 2,
+			"visible_if": "{{ section.settings.show_tag }}"
+		},
+		{
+			"type": "checkbox",
+			"id": "show_price",
+			"label": "Show price",
+			"default": true
+		},
+		{
+			"type": "checkbox",
+			"id": "show_second_image",
+			"label": "Show second image on hover",
+			"default": true
+		},
+		{
+			"type": "checkbox",
+			"id": "show_vendor",
+			"label": "Show vendor"
+		},
+		{
+			"type": "checkbox",
+			"id": "show_swatch_color",
+			"label": "Show color swatch",
+			"info": "If no color swatches are visible, upload your own. [Learn more](https://docs.smind.io/guides/configuring-color-swatches)"
+		},
+		{
+			"type": "checkbox",
+			"id": "show_description",
+			"label": "Show descriptions",
+			"default": false
+		},
+		{
+			"type": "range",
+			"id": "description_maximum_lines",
+			"min": 1,
+			"max": 10,
+			"step": 1,
+			"label": "Maximum lines",
+			"default": 2,
+			"visible_if": "{{ section.settings.show_description }}"
+		},
+		{
+			"type": "header",
+			"content": "Colors"
+		},
+		{
+			"type": "select",
+            "options": [
+                {
+                    "value": "scheme_1",
+                    "label": "Scheme 1"
+                },
+                {
+                    "value": "scheme_2",
+                    "label": "Scheme 2"
+                },
+                {
+                    "value": "scheme_3",
+                    "label": "Scheme 3"
+                },
+                {
+                    "value": "scheme_4",
+                    "label": "Scheme 4"
+                },
+                {
+                    "value": "scheme_5",
+                    "label": "Scheme 5"
+                },
+                {
+                    "value": "scheme_6",
+                    "label": "Scheme 6"
+                },
+                {
+                    "value": "scheme_7",
+                    "label": "Scheme 7"
+                },
+                {
+                    "value": "scheme_8",
+                    "label": "Scheme 8"
+                },
+                {
+                    "value": "scheme_9",
+                    "label": "Scheme 9"
+                },
+                {
+                    "value": "scheme_10",
+                    "label": "Scheme 10"
+                }
+            ],
+			"id": "color_scheme",
+			"label": "Section color scheme",
+			"info": "This color scheme applies to the border and shadow of cards. [Learn more](https://docs.smind.io/guides/color-block-and-color-scheme#how-to-configure-border-and-shadow-colors-in-sections-with-two-color-schemes)"
+		},
+		{
+			"type": "select",
+            "options": [
+                {
+                    "value": "scheme_1",
+                    "label": "Scheme 1"
+                },
+                {
+                    "value": "scheme_2",
+                    "label": "Scheme 2"
+                },
+                {
+                    "value": "scheme_3",
+                    "label": "Scheme 3"
+                },
+                {
+                    "value": "scheme_4",
+                    "label": "Scheme 4"
+                },
+                {
+                    "value": "scheme_5",
+                    "label": "Scheme 5"
+                },
+                {
+                    "value": "scheme_6",
+                    "label": "Scheme 6"
+                },
+                {
+                    "value": "scheme_7",
+                    "label": "Scheme 7"
+                },
+                {
+                    "value": "scheme_8",
+                    "label": "Scheme 8"
+                },
+                {
+                    "value": "scheme_9",
+                    "label": "Scheme 9"
+                },
+                {
+                    "value": "scheme_10",
+                    "label": "Scheme 10"
+                }
+            ],
+			"id": "product_color_scheme",
+			"label": "Product card color scheme",
+			"info": "How to use “Color block” and “Color scheme” [learn more](https://docs.smind.io/guides/color-block-and-color-scheme)"
+		},
+		{
+			"type": "header",
+			"content": "Section padding"
+		},
+		{
+			"type": "range",
+			"id": "padding_top",
+			"min": 0,
+			"max": 200,
+			"step": 2,
+			"unit": "px",
+			"label": "Top padding - desktop",
+			"default": 50
+		},
+		{
+			"type": "range",
+			"id": "padding_bottom",
+			"min": 0,
+			"max": 200,
+			"step": 2,
+			"unit": "px",
+			"label": "Bottom padding - desktop",
+			"default": 50
+		},
+		{
+			"type": "range",
+			"id": "padding_top_mobile",
+			"min": 0,
+			"max": 200,
+			"step": 2,
+			"unit": "px",
+			"label": "Top padding - mobile",
+			"default": 50
+		},
+		{
+			"type": "range",
+			"id": "padding_bottom_mobile",
+			"min": 0,
+			"max": 200,
+			"step": 2,
+			"unit": "px",
+			"label": "Bottom padding - mobile",
+			"default": 50
+		},
+		{
+			"type": "header",
+			"content": "Section margin"
+		},
+		{
+			"type": "range",
+			"id": "margin_sides",
+			"min": 0,
+			"max": 200,
+			"step": 2,
+			"unit": "px",
+			"label": "Margin sides - desktop",
+			"default": 0
+		},
+		{
+			"type": "range",
+			"id": "margin_sides_mobile",
+			"min": 0,
+			"max": 50,
+			"step": 1,
+			"unit": "px",
+			"label": "Margin sides - mobile",
+			"default": 0
+		}
+	],
+	"blocks": [
+		{
+			"type": "filter",
+			"name": "Filter",
+			"limit": 1,
+			"settings": [
+				{
+					"type": "paragraph",
+					"content": "Customize filters with the Search & Discovery app.[Learn more](https://help.shopify.com/en/manual/online-store/search-and-discovery/filters)"
+				},
+				{
+					"type": "header",
+					"content": "Tags"
+				},
+				{
+					"type": "text",
+					"id": "tag_heading",
+					"label": "Tag filter label",
+					"default": "Tags",
+					"info": "Name of the filter label you set in the Search & Discovery app"
+				},
+				{
+					"type": "select",
+					"id": "tag_style",
+					"label": "Tag style",
+					"options": [
+						{
+							"value": "default",
+							"label": "Default"
+						},
+						{
+							"value": "1",
+							"label": "1"
+						},
+						{
+							"value": "2",
+							"label": "2"
+						}
+					],
+					"default": "1"
+				}
+			]
+		},
+		{
+			"type": "categories",
+			"name": "Categories",
+			"settings": [
+				{
+					"type": "inline_richtext",
+					"id": "heading",
+					"default": "Categories",
+					"label": "Heading"
+				},
+				{
+					"type": "link_list",
+					"id": "menu",
+					"label": "Menu"
+				}
+			]
+		},
+		{
+			"type": "gallery",
+			"name": "Gallery",
+			"settings": [
+				{
+					"type": "inline_richtext",
+					"id": "heading",
+					"default": "Gallery",
+					"label": "Heading"
+				},
+				{
+					"type": "checkbox",
+					"id": "use_media_style_from_theme_settings",
+					"label": "Use media style from theme settings",
+					"default": false
+				},
+				{
+					"type": "checkbox",
+					"id": "open_link_in_new_tab",
+					"label": "Open link in new tab",
+					"default": false
+				},
+				{
+					"type": "image_picker",
+					"id": "image_1",
+					"label": "Image 1"
+				},
+				{
+					"type": "url",
+					"id": "link_1",
+					"label": "Link 1"
+				},
+				{
+					"type": "image_picker",
+					"id": "image_2",
+					"label": "Image 2"
+				},
+				{
+					"type": "url",
+					"id": "link_2",
+					"label": "Link 2"
+				},
+				{
+					"type": "image_picker",
+					"id": "image_3",
+					"label": "Image 3"
+				},
+				{
+					"type": "url",
+					"id": "link_3",
+					"label": "Link 3"
+				},
+				{
+					"type": "image_picker",
+					"id": "image_4",
+					"label": "Image 4"
+				},
+				{
+					"type": "url",
+					"id": "link_4",
+					"label": "Link 4"
+				},
+				{
+					"type": "image_picker",
+					"id": "image_5",
+					"label": "Image 5"
+				},
+				{
+					"type": "url",
+					"id": "link_5",
+					"label": "Link 5"
+				},
+				{
+					"type": "image_picker",
+					"id": "image_6",
+					"label": "Image 6"
+				},
+				{
+					"type": "url",
+					"id": "link_6",
+					"label": "Link 6"
+				}
+			]
+		},
+		{
+			"type": "social_media",
+			"name": "Social media",
+			"settings": [
+				{
+					"type": "inline_richtext",
+					"id": "heading",
+					"default": "Social media",
+					"label": "Heading"
+				},
+				{
+					"type": "paragraph",
+					"content": "How to add social media icons. [Learn more](https://docs.smind.io/guides/showing-social-media-icons)."
+				},
+				{
+					"type": "select",
+					"id": "icon_style",
+					"label": "Icon style",
+					"options": [
+						{
+							"value": "1",
+							"label": "1"
+						},
+						{
+							"value": "2",
+							"label": "2"
+						},
+						{
+							"value": "3",
+							"label": "3"
+						}
+					],
+					"default": "1"
+				},
+				{
+					"type": "range",
+					"id": "icon_size",
+					"min": 10,
+					"max": 60,
+					"step": 1,
+					"unit": "px",
+					"label": "Icon size",
+					"default": 20
+				}
+			]
+		},
+		{
+			"type": "image_banner",
+			"name": "Image banner",
+			"settings": [
+				{
+					"type": "image_picker",
+					"id": "image",
+					"label": "Image"
+				},
+				{
+					"type": "url",
+					"id": "link",
+					"label": "Link"
+				},
+				{
+					"type": "checkbox",
+					"id": "use_media_style_from_theme_settings",
+					"label": "Use media style from theme settings",
+					"default": false
+				},
+				{
+					"type": "checkbox",
+					"id": "open_link_in_new_tab",
+					"label": "Open link in new tab",
+					"default": false
+				}
+			]
+		},
+		{
+			"name": "Color",
+			"limit": 1,
+			"type": "color",
+			"settings": [
+				{
+					"type": "paragraph",
+					"content": "How to use “Color block” and “Color scheme”. [Learn more](https://docs.smind.io/guides/color-block-and-color-scheme)"
+				},
+				{
+					"type": "header",
+					"content": "Section"
+				},
+				{
+					"type": "color",
+					"id": "background_color",
+					"default": "#FFFFFF",
+					"label": "Background"
+				},
+				{
+					"type": "color_background",
+					"id": "background_gradient_color",
+					"label": "Background gradient",
+					"info": "Background gradient replaces background where possible."
+				},
+				{
+					"type": "color",
+					"id": "heading_color",
+					"label": "Heading"
+				},
+				{
+					"type": "color",
+					"id": "text_color",
+					"default": "#1F1F21",
+					"label": "Text"
+				},
+				{
+					"type": "color",
+					"id": "shadow_color",
+					"default": "#000000",
+					"label": "Shadow"
+				},
+				{
+					"type": "paragraph",
+					"content": "Button ──────────"
+				},
+				{
+					"type": "color",
+					"id": "solid_background_button_color",
+					"default": "#1F1F21",
+					"label": "Solid button background"
+				},
+				{
+					"type": "color",
+					"id": "solid_button_label_color",
+					"default": "#FFFFFF",
+					"label": "Solid button label"
+				},
+				{
+					"type": "color",
+					"id": "solid_background_button_hover_color",
+					"label": "Solid hover background"
+				},
+				{
+					"type": "color",
+					"id": "solid_button_label_hover_color",
+					"label": "Hover label"
+				},
+				{
+					"type": "paragraph",
+					"content": "This color scheme applies to the border and shadow of cards. [Learn more](https://docs.smind.io/guides/color-block-and-color-scheme#how-to-configure-border-and-shadow-colors-in-sections-with-two-color-schemes)"
+				},
+				{
+					"type": "header",
+					"content": "Product card"
+				},
+				{
+					"type": "color",
+					"id": "product_background_color",
+					"default": "#FFFFFF",
+					"label": "Background"
+				},
+				{
+					"type": "color_background",
+					"id": "product_background_gradient_color",
+					"label": "Background gradient",
+					"info": "Background gradient replaces background where possible."
+				},
+				{
+					"type": "color",
+					"id": "product_heading_color",
+					"label": "Heading"
+				},
+				{
+					"type": "color",
+					"id": "product_text_color",
+					"default": "#1F1F21",
+					"label": "Text"
+				},
+				{
+					"type": "color",
+					"id": "product_shadow_color",
+					"default": "#000000",
+					"label": "Shadow"
+				},
+				{
+					"type": "paragraph",
+					"content": "Button ──────────"
+				},
+				{
+					"type": "color",
+					"id": "product_solid_background_button_color",
+					"default": "#1F1F21",
+					"label": "Solid button background"
+				},
+				{
+					"type": "color",
+					"id": "product_solid_button_label_color",
+					"default": "#FFFFFF",
+					"label": "Solid button label"
+				},
+				{
+					"type": "color",
+					"id": "product_solid_background_button_hover_color",
+					"label": "Solid hover background"
+				},
+				{
+					"type": "color",
+					"id": "product_solid_button_label_hover_color",
+					"label": "Hover label"
+				},
+				{
+					"type": "header",
+					"content": "Sale badge"
+				},
+				{
+					"type": "color",
+					"id": "badge_sale_text_color",
+					"default": "#1F1F21",
+					"label": "Text"
+				},
+				{
+					"type": "color",
+					"id": "sale_badge_border_color",
+					"label": "Borders"
+				},
+				{
+					"type": "color",
+					"id": "badge_sale_background_color",
+					"default": "#ED2626",
+					"label": "Background"
+				},
+				{
+					"type": "color_background",
+					"id": "sale_badge_background_gradient",
+					"label": "Background gradient",
+					"info": "Background gradient replaces background where possible."
+				},
+				{
+					"type": "header",
+					"content": "Sold out badge"
+				},
+				{
+					"type": "color",
+					"id": "badge_sold_out_text_color",
+					"default": "#FFFFFF",
+					"label": "Text"
+				},
+				{
+					"type": "color",
+					"id": "sale_badge_sold_out_border_color",
+					"label": "Borders"
+				},
+				{
+					"type": "color",
+					"id": "badge_sold_out_background_color",
+					"default": "#1F1F21",
+					"label": "Background"
+				},
+				{
+					"type": "color_background",
+					"id": "sold_out_badge_background_gradient",
+					"label": "Background gradient",
+					"info": "Background gradient replaces background where possible."
+				}
+			]
+		},
+		{
+			"name": "Background",
+			"limit": 1,
+			"type": "background",
+			"settings": [
+				{
+					"type": "color",
+					"id": "background_simple",
+					"label": "Background section"
+				},
+				{
+					"type": "image_picker",
+					"id": "image",
+					"label": "Image"
+				},
+				{
+					"type": "image_picker",
+					"id": "image_mobile",
+					"label": "Mobile image (optional)"
+				},
+				{
+					"type": "select",
+					"id": "animation",
+					"label": "Image animation",
+					"options": [
+						{
+							"label": "None",
+							"value": "none"
+						},
+						{
+							"label": "Ambient movement",
+							"value": "ambient_movement"
+						},
+						{
+							"label": "Parallax",
+							"value": "parallax"
+						}
+					],
+					"default": "none"
+				},
+				{
+					"type": "header",
+					"content": "Video background"
+				},
+				{
+					"type": "video",
+					"id": "video",
+					"label": "Upload video"
+				},
+				{
+					"type": "video_url",
+					"id": "video_url",
+					"label": "Video URL",
+					"accept": [
+						"youtube",
+						"vimeo"
+					]
+				},
+				{
+					"type": "color_background",
+					"id": "background_overlay",
+					"label": "Overlay background"
+				}
+			]
+		}
+	],
+	"presets": [
+		{
+			"name": "✧Collection page 1-1",
+			"settings": {
+				"container_full_width": false,
+				"enable_spacing_between_items": true,
+				"sidebar_size": "240px",
+				"heading_size": "smi-h5",
+				"limit_filter_widget_height": true,
+				"show_count": true,
+				"show_total_results": true,
+				"show_columns_switcher": true,
+				"enable_sorting": true,
+				"products_per_page": 15,
+				"number_of_columns_on_desktop": "3",
+				"number_of_columns_on_mobile": "2",
+				"pagination": "default",
+				"default_pagination_style": "square-style-1",
+				"media_ratio": "auto",
+				"media_shape": "default",
+				"content_alignment": "left",
+				"show_add_to_cart": true,
+				"show_price": true,
+				"show_second_image": true,
+				"show_vendor": false,
+				"show_swatch_color": true,
+				"padding_top": 50,
+				"padding_bottom": 50,
+				"color_scheme": "scheme_1",
+				"product_color_scheme": "scheme_2"
+			},
+			"blocks": [
+				{
+					"type": "filter",
+					"settings": {
+						"tag_heading": "Tags",
+						"tag_style": "2"
+					}
+				},
+				{
+					"type": "categories",
+					"settings": {
+						"heading": "Categories",
+						"menu": "menu-2"
+					}
+				},
+				{
+					"type": "gallery",
+					"settings": {
+						"heading": "Gallery",
+						"use_media_style_from_theme_settings": false,
+						"open_link_in_new_tab": false,
+						"image_1": "",
+						"link_1": null,
+						"image_2": "",
+						"link_2": null,
+						"image_3": "",
+						"link_3": null,
+						"image_4": "",
+						"link_4": null,
+						"image_5": "",
+						"link_5": null,
+						"image_6": "",
+						"link_6": null
+					}
+				},
+				{
+					"type": "image_banner",
+					"settings": {
+						"image": "",
+						"link": null,
+						"use_media_style_from_theme_settings": false,
+						"open_link_in_new_tab": true
+					}
+				},
+				{
+					"type": "social_media",
+					"settings": {
+						"heading": "Social media",
+						"icon_style": "2",
+						"icon_size": 18
+					}
+				},
+				{
+					"type": "color",
+					"settings": {
+						"background_color": "#ffffff",
+						"background_gradient_color": "",
+						"text_color": "#000000",
+						"solid_background_button_color": "#000000",
+						"solid_button_label_color": "#ffffff",
+						"shadow_color": "#000000",
+						"product_background_color": "#fcf8f5",
+						"product_background_gradient_color": "",
+						"product_text_color": "#000000",
+						"product_solid_background_button_color": "#000000",
+						"product_solid_button_label_color": "#fcf8f5",
+						"product_shadow_color": "#000000"
+					}
+				}
+			]
+		}
+	]
+}
+{% endschema %}
+

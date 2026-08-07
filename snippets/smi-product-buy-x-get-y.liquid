@@ -1,0 +1,317 @@
+<link rel="stylesheet" type="text/css" href="{{ 'smi-product-buy-x-get-y.min.css' | asset_url }}" media="screen" onload="this.onload=null;this.media='all'">
+<script src="{{ 'smi-product-buy-x-get-y.min.js' | asset_url }}" defer data-id="smi-product-buy-x-get-y.min.js"></script>
+{%- assign heading = target_element.heading | strip -%}
+{% if heading != blank %}
+	<div class="smi-heading-component smi-mb-lg smi-heading-component--align-{{target_element.heading_alignment}} smi-link-wrapper">
+		<div class="smi-heading-inner">
+			<h2 class="{{ target_element.heading_size }} {% if description != blank %}smi-mb-sm{% endif %} smi-heading-component__heading" >{{- heading -}}</h2>
+		</div>
+	</div>
+{% endif %}
+{%  liquid 
+	assign bundle_class_media = 'smi-product-bundle-img smi-h-auto'
+	if target_element.use_media_style
+		assign bundle_class_media = bundle_class_media | append: ' smi-media-wrapper smi-border smi-shadow'
+	endif
+	assign currency_code_enabled = settings.smi_currency_code_enabled | default: shop.metafields.smind.settings.value.showCurrencyCode | default: false
+	if currency_code_enabled
+		assign currency_full = true
+	else
+		assign currency_full = false
+	endif
+	assign list_product = target_element.product_list
+	assign products_count = list_product | size | plus: 0
+	for handle in list_product
+		assign products_count = forloop.index
+	endfor
+	assign at_discounted_value = target_element.at_discounted_value
+	assign offer_type = target_element.offer_option
+%}
+<smi-block-product-buy-x-get-y
+	id="smi_buy_x_get_y_{{ target.id }}"
+	data-id="smi_buy_x_get_y_{{ target.id }}"
+	data-section-id="{{ target.id }}"
+	data-product-id="{{ product.id }}"
+	data-product-title="{{ product.title }}"
+	data-bundle="{% if currency_full %}{{ shop.money_with_currency_format }}{% else %}{{ shop.money_format }}{% endif %}"
+	data-block-id-app="{{ target_element.block_id }}"
+	data-free-price-text="{{ target_element.free_text_price }}"
+	data-type-discount-value="{{ target_element.at_discounted_value }}"
+	data-percent-discount="{{ target_element.percent_discount }}"
+	data-amount-discount="{{ target_element.amount_discount }}"
+	data-offer-type="{{ offer_type }}"
+>
+{%- if products_count > 0 -%}
+	<div class="smi-items smi-shadow {% if target_element.content_max_width < 442 %}smi-block-small-container{% endif %} smi-text-lg"
+		data-recommendation-count={{ products_count }}
+	>
+		<div class="smi-items-container" style="--media-ratio: {{ target_element.media_ratio }}; overflow: hidden;">
+			<div class="smi-list-items smi-d-flex smi-flex-wrap">
+				{% for index_item in list_product %}
+					<div class="smi-items-buy-x-get-y smi-w-100 smi-detail-product-bundle-in">
+						{% liquid
+							assign index_product_recomment = forloop.index
+							assign current_product = list_product[index_product_recomment]
+							for product in list_product
+								if forloop.index == index_product_recomment
+									assign current_product = product
+								endif
+							endfor
+						%}
+						{% assign has_available_variant = false %}
+						{% for variant in current_product.variants %}
+							{% if variant.available %}
+								{% assign has_available_variant = true %}
+								{% break %}
+							{% endif %}
+						{% endfor %}
+						<div class="smi-w-100 smi-d-flex smi-column-gap-md smi-align-items-center"  {% if has_available_variant == false %}style="opacity: 0.55;"{% endif %}">
+							<div class="smi-product-bundle-media smi-d-flex">
+								{% if current_product.selected_or_first_available_variant.featured_image != null and current_product.selected_or_first_available_variant.featured_image != undefined %}
+									{% if is_reference %}
+										{{
+											images[current_product.selected_or_first_available_variant.featured_image]
+											| image_url: width: 200
+											| image_tag: loading: 'lazy', class: bundle_class_media
+										}}
+									{% else %}
+										{{
+											current_product.selected_or_first_available_variant.featured_image
+											| image_url: width: 200
+											| image_tag: loading: 'lazy', class: bundle_class_media
+										}}
+									{% endif %}
+								{% else %}
+									{% if is_reference %}
+										{{
+											images[current_product.featured_image]
+											| image_url: width: 200
+											| image_tag: loading: 'lazy', class: bundle_class_media
+										}}
+									{% else %}
+										{{
+											current_product.featured_image
+											| image_url: width: 200
+											| image_tag: loading: 'lazy', class: bundle_class_media
+										}}
+									{% endif %}
+								{% endif %}
+							</div>
+							<div class="smi-content-container-detail smi-product-bundle-detail smi-align-items-center smi-w-100 smi-d-flex smi-column-gap-xl">
+								<div class="smi-product-bundle-detail-info smi-w-100">
+								{% if  target_element.enabled_click == false %}<a href="{{ current_product.url }}"  class="smi-bundle-title smi-h5 smi-mb-sm">{{ current_product.title }}</a> {% else %} <h2 class="smi-bundle-title smi-h5 smi-mb-sm">{{ current_product.title }}</h2> {% endif %}
+									{% if current_product.variants.size > 1 and has_available_variant %}
+										<div class="__variant-options smi-w-100 smi-d-flex smi-column-gap-xxs">
+											<div class="smi-inputs-wrapper smi-w-100 smi-border smi-shadow smi-p-relative smi-d-flex smi-align-items-center">
+												<select class="smi-text-sm smi-pl-sm smi-w-100 smi-pr-lg smi-0 smi-py-xxs"
+													data-product-id="{{ current_product.id }}"
+												>
+													{% for variant in current_product.variants %}
+														{% if variant.available %}
+															<option
+																class="smi-text-sm {% if forloop.index != 1 %} smi-color-text-75{% endif %}"
+																value="{{ variant.id }}"
+															>
+																{{ variant.title }}
+															</option>
+														{% endif %}
+													{% endfor %}
+												</select>
+												{% render 'smi-icons', icon: 'arrow-down' %}
+											</div>
+										</div>
+									{% endif %}
+								</div>
+								<div class="smi-product-bundle-price">
+									<div class="smi-d-block smi-product-bundle-price-detail">
+										{% if current_product.selected_or_first_available_variant.available %}
+											<div class="smi-compare--price smi-text-price-md smi-mb-xxs {% if current_product.selected_or_first_available_variant.price >= current_product.selected_or_first_available_variant.compare_at_price or current_product.selected_or_first_available_variant.compare_at_price == null or current_product.selected_or_first_available_variant.compare_at_price == 0 %}smi-d-none{% endif %}">
+												{% if current_product.selected_or_first_available_variant.compare_at_price > 0 %}
+													{% if currency_full %}
+														{{- current_product.selected_or_first_available_variant.compare_at_price | json | money_with_currency -}}
+													{% else %}
+														{{- current_product.selected_or_first_available_variant.compare_at_price | json | money -}}
+													{% endif %}
+												{% endif %}
+											</div>
+											<div class="smi--price smi-text-price-lg">
+												{% if current_product.selected_or_first_available_variant.price == 0 or at_discounted_value == 'free' %}
+													{{ target_element.free_text_price }}
+												{% else %}
+													{%  liquid 
+														assign _price = current_product.selected_or_first_available_variant.price
+														if at_discounted_value == "percentage"
+															assign _percent_discount = target_element.percent_discount
+															if _percent_discount > 100
+																assign _percent_discount = 100
+															endif
+															if _percent_discount < 100
+																assign _discount = current_product.selected_or_first_available_variant.price | divided_by: 100 | times: _percent_discount
+																assign price = current_product.selected_or_first_available_variant.price | minus: _discount
+															else 
+																assign price = 0
+															endif
+														elsif at_discounted_value == "amount"
+															assign _amount_discount = target_element.amount_discount | times: 100
+																assign price = current_product.selected_or_first_available_variant.price
+															if _amount_discount >= price
+																assign price = 0
+															else
+																assign price = price | minus: _amount_discount
+															endif
+														endif
+													%}
+													{% if price == 0 %}
+														{{ target_element.free_text_price }}
+													{% else %}
+														{% if currency_full %}
+															{{- price | json | money_with_currency -}}
+														{% else %}
+															{{- price | json | money -}}
+														{% endif %}
+													{% endif %}
+												{% endif %}
+											</div>
+										{% else %}
+											<div class="smi-compare--price smi-text-price-md {% if current_product.selected_or_first_available_variant.price >= current_product.selected_or_first_available_variant.compare_at_price or current_product.selected_or_first_available_variant.compare_at_price == null or current_product.selected_or_first_available_variant.compare_at_price == 0  %}smi-d-none{% endif %}">
+											</div>
+											<div class="smi--price smi-text-price-lg">
+												{{ 'smind.product.sold_out' | t }}
+											</div>
+										{% endif %}
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					{% if forloop.index < products_count %}
+						<div class="smi-divider-item smi-p-relative smi-w-100 smi-d-flex smi-align-items-center smi-justify-content-center">
+							<div class="smi-divider-line smi-w-100 smi-p-absolute"></div>
+							<div class="smi-divider-icon smi-p-relative smi-d-flex smi-px-xxs smi-py-xxs">{% render 'smi-icons', icon: 'plus' %}</div>
+						</div>
+					{% endif %}
+				{% endfor %}
+			</div>
+			<div class="smi-px-lg smi-py-md smi-total-price-component">
+				<div class="smi-total-price smi-d-flex smi-justify-content-between smi-align-items-center">
+					<div class="smi-h4">{{ 'smind.product.total_price_product_bundle' | t }}:</div>
+					<div class="smi-d-flex smi-align-items-center smi-column-gap-xxs">
+						<span class="smi-text-price-md smi--compare-total smi-price--through"></span>
+						<span class="smi--price-total smi-text-price-xl"></span>
+					</div>
+				</div>
+				{% if offer_type == "separate" %}
+					<div class="smi-atc-bundle smi-mt-md">
+						{% capture content_form  %}
+							<button 
+								type="submit"
+								class="smi-button-add-cart smi-button-wrapper smi-mx-lg smi-button smi-cursor-pointer smi-button-full-width-true smi-text-button smi-button--solid smi-border smi-shadow button-purchase-bundle smi-w-100 {{ target.settings.button_animation }}"
+								id="btn_add_to_cart_bundle_{{ target.id }}"
+							>
+								<!-- Add&nbsp;<span id="purchase_buddle_{{ section.id }}"></span>&nbsp;items to cart -->
+								<span class="smi-text-cart smi-text-button" id="purchase_buddle_all_{{ target.id }}">
+									{{ target_element.button_label }}
+								</span>
+								<span class="smi-text-loading"></span>
+							</button>
+						{% endcapture  %}
+						{%-liquid
+							assign product_form_id = 'product-form-' | append: target.id
+							assign error_selector = '#smi-bundle-product-error-' | append: target.id | append: ' .smi-errors'
+							assign show_soldout = false
+							assign form_type = 'smi-blocks-buy-x-get-y'
+						-%}
+						{%-liquid
+							unless card_product
+								assign card_product = product
+							endunless
+							unless product_form_id
+								assign product_form_id = 'product-form-' | append: target.id | append: block.id
+							endunless
+							assign target = card_product.selected_or_first_available_variant
+							if error_selector == nil
+								assign error_selector = ''
+							endif
+							if enable_soldout == nil
+								assign enable_soldout = false
+							endif
+							if form_type == nil
+								assign form_type = 'normal'
+							endif
+						-%}
+						<div id="smi-bundle-product-error-{{target.id}}">
+							<div class="smi-errors smi-mb-sm"></div>            
+						</div>
+						<smi-product-form
+							data-soldout="false"
+							data-error-selector="{{error_selector}}"
+							data-enable-soldout = "{{enable_soldout}}"
+						>
+							{%- form 'product',
+								card_product,
+								id: product_form_id,
+								class: 'form',
+								novalidate: 'novalidate',
+								data-type: 'add-to-cart-form'
+							-%}
+								<input
+									type="hidden"
+									name="id"
+									value="{{ card_product.selected_or_first_available_variant.id }}"
+									class="product-variant-id"
+									{% if card_product.selected_or_first_available_variant.available == false %}
+										disabled
+									{% endif %}
+								/>
+									{{ content_form }}
+								<input type="hidden" name="form-type" value="{{form_type}}" />
+							{%- endform -%}
+						</smi-product-form>
+					</div>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+{%- endif -%}
+<script type="application/json" data_product_recommendations_block>
+	{
+		"productId": "{{- product.id -}}",
+		"price": "{{ product.price}}",
+		"price_max": "{{ product.price_max}}",
+		"first_selected": "{{ product.selected_or_first_available_variant.id }}",
+		"current": [
+		{%- for variant in product.variants -%}
+			{
+			"id": "{{ variant.id }}",
+			"product_id": {{ product.id}},
+			"img_url":"{{ variant.image | image_url }}",
+			"price": {{ variant.price}},
+			"compare_at_price": {% if variant.compare_at_price and variant.compare_at_price > 0 %}{{ variant.compare_at_price }}{% else %}null{%endif%}
+			}
+		{%- if forloop.last == false -%},{%- endif -%}
+		{% endfor %}
+		],
+		"recommendations": [
+		{% for product in list_product %}
+			{
+			"id": "{{ product.id}}",
+			"first_selected": "{{ product.selected_or_first_available_variant.id }}",
+			"variants": [
+				{%- for variant in product.variants -%}
+				{
+					"id": "{{ variant.id }}",
+					"product_id": {{ product.id}},
+					"img_url":"{{ variant.image | image_url }}",
+					"price": {{ variant.price}},
+					"compare_at_price": {% if variant.compare_at_price and variant.compare_at_price > 0 %}{{ variant.compare_at_price }}{% else %}null{%endif%}
+				}
+				{%- if forloop.last == false -%},{%- endif -%}
+				{%- endfor -%}
+			]
+			}
+			{%- if forloop.last == false -%},{%- endif -%}
+		{% endfor %}
+		]
+	}
+	</script>
+</smi-block-product-buy-x-get-y>{%comment%}#includeFile#assets/smi-product-buy-x-get-y.min.css,assets/smi-product-buy-x-get-y.min.js,snippets/smi-icons#endIncludeFile#{%endcomment%}

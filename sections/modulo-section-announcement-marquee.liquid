@@ -1,0 +1,315 @@
+{{ 'modulo-section-announcement-marquee.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  # ─── Messages
+  assign message_count = section.blocks.size
+
+  # ─── Style / motion
+  assign style          = section.settings.style | default: 'plain'
+  assign direction      = section.settings.direction | default: 'left'
+  assign speed          = section.settings.speed | default: 32
+  assign pause_on_hover = section.settings.pause_on_hover
+  assign uppercase      = section.settings.uppercase
+  assign show_dividers  = section.settings.show_dividers
+
+  assign divider_glyph = '✦'
+  case section.settings.divider_style
+    when 'dot'
+      assign divider_glyph = '●'
+    when 'slash'
+      assign divider_glyph = '/'
+    when 'pipe'
+      assign divider_glyph = '|'
+  endcase
+
+  assign dividers_on = false
+  if style == 'plain' and show_dividers
+    assign dividers_on = true
+  endif
+
+  # ─── Pinned lead
+  assign show_lead  = section.settings.show_lead
+  assign lead_label = section.settings.lead_label
+  assign lead_icon  = section.settings.lead_icon | default: 'none'
+  assign lead_on    = false
+  if show_lead
+    if lead_label != blank or lead_icon != 'none'
+      assign lead_on = true
+    endif
+  endif
+
+  # ─── Pinned CTA
+  assign show_cta        = section.settings.show_cta
+  assign cta_label       = section.settings.cta_label
+  assign cta_link        = section.settings.cta_link
+  assign keep_cta_mobile = section.settings.keep_cta_label_mobile
+  assign cta_on          = false
+  if show_cta and cta_label != blank
+    assign cta_on = true
+  endif
+
+  # ─── Position / spacing / type
+  assign sticky      = section.settings.sticky
+  assign full_width  = section.settings.full_width
+  assign content_max = section.settings.content_max_width | default: 1200
+  assign pad_top     = section.settings.padding_top | default: 11
+  assign pad_bottom  = section.settings.padding_bottom | default: 11
+  assign size_d      = section.settings.text_size_desktop | default: 13
+  assign size_m      = section.settings.text_size_mobile | default: 12
+
+  # ─── Colors
+  assign bg_style = section.settings.bg_style | default: 'gradient'
+  assign bg_color = section.settings.bg_color | default: '#16120D'
+  assign bg_glow  = section.settings.bg_glow | default: '#241C13'
+  assign text     = section.settings.text_color | default: '#F5EFE4'
+  assign accent   = section.settings.accent_color | default: '#F2B84B'
+  assign cta_text = section.settings.cta_text_color | default: '#1A1509'
+
+  assign bg_value = bg_color
+  if bg_style == 'gradient'
+    assign bg_value = 'radial-gradient(120% 320% at 50% 50%, ' | append: bg_glow | append: ' 0%, ' | append: bg_color | append: ' 72%)'
+  endif
+
+  # ─── Root class
+  assign root_class = 'modulo-am modulo-am--style-' | append: style
+  if direction == 'right'
+    assign root_class = root_class | append: ' modulo-am--dir-right'
+  else
+    assign root_class = root_class | append: ' modulo-am--dir-left'
+  endif
+  if uppercase
+    assign root_class = root_class | append: ' modulo-am--upper'
+  endif
+  if sticky
+    assign root_class = root_class | append: ' modulo-am--sticky'
+  endif
+  unless full_width
+    assign root_class = root_class | append: ' modulo-am--boxed'
+  endunless
+  if pause_on_hover
+    assign root_class = root_class | append: ' modulo-am--pausable'
+  endif
+  if keep_cta_mobile
+    assign root_class = root_class | append: ' modulo-am--keeplabel'
+  endif
+-%}
+
+{%- if message_count > 0 -%}
+  <div
+    class="{{ root_class }}"
+    role="region"
+    aria-label="Announcements"
+    data-modulo-am
+    style="
+      --modulo-am-bg:{{ bg_value }};
+      --modulo-am-text:{{ text }};
+      --modulo-am-accent:{{ accent }};
+      --modulo-am-cta-text:{{ cta_text }};
+      --modulo-am-size-d:{{ size_d }}px;
+      --modulo-am-size-m:{{ size_m }}px;
+      --modulo-am-pad-top:{{ pad_top }}px;
+      --modulo-am-pad-bottom:{{ pad_bottom }}px;
+      --modulo-am-speed:{{ speed }}s;
+      --modulo-am-max-w:{{ content_max }}px;
+    "
+  >
+    <div class="modulo-am__inner">
+      {%- if lead_on -%}
+        <div class="modulo-am__lead">
+          {%- if lead_icon != 'none' and lead_icon != blank -%}
+            <span class="modulo-am__lead-disc">{% render 'modulo-icons', name: lead_icon %}</span>
+          {%- endif -%}
+          {%- if lead_label != blank -%}
+            <span class="modulo-am__lead-t">{{ lead_label | escape }}</span>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      <div class="modulo-am__viewport">
+        <div class="modulo-am__track" role="list">
+          {%- for block in section.blocks -%}
+            {%- if block.settings.text != blank -%}
+              {%- assign m_icon = block.settings.icon | default: 'none' -%}
+              <span class="modulo-am__item" role="listitem" {{ block.shopify_attributes }}>
+                {%- if m_icon != 'none' and m_icon != blank -%}{% render 'modulo-icons', name: m_icon %}{%- endif -%}
+                <span class="modulo-am__item-t">{{ block.settings.text }}</span>
+              </span>
+              {%- if dividers_on -%}
+                <span class="modulo-am__divider" aria-hidden="true">{{ divider_glyph }}</span>
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      </div>
+
+      {%- if cta_on -%}
+        <div class="modulo-am__cta-wrap">
+          <a class="modulo-am__cta" href="{{ cta_link | default: '#' }}" aria-label="{{ cta_label | escape }}">
+            <span class="modulo-am__cta-t" aria-hidden="true">{{ cta_label | escape }}</span>
+            {% render 'modulo-icons', name: 'arrow_right' %}
+          </a>
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+
+  <script src="{{ 'modulo-section-announcement-marquee.js' | asset_url }}" defer></script>
+
+{%- elsif request.design_mode -%}
+  <div class="modulo-am modulo-am--empty" role="region" aria-label="Announcements">
+    <span class="modulo-am__item"><span class="modulo-am__item-t">Add a message block in the theme editor →</span></span>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Modulo: Marquee Bar",
+  "tag": "div",
+  "class": "modulo-am-section",
+  "enabled_on": { "groups": ["header"] },
+  "settings": [
+    { "type": "header", "content": "Style" },
+    {
+      "type": "select", "id": "style", "label": "Message style", "default": "plain",
+      "options": [
+        { "value": "plain", "label": "Plain text (with dividers)" },
+        { "value": "chips", "label": "Chips (pill per message)" }
+      ]
+    },
+    {
+      "type": "select", "id": "direction", "label": "Scroll direction", "default": "left",
+      "options": [
+        { "value": "left",  "label": "Left" },
+        { "value": "right", "label": "Right" }
+      ]
+    },
+    { "type": "range", "id": "speed", "label": "Speed", "min": 10, "max": 80, "step": 2, "unit": "s", "default": 32, "info": "Seconds per loop. Lower = faster." },
+    { "type": "checkbox", "id": "pause_on_hover", "label": "Pause on hover / focus", "default": true },
+    { "type": "checkbox", "id": "uppercase", "label": "Uppercase messages", "default": true },
+    { "type": "checkbox", "id": "show_dividers", "label": "Show dividers between messages", "default": true, "info": "Plain style only.", "visible_if": "{{ section.settings.style == 'plain' }}" },
+    {
+      "type": "select", "id": "divider_style", "label": "Divider", "default": "sparkle",
+      "options": [
+        { "value": "sparkle", "label": "Sparkle ✦" },
+        { "value": "dot",     "label": "Dot ●" },
+        { "value": "slash",   "label": "Slash /" },
+        { "value": "pipe",    "label": "Pipe |" }
+      ],
+      "visible_if": "{{ section.settings.style == 'plain' and section.settings.show_dividers }}"
+    },
+
+    { "type": "header", "content": "Pinned lead" },
+    { "type": "checkbox", "id": "show_lead", "label": "Show pinned lead", "default": true, "info": "A fixed icon + short label that stays put on the left while messages scroll." },
+    { "type": "text", "id": "lead_label", "label": "Lead label", "default": "Sale", "visible_if": "{{ section.settings.show_lead }}" },
+    {
+      "type": "select", "id": "lead_icon", "label": "Lead icon", "default": "tag_fill",
+      "options": [
+        { "value": "none",              "label": "None" },
+        { "value": "tag_fill",          "label": "Sale tag" },
+        { "value": "seal_percent_fill", "label": "Discount badge" },
+        { "value": "percent",           "label": "Percent" },
+        { "value": "gift_fill",         "label": "Gift" },
+        { "value": "flame_fill",        "label": "Flame (hot)" },
+        { "value": "bolt_fill",         "label": "Lightning (flash)" },
+        { "value": "sparkle_fill",      "label": "Sparkle" },
+        { "value": "local_shipping",    "label": "Shipping" },
+        { "value": "autorenew",         "label": "Returns" },
+        { "value": "check_circle",      "label": "Check" },
+        { "value": "star",              "label": "Star" },
+        { "value": "workspace_premium", "label": "Top rated" },
+        { "value": "heart_fill",        "label": "Heart" },
+        { "value": "sun_fill",          "label": "Sun" },
+        { "value": "snowflake_fill",    "label": "Snowflake" },
+        { "value": "tree_holiday",      "label": "Christmas tree" },
+        { "value": "confetti_fill",     "label": "Confetti" },
+        { "value": "champagne_fill",    "label": "Champagne" },
+        { "value": "ghost_fill",        "label": "Ghost" }
+      ],
+      "visible_if": "{{ section.settings.show_lead }}"
+    },
+
+    { "type": "header", "content": "Call to action" },
+    { "type": "checkbox", "id": "show_cta", "label": "Show pinned button", "default": true },
+    { "type": "text", "id": "cta_label", "label": "Button text", "default": "Shop now", "visible_if": "{{ section.settings.show_cta }}" },
+    { "type": "url", "id": "cta_link", "label": "Button link", "visible_if": "{{ section.settings.show_cta }}" },
+    { "type": "checkbox", "id": "keep_cta_label_mobile", "label": "Keep button text on mobile", "default": false, "info": "Off = the button shrinks to an arrow on phones to save space.", "visible_if": "{{ section.settings.show_cta }}" },
+
+    { "type": "header", "content": "Position" },
+    { "type": "checkbox", "id": "sticky", "label": "Stick to top on scroll", "default": true, "info": "Keeps the bar visible as customers scroll. Turn off if your theme header is already sticky (avoids overlap)." },
+    { "type": "checkbox", "id": "full_width", "label": "Full width", "default": true, "info": "Bar background spans the full screen. Turn off to constrain content to a max width." },
+    { "type": "range", "id": "content_max_width", "label": "Max content width", "min": 600, "max": 1600, "step": 20, "unit": "px", "default": 1200, "visible_if": "{{ section.settings.full_width == false }}" },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 4, "max": 32, "step": 1, "unit": "px", "default": 11 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 4, "max": 32, "step": 1, "unit": "px", "default": 11 },
+
+    { "type": "header", "content": "Typography" },
+    { "type": "range", "id": "text_size_desktop", "label": "Text size (desktop)", "min": 11, "max": 20, "step": 1, "unit": "px", "default": 13 },
+    { "type": "range", "id": "text_size_mobile", "label": "Text size (mobile)", "min": 10, "max": 16, "step": 1, "unit": "px", "default": 12 },
+
+    { "type": "header", "content": "Colors" },
+    {
+      "type": "select", "id": "bg_style", "label": "Background style", "default": "gradient",
+      "options": [
+        { "value": "solid",    "label": "Solid" },
+        { "value": "gradient", "label": "Gradient (center glow)" }
+      ]
+    },
+    { "type": "color", "id": "bg_color", "label": "Background", "default": "#16120D" },
+    { "type": "color", "id": "bg_glow", "label": "Center glow", "default": "#241C13", "info": "The brighter centre of the gradient.", "visible_if": "{{ section.settings.bg_style == 'gradient' }}" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#F5EFE4" },
+    { "type": "color", "id": "accent_color", "label": "Accent (bold words, dividers, button)", "default": "#F2B84B" },
+    { "type": "color", "id": "cta_text_color", "label": "Button text", "default": "#1A1509", "info": "Use a dark color on a bright button for contrast." }
+  ],
+  "blocks": [
+    {
+      "type": "message",
+      "name": "Message",
+      "settings": [
+        { "type": "inline_richtext", "id": "text", "label": "Message", "info": "Bold any word(s) to highlight them in the accent colour. Select text to add a link.", "default": "Free shipping on orders <b>$75+</b>" },
+        {
+          "type": "select", "id": "icon", "label": "Icon", "default": "none",
+          "options": [
+            { "value": "none",              "label": "None" },
+            { "value": "tag_fill",          "label": "Sale tag" },
+            { "value": "seal_percent_fill", "label": "Discount badge" },
+            { "value": "percent",           "label": "Percent" },
+            { "value": "gift_fill",         "label": "Gift" },
+            { "value": "flame_fill",        "label": "Flame (hot)" },
+            { "value": "bolt_fill",         "label": "Lightning (flash)" },
+            { "value": "sparkle_fill",      "label": "Sparkle" },
+            { "value": "local_shipping",    "label": "Shipping" },
+            { "value": "autorenew",         "label": "Returns" },
+            { "value": "check_circle",      "label": "Check" },
+            { "value": "star",              "label": "Star" },
+            { "value": "workspace_premium", "label": "Top rated" },
+            { "value": "heart_fill",        "label": "Heart" },
+            { "value": "sun_fill",          "label": "Sun" },
+            { "value": "snowflake_fill",    "label": "Snowflake" },
+            { "value": "tree_holiday",      "label": "Christmas tree" },
+            { "value": "confetti_fill",     "label": "Confetti" },
+            { "value": "champagne_fill",    "label": "Champagne" },
+            { "value": "ghost_fill",        "label": "Ghost" }
+          ]
+        }
+      ]
+    }
+  ],
+  "max_blocks": 8,
+  "presets": [
+    {
+      "name": "Modulo: Marquee Bar",
+      "settings": {
+        "style": "plain",
+        "lead_label": "Sale",
+        "lead_icon": "tag_fill",
+        "cta_label": "Shop now"
+      },
+      "blocks": [
+        { "type": "message", "settings": { "text": "Summer sale — up to <b>50% off</b> everything" } },
+        { "type": "message", "settings": { "text": "Free express shipping over <b>$75</b>" } },
+        { "type": "message", "settings": { "text": "Take an extra <b>15% off</b> with code <b>SAVE15</b>" } },
+        { "type": "message", "settings": { "text": "New drops every <b>Friday</b>" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,267 @@
+{% comment %}#component#["settings/play-button.default"]#endcomponent#{% endcomment %}
+{% liquid
+	unless play_button_size
+		assign play_button_size = 'm'
+	endunless
+	if unmute
+		assign mute = 0
+		assign mute_video_upload = false
+	else
+		assign mute = 1
+		assign mute_video_upload = true
+	endif
+	if autoplay
+		assign autoplay = true
+		assign autoplay_iframe = 1
+		assign play = 1
+		assign preview = false
+		assign mute = 1
+		assign mute_video_upload = true
+	else
+		assign autoplay = false
+		assign autoplay_iframe = 0
+		assign play = 0
+	endif
+	if control and fit_video != true
+		assign control = true
+		assign control_iframe = 1
+	else
+		assign control = false
+		assign control_iframe = 0
+	endif
+	assign is_modal = false
+	if modal_id != null and autoplay == false
+		assign is_modal = true
+	endif
+	assign img_classes = 'smi-bg-image'
+	assign video_classes = ''
+	if autoplay == true or upload_video != blank and preview == true
+		assign img_classes = img_classes | append: ' smi-d-none'
+		assign video_classes = 'smi-cover-upload-image'
+	endif
+	if video_ratio == blank or video_ratio == 'auto'
+		if upload_video != blank
+			assign video_ratio = upload_video.aspect_ratio
+		elsif video_url
+			assign video_ratio = 1.777
+		elsif cover_image
+			assign video_ratio = 'auto'
+		else
+			assign video_ratio = 0.5625
+		endif
+		if upload_video_mobile != blank
+			assign video_ratio_mobile = upload_video_mobile.aspect_ratio
+		else
+			assign video_ratio_mobile = video_ratio
+		endif
+	else
+		assign video_ratio_mobile = video_ratio
+	endif
+	assign placeholder_name = placeholder_name | default: "image"
+	assign placeholder_class = placeholder_class | default: "smi-placeholder-light"
+%}
+{% capture play_button %}
+	<div class="smi-cover-image__play-button {%- if autoplay == true %} smi-opacity-0{% endif -%}">
+		<div class="smi-play-button-component smi-button-wrapper smi-play-button-component--border-radius smi-shadow smi-icon-{{ play_button_size | default: 's' }}">
+    <div class="__smi-icon">
+        {% render 'smi-icons', icon: 'play-button' %}
+    </div>
+</div>
+	</div>
+{% endcapture %}
+{% capture custom_control_button %}
+	{% if show_mute and control != true or fit_video %}
+		<div class="smi-custom-control">
+			<div class="smi-volume-control">
+				<div class="smi-mute-button {% if mute == 0 %} smi-d-flex{% endif %}">
+					{% render 'smi-icons', icon: 'volumn-mute' %}
+				</div>
+				<div class="smi-unmute-button {% if mute == 1 %} smi-d-flex{% endif %}">
+					{% render 'smi-icons', icon: 'volumn-up' %}
+				</div>
+			</div>
+			{% if show_play_icon %}
+				<div class="smi-play-icon-control">
+					<div class="smi-play-icon-button {% if play == 0 %} smi-d-flex{% endif %}">
+						{% render 'smi-icons', icon: 'play-button' %}
+					</div>
+					<div class="smi-pause-icon-button {% if play == 1 %} smi-d-flex{% endif %}">
+						{% render 'smi-icons', icon: 'pause' %}
+					</div>
+				</div>
+			{% endif %}
+		</div>
+	{% endif %}
+{% endcapture %}
+{%- capture div_cover_attribute -%}
+	{%- if is_modal -%} onclick="smiLiteModal.open('#{{- modal_id -}}')" {%- endif -%}
+{%- endcapture -%}
+<div class="smi-video-snippets" style="--video-ratio-mobile: {{ video_ratio_mobile }};--video-ratio: {{ video_ratio }}">
+	{%- if upload_video == blank and video_url == blank -%}
+		<div class="smi-cover-thumbnail-image">
+			{%- if cover_image != blank and cover_image != nil -%}
+				{{ cover_image | image_url: width: 1920 | image_tag: class: 'smi-thumbnail-image' }}
+				{{ play_button }}
+			{%- else -%}
+				{% assign svg_class = placeholder_class | append: ' smi-placeholder-svg smi-thumbnail-image' %}
+				{{ placeholder_name | placeholder_svg_tag: svg_class }}
+				{{ play_button }}
+			{%- endif -%}
+		</div>
+	{%- else -%}
+		<smi-video
+			play="{{ play }}"
+			mute="{{ mute }}"
+			modal="{{ is_modal }}"
+			{% if is_modal %}
+				modal-id="#{{- modal_id -}}"
+			{% endif %}
+			{%- liquid
+				if is_modal
+				endif
+				if control and fit_video != true
+					echo ' control '
+				endif
+				if preview
+					echo ' preview '
+				endif
+				if fit_video
+					echo ' fit-video '
+				endif
+				if autoplay
+					echo ' autoplay '
+				endif
+			-%}
+		>
+			{% if fit_video and autoplay %}
+				<div class="smi-fit-video-cover"></div>
+			{% endif %}
+			{{ custom_control_button }}
+			{% if cover_image != blank %}
+				<div class="smi-cover-image {{ video_classes }}" {{- div_cover_attribute -}}>
+					{{ cover_image | image_url: width: 1920 | image_tag: class: img_classes }}
+					{{ play_button }}
+				</div>
+			{% else %}
+				{% if upload_video != blank %}
+					{% assign preview_image = upload_video.preview_image %}
+					<div class="smi-cover-image smi-cover-upload-image" {{- div_cover_attribute -}}>
+						{% if is_reference %}
+							<img src="{{ preview_image.src }}&width=1920" alt="" width="1920" height="auto" class="{{ img_classes }}">
+						{% else %}
+							{% if upload_video_mobile != blank %}
+								{% assign preview_image_mobile = upload_video_mobile.preview_image %}
+								{% assign img_classes_d = img_classes | append: ' smi-has-video-mobile' %}
+								{% assign img_classes_m = img_classes | append: ' smi-d-md-none' %}
+								{{ preview_image_mobile | image_url: width: 800 | image_tag: class: img_classes_m }} 
+								{{ preview_image | image_url: width: 1920 | image_tag: class: img_classes_d }} 
+							{% else %}	
+								{{ preview_image | image_url: width: 1920 | image_tag: class: img_classes }}
+							{% endif %}	
+						{% endif %}
+						{{ play_button }}
+					</div>
+				{% elsif video_url != blank %}
+					{% if video_url.type == 'youtube' %}
+						<div class="smi-cover-image" {{- div_cover_attribute -}}>
+							<img
+								class="smi-youtube-thumbnail {{ img_classes }}"
+								src="https://i.ytimg.com/vi/{{ video_url.id }}/maxresdefault.jpg"
+								alt=""
+							>
+							{{ play_button }}
+						</div>
+					{% elsif video_url.type == 'vimeo' and control_iframe == 0 %}
+						<div class="smi-cover-image" {{- div_cover_attribute -}}>
+							{{ play_button }}
+						</div>
+					{% endif %}
+				{% endif %}
+			{% endif %}
+		{%- if is_modal -%}
+			<div
+				class="smi-video-modal smi-lite-modal smi-section smi-dropdown-popup-wrapper smi-border smi-shadow smi-modal-xl"
+				id="{{- modal_id -}}">
+				<button onclick="smiLiteModal.close()"
+						class="smi-modal-close">{% render 'smi-icons', icon: 'close' %}</button>
+				{%- endif -%}
+				{% if upload_video != blank %}
+					<div class="smi-upload-video">
+						<video
+							playsinline="playsinline"
+							preload="metadata"
+							poster="{% if is_reference %} {{ upload_video.preview_image.src }}&width=720 {% else %} {{ upload_video.preview_image.src | image_url: width: '720px' }}{% endif %}"
+							{% liquid
+								if autoplay
+									echo ' autoplay="autoplay"'
+								endif
+								if video_loop != false
+									echo ' loop="loop"'
+								endif
+								if mute_video_upload
+									echo ' muted="muted"'
+								endif
+								if control
+									echo ' controls="controls"'
+								endif
+							%}
+						>
+							{% for video_source in upload_video_mobile.sources %}
+								{% liquid
+									if video_loop != false and video_source.format == 'm3u8'
+										continue
+									endif
+								%}
+								<source
+									src="{{ video_source.url }}"
+									type="{{ video_source.mime_type }}"
+									{% if upload_video %}
+										media="(max-width: 767px)"
+									{% endif %}
+								>
+							{% endfor %}
+							{% for video_source in upload_video.sources %}
+								{% liquid
+									if video_loop != false and video_source.format == 'm3u8'
+										continue
+									endif
+								%}
+								<source src="{{ video_source.url }}" type="{{ video_source.mime_type }}">
+							{% endfor %}
+							<img src="{% if is_reference %} {{ upload_video.preview_image.src }}&width=720 {% else %} {{ upload_video.preview_image.src | image_url: width: '720px' }}{% endif %}" alt="Video">
+							<track src="" kind="captions" srclang="en" label="english_captions">
+						</video>
+					</div>
+				{% elsif video_url != blank %}
+					<div class="smi-video-url">
+						{%- if video_url.type == 'youtube' -%}
+							<iframe
+								title="iframe"
+								data-src="https://www.youtube.com/embed/{{ video_url.id }}?enablejsapi=1&autoplay={{ autoplay_iframe }}&mute={{ mute }}&loop=1&controls={{ control_iframe }}&playlist={{ video_url.id }}&rel=0"
+								class="smi-js-youtube"
+								allow="autoplay; encrypted-media"
+								loading="lazy"
+								allowfullscreen
+								width="100%"
+								height="100%"
+							></iframe>
+						{%- else -%}
+							<iframe
+								title="iframe"
+								data-src="https://player.vimeo.com/video/{{ video_url.id }}?title=0&byline=0&portrait=0&autoplay={{ autoplay_iframe }}&muted={{ mute }}&loop=1&controls={{ control_iframe }}"
+								class="smi-js-vimeo"
+								allow="autoplay; encrypted-media"
+								loading="lazy"
+								allowfullscreen
+								width="100%"
+								height="100%"
+							></iframe>
+						{%- endif -%}
+					</div>
+				{% endif %}
+				{%- if is_modal -%}
+			</div>
+			{%- endif -%}
+		</smi-video>
+	{%- endif -%}
+</div>{%comment%}#includeFile#snippets/smi-icons#endIncludeFile#{%endcomment%}

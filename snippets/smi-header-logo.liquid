@@ -1,0 +1,56 @@
+{%-liquid
+    assign logo = section.settings.logo
+    assign logo_transparent = section.settings.logo_transparent
+    if logo_transparent == blank
+        assign logo_transparent = logo
+    endif
+    assign no_logo = true
+    if logo_transparent == blank and logo == blank
+        assign no_logo = false
+    endif
+    assign logo_width = section.settings.logo_width | at_least: section.settings.mobile_logo_width
+-%}
+<div class="smi-logo" style="--logo-ratio: {{ logo.aspect_ratio }}; --logo-transparent-ratio: {{ logo_transparent.aspect_ratio }}">
+    {%- if request.page_type == 'index' -%}
+        <h1 class="smi-h-100">
+    {%- endif -%}
+        <a href="{{ routes.root_url }}" class="smi-align-items-center smi-h-100 smi-logo__link smi-d-flex smi-logo-{{ no_logo }}">
+            {%- if logo_transparent == blank and logo == blank -%}
+                <span class="smi-h2 smi-shop-name">{{ shop.name }}</span>
+            {%- else -%}
+                {%- if logo != blank -%}
+                    {%- assign logo_alt = logo.alt | default: shop.name | escape -%}
+                    {%- assign logo_height = logo_width | divided_by: logo.aspect_ratio -%}
+                    {% capture sizes %}(max-width: {{ logo_width | times: 2 }}px) 50vw, {{ logo_width }}px{% endcapture %}
+                    {% capture widths %}{{ logo_width }}, {{ logo_width | times: 1.5 | round }}, {{ logo_width | times: 2 }}{% endcapture %}
+                    {{ logo | image_url: width: 600 | image_tag:
+                        class: 'smi-logo__link-image smi-w-100 smi-h-auto smi-logo__solid',
+                        widths: widths,
+                        height: logo_height,
+                        width: logo_width,
+                        alt: logo_alt,
+                        sizes: sizes,
+                        preload: true
+                    }}
+                {%- endif -%}
+                {%- if logo_transparent != blank -%}
+                    {%- assign logo_alt = logo_transparent.alt | default: shop.name | escape -%}
+                    {%- assign logo_height = logo_width | divided_by: logo_transparent.aspect_ratio -%}
+                    {% capture sizes %}(max-width: {{ logo_width | times: 2 }}px) 50vw, {{ logo_width }}px{% endcapture %}
+                    {% capture widths %}{{ logo_width }}, {{ logo_width | times: 1.5 | round }}, {{ logo_width | times: 2 }}{% endcapture %}
+                    {{ logo_transparent | image_url: width: 600 | image_tag:
+                        class: 'smi-logo__link-image smi-w-100 smi-h-auto smi-logo__transparent',
+                        widths: widths,
+                        height: logo_height,
+                        width: logo_width,
+                        alt: logo_alt,
+                        sizes: sizes,
+                        preload: true
+                    }}
+                {%- endif -%}
+            {%- endif -%}
+        </a>
+    {%- if request.page_type == 'index' -%}
+        </h1>
+    {%- endif -%}
+</div>{%comment%}#includeFile##endIncludeFile#{%endcomment%}

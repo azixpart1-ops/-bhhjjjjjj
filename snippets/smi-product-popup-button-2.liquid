@@ -1,0 +1,45 @@
+{% comment %}#component#["settings/slider-arrows","settings/slider-dots-v2","settings/buttons-product","settings/product-form"]#endcomponent#{% endcomment %}
+{% liquid
+  assign button_label = block.settings.button_label
+  assign button_style = block.settings.button_style
+  assign colorblock = section.blocks | where: 'type', 'product_color' | first
+  if colorblock
+    assign custom_color = 'smi-color-' | append: section.id
+  else
+    assign custom_color = 'smi-color-' | append: section.settings.color_scheme
+  endif
+%}
+<div
+  class="smi-product-detail-element smi-product-popup-button smi-w-100 smi-mt-lg"
+  {{ block.shopify_attributes }} 
+>
+  <div class="smi-component-buttons smi-button-wrapper smi-w-100 {% if block.settings.button_full_width == true %} smi-component-buttons-full-width {% endif %}">
+    {% if button_label != blank %}
+      <div
+        class="smi-button smi-text-button smi-button--{{ button_style | split: '_' | first -}} {% if block.settings.button_full_width == true %} smi-w-100{% endif %} {{- ' smi-border smi-shadow' -}}
+        {{- settings.smi_animations_hover_elements | default: shop.metafields.smind.settings.value.buttonHoverEffect | default: 'none' | prepend: ' smi-hover-' -}}"
+        onclick="smiLiteModal.open('#popup_content_{{ section.id }}')"
+      >
+        <span>{{- button_label | escape -}}</span>
+      </div>
+    {% endif %}
+    <div
+      class="smi-lite-modal smi-default-modal smi-product-detail-pop-up smi-format-content smi-section smi-dropdown-popup-wrapper smi-modal-lg smi-px-md smi-py-md smi-border smi-shadow {{ custom_color }}"
+      id="popup_content_{{ section.id }}"
+    >
+      <div class="popup-content-product-close-btn" onclick="smiLiteModal.close()">
+        {% render 'smi-icons', icon: 'close' %}
+      </div>
+      <div class="popup-content-product popup-content-detail smi-text-md">
+		{{ block.settings.popup_content }}
+        {% if block.settings.popup_content_page != blank %}
+          {% if is_reference %}
+            {{ pages[block.settings.popup_content_page].content }}
+          {% else %}
+            {{ block.settings.popup_content_page.content }}
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>{%comment%}#includeFile#snippets/smi-icons#endIncludeFile#{%endcomment%}

@@ -1,0 +1,456 @@
+{{ 'modulo-section-footer-studio.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  # ─── Zone toggles
+  assign show_wordmark   = section.settings.show_wordmark
+  assign show_newsletter = section.settings.show_newsletter
+  assign show_copyright  = section.settings.show_copyright
+
+  # ─── Wordmark
+  assign wordmark_text = section.settings.wordmark_text
+  if wordmark_text == blank
+    assign wordmark_text = shop.name
+  endif
+  assign wordmark_image = section.settings.wordmark_image
+  assign wordmark_size  = section.settings.wordmark_size | default: 'large'
+  assign wordmark_align = section.settings.wordmark_align | default: 'center'
+
+  # ─── Typography / font
+  assign use_theme_font = section.settings.use_theme_font
+  assign line_height    = section.settings.body_line_height | default: 15
+  assign line_height    = line_height | divided_by: 10.0
+  assign link_size      = section.settings.col_link_size | default: 15
+
+  # ─── Newsletter
+  assign ns_subheading = section.settings.ns_subheading
+  assign ns_placeholder = section.settings.ns_placeholder | default: 'Email Address'
+  assign ns_cta_label   = section.settings.ns_cta_label | default: 'Subscribe'
+  assign button_style   = section.settings.button_style | default: 'attached'
+  assign show_consent   = section.settings.show_consent
+  assign consent_text   = section.settings.consent_text
+  assign privacy_url    = section.settings.privacy_url
+  if privacy_url == blank
+    assign privacy_url = shop.privacy_policy.url
+  endif
+  if privacy_url == blank
+    assign privacy_url = '/policies/privacy-policy'
+  endif
+
+  # ─── Menus (link_list — empty = column hidden, fallback for menu 1)
+  assign menu_1_title = section.settings.menu_1_title | default: 'Navigate'
+  assign menu_1       = section.settings.menu_1
+  assign menu_2_title = section.settings.menu_2_title
+  assign menu_2       = section.settings.menu_2
+
+  # ─── Socials
+  assign socials_title    = section.settings.socials_title | default: 'Socials'
+  assign social_instagram = section.settings.social_instagram
+  assign social_facebook  = section.settings.social_facebook
+  assign social_tiktok    = section.settings.social_tiktok
+  assign social_x         = section.settings.social_x
+  assign social_youtube   = section.settings.social_youtube
+  assign social_linkedin  = section.settings.social_linkedin
+  assign social_pinterest = section.settings.social_pinterest
+  assign has_any_social   = false
+  if social_instagram != blank or social_facebook != blank or social_tiktok != blank or social_x != blank or social_youtube != blank or social_linkedin != blank or social_pinterest != blank
+    assign has_any_social = true
+  endif
+
+  # ─── Support
+  assign support_title       = section.settings.support_title | default: 'Support'
+  assign support_line_1      = section.settings.support_line_1
+  assign support_line_2      = section.settings.support_line_2
+  assign support_email       = section.settings.support_email
+  assign support_link_label  = section.settings.support_link_1_label
+  assign support_link_url    = section.settings.support_link_1_url
+  assign copy_text = section.settings.copy_text
+  if copy_text == blank
+    assign current_year = 'now' | date: '%Y'
+    assign copy_text = '© ' | append: current_year | append: ' ' | append: shop.name
+  endif
+  assign render_support = false
+  if support_line_1 != blank or support_email != blank or support_link_label != blank or show_copyright
+    assign render_support = true
+  endif
+
+  # ─── Column count (newsletter + menu1 + socials + menu2 + support)
+  assign col_count = 0
+  if show_newsletter
+    assign col_count = col_count | plus: 1
+  endif
+  # menu 1 always renders (fallback), socials always render (fallback)
+  assign col_count = col_count | plus: 2
+  if menu_2 != blank
+    assign col_count = col_count | plus: 1
+  endif
+  if render_support
+    assign col_count = col_count | plus: 1
+  endif
+
+  # ─── Colors (compute every value — never inject an empty CSS var)
+  assign bg_transparent = section.settings.bg_transparent
+  assign bg_style   = section.settings.bg_style | default: 'solid'
+  assign card_bg    = section.settings.card_bg_color | default: '#F4F4F5'
+  if bg_style == 'gradient'
+    assign grad_start = section.settings.grad_start | default: '#F7F7FB'
+    assign grad_end   = section.settings.grad_end | default: '#EAEAF6'
+    assign grad_angle = section.settings.grad_angle | default: 165
+    assign card_bg = 'linear-gradient(' | append: grad_angle | append: 'deg, ' | append: grad_start | append: ', ' | append: grad_end | append: ')'
+  endif
+  if bg_transparent
+    assign card_bg = 'transparent'
+  endif
+  assign page_bg    = section.settings.page_bg_color | default: '#FFFFFF'
+  assign ink        = section.settings.ink_color | default: '#1A1A2E'
+  assign accent     = section.settings.accent_color | default: '#6366F1'
+  assign input_bg   = section.settings.input_bg_color | default: '#FFFFFF'
+  assign input_text = section.settings.input_text_color
+  if input_text == blank
+    assign input_text = ink
+  endif
+
+  # ─── Layout / spacing
+  assign section_width  = section.settings.section_width | default: 'boxed'
+  assign container_max  = section.settings.container_max | default: 1480
+  assign corner_radius  = section.settings.corner_radius | default: 22
+  assign border_width   = section.settings.border_width | default: 0
+  assign border_color   = section.settings.border_color | default: '#E5E7EB'
+  assign field_radius   = section.settings.field_radius | default: 30
+  assign pad_top        = section.settings.padding_top | default: 56
+  assign pad_bottom     = section.settings.padding_bottom | default: 56
+  assign pad_top_m      = section.settings.padding_top_mobile | default: 32
+  assign pad_bottom_m   = section.settings.padding_bottom_mobile | default: 32
+
+  # ─── Modifiers
+  assign hover_effect = section.settings.link_hover_effect | default: 'underline'
+
+  assign root_class = 'modulo-section modulo-fst'
+  assign root_class = root_class | append: ' modulo-fst--width-' | append: section_width
+  assign root_class = root_class | append: ' modulo-fst--wm-' | append: wordmark_size
+  assign root_class = root_class | append: ' modulo-fst--btn-' | append: button_style
+  assign root_class = root_class | append: ' modulo-fst--hover-' | append: hover_effect
+  assign root_class = root_class | append: ' modulo-fst--cols-' | append: col_count
+  if bg_transparent
+    assign root_class = root_class | append: ' modulo-fst--transparent'
+  endif
+
+  # ─── Font families (theme font is the default; font_picker is opt-in)
+  assign font_wordmark = 'inherit'
+  assign font_text     = 'inherit'
+  unless use_theme_font
+    assign font_wordmark = section.settings.wordmark_font.family | append: ', ' | append: section.settings.wordmark_font.fallback_families
+    assign font_text     = section.settings.text_font.family | append: ', ' | append: section.settings.text_font.fallback_families
+  endunless
+-%}
+
+{%- capture ic_instagram -%}<svg class="modulo-fst__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5.2"/><circle cx="12" cy="12" r="3.9"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>{%- endcapture -%}
+{%- capture ic_facebook -%}<svg class="modulo-fst__ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>{%- endcapture -%}
+{%- capture ic_x -%}<svg class="modulo-fst__ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>{%- endcapture -%}
+{%- capture ic_linkedin -%}<svg class="modulo-fst__ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.063 2.063 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>{%- endcapture -%}
+{%- capture ic_tiktok -%}<svg class="modulo-fst__ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43V8.85a8.16 8.16 0 0 0 4.77 1.52V6.92a4.85 4.85 0 0 1-1.84-.23z"/></svg>{%- endcapture -%}
+{%- capture ic_youtube -%}<svg class="modulo-fst__ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>{%- endcapture -%}
+{%- capture ic_pinterest -%}<svg class="modulo-fst__ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.08 3.16 9.42 7.62 11.18-.11-.95-.2-2.41.04-3.44.22-.93 1.41-5.94 1.41-5.94s-.36-.72-.36-1.78c0-1.67.97-2.92 2.18-2.92 1.03 0 1.52.77 1.52 1.7 0 1.03-.66 2.58-1 4.01-.29 1.2.6 2.18 1.78 2.18 2.14 0 3.78-2.26 3.78-5.51 0-2.88-2.07-4.9-5.03-4.9-3.43 0-5.44 2.57-5.44 5.23 0 1.04.4 2.15.9 2.75.1.12.11.22.08.34-.09.37-.29 1.2-.33 1.36-.05.22-.17.27-.4.16-1.5-.7-2.44-2.89-2.44-4.65 0-3.78 2.75-7.26 7.92-7.26 4.16 0 7.39 2.96 7.39 6.92 0 4.13-2.6 7.46-6.22 7.46z"/></svg>{%- endcapture -%}
+
+{%- unless use_theme_font -%}
+  <style>
+    {{ section.settings.wordmark_font | font_face: font_display: 'swap' }}
+    {{ section.settings.text_font | font_face: font_display: 'swap' }}
+  </style>
+{%- endunless -%}
+
+<section
+  class="{{ root_class }}"
+  style="
+    --modulo-fst-page-bg:{{ page_bg }};
+    --modulo-fst-card-bg:{{ card_bg }};
+    --modulo-fst-ink:{{ ink }};
+    --modulo-fst-accent:{{ accent }};
+    --modulo-fst-input-bg:{{ input_bg }};
+    --modulo-fst-input-text:{{ input_text }};
+    --modulo-fst-border-width:{{ border_width }}px;
+    --modulo-fst-border-color:{{ border_color }};
+    --modulo-fst-container-max:{{ container_max }}px;
+    --modulo-fst-radius-card:{{ corner_radius }}px;
+    --modulo-fst-field-radius:{{ field_radius }}px;
+    --modulo-fst-pad-top:{{ pad_top }}px;
+    --modulo-fst-pad-bottom:{{ pad_bottom }}px;
+    --modulo-fst-pad-top-m:{{ pad_top_m }}px;
+    --modulo-fst-pad-bottom-m:{{ pad_bottom_m }}px;
+    --modulo-fst-line-height:{{ line_height }};
+    --modulo-fst-link-size:{{ link_size }}px;
+    --modulo-fst-wm-align:{{ wordmark_align }};
+    --modulo-fst-font-wordmark:{{ font_wordmark }};
+    --modulo-fst-font-text:{{ font_text }};
+  "
+>
+  <div class="modulo-fst__card">
+
+    {%- comment -%} ─── Region 1: wordmark hero ─── {%- endcomment -%}
+    {%- if show_wordmark -%}
+      <div class="modulo-fst__hero">
+        {%- if wordmark_image != blank -%}
+          <img class="modulo-fst__wordmark-img" src="{{ wordmark_image | image_url: width: 2400 }}" alt="{{ shop.name | escape }}" width="{{ wordmark_image.width }}" height="{{ wordmark_image.height }}" loading="lazy">
+        {%- else -%}
+          <h2 class="modulo-fst__wordmark">{{ wordmark_text | escape }}</h2>
+        {%- endif -%}
+      </div>
+      <hr class="modulo-fst__rule">
+    {%- endif -%}
+
+    {%- comment -%} ─── Region 2: columns ─── {%- endcomment -%}
+    <div class="modulo-fst__grid">
+
+      {%- if show_newsletter -%}
+        <div class="modulo-fst__col modulo-fst__col--news">
+          {%- if ns_subheading != blank -%}
+            <p class="modulo-fst__lede">{{ ns_subheading | escape }}</p>
+          {%- endif -%}
+
+          {%- form 'customer', class: 'modulo-fst__form' -%}
+            <input type="hidden" name="contact[tags]" value="newsletter">
+            <label class="modulo-fst__vh" for="FooterStudioEmail-{{ section.id }}">Email address</label>
+            <div class="modulo-fst__field">
+              <input
+                type="email"
+                name="contact[email]"
+                id="FooterStudioEmail-{{ section.id }}"
+                class="modulo-fst__input"
+                placeholder="{{ ns_placeholder | escape }}"
+                autocomplete="email"
+                required
+              >
+              <button type="submit" class="modulo-fst__submit">{{ ns_cta_label | escape }}</button>
+            </div>
+            {%- if form.posted_successfully? -%}
+              <p class="modulo-fst__status modulo-fst__status--ok">Thanks — you're on the list.</p>
+            {%- elsif form.errors -%}
+              <p class="modulo-fst__status modulo-fst__status--err">{{ form.errors | default_errors }}</p>
+            {%- endif -%}
+          {%- endform -%}
+
+          {%- if show_consent -%}
+            <p class="modulo-fst__fine">
+              {%- if consent_text != blank -%}
+                {{ consent_text | escape }}
+              {%- else -%}
+                By signing up, you agree to our <a href="{{ privacy_url }}">Privacy Policy</a>*.
+              {%- endif -%}
+            </p>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      {%- comment -%} Menu 1 — merchant menu, or polished fallback on first install ─── {%- endcomment -%}
+      <nav class="modulo-fst__col" aria-label="{{ menu_1_title | escape }}">
+        {%- if menu_1_title != blank -%}
+          <h3 class="modulo-fst__label">{{ menu_1_title | escape }}</h3>
+        {%- endif -%}
+        <ul class="modulo-fst__links">
+          {%- if menu_1 != blank -%}
+            {%- for link in menu_1.links -%}
+              <li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>
+            {%- endfor -%}
+          {%- else -%}
+            <li><a href="/collections/all">Shop all</a></li>
+            <li><a href="/collections/all">New arrivals</a></li>
+            <li><a href="/pages/about">About us</a></li>
+            <li><a href="/blogs/news">Journal</a></li>
+            <li><a href="/pages/contact">Contact</a></li>
+          {%- endif -%}
+        </ul>
+      </nav>
+
+      {%- if menu_2 != blank -%}
+        <nav class="modulo-fst__col" aria-label="{{ menu_2_title | default: 'Footer menu' | escape }}">
+          {%- if menu_2_title != blank -%}
+            <h3 class="modulo-fst__label">{{ menu_2_title | escape }}</h3>
+          {%- endif -%}
+          <ul class="modulo-fst__links">
+            {%- for link in menu_2.links -%}
+              <li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>
+            {%- endfor -%}
+          </ul>
+        </nav>
+      {%- endif -%}
+
+      {%- comment -%} Socials — filled URLs, or polished fallback on first install ─── {%- endcomment -%}
+      <div class="modulo-fst__col">
+        <h3 class="modulo-fst__label">{{ socials_title | escape }}</h3>
+        <ul class="modulo-fst__socials">
+          {%- comment -%} Each link's visible <span> supplies its accessible name — no aria-label (avoids WCAG 2.5.3 label-in-name mismatch). {%- endcomment -%}
+          {%- if has_any_social -%}
+            {%- if social_instagram != blank -%}<li><a class="modulo-fst__social" href="{{ social_instagram }}" rel="noopener" target="_blank">{{ ic_instagram }}<span>Instagram</span></a></li>{%- endif -%}
+            {%- if social_facebook != blank -%}<li><a class="modulo-fst__social" href="{{ social_facebook }}" rel="noopener" target="_blank">{{ ic_facebook }}<span>Facebook</span></a></li>{%- endif -%}
+            {%- if social_x != blank -%}<li><a class="modulo-fst__social" href="{{ social_x }}" rel="noopener" target="_blank">{{ ic_x }}<span>Twitter</span></a></li>{%- endif -%}
+            {%- if social_linkedin != blank -%}<li><a class="modulo-fst__social" href="{{ social_linkedin }}" rel="noopener" target="_blank">{{ ic_linkedin }}<span>Linkedin</span></a></li>{%- endif -%}
+            {%- if social_tiktok != blank -%}<li><a class="modulo-fst__social" href="{{ social_tiktok }}" rel="noopener" target="_blank">{{ ic_tiktok }}<span>Tiktok</span></a></li>{%- endif -%}
+            {%- if social_youtube != blank -%}<li><a class="modulo-fst__social" href="{{ social_youtube }}" rel="noopener" target="_blank">{{ ic_youtube }}<span>YouTube</span></a></li>{%- endif -%}
+            {%- if social_pinterest != blank -%}<li><a class="modulo-fst__social" href="{{ social_pinterest }}" rel="noopener" target="_blank">{{ ic_pinterest }}<span>Pinterest</span></a></li>{%- endif -%}
+          {%- else -%}
+            <li><a class="modulo-fst__social" href="#">{{ ic_instagram }}<span>Instagram</span></a></li>
+            <li><a class="modulo-fst__social" href="#">{{ ic_facebook }}<span>Facebook</span></a></li>
+            <li><a class="modulo-fst__social" href="#">{{ ic_x }}<span>Twitter</span></a></li>
+            <li><a class="modulo-fst__social" href="#">{{ ic_linkedin }}<span>Linkedin</span></a></li>
+            <li><a class="modulo-fst__social" href="#">{{ ic_tiktok }}<span>Tiktok</span></a></li>
+          {%- endif -%}
+        </ul>
+      </div>
+
+      {%- if render_support -%}
+        <div class="modulo-fst__col modulo-fst__col--support">
+          <h3 class="modulo-fst__label">{{ support_title | escape }}</h3>
+          {%- if support_line_1 != blank -%}
+            <p class="modulo-fst__support">{{ support_line_1 | escape }}</p>
+          {%- endif -%}
+          {%- if support_email != blank -%}
+            <p class="modulo-fst__support">
+              {%- if support_line_2 != blank -%}{{ support_line_2 | escape }}<br>{%- endif -%}
+              <a class="modulo-fst__email" href="mailto:{{ support_email | escape }}">{{ support_email | escape }}</a>
+            </p>
+          {%- endif -%}
+          {%- if support_link_label != blank -%}
+            <a class="modulo-fst__mini" href="{{ support_link_url | default: '#' }}">{{ support_link_label | escape }}</a>
+          {%- endif -%}
+          {%- if show_copyright and copy_text != blank -%}
+            <p class="modulo-fst__copy">{{ copy_text | escape }}</p>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Modulo: Footer Studio",
+  "tag": "section",
+  "class": "modulo-section-wrapper",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "header", "content": "Wordmark" },
+    { "type": "checkbox", "id": "show_wordmark", "label": "Show wordmark", "default": true },
+    { "type": "text", "id": "wordmark_text", "label": "Wordmark text", "info": "Your brand name. Leave blank to use your store name." },
+    { "type": "image_picker", "id": "wordmark_image", "label": "Wordmark image", "info": "Overrides the text when set." },
+    {
+      "type": "select", "id": "wordmark_size", "label": "Wordmark size", "default": "large",
+      "options": [
+        { "value": "small",  "label": "Small" },
+        { "value": "medium", "label": "Medium" },
+        { "value": "large",  "label": "Large" },
+        { "value": "huge",   "label": "Huge" }
+      ]
+    },
+    {
+      "type": "select", "id": "wordmark_align", "label": "Wordmark alignment", "default": "center",
+      "options": [
+        { "value": "left",   "label": "Left" },
+        { "value": "center", "label": "Center" }
+      ]
+    },
+
+    { "type": "header", "content": "Text & fonts" },
+    { "type": "checkbox", "id": "use_theme_font", "label": "Use theme font", "default": true, "info": "On = inherit your theme's typography (recommended). Turn off to pick custom fonts." },
+    { "type": "font_picker", "id": "wordmark_font", "label": "Wordmark font", "default": "helvetica_n7", "visible_if": "{{ section.settings.use_theme_font == false }}" },
+    { "type": "font_picker", "id": "text_font", "label": "Body font", "default": "helvetica_n4", "visible_if": "{{ section.settings.use_theme_font == false }}" },
+    { "type": "range", "id": "body_line_height", "label": "Line height", "min": 12, "max": 20, "step": 1, "default": 15, "info": "Tens (12 = 1.2, 15 = 1.5)." },
+    { "type": "range", "id": "col_link_size", "label": "Link text size", "min": 12, "max": 20, "step": 1, "unit": "px", "default": 15 },
+
+    { "type": "header", "content": "Newsletter" },
+    { "type": "checkbox", "id": "show_newsletter", "label": "Show newsletter", "default": true },
+    { "type": "textarea", "id": "ns_subheading", "label": "Text", "default": "Subscribe to our newsletter for weekly updates, exclusive content, and special offers delivered straight to your inbox." },
+    { "type": "text", "id": "ns_placeholder", "label": "Input placeholder", "default": "Email Address" },
+    { "type": "text", "id": "ns_cta_label", "label": "Button label", "default": "Subscribe" },
+    {
+      "type": "select", "id": "button_style", "label": "Button style", "default": "attached",
+      "options": [
+        { "value": "attached", "label": "Attached (inside the field)" },
+        { "value": "stacked",  "label": "Stacked (full-width below)" },
+        { "value": "outline",  "label": "Outline (below)" }
+      ]
+    },
+    { "type": "range", "id": "field_radius", "label": "Field corner radius", "min": 0, "max": 40, "step": 2, "unit": "px", "default": 30 },
+    { "type": "checkbox", "id": "show_consent", "label": "Show privacy line", "default": true },
+    { "type": "text", "id": "consent_text", "label": "Privacy text", "info": "Leave blank for the default 'By signing up…' line with a Privacy Policy link." },
+    { "type": "url", "id": "privacy_url", "label": "Privacy policy link", "info": "Defaults to your store's privacy policy." },
+
+    { "type": "header", "content": "Menu columns", "info": "Pick menus from Navigation. Column 2 is optional; empty = hidden." },
+    { "type": "text", "id": "menu_1_title", "label": "Column 1 title", "default": "Navigate" },
+    { "type": "link_list", "id": "menu_1", "label": "Column 1 menu" },
+    { "type": "text", "id": "menu_2_title", "label": "Column 2 title" },
+    { "type": "link_list", "id": "menu_2", "label": "Column 2 menu" },
+
+    { "type": "header", "content": "Social links", "info": "Only filled URLs render." },
+    { "type": "text", "id": "socials_title", "label": "Column title", "default": "Socials" },
+    { "type": "url", "id": "social_instagram", "label": "Instagram URL" },
+    { "type": "url", "id": "social_facebook",  "label": "Facebook URL" },
+    { "type": "url", "id": "social_x",         "label": "X (Twitter) URL" },
+    { "type": "url", "id": "social_linkedin",  "label": "LinkedIn URL" },
+    { "type": "url", "id": "social_tiktok",    "label": "TikTok URL" },
+    { "type": "url", "id": "social_youtube",   "label": "YouTube URL" },
+    { "type": "url", "id": "social_pinterest", "label": "Pinterest URL" },
+
+    { "type": "header", "content": "Support column" },
+    { "type": "text", "id": "support_title", "label": "Column title", "default": "Support" },
+    { "type": "text", "id": "support_line_1", "label": "Line 1", "default": "We're here Monday to Friday, 9am to 5pm." },
+    { "type": "text", "id": "support_line_2", "label": "Email label", "default": "Drop us a note anytime:" },
+    { "type": "text", "id": "support_email", "label": "Support email", "info": "Shown beneath the email label. Blank = hidden." },
+    { "type": "text", "id": "support_link_1_label", "label": "Extra link label", "default": "Cookie Preferences" },
+    { "type": "url",  "id": "support_link_1_url",   "label": "Extra link URL" },
+    { "type": "checkbox", "id": "show_copyright", "label": "Show copyright", "default": true },
+    { "type": "text", "id": "copy_text", "label": "Copyright text", "info": "Leave blank for '© YEAR store name'." },
+
+    { "type": "header", "content": "Layout & borders" },
+    {
+      "type": "select", "id": "section_width", "label": "Section width", "default": "boxed",
+      "options": [
+        { "value": "boxed", "label": "Boxed (rounded card with page padding)" },
+        { "value": "page",  "label": "Page (full-bleed, flush edges)" }
+      ]
+    },
+    { "type": "range", "id": "container_max", "label": "Content width", "min": 1120, "max": 1600, "step": 40, "unit": "px", "default": 1480 },
+    { "type": "range", "id": "corner_radius", "label": "Corner radius", "min": 0, "max": 40, "step": 2, "unit": "px", "default": 22, "visible_if": "{{ section.settings.section_width == 'boxed' }}" },
+    { "type": "range", "id": "border_width", "label": "Border width", "min": 0, "max": 4, "step": 1, "unit": "px", "default": 0 },
+    { "type": "color", "id": "border_color", "label": "Border color", "default": "#E5E7EB", "visible_if": "{{ section.settings.border_width != 0 }}" },
+
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Padding top", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom", "label": "Padding bottom", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Padding top (mobile)", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 32 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Padding bottom (mobile)", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 32 },
+
+    { "type": "header", "content": "Background" },
+    { "type": "checkbox", "id": "bg_transparent", "label": "Transparent background", "default": false },
+    {
+      "type": "select", "id": "bg_style", "label": "Background style", "default": "solid",
+      "visible_if": "{{ section.settings.bg_transparent == false }}",
+      "options": [
+        { "value": "solid",    "label": "Solid" },
+        { "value": "gradient", "label": "Gradient" }
+      ]
+    },
+    { "type": "color", "id": "card_bg_color", "label": "Background color", "default": "#F4F4F5", "visible_if": "{{ section.settings.bg_transparent == false and section.settings.bg_style == 'solid' }}" },
+    { "type": "color", "id": "grad_start", "label": "Gradient start", "default": "#F7F7FB", "visible_if": "{{ section.settings.bg_transparent == false and section.settings.bg_style == 'gradient' }}" },
+    { "type": "color", "id": "grad_end", "label": "Gradient end", "default": "#EAEAF6", "visible_if": "{{ section.settings.bg_transparent == false and section.settings.bg_style == 'gradient' }}" },
+    { "type": "range", "id": "grad_angle", "label": "Gradient angle", "min": 0, "max": 360, "step": 15, "unit": "deg", "default": 165, "visible_if": "{{ section.settings.bg_transparent == false and section.settings.bg_style == 'gradient' }}" },
+    { "type": "color", "id": "page_bg_color", "label": "Page background (behind card)", "default": "#FFFFFF", "visible_if": "{{ section.settings.section_width == 'boxed' }}" },
+
+    { "type": "header", "content": "Colors & links" },
+    { "type": "color", "id": "ink_color", "label": "Text (ink)", "default": "#1A1A2E", "info": "Drives text plus every hairline and muted grey via color-mix." },
+    { "type": "color", "id": "accent_color", "label": "Accent", "default": "#6366F1", "info": "Subscribe button, focus rings, link hover." },
+    {
+      "type": "select", "id": "link_hover_effect", "label": "Link hover", "default": "underline",
+      "options": [
+        { "value": "underline", "label": "Underline" },
+        { "value": "color",     "label": "Color shift" },
+        { "value": "none",      "label": "None" }
+      ]
+    },
+    { "type": "color", "id": "input_bg_color", "label": "Input background", "default": "#FFFFFF" },
+    { "type": "color", "id": "input_text_color", "label": "Input text", "info": "Text in the email field + Subscribe label. Blank = inherit ink." }
+  ],
+  "presets": [
+    { "name": "Modulo: Footer Studio" }
+  ]
+}
+{% endschema %}

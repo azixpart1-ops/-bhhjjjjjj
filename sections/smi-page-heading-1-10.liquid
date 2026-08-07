@@ -1,0 +1,741 @@
+<link href="{{ 'smi-page-heading-1.min.css' | asset_url }}" rel="stylesheet" type="text/css" media="screen" onload="this.onload=null;this.media='all'">
+{% comment %}#component#["settings/display-settings-2","settings/container-full_width-2","settings/content-settings","settings/section-padding","settings/section-margin","settings/design-mode","settings/image.vars","settings/image","settings/animation-settings"]#endcomponent#{% endcomment %}
+<style>
+    {% if block_color %}
+    {% endif %}
+  {% assign colorblock = section.blocks | where: 'type', 'color' | first %}
+{% if colorblock %}
+    #shopify-section-{{ section.id }},
+    #shopify-section-{{ section.id }} .smi-color-{{ section.settings.color_scheme }},
+    .smi-block-custom-color { 
+        --color-background: {{ colorblock.settings.background_color.red }}, {{ colorblock.settings.background_color.green }},{{ colorblock.settings.background_color.blue }};        
+        --color-background-alpha: {{ colorblock.settings.background_color.alpha | default: 1 }};
+        {% if colorblock.settings.background_gradient_color == blank %}
+            --gradient-background: {{ colorblock.settings.background_color }};
+        {% else %}
+            --gradient-background: {{ colorblock.settings.background_gradient_color }};
+        {% endif %}
+        --color-foreground-hex: {{ colorblock.settings.text_color }};
+        --color-foreground: {{ colorblock.settings.text_color.red }}, {{ colorblock.settings.text_color.green }},{{ colorblock.settings.text_color.blue }};
+    }
+{% endif %}
+  #shopify-section-{{ section.id }} {
+    --section-padding-top: {{ section.settings.padding_top }}px;
+--section-padding-bottom: {{ section.settings.padding_bottom }}px;
+--section-padding-top-mobile: {{ section.settings.padding_top_mobile }}px;
+--section-padding-bottom-mobile: {{ section.settings.padding_bottom_mobile }}px;
+    --heading-alignment: {%- liquid
+    case  section.settings.heading_alignment
+        when 'left'
+         echo 'start'
+        when 'right'
+         echo 'end'
+        else
+         echo 'center'
+    endcase
+-%};
+    --content-max-width: {{ section.settings.content_max_width }}px;
+	--section-margin-sides: {{ section.settings.margin_sides }}px;
+--section-margin-sides-mobile: {{ section.settings.margin_sides_mobile }}px;
+		{% if  section.settings.custom_width == true and section.settings.container_full_width == false %}
+--page-width: {{ section.settings.section_width }}px;
+{% endif %}
+    --media-overlay: {{  section.settings.image_overlay }};
+    --content-postion: {{  section.settings.content_position }};
+    --content-alignment: {{  section.settings.content_alignment }};
+  }
+</style>
+{% liquid
+  assign content_alignment = section.settings.content_alignment
+    assign has_img_bg = false
+    assign img_bg_url = ''
+  if section.settings.image != blank
+    assign has_img_bg = true
+  else
+    unless template == 'index' or template == 'cart' or template == 'list-collections' or template == '404'
+      assign t = template | split: '.' | first
+      case t
+        when 'product'
+          assign target = product.selected_or_first_available_variant
+          if target.featured_image
+              assign has_img_bg = true
+              assign img_bg_url = target.featured_image
+          endif
+        when 'collection' and collection.handle
+          if collection.featured_image
+              assign has_img_bg = true
+              assign img_bg_url = collection.featured_image
+          endif
+        when 'article'
+          if article.image
+              assign has_img_bg = true
+              assign img_bg_url = article.image
+          endif
+      endcase
+    endunless
+  endif
+%}
+<div
+  id="smi-{{ section.id }}"
+  class="smi-{{ section.id }} smi-display-settings smi-display-{{ section.settings.display_on }} smi-section__inner smi-gradient smi-section-page-heading-1 smi-overflow-hidden smi-p-relative smi-color-{{ section.settings.color_scheme }}"
+  data-section="page-heading-1" data-name="✧Page heading 1">
+  
+  {% liquid
+    assign background_block = section.blocks | where: 'type', 'background' | first
+    if background_block
+      render 'smi-background'
+    endif
+  %}
+  {% if section.settings.show_banner %}
+    <div
+      class="smi-bg-img-settings smi-p-absolute smi-wh-100 {% if has_img_bg %} smi-bg-img-settings-img-overlay{% endif %}"
+    >
+      <div style="position: relative; height: 100%">
+        <div class="background-img-dt-settings smi-p-absolute smi-w-100" style="background: {{ section.settings.image_overlay }};">colorne</div>
+        {% liquid
+          assign image_classes = 'smi-bg-image smi-wh-100 smi-object-fit-cover'
+          assign item_mobile = 1
+          assign item_tablet = 1
+          assign item_desktop = 1
+        %}
+        {% if section.settings.image != blank %}
+          {% liquid
+            assign image_object = section.settings.image
+          %}
+{% liquid
+    unless image_width
+        assign image_width = 1600
+    endunless
+    unless sizes
+        assign percent_item_mobile = 100 | divided_by: item_mobile | default: 100
+        assign percent_item_tablet = 100 | divided_by: item_tablet | default: 100
+        assign percent_item_desktop = 100 | divided_by: item_desktop | default: 100
+        assign sizes = '(max-width: 767px)' | append: percent_item_mobile | append: 'vw, (max-width: 991px) ' | append: percent_item_tablet | append: 'vw, ' | append: percent_item_desktop | append: 'vw'
+    endunless
+%} 
+{{
+  image_object
+  | image_url: width: image_width
+  | image_tag: class: image_classes, widths: '400,500,600,700,800,1000,1200,1400,1600,1900,2500', sizes: sizes
+}}
+        {% else %}
+          {% if has_img_bg %}
+            {% liquid
+              assign image_object = img_bg_url
+            %}
+{% liquid
+    unless image_width
+        assign image_width = 1600
+    endunless
+    unless sizes
+        assign percent_item_mobile = 100 | divided_by: item_mobile | default: 100
+        assign percent_item_tablet = 100 | divided_by: item_tablet | default: 100
+        assign percent_item_desktop = 100 | divided_by: item_desktop | default: 100
+        assign sizes = '(max-width: 767px)' | append: percent_item_mobile | append: 'vw, (max-width: 991px) ' | append: percent_item_tablet | append: 'vw, ' | append: percent_item_desktop | append: 'vw'
+    endunless
+%} 
+{{
+  image_object
+  | image_url: width: image_width
+  | image_tag: class: image_classes, widths: '400,500,600,700,800,1000,1200,1400,1600,1900,2500', sizes: sizes
+}}
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+  <div class="smi-main-container smi-p-relative smi-d-flex smi-container{% if section.settings.container_full_width %}-fluid{% endif -%}">
+    {%-liquid
+    if settings.smi_animations_reveal_on_scroll != nil
+        assign animation_scroll = settings.smi_animations_reveal_on_scroll
+    else
+        assign global_settings = shop.metafields.smind.settings.value
+        assign animation_scroll = global_settings.revealOnScroll
+    endif
+-%}
+    <div class="smi-container-detail {% if animation_scroll %}smi-scroll-trigger smi-animate--slide-in{% endif %} content-container-max-width">
+      {% for block in section.blocks %}
+        <div
+          class="content-alignment-{{ section.settings.content_alignment }} smi-content-position-{{ section.settings.content_position }} smi-block-type-{{ block.type }} {% if forloop.index < section.blocks.size %}smi-mb-xs{% endif %}"
+        >
+          {% if block.type == 'heading' %}
+            {%- assign heading = block.settings.heading | strip | strip_newlines -%}
+{%- assign t = template | split: '.' | first -%}
+{% assign default_heading = heading %}
+{%- case t -%}
+  {%- when 'page' -%}
+    {% unless heading != blank %}{% assign default_heading = page.title %}{% endunless %}
+  {%- when 'product' -%}
+    {% unless heading != blank %}{% assign default_heading = product.title %}{% endunless %}
+  {%- when 'collection' -%}
+    {% unless heading != blank %}{% assign default_heading = collection.title %}{% endunless %}
+  {%- when 'blog' -%}
+    {% unless heading != blank %}{% assign default_heading = blog.title %}{% endunless %}
+  {%- when 'article' -%}
+    {% unless heading != blank %}{% assign default_heading = article.title %}{% endunless %}
+{% endcase %}
+{% liquid
+  assign heading_tags = block.settings.heading_tags_discount | default:'h2'
+  assign heading_size = block.settings.heading_size
+%}
+{% if default_heading != blank %}
+<{{ heading_tags }} class="{{ heading_size }} smi-heading-component__heading smi-link-wrapper {% if default_heading != blank %}smi-mb-sm{% endif %}" {{ block.shopify_attributes }}>
+    {{- default_heading -}}
+</{{ heading_tags }}>
+{% endif %}
+          {% endif %}
+          {% if block.type == 'breadcrumb' %}
+              {%- unless template == 'index' -%}
+    {%- assign t = template | split: '.' | first -%}
+    <span class="breadcrumb-content" {{ block.shopify_attributes }}>
+		<a class="breadcrumbs__link_home" href="/">{{ "smind.general.home" | t }}</a>{% render 'smi-icons', icon: 'arrow-right' %}
+      {% if  t == 'page' or t == 'product' or t == 'collection' or t == 'blog' or t == 'article'%}
+        {%- case t -%}
+          {%- when 'page' -%}
+            <a class="breadcrumbs__link smi-color-text-75" href="{{ page.url }}" aria-current="page" title="{{ page.title }}">{{ page.title }}</a>
+          {%- when 'product' -%}
+            {% for collect in  product.collections %}
+                {% if forloop.index == 1 and product.collections.size >= 1 %}
+                  {% assign collection = collect %}
+                {% endif %}
+            {% endfor %}
+            {%- if collection.url -%}
+              <a class="breadcrumbs__link" href="{{ collection.url }}" aria-current="page" title="{{ collection.title }}">{{ collection.title }}</a>
+              {% render 'smi-icons', icon: 'arrow-right' %}
+            {% endif %}
+            <a class="breadcrumbs__link smi-color-text-75" href="{{ product.url }}" aria-current="page" title="{{ product.title }}">{{ product.title }}</a>
+          {%- when 'collection' and collection.handle -%}
+            {%- if current_tags -%}
+              <a class="breadcrumbs__link" href="{{ collection.url }}" aria-current="page" title="{{ collection.title }}">{{ collection.title }}</a>
+              {%- render 'smi-icons', icon: 'arrow-right' %}
+              {%- capture tag_url -%}{{ collection.url }}/{{ current_tags | join: "+"}}{%- endcapture -%}
+              <a class="breadcrumbs__link smi-color-text-75" href="{{ tag_url }}" aria-current="page" title="{{ collection.title }}">{{ current_tags | join: ' + ' }}</a>
+            {%- else -%}
+              <a class="breadcrumbs__link smi-color-text-75" href="{{ collection.url }}" aria-current="page" title="{{ collection.title }}">{{ collection.title }}</a>
+            {%- endif -%}
+          {%- when 'blog' -%}
+            {%- if current_tags -%}
+              <a class="breadcrumbs__link" href="{{ blog.url }}" aria-current="page" title="{{ blog.title }}">{{ blog.title }}</a>
+              {%- render 'smi-icons', icon: 'arrow-right' %}
+              {%- capture tag_url -%}{{blog.url}}/tagged/{{ current_tags | join: "+" }}{%- endcapture -%}
+              <a class="breadcrumbs__link smi-color-text-75" href="{{ tag_url }}" aria-current="page" title="{{ blog.title }}">{{ current_tags | join: ' + ' }}</a>
+              {%- render 'smi-icons', icon: 'arrow-right' %}
+            {%- else -%}
+              <a class="breadcrumbs__link smi-color-text-75" href="{{ blog.url }}" aria-current="page" title="{{ blog.title }}">{{ blog.title }}</a>
+            {%- endif -%}
+          {%- when 'article' -%}
+            <a class="breadcrumbs__link" href="{{ blog.url }}" aria-current="page" title="{{ blog.title }}">{{ blog.title }}</a>
+            {%- render 'smi-icons', icon: 'arrow-right' %}
+            <a class="breadcrumbs__link smi-color-text-75" href="{{ article.url }}" aria-current="page" title="{{ article.title }}">{{ article.title }}</a>
+          {%- else -%}
+            <a class="breadcrumbs__link smi-color-text-75" href="{{ request.path }}" aria-current="page" title="page">{{ page_title }}</a>
+        {% endcase %}
+      {% else %}
+      <a class="breadcrumbs__link smi-color-text-75" href="{{ page.url }}" aria-current="page" title="page">
+          {% if template == '404' %}
+            {{ "smind.page_breadcrumb.not_found" | t }}
+          {% elsif template == 'captcha' %}
+            {{ "smind.page_breadcrumb.captcha" | t }}
+          {% elsif template == 'list-collections' %}
+            {{ "smind.page_breadcrumb.list_collections" | t }}
+          {% elsif template == 'customers/account' %}
+            {{ "smind.page_breadcrumb.c_account" | t }}
+          {% elsif template == 'customers/activate_account' %}
+            {{ "smind.page_breadcrumb.c_activate_account" | t }}
+          {% elsif template == 'customers/addresses' %}
+            {{ "smind.page_breadcrumb.c_address" | t }}
+          {% elsif template == 'customers/login' %}
+            {{ "smind.page_breadcrumb.c_login" | t }}
+          {% elsif template == 'customers/order' %}
+            {{ "smind.page_breadcrumb.c_order" | t }}
+          {% elsif template == 'customers/register' %}
+            {{ "smind.page_breadcrumb.c_register" | t }}
+          {% elsif template == 'customers/reset_password' %}
+            {{ "smind.page_breadcrumb.c_reset_password" | t }}
+          {% elsif template == 'gift_card' %}
+            {{ "smind.page_breadcrumb.gift_card" | t }}
+          {% elsif template == 'metaobject' %}
+            {{ "smind.page_breadcrumb.metaobject" | t }}
+          {% elsif template == 'password' %}
+            {{ "smind.page_breadcrumb.password" | t }}
+          {% elsif template == 'policy' %}
+            {{ "smind.page_breadcrumb.policy" | t }}
+          {% elsif template == 'search' %}
+            {{ "smind.page_breadcrumb.search" | t }}
+          {% endif %}
+        </a>
+      {% endif %}
+    </span>
+{%- endunless -%}
+          {% endif %}
+          {% if block.type == 'description' %}
+            {%- assign description = block.settings.description | strip | strip_newlines -%}
+{%- assign t = template | split: '.' | first -%}
+{% assign description_size = '-mb ' | append:block.settings.description_size  | prepend: block.settings.description_size %}
+{% capture content %}
+  {%- case t -%}
+    {%- when 'page' -%} {{ page.content }}
+    {%- when 'product' -%} {{ product.description }}
+    {%- when 'collection' -%} {{ collection.description }}
+    {%- when 'article' -%} {{ article.content }}
+  {%- endcase -%}
+{% endcapture %}
+{% if description != blank %}
+  <div class="{% if description_size != blank %} {{ description_size }} {% else %} smi-text-md {% endif %} heading-component__description smi-link-wrapper smi-color-text-75" {{ block.shopify_attributes }}>{{ description }}</div>
+{% elsif content != blank %}
+  <div class="{% if description_size != blank %} {{ description_size }} {% else %} smi-text-md {% endif %} heading-component__description smi-link-wrapper smi-color-text-75" {{ block.shopify_attributes }}>{{ content }}</div>
+{% endif %}
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<div class="smi-d-none smi-basico-item">&nbsp; </div>
+{% schema %}
+{
+	"name": "✧Page heading 1-10",
+	"tag": "section",
+	"class": "smi-section smi-pods-item smi-page-heading-1",
+	"settings": [
+		{
+			"type": "select",
+			"id": "display_on",
+			"label": "Display on",
+			"options": [
+				{
+					"value": "desktop",
+					"label": "Desktop only"
+				},
+				{
+					"value": "mobile",
+					"label": "Mobile only"
+				},
+				{
+					"value": "all",
+					"label": "All device"
+				}
+			],
+			"default": "all"
+		},
+		{
+			"type": "checkbox",
+			"id": "container_full_width",
+			"label": "Container full-width",
+			"default": false
+		},
+		{
+			"type": "checkbox",
+			"id": "custom_width",
+			"label": "Custom width",
+			"default": false,
+			"visible_if": "{{ section.settings.container_full_width == false }}"
+		},
+		{
+			"type": "range",
+			"id": "section_width",
+			"label": "Section width",
+			"min": 800,
+			"max": 2000,
+			"step": 20,
+			"unit": "px",
+			"default": 1200,
+			"visible_if": "{{ section.settings.container_full_width == false and section.settings.custom_width == true }}"
+		},
+		{
+			"type": "header",
+			"content": "Content settings"
+		},
+		{
+			"type": "select",
+			"id": "content_position",
+			"label": "Content position",
+			"options": [
+				{
+					"value": "left",
+					"label": "Left"
+				},
+				{
+					"value": "center",
+					"label": "Center"
+				},
+				{
+					"value": "right",
+					"label": "Right"
+				}
+			],
+			"default": "left"
+		},
+		{
+			"type": "text_alignment",
+			"id": "content_alignment",
+			"label": "Content alignment",
+			"default": "left"
+		},
+		{
+			"type": "range",
+			"id": "content_max_width",
+			"min": 300,
+			"max": 1200,
+			"step": 10,
+			"unit": "px",
+			"label": "Content max-width",
+			"default": 700
+		},
+		{
+			"type": "header",
+			"content": "Image banner"
+		},
+		{
+			"type": "checkbox",
+			"id": "show_banner",
+			"label": "Show banner",
+			"default": false
+		},
+		{
+			"type": "image_picker",
+			"id": "image",
+			"label": "Background image"
+		},
+		{
+			"type": "header",
+			"content": "Color"
+		},
+		{
+			"type": "select",
+            "options": [
+                {
+                    "value": "scheme_1",
+                    "label": "Scheme 1"
+                },
+                {
+                    "value": "scheme_2",
+                    "label": "Scheme 2"
+                },
+                {
+                    "value": "scheme_3",
+                    "label": "Scheme 3"
+                },
+                {
+                    "value": "scheme_4",
+                    "label": "Scheme 4"
+                },
+                {
+                    "value": "scheme_5",
+                    "label": "Scheme 5"
+                },
+                {
+                    "value": "scheme_6",
+                    "label": "Scheme 6"
+                },
+                {
+                    "value": "scheme_7",
+                    "label": "Scheme 7"
+                },
+                {
+                    "value": "scheme_8",
+                    "label": "Scheme 8"
+                },
+                {
+                    "value": "scheme_9",
+                    "label": "Scheme 9"
+                },
+                {
+                    "value": "scheme_10",
+                    "label": "Scheme 10"
+                }
+            ],
+			"id": "color_scheme",
+			"label": "Color Scheme"
+		},
+		{
+			"type": "paragraph",
+			"content": "How to use “Color block” and “Color scheme”. [Learn more](https://docs.smind.io/guides/color-block-and-color-scheme)"
+		},
+		{
+			"type": "color_background",
+			"id": "image_overlay",
+			"label": "Image overlay"
+		},
+		{
+			"type": "header",
+			"content": "Section padding"
+		},
+		{
+			"type": "range",
+			"id": "padding_top",
+			"min": 0,
+			"max": 200,
+			"step": 2,
+			"unit": "px",
+			"label": "Top padding - desktop",
+			"default": 50
+		},
+		{
+			"type": "range",
+			"id": "padding_bottom",
+			"min": 0,
+			"max": 200,
+			"step": 2,
+			"unit": "px",
+			"label": "Bottom padding - desktop",
+			"default": 50
+		},
+		{
+			"type": "range",
+			"id": "padding_top_mobile",
+			"min": 0,
+			"max": 200,
+			"step": 2,
+			"unit": "px",
+			"label": "Top padding - mobile",
+			"default": 50
+		},
+		{
+			"type": "range",
+			"id": "padding_bottom_mobile",
+			"min": 0,
+			"max": 200,
+			"step": 2,
+			"unit": "px",
+			"label": "Bottom padding - mobile",
+			"default": 50
+		},
+		{
+			"type": "header",
+			"content": "Section margin"
+		},
+		{
+			"type": "range",
+			"id": "margin_sides",
+			"min": 0,
+			"max": 200,
+			"step": 2,
+			"unit": "px",
+			"label": "Margin sides - desktop",
+			"default": 0
+		},
+		{
+			"type": "range",
+			"id": "margin_sides_mobile",
+			"min": 0,
+			"max": 50,
+			"step": 1,
+			"unit": "px",
+			"label": "Margin sides - mobile",
+			"default": 0
+		}
+	],
+	"blocks": [
+		{
+			"type": "heading",
+			"name": "Heading",
+			"limit": 1,
+			"settings": [
+				{
+					"type": "inline_richtext",
+					"id": "heading",
+					"label": "Heading",
+					"info": "If you want the title of the current page to be displayed by default, leave this field empty."
+				},
+				{
+					"type": "select",
+					"id": "heading_tags",
+					"label": "Heading tags",
+					"options": [
+						{
+							"value": "h1",
+							"label": "H1"
+						},
+						{
+							"value": "h2",
+							"label": "H2"
+						},
+						{
+							"value": "h3",
+							"label": "H3"
+						},
+						{
+							"value": "h4",
+							"label": "H4"
+						},
+						{
+							"value": "h5",
+							"label": "H5"
+						},
+						{
+							"value": "h6",
+							"label": "H6"
+						}
+					],
+					"default": "h2"
+				},
+				{
+					"type": "select",
+					"id": "heading_size",
+					"label": "Heading size",
+					"options": [
+						{
+							"value": "smi-h4",
+							"label": "S"
+						},
+						{
+							"value": "smi-h3",
+							"label": "M"
+						},
+						{
+							"value": "smi-h2",
+							"label": "L"
+						},
+						{
+							"value": "smi-h1",
+							"label": "XL"
+						}
+					],
+					"default": "smi-h1"
+				}
+			]
+		},
+		{
+			"type": "breadcrumb",
+			"name": "Breadcrumb",
+			"limit": 1
+		},
+		{
+			"type": "description",
+			"name": "Description",
+			"limit": 1,
+			"settings": [
+				{
+					"type": "richtext",
+					"id": "description",
+					"label": "Description",
+					"default": "<p>A description to see how this collection</p>",
+					"info": "If you want the description of the current page to be displayed by default, leave this field empty."
+				},
+				{
+					"type": "select",
+					"id": "description_size",
+					"label": "Description size",
+					"options": [
+						{
+							"value": "smi-text-xs",
+							"label": "XS"
+						},
+						{
+							"value": "smi-text-sm",
+							"label": "S"
+						},
+						{
+							"value": "smi-text-md",
+							"label": "M"
+						},
+						{
+							"value": "smi-text-lg",
+							"label": "L"
+						}
+					],
+					"default": "smi-text-md"
+				}
+			]
+		},
+		{
+			"name": "Color",
+			"limit": 1,
+			"type": "color",
+			"settings": [
+				{
+					"type": "paragraph",
+					"content": "How to use “Color block” and “Color scheme”. [Learn more](https://docs.smind.io/guides/color-block-and-color-scheme#how-to-use-the-color-block)"
+				},
+				{
+					"type": "color",
+					"id": "background_color",
+					"default": "#F3F3F3",
+					"label": "Background"
+				},
+				{
+					"type": "color_background",
+					"id": "background_gradient_color",
+					"label": "Background gradient",
+					"info": "Background gradient replaces background where possible."
+				},
+				{
+					"type": "color",
+					"id": "heading_color",
+					"label": "Heading"
+				},
+				{
+					"type": "color",
+					"id": "text_color",
+					"default": "#121212",
+					"label": "Text"
+				},
+				{
+					"type": "color",
+					"id": "link_color",
+					"label": "Links",
+					"default": "#413BFF"
+				},
+				{
+					"type": "color",
+					"id": "hover_link_color",
+					"label": "Hover links",
+					"default": "#615CFF"
+				}
+			]
+		}
+	],
+	"presets": [
+		{
+			"name": "✧Page heading 1-10",
+			"settings": {
+				"container_full_width": false,
+				"content_position": "center",
+				"content_alignment": "center",
+				"content_max_width": 510,
+				"show_banner": false,
+				"color_scheme": "scheme_2",
+				"image_overlay": "",
+				"padding_top": 56,
+				"padding_bottom": 56
+			},
+			"blocks": [
+				{
+					"type": "breadcrumb",
+					"settings": {}
+				},
+				{
+					"type": "heading",
+					"settings": {
+						"heading": "",
+						"heading_size": "smi-h2"
+					}
+				},
+				{
+					"type": "description",
+					"settings": {
+						"description": "<p>Here at Babyshop you will find a well-curated range of popular products for your baby</p>"
+					}
+				},
+				{
+					"type": "color",
+					"settings": {
+						"background_color": "#f3ecec",
+						"background_gradient_color": "",
+						"text_color": "#000000"
+					}
+				}
+			]
+		}
+	],
+	"disabled_on": {
+		"groups": [
+			"header",
+			"footer",
+			"aside"
+		]
+	}
+}
+{% endschema %}
+

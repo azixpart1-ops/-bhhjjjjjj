@@ -1,0 +1,1 @@
+window.addEventListener("DOMContentLoaded",(e=>{document.getElementById("#SECTION_ID#")}));
