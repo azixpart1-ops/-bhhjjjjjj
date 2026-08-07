@@ -200,3 +200,62 @@ are intact, and there's zero horizontal overflow at 1440px and 390px.
 One carry-over: the competitor-branding problem in §5 applies to the Shopify build exactly as it
 does to the standalone one. Images are pulled straight from your product records, so fixing them
 there fixes them here — no code change needed.
+
+
+---
+
+## 7. The default product page
+
+A single `templates/product.json` that serves **every** product — no per-product
+templates. Installed in the same unpublished preview theme.
+
+Nine sections: the buy block, a proof marquee, the product's own description plus a
+specs panel, the 50kg/m³ explainer, the 100-night trial, reviews, related beds, the
+FAQ and the closing CTA. Six of those are reused from the homepage, so a copy change
+in one place changes both.
+
+### Built to fit anything in the catalogue
+
+Verified against the four hardest shapes in the store:
+
+| Product | Shape | Result |
+|---|---|---|
+| Kendal Corduroy | 9 variants, 2 option sets, 13 images | Both pickers render, price moves £169 → £219 on size change |
+| Windsor Memory Foam | 12 variants, 2 option sets | Both pickers render |
+| Keswick Kennel | 1 variant, no options | Picker hidden entirely |
+| Harewood Velvet Nest | 1 option set, 6 images | Renders; related section falls back cleanly when absent |
+
+The variant picker is generic over `product.options_with_values`, so it doesn't care
+whether the option is called "Size", "Accessory size", "Color" or "Colour". Combinations
+that don't exist are struck through. Price, availability, stock, image and the `?variant=`
+URL all update on selection.
+
+### Add to basket
+
+A real `<form action="/cart/add">` that works with JavaScript disabled, enhanced to
+`fetch('/cart/add.js')` with an inline confirmation and a fallback to the native post if
+the request fails. Verified end to end against the live endpoint: adding the Kendal
+M / Beige variant returned HTTP 200 with the correct £219.00 line.
+
+### Per-product copy, without per-product templates
+
+Where a product has the metafields, the page uses them; where it doesn't, the section
+defaults fill in:
+
+- `vitals.tagline` → the italic hook under the title
+- `vitals.top_benefit_1–3` → the benefit list in the buy column
+- `vitals.key_benefit_1–3_*` → the layered detail cards below the description
+
+### What this replaces
+
+The old product template had problems that were costing sales on every product page:
+
+| Was | Now |
+|---|---|
+| "10-Year Foam Guarantee" — contradicting the 5-year claim everywhere else | 5-year, consistently |
+| "4.9★ from 2,400+ reviews" — a third different figure | 4.8 / 3,900+, worded as a store rating |
+| "Why Pet Parents Trust **The Borrowdale**" on *every* product page | Reads from the product |
+| "Breathable comfort… keeping you fresh all day", "Ultra-soft and gentle on the skin", "Stretchable fit" | Removed — that was clothing copy on a dog bed |
+| "Higher density foam (60+ kg/m³)… standard foam (30-40 kg/m³)" | Removed — it framed your own 50kg/m³ as second tier |
+| "GREEN LIVING COLLECTION" above related products | Reads from the collection |
+| Fake purchase popups: invented buyer names, "purchased N minutes ago", labelled "Verified" | Not carried over — see §8 |
