@@ -153,21 +153,50 @@ images and nothing else needs to change.
 
 ---
 
-## 6. Going live on Shopify
+## 6. It's installed on Shopify
 
-The page is deliberately framework-free so it ports cleanly to your theme (Modulo, OS 2.0).
+Everything in `shopify/` is live in an **unpublished** theme on the store:
 
-1. Upload `assets/styles.css` and `assets/app.js` to `Assets`; reference them in `theme.liquid`.
-2. Split the `<section>` blocks into self-contained sections under `sections/` — the markup is
-   already one section per block with no shared state except the design tokens.
-3. Swap the local image paths for `{{ product.featured_image | image_url: width: 900 }}`.
-4. Point the `BEDS` table at Liquid so prices and stock stay live:
-   ```liquid
-   {% assign p = all_products['the-borrowdale-orthopaedic-dog-bed'] %}
-   from: {{ p.price_min | money }}, stock: {{ p.variants | map: 'inventory_quantity' | sum }}
-   ```
-   **Do this before launch** — the "Only N left in stock" badge is real today (6 Aug 2026)
-   but must be bound to live inventory rather than left hardcoded.
-5. Re-point nav/footer links at your live handles (they're absolute `pawlunova.co.uk` URLs now).
+> **PawLunova — Conversion Homepage (preview)** · theme ID `190461313317`
 
-I have not touched the live store. Say the word and I'll do the Liquid port.
+The live theme is untouched. To look at it: **Online Store → Themes → … → Preview**.
+To ship it: **Publish** that theme. To roll back: publish the previous one.
+
+```
+shopify/
+├── assets/pl-styles.css      every rule scoped under .pl
+├── assets/pl-app.js          reveals, FAQ, count-up, sticky CTA, bed finder
+├── snippets/pl-icon.liquid   icons inlined per use, no shared sprite
+├── snippets/pl-assets.liquid stylesheet + script tags
+├── sections/pl-*.liquid      11 sections, each with a full schema
+└── templates/index.json      the homepage, wired to real products
+```
+
+### Built to survive being edited
+
+- The theme keeps its own header, footer, cart drawer and announcement bar. Only
+  `templates/index.json` changes — `layout/theme.liquid` is untouched.
+- All CSS is scoped under `.pl`, so nothing can reach the theme chrome or an app section.
+  Verified: no `body`, `html` or bare element selector escapes the scope.
+- Every section carries a `{% schema %}`, so copy, images, products, ordering and the finder's
+  recommendation matrix are all editable in the theme editor without touching code.
+- Each section renders the shared assets itself and inlines its own icons, so any section can be
+  reordered or deleted without breaking the others. `pl-app.js` guards against double-initialising
+  and re-runs on `shopify:section:load` for the editor.
+
+### The finder reads live data
+
+Price, stock, image and URL come from the catalogue at render time through a JSON island
+(`#pl-beds`), so *"Only 2 left in stock"* is bound to real inventory — never a hardcoded number.
+Recommendations are blocks with product pickers, so the matrix can be rewired in the editor.
+
+### Verified on the rendered preview
+
+Fetched the real Shopify output, then drove it in Chromium: no Liquid errors, all 11 sections
+present, the finder JSON parses with all 11 recommendations at live prices and stock, the finder
+returns the right bed / price / size / stock / link, the FAQ opens, the theme header and footer
+are intact, and there's zero horizontal overflow at 1440px and 390px.
+
+One carry-over: the competitor-branding problem in §5 applies to the Shopify build exactly as it
+does to the standalone one. Images are pulled straight from your product records, so fixing them
+there fixes them here — no code change needed.
