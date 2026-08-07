@@ -1,0 +1,73 @@
+{% render 'pl-assets' %}
+{%- liquid
+  assign img = section.settings.image
+  if img == blank and section.settings.image_product != blank
+    assign img = section.settings.image_product.featured_image
+  endif
+-%}
+<div class="pl">
+  <section class="section section--oat">
+    <div class="wrap">
+      <div class="brandrow">
+        <div>
+          {%- if section.settings.eyebrow != blank -%}<p class="eyebrow reveal">{{ section.settings.eyebrow }}</p>{%- endif -%}
+          <h2 class="display-2 reveal" style="--i:1">{{ section.settings.heading | escape | newline_to_br }}</h2>
+          <div class="body-lg reveal" style="--i:2;margin-top:1.25rem">{{ section.settings.body }}</div>
+
+          <div class="contrast reveal" style="--i:3">
+            <div class="contrast__col contrast__col--them">
+              <h4>{{ section.settings.them_title }}</h4>
+              <ul>
+                {%- for block in section.blocks -%}
+                  {%- if block.type == 'them' -%}
+                    <li {{ block.shopify_attributes }}>{% render 'pl-icon', icon: 'cross' %} {{ block.settings.text }}</li>
+                  {%- endif -%}
+                {%- endfor -%}
+              </ul>
+            </div>
+            <div class="contrast__col contrast__col--us">
+              <h4>{{ section.settings.us_title }}</h4>
+              <ul>
+                {%- for block in section.blocks -%}
+                  {%- if block.type == 'us' -%}
+                    <li {{ block.shopify_attributes }}>{% render 'pl-icon', icon: 'check' %} {{ block.settings.text }}</li>
+                  {%- endif -%}
+                {%- endfor -%}
+              </ul>
+            </div>
+          </div>
+        </div>
+        {%- if img != blank -%}
+          <img class="brandrow__img reveal" style="--i:2"
+               src="{{ img | image_url: width: 900 }}"
+               srcset="{{ img | image_url: width: 560 }} 560w, {{ img | image_url: width: 1100 }} 1100w"
+               sizes="(min-width: 900px) 45vw, 100vw"
+               width="900" height="900" loading="lazy" decoding="async"
+               alt="{{ img.alt | escape | default: section.settings.image_alt }}">
+        {%- endif -%}
+      </div>
+    </div>
+  </section>
+</div>
+{% schema %}
+{
+  "name": "PL — Made in Yorkshire",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Made in Yorkshire" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Named after the places we walk our own dogs." },
+    { "type": "richtext", "id": "body", "label": "Body" },
+    { "type": "text", "id": "them_title", "label": "Left column title", "default": "What you usually get online" },
+    { "type": "text", "id": "us_title", "label": "Right column title", "default": "What you get here" },
+    { "type": "header", "content": "Image" },
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "product", "id": "image_product", "label": "…or use this product's photo" },
+    { "type": "text", "id": "image_alt", "label": "Alt text", "default": "A dog asleep on a PawLunova bed" }
+  ],
+  "blocks": [
+    { "type": "them", "name": "Them (left column)", "settings": [ { "type": "textarea", "id": "text", "label": "Point" } ] },
+    { "type": "us", "name": "Us (right column)", "settings": [ { "type": "textarea", "id": "text", "label": "Point" } ] }
+  ],
+  "presets": [{ "name": "PL — Made in Yorkshire" }]
+}
+{% endschema %}

@@ -1,0 +1,213 @@
+{% render 'pl-assets' %}
+{%- comment -%}
+  Bed finder. Each block maps one answer combination to a real product.
+  Price, stock, image and URL are read from the catalogue at render time, so
+  nothing here goes stale — including the "only N left" badge.
+{%- endcomment -%}
+<div class="pl">
+  <section class="section" id="pl-finder">
+    <div class="wrap">
+      <div class="section-head section-head--center reveal">
+        {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
+        <h2 class="display-2">{{ section.settings.heading | escape | newline_to_br }}</h2>
+        {%- if section.settings.subheading != blank -%}
+          <p class="body-lg" style="margin-top:1rem">{{ section.settings.subheading }}</p>
+        {%- endif -%}
+      </div>
+
+      <div class="finder reveal" id="plFinder">
+        <div class="finder__progress">
+          <span id="plFinderStepLabel">Question 1 of 3</span>
+          <span class="finder__bar"><i id="plFinderBar" style="width:33%"></i></span>
+        </div>
+
+        <div class="finder__step" data-step="0" data-active>
+          <h3 class="finder__q">{{ section.settings.q1 }}</h3>
+          <p class="finder__hint">{{ section.settings.q1_hint }}</p>
+          <div class="finder__options" role="group" aria-label="Sleeping style">
+            <button class="opt" type="button" data-q="style" data-value="nest" aria-pressed="false">
+              {% render 'pl-icon', icon: 'curl' %}
+              <b>Curls up tight</b><span>Circles, tucks their nose under, presses their back into something solid.</span>
+            </button>
+            <button class="opt" type="button" data-q="style" data-value="bolster" aria-pressed="false">
+              {% render 'pl-icon', icon: 'lean' %}
+              <b>Leans on something</b><span>Chin hooked over an edge, spine against a wall, an arm or a cushion.</span>
+            </button>
+            <button class="opt" type="button" data-q="style" data-value="flat" aria-pressed="false">
+              {% render 'pl-icon', icon: 'flat' %}
+              <b>Sprawls flat out</b><span>On their side, legs at full stretch, taking up the entire bed and then some.</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="finder__step" data-step="1">
+          <h3 class="finder__q">{{ section.settings.q2 }}</h3>
+          <p class="finder__hint">{{ section.settings.q2_hint }}</p>
+          <div class="finder__options" role="group" aria-label="Joint condition">
+            <button class="opt" type="button" data-q="joints" data-value="fine" aria-pressed="false">
+              <b>No concerns yet</b><span>Young or middle-aged. Up and down the stairs without a second thought.</span>
+            </button>
+            <button class="opt" type="button" data-q="joints" data-value="slowing" aria-pressed="false">
+              <b>Slowing down</b><span>Stiff first thing. A pause before the stairs. Not quite what they were.</span>
+            </button>
+            <button class="opt" type="button" data-q="joints" data-value="diagnosed" aria-pressed="false">
+              <b>Diagnosed or recovering</b><span>Arthritis, hip or elbow dysplasia, or coming back from surgery.</span>
+            </button>
+          </div>
+          <button class="finder__back" type="button" data-back>&larr; Back</button>
+        </div>
+
+        <div class="finder__step" data-step="2">
+          <h3 class="finder__q">{{ section.settings.q3 }}</h3>
+          <p class="finder__hint">{{ section.settings.q3_hint }}</p>
+          <div class="finder__options" role="group" aria-label="Dog size">
+            <button class="opt" type="button" data-q="size" data-value="small" aria-pressed="false">
+              <b>Under 10kg</b><span>Terriers, dachshunds, cavaliers, small crossbreeds.</span>
+            </button>
+            <button class="opt" type="button" data-q="size" data-value="medium" aria-pressed="false">
+              <b>10 &ndash; 25kg</b><span>Spaniels, collies, staffies, whippets, medium crossbreeds.</span>
+            </button>
+            <button class="opt" type="button" data-q="size" data-value="large" aria-pressed="false">
+              <b>Over 25kg</b><span>Labradors, retrievers, shepherds, and everything larger.</span>
+            </button>
+          </div>
+          <button class="finder__back" type="button" data-back>&larr; Back</button>
+        </div>
+
+        <div class="finder__step" data-step="3">
+          <div class="result">
+            <img class="result__img" id="plResultImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" alt="" width="700" height="700" loading="lazy" decoding="async">
+            <div>
+              <span class="result__label">{{ section.settings.result_label }}</span>
+              <h3 id="plResultName">&mdash;</h3>
+              <p class="result__why" id="plResultWhy">&mdash;</p>
+              <div class="result__meta">
+                <span class="result__price" id="plResultPrice">&mdash;</span>
+                <span class="result__size" id="plResultSize"></span>
+                <span class="stock-pill" id="plResultStock" hidden></span>
+              </div>
+              <div class="result__actions">
+                <a class="btn btn--lg" id="plResultLink" href="{{ routes.all_products_collection_url }}">
+                  <span id="plResultLinkText">See the bed</span>
+                  {% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 18 %}
+                </a>
+                <button class="finder__back" type="button" id="plFinderRestart">Start again</button>
+              </div>
+              {%- if section.settings.reassurance != blank -%}
+                <p class="muted" style="font-size:.85rem;margin-top:1.25rem">{{ section.settings.reassurance }}</p>
+              {%- endif -%}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {%- if section.settings.show_sticky -%}
+    <div class="sticky-cta" id="plStickyCta">
+      <div class="sticky-cta__txt">
+        <b>{{ section.settings.sticky_title }}</b>
+        <span>{{ section.settings.sticky_text }}</span>
+      </div>
+      <a class="btn" href="#pl-finder">{{ section.settings.sticky_cta }}</a>
+    </div>
+  {%- endif -%}
+</div>
+
+{%- comment -%} Live catalogue data for the finder. {%- endcomment -%}
+<script type="application/json" id="pl-beds">
+{
+{%- assign first = true -%}
+{%- for block in section.blocks -%}
+  {%- assign p = block.settings.product -%}
+  {%- if p != blank and block.settings.slot != blank -%}
+    {%- unless first -%},{%- endunless -%}
+    {%- assign first = false -%}
+    {%- assign stock = 0 -%}
+    {%- for v in p.variants -%}
+      {%- if v.inventory_quantity > 0 -%}{%- assign stock = stock | plus: v.inventory_quantity -%}{%- endif -%}
+    {%- endfor -%}
+    {%- assign is_single = false -%}
+    {%- if p.variants.size == 1 -%}{%- assign is_single = true -%}{%- endif -%}
+    {%- assign size_note = '' -%}
+    {%- if is_single -%}
+      {%- assign vt = p.variants.first.title -%}
+      {%- if vt == 'Default Title' -%}
+        {%- assign size_note = 'One standard size' -%}
+      {%- else -%}
+        {%- assign size_note = 'One size — ' | append: vt -%}
+      {%- endif -%}
+    {%- endif -%}
+    "{{ block.settings.slot }}": {
+      "title": {{ block.settings.display_title | default: p.title | json }},
+      "short": {{ block.settings.short | default: p.title | json }},
+      "why": {{ block.settings.why | json }},
+      "url": {{ p.url | json }},
+      "img": {%- if p.featured_image -%}{{ p.featured_image | image_url: width: 700 | json }}{%- else -%}""{%- endif -%},
+      "price": {{ p.price_min | money | strip_html | json }},
+      "single": {{ is_single | json }},
+      "size_note": {{ size_note | json }},
+      "stock": {{ stock | json }},
+      "available": {{ p.available | json }}
+    }
+  {%- endif -%}
+{%- endfor -%}
+}
+</script>
+
+{% schema %}
+{
+  "name": "PL — Bed finder",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Find their bed" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Three questions. One bed that fits how your dog actually sleeps." },
+    { "type": "text", "id": "subheading", "label": "Subheading", "default": "We make more than twenty beds. Your dog needs one of them." },
+    { "type": "header", "content": "Questions" },
+    { "type": "text", "id": "q1", "label": "Question 1", "default": "How does your dog sleep?" },
+    { "type": "text", "id": "q1_hint", "label": "Question 1 hint", "default": "Watch them tonight — most dogs do the same thing every single time." },
+    { "type": "text", "id": "q2", "label": "Question 2", "default": "How are their joints?" },
+    { "type": "text", "id": "q2_hint", "label": "Question 2 hint", "default": "Be honest with this one — it's the answer that changes the foam." },
+    { "type": "text", "id": "q3", "label": "Question 3", "default": "And how big are they?" },
+    { "type": "text", "id": "q3_hint", "label": "Question 3 hint", "default": "A rough weight is plenty. We'll size up if they're between two." },
+    { "type": "header", "content": "Result" },
+    { "type": "text", "id": "result_label", "label": "Result label", "default": "Based on your answers" },
+    { "type": "textarea", "id": "reassurance", "label": "Reassurance line", "default": "Covered by the 100-night sleep trial. If they don't settle on it, we collect it free and refund you in full." },
+    { "type": "header", "content": "Sticky mobile bar" },
+    { "type": "checkbox", "id": "show_sticky", "label": "Show sticky bar on mobile", "default": true },
+    { "type": "text", "id": "sticky_title", "label": "Sticky title", "default": "Not sure which bed?" },
+    { "type": "text", "id": "sticky_text", "label": "Sticky subtitle", "default": "3 questions · 100-night trial" },
+    { "type": "text", "id": "sticky_cta", "label": "Sticky button", "default": "Find their bed" }
+  ],
+  "blocks": [
+    {
+      "type": "recommendation",
+      "name": "Recommendation",
+      "limit": 11,
+      "settings": [
+        { "type": "select", "id": "slot", "label": "Answer combination",
+          "info": "Which set of answers should land on this bed.",
+          "default": "nest_fine",
+          "options": [
+            { "value": "nest_fine", "label": "Curls up · No concerns" },
+            { "value": "nest_slowing", "label": "Curls up · Slowing down" },
+            { "value": "nest_diagnosed_sm", "label": "Curls up · Diagnosed · small & medium" },
+            { "value": "nest_diagnosed_lg", "label": "Curls up · Diagnosed · large" },
+            { "value": "bolster_fine", "label": "Leans · No concerns" },
+            { "value": "bolster_slowing", "label": "Leans · Slowing down" },
+            { "value": "bolster_diagnosed_sm", "label": "Leans · Diagnosed · small & medium" },
+            { "value": "bolster_diagnosed_lg", "label": "Leans · Diagnosed · large" },
+            { "value": "flat_fine", "label": "Sprawls · No concerns" },
+            { "value": "flat_slowing", "label": "Sprawls · Slowing down" },
+            { "value": "flat_diagnosed", "label": "Sprawls · Diagnosed" }
+          ] },
+        { "type": "product", "id": "product", "label": "Bed to recommend" },
+        { "type": "text", "id": "display_title", "label": "Display name", "info": "Leave blank to use the product title." },
+        { "type": "text", "id": "short", "label": "Short name", "info": "Used on the button: \"See the ___\"." },
+        { "type": "textarea", "id": "why", "label": "Why this bed" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "PL — Bed finder" }]
+}
+{% endschema %}

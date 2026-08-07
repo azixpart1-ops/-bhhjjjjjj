@@ -1,0 +1,72 @@
+{% render 'pl-assets' %}
+<div class="pl">
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head reveal" style="display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:space-between;align-items:flex-end;max-width:none">
+        <div style="max-width:36rem">
+          {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
+          <h2 class="display-2">{{ section.settings.heading | escape | newline_to_br }}</h2>
+        </div>
+        {%- if section.settings.link_text != blank -%}
+          <a class="link-arrow" href="{{ section.settings.link_url | default: routes.all_products_collection_url }}">
+            {{ section.settings.link_text }}{% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 16 %}
+          </a>
+        {%- endif -%}
+      </div>
+
+      <div class="products">
+        {%- for block in section.blocks -%}
+          {%- assign p = block.settings.product -%}
+          {%- if p != blank -%}
+            <a class="card reveal" style="--i:{{ forloop.index }}" href="{{ p.url }}" {{ block.shopify_attributes }}>
+              <div class="card__media">
+                {%- if p.featured_image -%}
+                  <img src="{{ p.featured_image | image_url: width: 560 }}"
+                       srcset="{{ p.featured_image | image_url: width: 400 }} 400w, {{ p.featured_image | image_url: width: 760 }} 760w"
+                       sizes="(min-width: 900px) 25vw, 45vw"
+                       alt="{{ p.featured_image.alt | escape | default: p.title | escape }}"
+                       width="560" height="560" loading="lazy" decoding="async">
+                {%- endif -%}
+                {%- if block.settings.role != blank -%}<span class="card__role">{{ block.settings.role }}</span>{%- endif -%}
+              </div>
+              <div class="card__body">
+                <span class="stars" aria-label="Rated {{ section.settings.rating }} out of 5">
+                  {% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}
+                </span>
+                <h3 class="card__name">{{ block.settings.display_title | default: p.title }}</h3>
+                <p class="card__desc">{{ block.settings.description }}</p>
+                <div class="card__foot">
+                  <span class="card__price">
+                    {%- if p.price_varies -%}<small>From</small> {% endif %}{{ p.price_min | money }}
+                  </span>
+                  <span class="card__buy">View {% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 14 %}</span>
+                </div>
+              </div>
+            </a>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+    </div>
+  </section>
+</div>
+{% schema %}
+{
+  "name": "PL — Featured beds",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The beds owners come back for" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Four beds, four different dogs." },
+    { "type": "text", "id": "link_text", "label": "Link text", "default": "Shop all beds" },
+    { "type": "url", "id": "link_url", "label": "Link URL" },
+    { "type": "text", "id": "rating", "label": "Star rating shown on cards", "default": "4.8" }
+  ],
+  "blocks": [
+    { "type": "product", "name": "Bed", "limit": 8, "settings": [
+      { "type": "product", "id": "product", "label": "Product" },
+      { "type": "text", "id": "role", "label": "Role label", "info": "e.g. \"Stiff mornings\"" },
+      { "type": "text", "id": "display_title", "label": "Display name", "info": "Leave blank to use the product title." },
+      { "type": "textarea", "id": "description", "label": "Description" } ] }
+  ],
+  "presets": [{ "name": "PL — Featured beds" }]
+}
+{% endschema %}

@@ -1,0 +1,55 @@
+{% render 'pl-assets' %}
+<div class="pl">
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head section-head--center reveal">
+        {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
+        <h2 class="display-2">{{ section.settings.heading | escape | newline_to_br }}</h2>
+      </div>
+      <div class="faq reveal" id="plFaq">
+        {%- for block in section.blocks -%}
+          <div class="faq__item" {{ block.shopify_attributes }}>
+            <h3><button class="faq__q" type="button" aria-expanded="false">{{ block.settings.question }}<span class="faq__icon" aria-hidden="true"></span></button></h3>
+            <div class="faq__a"><div>{{ block.settings.answer }}</div></div>
+          </div>
+        {%- endfor -%}
+      </div>
+    </div>
+  </section>
+</div>
+
+{%- if section.settings.emit_schema and section.blocks.size > 0 -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {%- for block in section.blocks -%}
+      {
+        "@type": "Question",
+        "name": {{ block.settings.question | strip_html | json }},
+        "acceptedAnswer": { "@type": "Answer", "text": {{ block.settings.answer | strip_html | strip_newlines | json }} }
+      }{%- unless forloop.last -%},{%- endunless -%}
+    {%- endfor -%}
+  ]
+}
+</script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "PL — FAQ",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Before you decide" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "The questions we get asked most." },
+    { "type": "checkbox", "id": "emit_schema", "label": "Output FAQ structured data for Google", "default": true }
+  ],
+  "blocks": [
+    { "type": "qa", "name": "Question", "settings": [
+      { "type": "text", "id": "question", "label": "Question" },
+      { "type": "richtext", "id": "answer", "label": "Answer" } ] }
+  ],
+  "presets": [{ "name": "PL — FAQ" }]
+}
+{% endschema %}
