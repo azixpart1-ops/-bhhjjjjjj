@@ -1,0 +1,102 @@
+{% render 'pl-assets' %}
+{%- comment -%}
+  Slide-out cart. Rendered server-side so money formatting and discounts come
+  from Shopify, then re-rendered through the Section Rendering API after every
+  change — no price maths in JavaScript.
+{%- endcomment -%}
+{%- liquid
+  assign threshold = section.settings.free_shipping_threshold | times: 100
+  assign remaining = threshold | minus: cart.total_price
+-%}
+<div class="pl">
+  <div class="pl-drawer" id="plDrawer" role="dialog" aria-modal="true" aria-labelledby="plDrawerTitle" aria-hidden="true">
+    <div class="pl-drawer__scrim" data-drawer-close></div>
+    <div class="pl-drawer__panel">
+      <header class="pl-drawer__head">
+        <h2 class="pl-drawer__title" id="plDrawerTitle">
+          {{ section.settings.heading }}<span>{{ cart.item_count }} {% if cart.item_count == 1 %}item{% else %}items{% endif %}</span>
+        </h2>
+        <button class="pl-drawer__close" type="button" data-drawer-close aria-label="Close basket">&times;</button>
+      </header>
+
+      <div class="pl-drawer__body" id="plDrawerBody">
+        {%- if cart.item_count > 0 -%}
+          {%- for line in cart.items -%}
+            <div class="pl-line">
+              {%- if line.image -%}
+                <a href="{{ line.url }}"><img class="pl-line__img" src="{{ line.image | image_url: width: 160 }}" alt="{{ line.title | escape }}" width="68" height="68" loading="lazy"></a>
+              {%- else -%}
+                <span class="pl-line__img"></span>
+              {%- endif -%}
+              <div>
+                <a class="pl-line__name" href="{{ line.url }}">{{ line.product.title }}</a>
+                {%- unless line.product.has_only_default_variant -%}
+                  <p class="pl-line__opt">{{ line.variant.title }}</p>
+                {%- endunless -%}
+                <span class="pl-line__qty">
+                  <a href="{{ routes.cart_change_url }}?line={{ forloop.index }}&quantity={{ line.quantity | minus: 1 }}"
+                     data-line="{{ forloop.index }}" data-qty="{{ line.quantity | minus: 1 }}"
+                     aria-label="Reduce quantity of {{ line.product.title | escape }}">&minus;</a>
+                  <span>{{ line.quantity }}</span>
+                  <a href="{{ routes.cart_change_url }}?line={{ forloop.index }}&quantity={{ line.quantity | plus: 1 }}"
+                     data-line="{{ forloop.index }}" data-qty="{{ line.quantity | plus: 1 }}"
+                     aria-label="Increase quantity of {{ line.product.title | escape }}">+</a>
+                </span>
+                <a class="pl-line__remove" href="{{ routes.cart_change_url }}?line={{ forloop.index }}&quantity=0"
+                   data-line="{{ forloop.index }}" data-qty="0">Remove</a>
+              </div>
+              <div class="pl-line__price">{{ line.final_line_price | money }}</div>
+            </div>
+          {%- endfor -%}
+        {%- else -%}
+          <div class="pl-drawer__empty">
+            <h3>{{ section.settings.empty_heading }}</h3>
+            <p>{{ section.settings.empty_text }}</p>
+            <a class="btn" href="{{ section.settings.empty_link | default: '/' }}" data-drawer-close>{{ section.settings.empty_cta }}</a>
+          </div>
+        {%- endif -%}
+      </div>
+
+      {%- if cart.item_count > 0 -%}
+        <footer class="pl-drawer__foot">
+          {%- if section.settings.show_shipping_bar and threshold > 0 -%}
+            <div class="ship-bar" style="margin-top:0;margin-bottom:1rem">
+              {%- if remaining > 0 -%}
+                <p>{{ remaining | money }} away from free UK delivery.</p>
+              {%- else -%}
+                <p><strong>Free UK delivery unlocked.</strong></p>
+              {%- endif -%}
+              {%- assign pct = cart.total_price | times: 100 | divided_by: threshold -%}
+              <div class="ship-bar__track"><div class="ship-bar__fill" style="width:{% if pct > 100 %}100{% else %}{{ pct }}{% endif %}%"></div></div>
+            </div>
+          {%- endif -%}
+          <div class="pl-drawer__row"><span>Subtotal</span><b>{{ cart.total_price | money }}</b></div>
+          <form action="{{ routes.cart_url }}" method="post">
+            <button class="btn btn--lg" type="submit" name="checkout">{{ section.settings.checkout_label }}</button>
+          </form>
+          <p class="pl-drawer__note">{{ section.settings.note }}</p>
+        </footer>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "PL — Cart drawer",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Your basket" },
+    { "type": "text", "id": "checkout_label", "label": "Checkout button", "default": "Checkout securely" },
+    { "type": "text", "id": "note", "label": "Note under checkout", "default": "100-night trial · 5-year foam guarantee · Free UK delivery over £40" },
+    { "type": "checkbox", "id": "show_shipping_bar", "label": "Show free-delivery progress", "default": true },
+    { "type": "number", "id": "free_shipping_threshold", "label": "Free delivery over (£)", "default": 40 },
+    { "type": "header", "content": "Empty basket" },
+    { "type": "text", "id": "empty_heading", "label": "Heading", "default": "Nothing in here yet." },
+    { "type": "textarea", "id": "empty_text", "label": "Text", "default": "Three questions about how your dog sleeps and we'll point you at the right bed." },
+    { "type": "text", "id": "empty_cta", "label": "Button", "default": "Find their bed" },
+    { "type": "url", "id": "empty_link", "label": "Button link" }
+  ],
+  "presets": [{ "name": "PL — Cart drawer" }]
+}
+{% endschema %}

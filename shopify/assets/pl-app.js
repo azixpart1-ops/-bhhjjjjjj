@@ -6,7 +6,7 @@
    the bed finder is rendered by Liquid into #pl-beds, so prices, stock and
    images stay live without touching this file.
 
-   Safe to include from more than one section — it initialises once.
+   Safe to include from more than one pl-section — it initialises once.
    ========================================================================== */
 (function () {
   'use strict';
@@ -16,7 +16,118 @@
 
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+
+  /* ------------------------------------------------------------------------
+     Slide-out cart
+     Contents are re-rendered by Shopify through the Section Rendering API
+     after every change, so prices, discounts and currency stay server-side.
+     ---------------------------------------------------------------------- */
+  var DRAWER_SECTION = 'pl_cart_drawer';
+
+  function initDrawer() {
+    var drawer = document.getElementById('plDrawer');
+    if (!drawer || drawer.__plBound) return;
+    drawer.__plBound = true;
+
+    var panel = drawer.querySelector('.pl-drawer__panel');
+    var lastFocus = null;
+
+    function open() {
+      if (drawer.hasAttribute('data-open')) return;
+      lastFocus = document.activeElement;
+      drawer.setAttribute('data-open', '');
+      drawer.setAttribute('aria-hidden', 'false');
+      document.documentElement.style.overflow = 'hidden';
+      var close = drawer.querySelector('.pl-drawer__close');
+      if (close) close.focus();
+    }
+
+    function close() {
+      if (!drawer.hasAttribute('data-open')) return;
+      drawer.removeAttribute('data-open');
+      drawer.setAttribute('aria-hidden', 'true');
+      document.documentElement.style.overflow = '';
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+
+    window.plCartDrawer = { open: open, close: close, refresh: refresh };
+
+    drawer.addEventListener('click', function (e) {
+      if (e.target.closest('[data-drawer-close]')) { e.preventDefault(); close(); return; }
+
+      var step = e.target.closest('[data-line]');
+      if (step) {
+        e.preventDefault();
+        change(Number(step.getAttribute('data-line')), Number(step.getAttribute('data-qty')));
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (!drawer.hasAttribute('data-open')) return;
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key !== 'Tab') return;
+      // keep focus inside the panel while it is open
+      var f = panel.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+
+    // Any link to the cart opens the drawer instead of navigating.
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest('a[href]');
+      if (!link || e.metaKey || e.ctrlKey || e.shiftKey || link.hasAttribute('data-drawer-close')) return;
+      var href = link.getAttribute('href') || '';
+      if (!/^\/?(cart)\/?($|\?)/.test(href.replace(/^https?:\/\/[^/]+/, ''))) return;
+      if (link.closest('.pl-drawer')) return;      // checkout form links stay as they are
+      e.preventDefault();
+      open();
+    });
+
+    function change(line, quantity) {
+      var body = document.getElementById('plDrawerBody');
+      if (body) body.classList.add('pl-drawer__busy');
+      fetch('/cart/change.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ line: line, quantity: quantity })
+      })
+        .then(function (r) { return r.ok ? refresh() : null; })
+        .catch(function () { window.location.href = '/cart'; })
+        .finally(function () { if (body) body.classList.remove('pl-drawer__busy'); });
+    }
+
+    function refresh() {
+      return fetch(window.location.pathname + '?sections=' + DRAWER_SECTION, { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var html = data[DRAWER_SECTION];
+          if (!html) return;
+          var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById('plDrawer');
+          if (!fresh) return;
+          var wasOpen = drawer.hasAttribute('data-open');
+          drawer.querySelector('.pl-drawer__panel').innerHTML = fresh.querySelector('.pl-drawer__panel').innerHTML;
+          panel = drawer.querySelector('.pl-drawer__panel');
+          if (wasOpen) drawer.setAttribute('data-open', '');
+          syncCount(fresh);
+        })
+        .catch(function () { /* leave the drawer as-is rather than blanking it */ });
+    }
+
+    function syncCount(fresh) {
+      var m = (fresh.querySelector('.pl-drawer__title span') || {}).textContent || '';
+      var n = parseInt(m, 10);
+      if (isNaN(n)) return;
+      document.querySelectorAll('.cart-bubble__text, [data-cart-count], .cart-count').forEach(function (el) {
+        el.textContent = String(n);
+      });
+    }
+  }
+
   function init() {
+
+    initDrawer();
 
     /* ----------------------------------------------------------------------
        Scroll reveal
@@ -37,7 +148,7 @@
     }
 
     /* ----------------------------------------------------------------------
-       Sticky CTA — appears once the hero has gone, hides near the footer
+       Sticky CTA — appears once the pl-hero has gone, hides near the footer
        ---------------------------------------------------------------------- */
     var sticky = document.getElementById('plStickyCta');
     var ticking = false;
@@ -128,7 +239,7 @@
 
     /* style|joints → bed key, with a size override where a bed does not come
        small enough or large enough for the dog. Keys match the handles listed
-       in the section settings. */
+       in the pl-section settings. */
     var MATRIX = {
       'nest|fine':         { all: 'nest_fine' },
       'nest|slowing':      { all: 'nest_slowing' },
@@ -422,14 +533,16 @@
             say((res.body && res.body.description) || 'Sorry, that could not be added.', true, false);
             return;
           }
-          say('Added to your basket.', false, true);
-          // Let the theme's own cart drawer and count react. Names differ
-          // between themes, so publish the common ones and let it no-op.
-          ['cart:lines-update', 'cart:refresh', 'cart:update'].forEach(function (name) {
-            document.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: { action: 'add', source: 'pl-pdp' } }));
-          });
-          if (window.Shopify && window.Shopify.onCartUpdate) {
-            try { window.Shopify.onCartUpdate(); } catch (err) { /* optional */ }
+          if (window.plCartDrawer) {
+            // Our own drawer is on the page: refresh it and slide it in.
+            // Deliberately no cart:* events here — the theme's drawer listens
+            // for those and we would end up with two open at once.
+            window.plCartDrawer.refresh().then(function () { window.plCartDrawer.open(); });
+          } else {
+            say('Added to your basket.', false, true);
+            ['cart:lines-update', 'cart:refresh', 'cart:update'].forEach(function (name) {
+              document.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: { action: 'add', source: 'pl-pdp' } }));
+            });
           }
         })
         .catch(function () {
