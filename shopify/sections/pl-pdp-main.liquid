@@ -1,0 +1,267 @@
+{% render 'pl-assets' %}
+{%- comment -%}
+  Product buy block. Deliberately generic: works for 1–12 variants, 1–3 option
+  sets, any number of images, and sold-out products. Nothing here is specific
+  to a single product — every value is read from the product itself.
+{%- endcomment -%}
+{%- liquid
+  assign p = product
+  assign v = p.selected_or_first_available_variant
+  assign has_options = true
+  if p.has_only_default_variant
+    assign has_options = false
+  endif
+  assign tagline = p.metafields.vitals.tagline.value
+  assign b1 = p.metafields.vitals.top_benefit_1.value
+  assign b2 = p.metafields.vitals.top_benefit_2.value
+  assign b3 = p.metafields.vitals.top_benefit_3.value
+-%}
+<div class="pl">
+  <section class="wrap">
+    {%- if section.settings.show_breadcrumbs -%}
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="{{ routes.root_url }}">Home</a> <span>/</span>
+        {%- if collection -%}
+          <a href="{{ collection.url }}">{{ collection.title }}</a> <span>/</span>
+        {%- elsif p.type != blank -%}
+          <a href="{{ routes.all_products_collection_url }}">{{ p.type }}</a> <span>/</span>
+        {%- endif -%}
+        <span aria-current="page">{{ p.title | truncate: 45 }}</span>
+      </nav>
+    {%- endif -%}
+
+    <div class="pdp">
+      <!-- Gallery -->
+      <div class="gal">
+        <div class="gal__stage">
+          {%- unless p.available -%}
+            <span class="gal__flag gal__flag--out">Sold out</span>
+          {%- else -%}
+            {%- if v.compare_at_price > v.price -%}
+              {%- assign pct = v.compare_at_price | minus: v.price | times: 100.0 | divided_by: v.compare_at_price | round -%}
+              <span class="gal__flag">Save {{ pct }}%</span>
+            {%- endif -%}
+          {%- endunless -%}
+          <div class="gal__slides" id="plGalSlides">
+            {%- if p.media.size > 0 -%}
+              {%- for m in p.media -%}
+                <div class="gal__slide" data-index="{{ forloop.index0 }}">
+                  <img src="{{ m | image_url: width: 900 }}"
+                       srcset="{{ m | image_url: width: 560 }} 560w, {{ m | image_url: width: 1100 }} 1100w"
+                       sizes="(min-width: 900px) 52vw, 100vw"
+                       alt="{{ m.alt | escape | default: p.title | escape }}"
+                       width="900" height="900"
+                       {% if forloop.first %}fetchpriority="high"{% else %}loading="lazy"{% endif %}
+                       decoding="async">
+                </div>
+              {%- endfor -%}
+            {%- else -%}
+              <div class="gal__slide">{{ 'product-1' | placeholder_svg_tag }}</div>
+            {%- endif -%}
+          </div>
+        </div>
+
+        {%- if p.media.size > 1 -%}
+          <div class="gal__thumbs" role="tablist" aria-label="Product images">
+            {%- for m in p.media -%}
+              <button class="gal__thumb" type="button" role="tab"
+                      data-goto="{{ forloop.index0 }}"
+                      aria-current="{% if forloop.first %}true{% else %}false{% endif %}"
+                      aria-label="Image {{ forloop.index }} of {{ p.media.size }}">
+                <img src="{{ m | image_url: width: 160 }}" alt="" width="160" height="160" loading="lazy" decoding="async">
+              </button>
+            {%- endfor -%}
+          </div>
+        {%- endif -%}
+      </div>
+
+      <!-- Buy column -->
+      <div class="buy" id="plBuy">
+        {%- if p.type != blank -%}<p class="buy__eyebrow">{{ p.type }}</p>{%- endif -%}
+        <h1 class="buy__title">{{ p.title }}</h1>
+
+        {%- if section.settings.show_rating -%}
+          <p class="buy__rating">
+            <span class="stars" aria-hidden="true">{% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}</span>
+            <span>{{ section.settings.rating_text }}</span>
+          </p>
+        {%- endif -%}
+
+        {%- if tagline != blank -%}<p class="buy__tagline">{{ tagline }}</p>{%- endif -%}
+
+        <div class="buy__price">
+          <span class="buy__now" id="plPrice">{{ v.price | money }}</span>
+          <s class="buy__was" id="plWas" {% unless v.compare_at_price > v.price %}hidden{% endunless %}>{{ v.compare_at_price | money }}</s>
+          {%- if v.compare_at_price > v.price -%}
+            <span class="buy__save" id="plSave">Save {{ v.compare_at_price | minus: v.price | money }}</span>
+          {%- else -%}
+            <span class="buy__save" id="plSave" hidden></span>
+          {%- endif -%}
+        </div>
+        {%- if section.settings.price_note != blank -%}
+          <p class="buy__tax">{{ section.settings.price_note }}</p>
+        {%- endif -%}
+
+        <form method="post" action="{{ routes.cart_add_url }}" id="plForm" novalidate>
+          <input type="hidden" name="form_type" value="product">
+          <input type="hidden" name="utf8" value="✓">
+          <input type="hidden" name="id" id="plVariantId" value="{{ v.id }}">
+          <input type="hidden" name="quantity" value="1">
+
+          {%- if has_options -%}
+            <div class="opts">
+              {%- for opt in p.options_with_values -%}
+                {%- assign is_size = false -%}
+                {%- assign lower = opt.name | downcase -%}
+                {%- if lower contains 'size' -%}{%- assign is_size = true -%}{%- endif -%}
+                <div class="opt-group" data-option-index="{{ forloop.index0 }}">
+                  <div class="opt-group__head">
+                    <span class="opt-group__name">
+                      {{ opt.name }}<b data-selected-for="{{ forloop.index0 }}">{{ opt.selected_value }}</b>
+                    </span>
+                    {%- if is_size and section.settings.size_guide_url != blank -%}
+                      <a class="opt-group__help" href="{{ section.settings.size_guide_url }}">{{ section.settings.size_guide_label }}</a>
+                    {%- endif -%}
+                  </div>
+                  <div class="opt-values">
+                    {%- for value in opt.values -%}
+                      {%- assign uid = 'opt-' | append: forloop.parentloop.index0 | append: '-' | append: forloop.index0 -%}
+                      <input type="radio" id="{{ uid }}" name="pl-option-{{ forloop.parentloop.index0 }}"
+                             value="{{ value | escape }}" data-option-index="{{ forloop.parentloop.index0 }}"
+                             {% if value == opt.selected_value %}checked{% endif %}>
+                      <label for="{{ uid }}">{{ value }}</label>
+                    {%- endfor -%}
+                  </div>
+                </div>
+              {%- endfor -%}
+            </div>
+          {%- endif -%}
+
+          <p class="buy__stock" id="plStock" hidden></p>
+
+          <p class="atc-msg" id="plMsg" role="status" aria-live="polite"></p>
+
+          <button class="btn btn--lg atc" type="submit" id="plAtc" {% unless v.available %}disabled{% endunless %}>
+            <span id="plAtcText">{% if v.available %}{{ section.settings.atc_label }}{% else %}{{ section.settings.sold_out_label }}{% endif %}</span>
+          </button>
+
+          {%- if section.settings.show_dynamic_checkout -%}
+            {{ form | payment_button }}
+          {%- endif -%}
+        </form>
+
+        <div class="buy__trust">
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'trust' -%}
+              <div {{ block.shopify_attributes }}>
+                {% render 'pl-icon', icon: block.settings.icon %}
+                <span><b>{{ block.settings.title }}</b> — {{ block.settings.text }}</span>
+              </div>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+
+        {%- if b1 != blank or b2 != blank or b3 != blank or section.blocks.size > 0 -%}
+          <div class="benefits">
+            <ul>
+              {%- if b1 != blank -%}<li>{% render 'pl-icon', icon: 'check' %}<span>{{ b1 }}</span></li>{%- endif -%}
+              {%- if b2 != blank -%}<li>{% render 'pl-icon', icon: 'check' %}<span>{{ b2 }}</span></li>{%- endif -%}
+              {%- if b3 != blank -%}<li>{% render 'pl-icon', icon: 'check' %}<span>{{ b3 }}</span></li>{%- endif -%}
+              {%- if b1 == blank and b2 == blank and b3 == blank -%}
+                {%- for block in section.blocks -%}
+                  {%- if block.type == 'benefit' -%}
+                    <li {{ block.shopify_attributes }}>{% render 'pl-icon', icon: 'check' %}<span>{{ block.settings.text }}</span></li>
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- endif -%}
+            </ul>
+          </div>
+        {%- endif -%}
+      </div>
+    </div>
+  </section>
+
+  {%- if section.settings.show_buybar -%}
+    <div class="buybar" id="plBuyBar">
+      {%- if p.featured_image -%}
+        <img class="buybar__img" src="{{ p.featured_image | image_url: width: 120 }}" alt="" width="42" height="42" loading="lazy">
+      {%- endif -%}
+      <div class="buybar__txt">
+        <b>{{ p.title }}</b>
+        <span id="plBarPrice">{{ v.price | money }}</span>
+      </div>
+      <button class="btn" type="button" id="plBarAtc" {% unless p.available %}disabled{% endunless %}>
+        {% if p.available %}{{ section.settings.atc_label }}{% else %}{{ section.settings.sold_out_label }}{% endif %}
+      </button>
+    </div>
+  {%- endif -%}
+</div>
+
+{%- comment -%} Live variant data — price, stock and image, straight from the catalogue. {%- endcomment -%}
+<script type="application/json" id="pl-variants">
+{
+  "cartUrl": {{ routes.cart_url | json }},
+  "lowStockAt": {{ section.settings.low_stock_threshold | default: 3 | json }},
+  "soldOutLabel": {{ section.settings.sold_out_label | json }},
+  "atcLabel": {{ section.settings.atc_label | json }},
+  "unavailableLabel": {{ section.settings.unavailable_label | json }},
+  "variants": [
+    {%- for var in p.variants -%}
+      {
+        "id": {{ var.id }},
+        "options": {{ var.options | json }},
+        "available": {{ var.available | json }},
+        "price": {{ var.price | money | strip_html | json }},
+        "compareAt": {%- if var.compare_at_price > var.price -%}{{ var.compare_at_price | money | strip_html | json }}{%- else -%}null{%- endif -%},
+        "save": {%- if var.compare_at_price > var.price -%}{{ var.compare_at_price | minus: var.price | money | strip_html | json }}{%- else -%}null{%- endif -%},
+        "qty": {{ var.inventory_quantity | default: 0 | json }},
+        "policy": {{ var.inventory_policy | json }},
+        "managed": {{ var.inventory_management | json }},
+        "mediaIndex": {%- if var.featured_media -%}{{ var.featured_media.position | minus: 1 }}{%- else -%}null{%- endif -%}
+      }{%- unless forloop.last -%},{%- endunless -%}
+    {%- endfor -%}
+  ]
+}
+</script>
+
+{% schema %}
+{
+  "name": "PL — Product buy block",
+  "tag": "section",
+  "settings": [
+    { "type": "checkbox", "id": "show_breadcrumbs", "label": "Show breadcrumbs", "default": true },
+    { "type": "header", "content": "Rating" },
+    { "type": "checkbox", "id": "show_rating", "label": "Show rating line", "default": true },
+    { "type": "text", "id": "rating_text", "label": "Rating text",
+      "info": "This is a store-wide rating, not a per-product one. Word it that way.",
+      "default": "4.8/5 across 3,900+ PawLunova owners" },
+    { "type": "header", "content": "Price" },
+    { "type": "text", "id": "price_note", "label": "Note under price", "default": "Free UK delivery on orders over £40." },
+    { "type": "header", "content": "Buttons" },
+    { "type": "text", "id": "atc_label", "label": "Add to cart label", "default": "Add to basket" },
+    { "type": "text", "id": "sold_out_label", "label": "Sold out label", "default": "Sold out" },
+    { "type": "text", "id": "unavailable_label", "label": "Unavailable combination label", "default": "Unavailable" },
+    { "type": "checkbox", "id": "show_dynamic_checkout", "label": "Show Shop Pay / express checkout", "default": true },
+    { "type": "checkbox", "id": "show_buybar", "label": "Show sticky buy bar", "default": true },
+    { "type": "header", "content": "Stock" },
+    { "type": "range", "id": "low_stock_threshold", "label": "Show \"only N left\" at or below", "min": 0, "max": 10, "step": 1, "default": 3,
+      "info": "Set to 0 to never show a low-stock message. Numbers come from live inventory." },
+    { "type": "header", "content": "Size guide" },
+    { "type": "url", "id": "size_guide_url", "label": "Size guide link" },
+    { "type": "text", "id": "size_guide_label", "label": "Size guide label", "default": "Which size?" }
+  ],
+  "blocks": [
+    { "type": "trust", "name": "Trust line", "limit": 5, "settings": [
+      { "type": "select", "id": "icon", "label": "Icon", "default": "shield",
+        "options": [ {"value":"shield","label":"Shield"}, {"value":"medal","label":"Medal"},
+                     {"value":"truck","label":"Delivery"}, {"value":"pin","label":"Location"},
+                     {"value":"leaf","label":"Leaf"}, {"value":"drop","label":"Waterproof"} ] },
+      { "type": "text", "id": "title", "label": "Title" },
+      { "type": "text", "id": "text", "label": "Text" } ] },
+    { "type": "benefit", "name": "Fallback benefit", "limit": 5,
+      "settings": [ { "type": "text", "id": "text", "label": "Benefit",
+        "info": "Only shown when the product has no vitals.top_benefit metafields of its own." } ] }
+  ],
+  "presets": [{ "name": "PL — Product buy block" }]
+}
+{% endschema %}

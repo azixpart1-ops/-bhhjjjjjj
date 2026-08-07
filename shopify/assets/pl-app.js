@@ -117,7 +117,7 @@
        ---------------------------------------------------------------------- */
     var app = document.getElementById('plFinder');
     var dataEl = document.getElementById('pl-beds');
-    if (!app || !dataEl) return;
+    if (!app || !dataEl) { initPdp(); return; }
 
     var BEDS;
     try {
@@ -219,6 +219,246 @@
         app.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
       }
     });
+
+    /* ----------------------------------------------------------------------
+       Product page: variants, gallery, add to cart
+       Everything is driven by #pl-variants, which Liquid renders from the
+       product itself — so this file never needs to know about a specific one.
+       ---------------------------------------------------------------------- */
+    initPdp();
+  }
+
+  function initPdp() {
+    var dataEl = document.getElementById('pl-variants');
+    var form = document.getElementById('plForm');
+    if (!dataEl || !form) return;
+
+    var DATA;
+    try { DATA = JSON.parse(dataEl.textContent); } catch (e) { return; }
+    var VARIANTS = DATA.variants || [];
+
+    var idField  = document.getElementById('plVariantId');
+    var priceEl  = document.getElementById('plPrice');
+    var wasEl    = document.getElementById('plWas');
+    var saveEl   = document.getElementById('plSave');
+    var stockEl  = document.getElementById('plStock');
+    var atc      = document.getElementById('plAtc');
+    var atcText  = document.getElementById('plAtcText');
+    var barPrice = document.getElementById('plBarPrice');
+    var msg      = document.getElementById('plMsg');
+    var slides   = document.getElementById('plGalSlides');
+
+    /* --- gallery: scroll-snap strip + thumbnails ----------------------- */
+    var thumbs = Array.prototype.slice.call(document.querySelectorAll('.gal__thumb'));
+
+    function goTo(i) {
+      if (!slides) return;
+      var slide = slides.children[i];
+      if (!slide) return;
+      slides.scrollTo({ left: slide.offsetLeft - slides.offsetLeft, behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+    thumbs.forEach(function (t) {
+      t.addEventListener('click', function () { goTo(Number(t.getAttribute('data-goto'))); });
+    });
+    if (slides && thumbs.length) {
+      var syncing = false;
+      slides.addEventListener('scroll', function () {
+        if (syncing) return;
+        syncing = true;
+        window.requestAnimationFrame(function () {
+          var i = Math.round(slides.scrollLeft / slides.clientWidth);
+          thumbs.forEach(function (t, n) { t.setAttribute('aria-current', String(n === i)); });
+          syncing = false;
+        });
+      }, { passive: true });
+    }
+
+    /* --- variant matching --------------------------------------------- */
+    function selected() {
+      var vals = [];
+      document.querySelectorAll('.opt-values input:checked').forEach(function (input) {
+        vals[Number(input.getAttribute('data-option-index'))] = input.value;
+      });
+      return vals;
+    }
+
+    function match(vals) {
+      for (var i = 0; i < VARIANTS.length; i++) {
+        var ok = true;
+        for (var j = 0; j < vals.length; j++) {
+          if (vals[j] !== undefined && VARIANTS[i].options[j] !== vals[j]) { ok = false; break; }
+        }
+        if (ok) return VARIANTS[i];
+      }
+      return null;
+    }
+
+    /* Cross out option values that don't exist in stock alongside the rest
+       of the current selection — the standard "combined listing" behaviour. */
+    function markUnavailable(vals) {
+      document.querySelectorAll('.opt-values input').forEach(function (input) {
+        var idx = Number(input.getAttribute('data-option-index'));
+        var probe = vals.slice();
+        probe[idx] = input.value;
+        var found = null;
+        for (var i = 0; i < VARIANTS.length; i++) {
+          var ok = true;
+          for (var j = 0; j < probe.length; j++) {
+            if (probe[j] !== undefined && VARIANTS[i].options[j] !== probe[j]) { ok = false; break; }
+          }
+          if (ok) { found = VARIANTS[i]; break; }
+        }
+        var label = input.nextElementSibling;
+        if (!label) return;
+        if (found && found.available) label.removeAttribute('data-unavailable');
+        else label.setAttribute('data-unavailable', '');
+      });
+    }
+
+    function apply(variant) {
+      if (!variant) {
+        if (atc) { atc.disabled = true; }
+        if (atcText) atcText.textContent = DATA.unavailableLabel || 'Unavailable';
+        if (stockEl) stockEl.hidden = true;
+        return;
+      }
+
+      if (idField) idField.value = variant.id;
+      if (priceEl) priceEl.textContent = variant.price;
+      if (barPrice) barPrice.textContent = variant.price;
+
+      if (wasEl) {
+        if (variant.compareAt) { wasEl.textContent = variant.compareAt; wasEl.hidden = false; }
+        else wasEl.hidden = true;
+      }
+      if (saveEl) {
+        if (variant.save) { saveEl.textContent = 'Save ' + variant.save; saveEl.hidden = false; }
+        else saveEl.hidden = true;
+      }
+
+      if (atc) atc.disabled = !variant.available;
+      if (atcText) atcText.textContent = variant.available ? (DATA.atcLabel || 'Add to basket') : (DATA.soldOutLabel || 'Sold out');
+
+      // Low stock only when inventory is actually tracked and actually low.
+      if (stockEl) {
+        var threshold = Number(DATA.lowStockAt || 0);
+        var tracked = variant.managed === 'shopify';
+        if (variant.available && tracked && threshold > 0 && variant.qty > 0 && variant.qty <= threshold) {
+          stockEl.textContent = 'Only ' + variant.qty + ' left in stock';
+          stockEl.className = 'buy__stock';
+          stockEl.hidden = false;
+        } else if (variant.available) {
+          stockEl.textContent = 'In stock, ready to dispatch';
+          stockEl.className = 'buy__stock buy__stock--ok';
+          stockEl.hidden = false;
+        } else {
+          stockEl.hidden = true;
+        }
+      }
+
+      if (variant.mediaIndex !== null && variant.mediaIndex !== undefined) goTo(variant.mediaIndex);
+
+      // keep the URL shareable without reloading
+      if (window.history && window.history.replaceState) {
+        var url = new URL(window.location.href);
+        url.searchParams.set('variant', variant.id);
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+
+    form.addEventListener('change', function (e) {
+      if (!e.target.matches('.opt-values input')) return;
+      var idx = e.target.getAttribute('data-option-index');
+      var label = document.querySelector('[data-selected-for="' + idx + '"]');
+      if (label) label.textContent = e.target.value;
+      var vals = selected();
+      markUnavailable(vals);
+      apply(match(vals));
+    });
+
+    if (document.querySelector('.opt-values input')) {
+      var initial = selected();
+      markUnavailable(initial);
+      apply(match(initial));
+    } else if (VARIANTS.length === 1) {
+      apply(VARIANTS[0]);
+    }
+
+    /* --- add to cart ---------------------------------------------------- */
+    function say(text, isError, withLink) {
+      if (!msg) return;
+      msg.className = 'atc-msg' + (isError ? ' atc-msg--error' : '');
+      msg.innerHTML = '';
+      var span = document.createElement('span');
+      span.textContent = text;
+      msg.appendChild(span);
+      if (withLink) {
+        var a = document.createElement('a');
+        a.href = DATA.cartUrl || '/cart';
+        a.textContent = 'View basket';
+        msg.appendChild(document.createTextNode(' '));
+        msg.appendChild(a);
+      }
+      msg.setAttribute('data-show', '');
+    }
+
+    form.addEventListener('submit', function (e) {
+      if (!window.fetch || !idField) return; // let the native POST handle it
+      e.preventDefault();
+
+      var busyLabel = 'Adding…';
+      var restore = atcText ? atcText.textContent : '';
+      if (atcText) atcText.textContent = busyLabel;
+      if (atc) atc.disabled = true;
+
+      fetch(DATA.cartUrl ? '/cart/add.js' : '/cart/add.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ items: [{ id: Number(idField.value), quantity: 1 }] })
+      })
+        .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body: body }; }); })
+        .then(function (res) {
+          if (!res.ok) {
+            say((res.body && res.body.description) || 'Sorry, that could not be added.', true, false);
+            return;
+          }
+          say('Added to your basket.', false, true);
+          // Let the theme's own cart drawer and count react. Names differ
+          // between themes, so publish the common ones and let it no-op.
+          ['cart:lines-update', 'cart:refresh', 'cart:update'].forEach(function (name) {
+            document.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: { action: 'add', source: 'pl-pdp' } }));
+          });
+          if (window.Shopify && window.Shopify.onCartUpdate) {
+            try { window.Shopify.onCartUpdate(); } catch (err) { /* optional */ }
+          }
+        })
+        .catch(function () {
+          // network failed — fall back to the plain form post, which always works
+          form.submit();
+        })
+        .finally(function () {
+          if (atcText) atcText.textContent = restore || DATA.atcLabel || 'Add to basket';
+          if (atc) atc.disabled = false;
+        });
+    });
+
+    var barAtc = document.getElementById('plBarAtc');
+    if (barAtc) {
+      barAtc.addEventListener('click', function () {
+        if (form.requestSubmit) form.requestSubmit();
+        else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+      });
+    }
+
+    /* --- sticky buy bar: show once the real button scrolls away --------- */
+    var bar = document.getElementById('plBuyBar');
+    if (bar && atc && 'IntersectionObserver' in window) {
+      new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          bar.toggleAttribute('data-show', !entry.isIntersecting && entry.boundingClientRect.top < 0);
+        });
+      }, { threshold: 0 }).observe(atc);
+    }
   }
 
   if (document.readyState === 'loading') {
