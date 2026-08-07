@@ -1,0 +1,170 @@
+{% render 'pl-assets' %}
+{%- comment -%}
+  Collection page. Works for any collection: uses its own title, description,
+  image and products. The promo tile is injected into the grid at a chosen
+  position so the finder is reachable without leaving the listing.
+{%- endcomment -%}
+{%- liquid
+  assign per = section.settings.per_page | default: 24
+  assign sort = collection.sort_by | default: collection.default_sort_by
+-%}
+<div class="pl">
+  <section class="wrap">
+    {%- if section.settings.show_breadcrumbs -%}
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="{{ routes.root_url }}">Home</a> <span>/</span>
+        <span aria-current="page">{{ collection.title | strip_html | truncate: 60 }}</span>
+      </nav>
+    {%- endif -%}
+
+    <div class="chero">
+      <div class="chero__grid">
+        <div class="reveal">
+          <h1>{{ collection.title | strip_html }}</h1>
+          {%- if section.settings.intro != blank -%}
+            <div class="chero__intro">{{ section.settings.intro }}</div>
+          {%- elsif collection.description != blank -%}
+            <div class="chero__intro">{{ collection.description | strip_html | truncate: 320 }}</div>
+          {%- endif -%}
+          <p class="chero__count">{{ collection.products_count }} {% if collection.products_count == 1 %}bed{% else %}beds{% endif %} · 100-night trial on every one</p>
+        </div>
+        {%- if collection.image and section.settings.show_image -%}
+          <img class="chero__img reveal" style="--i:1"
+               src="{{ collection.image | image_url: width: 900 }}"
+               srcset="{{ collection.image | image_url: width: 560 }} 560w, {{ collection.image | image_url: width: 1100 }} 1100w"
+               sizes="(min-width: 900px) 45vw, 100vw"
+               width="900" height="562" loading="eager" decoding="async"
+               alt="{{ collection.image.alt | escape | default: collection.title | strip_html | escape }}">
+        {%- endif -%}
+      </div>
+    </div>
+
+    <div class="ctoolbar">
+      <span class="ctoolbar__count">Showing {{ collection.products.size }} of {{ collection.products_count }}</span>
+      {%- if section.settings.show_sort -%}
+        <form method="get" id="plSortForm">
+          {%- for f in collection.filters -%}
+            {%- for v in f.active_values -%}
+              <input type="hidden" name="{{ v.param_name }}" value="{{ v.value | escape }}">
+            {%- endfor -%}
+          {%- endfor -%}
+          <label for="plSort">Sort</label>
+          <select name="sort_by" id="plSort" onchange="this.form.submit()">
+            {%- for option in collection.sort_options -%}
+              <option value="{{ option.value }}" {% if option.value == sort %}selected{% endif %}>{{ option.name }}</option>
+            {%- endfor -%}
+          </select>
+        </form>
+      {%- endif -%}
+    </div>
+
+    {%- paginate collection.products by per -%}
+      {%- if collection.products.size > 0 -%}
+        <div class="cgrid">
+          {%- for item in collection.products -%}
+            {%- if section.settings.show_promo and forloop.index == section.settings.promo_after -%}
+              <div class="promo reveal">
+                <h3>{{ section.settings.promo_heading }}</h3>
+                <p>{{ section.settings.promo_text }}</p>
+                <a class="btn" href="{{ section.settings.promo_link | default: '/' }}">
+                  {{ section.settings.promo_cta }}{% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 18 %}
+                </a>
+              </div>
+            {%- endif -%}
+            <a class="card reveal" style="--i:{{ forloop.index0 | modulo: 4 | plus: 1 }}" href="{{ item.url }}">
+              <div class="card__media">
+                {%- if item.featured_image -%}
+                  <img src="{{ item.featured_image | image_url: width: 560 }}"
+                       srcset="{{ item.featured_image | image_url: width: 400 }} 400w, {{ item.featured_image | image_url: width: 760 }} 760w"
+                       sizes="(min-width: 1100px) 25vw, (min-width: 760px) 33vw, 45vw"
+                       alt="{{ item.featured_image.alt | escape | default: item.title | escape }}"
+                       width="560" height="560"
+                       {% if forloop.index > 4 %}loading="lazy"{% endif %} decoding="async">
+                {%- endif -%}
+                {%- unless item.available -%}
+                  <span class="card__role">Sold out</span>
+                {%- else -%}
+                  {%- if item.compare_at_price_min > item.price_min -%}
+                    <span class="card__role">Save {{ item.compare_at_price_min | minus: item.price_min | money }}</span>
+                  {%- elsif item.type != blank and section.settings.show_type -%}
+                    <span class="card__role">{{ item.type }}</span>
+                  {%- endif -%}
+                {%- endunless -%}
+              </div>
+              <div class="card__body">
+                <h2 class="card__name">{{ item.title }}</h2>
+                {%- unless item.has_only_default_variant -%}
+                  <p class="card__desc">{{ item.options_with_values.first.values | join: ' · ' }}</p>
+                {%- endunless -%}
+                <div class="card__foot">
+                  <span class="card__price">
+                    {%- if item.price_varies -%}<small>From</small> {% endif %}{{ item.price_min | money }}
+                  </span>
+                  <span class="card__buy">View {% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 14 %}</span>
+                </div>
+              </div>
+            </a>
+          {%- endfor -%}
+        </div>
+
+        {%- if paginate.pages > 1 -%}
+          <nav class="pager" aria-label="Pagination">
+            {%- if paginate.previous -%}<a href="{{ paginate.previous.url }}" rel="prev">Previous</a>{%- endif -%}
+            {%- for part in paginate.parts -%}
+              {%- if part.is_link -%}
+                <a href="{{ part.url }}">{{ part.title }}</a>
+              {%- else -%}
+                <span {% if part.title == paginate.current_page %}aria-current="page"{% endif %}>{{ part.title }}</span>
+              {%- endif -%}
+            {%- endfor -%}
+            {%- if paginate.next -%}<a href="{{ paginate.next.url }}" rel="next">Next</a>{%- endif -%}
+          </nav>
+        {%- endif -%}
+      {%- else -%}
+        <div class="cempty">
+          <h2 class="display-3">{{ section.settings.empty_heading }}</h2>
+          <p class="body-lg" style="margin-top:1rem">{{ section.settings.empty_text }}</p>
+          <p style="margin-top:1.5rem"><a class="btn btn--lg" href="{{ routes.all_products_collection_url }}">Shop all beds</a></p>
+        </div>
+      {%- endif -%}
+    {%- endpaginate -%}
+  </section>
+
+  {%- if section.settings.show_full_description and collection.description != blank -%}
+    <section class="section section--oat">
+      <div class="wrap">
+        <div class="page-body reveal">
+          <div class="rte">{{ collection.description }}</div>
+        </div>
+      </div>
+    </section>
+  {%- endif -%}
+</div>
+
+{% schema %}
+{
+  "name": "PL — Collection",
+  "tag": "section",
+  "settings": [
+    { "type": "checkbox", "id": "show_breadcrumbs", "label": "Show breadcrumbs", "default": true },
+    { "type": "checkbox", "id": "show_image", "label": "Show collection image", "default": true },
+    { "type": "richtext", "id": "intro", "label": "Intro override", "info": "Leave blank to use the collection's own description." },
+    { "type": "checkbox", "id": "show_sort", "label": "Show sort dropdown", "default": true },
+    { "type": "checkbox", "id": "show_type", "label": "Show product type on cards", "default": false },
+    { "type": "range", "id": "per_page", "label": "Products per page", "min": 8, "max": 48, "step": 4, "default": 24 },
+    { "type": "checkbox", "id": "show_full_description", "label": "Show the full collection description below the grid", "default": true,
+      "info": "Good for SEO copy that would otherwise push the products down the page." },
+    { "type": "header", "content": "In-grid promo" },
+    { "type": "checkbox", "id": "show_promo", "label": "Show promo tile in the grid", "default": true },
+    { "type": "range", "id": "promo_after", "label": "Insert before product number", "min": 3, "max": 12, "step": 1, "default": 5 },
+    { "type": "text", "id": "promo_heading", "label": "Heading", "default": "Not sure which one?" },
+    { "type": "textarea", "id": "promo_text", "label": "Text", "default": "Three questions about how your dog sleeps, and we'll point you at one bed instead of twenty." },
+    { "type": "text", "id": "promo_cta", "label": "Button", "default": "Find their bed" },
+    { "type": "url", "id": "promo_link", "label": "Button link" },
+    { "type": "header", "content": "Empty state" },
+    { "type": "text", "id": "empty_heading", "label": "Heading", "default": "Nothing here just yet." },
+    { "type": "textarea", "id": "empty_text", "label": "Text", "default": "Every bed we make is in the full collection — have a look there instead." }
+  ],
+  "presets": [{ "name": "PL — Collection" }]
+}
+{% endschema %}

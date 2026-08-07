@@ -137,6 +137,21 @@
             </div>
           {%- endif -%}
 
+
+          {%- if section.settings.show_size_helper and has_options -%}
+            <div class="sizehelp" id="plSizeHelp">
+              <button class="sizehelp__q" type="button" aria-expanded="false">
+                {{ section.settings.size_helper_title }}<span class="faq__icon" aria-hidden="true"></span>
+              </button>
+              <div class="sizehelp__body"><div><div class="sizehelp__inner">
+                {{ section.settings.size_helper_body }}
+                {%- if section.settings.size_guide_url != blank -%}
+                  <p><a class="link-arrow" href="{{ section.settings.size_guide_url }}">Full size &amp; firmness guide{% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 14 %}</a></p>
+                {%- endif -%}
+              </div></div></div>
+            </div>
+          {%- endif -%}
+
           <p class="buy__stock" id="plStock" hidden></p>
 
           <p class="atc-msg" id="plMsg" role="status" aria-live="polite"></p>
@@ -224,6 +239,59 @@
 }
 </script>
 
+{%- comment -%} Structured data so Google can show price, availability and reviews. {%- endcomment -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Product",
+      "@id": {{ p.url | prepend: request.origin | append: '#product' | json }},
+      "name": {{ p.title | json }},
+      "description": {{ p.description | strip_html | truncate: 500 | json }},
+      "url": {{ p.url | prepend: request.origin | json }},
+      "sku": {{ v.sku | default: v.id | json }},
+      "brand": { "@type": "Brand", "name": {{ p.vendor | default: 'PawLunova' | json }} },
+      {%- if p.featured_image -%}
+      "image": [
+        {%- for m in p.media limit: 5 -%}
+          {{ m | image_url: width: 1200 | prepend: 'https:' | json }}{%- unless forloop.last -%},{%- endunless -%}
+        {%- endfor -%}
+      ],
+      {%- endif -%}
+      {%- if p.type != blank -%}"category": {{ p.type | json }},{%- endif -%}
+      "offers": [
+        {%- for var in p.variants -%}
+        {
+          "@type": "Offer",
+          "url": {{ var.url | prepend: request.origin | json }},
+          "sku": {{ var.sku | default: var.id | json }},
+          "price": {{ var.price | divided_by: 100.0 | json }},
+          "priceCurrency": {{ cart.currency.iso_code | json }},
+          "availability": {%- if var.available -%}"https://schema.org/InStock"{%- else -%}"https://schema.org/OutOfStock"{%- endif -%},
+          "itemCondition": "https://schema.org/NewCondition",
+          {%- unless p.has_only_default_variant -%}"name": {{ var.title | json }},{%- endunless -%}
+          "seller": { "@type": "Organization", "name": "PawLunova" }
+        }{%- unless forloop.last -%},{%- endunless -%}
+        {%- endfor -%}
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": {{ request.origin | append: routes.root_url | json }} },
+        {%- if collection -%}
+        { "@type": "ListItem", "position": 2, "name": {{ collection.title | strip_html | json }}, "item": {{ collection.url | prepend: request.origin | json }} },
+        { "@type": "ListItem", "position": 3, "name": {{ p.title | json }} }
+        {%- else -%}
+        { "@type": "ListItem", "position": 2, "name": {{ p.title | json }} }
+        {%- endif -%}
+      ]
+    }
+  ]
+}
+</script>
+
 {% schema %}
 {
   "name": "PL — Product buy block",
@@ -247,6 +315,9 @@
     { "type": "range", "id": "low_stock_threshold", "label": "Show \"only N left\" at or below", "min": 0, "max": 10, "step": 1, "default": 3,
       "info": "Set to 0 to never show a low-stock message. Numbers come from live inventory." },
     { "type": "header", "content": "Size guide" },
+    { "type": "checkbox", "id": "show_size_helper", "label": "Show the size helper panel", "default": true },
+    { "type": "text", "id": "size_helper_title", "label": "Size helper title", "default": "Not sure which size?" },
+    { "type": "richtext", "id": "size_helper_body", "label": "Size helper body", "default": "<p>Measure your dog nose to base of tail while they are lying down, then add 15–20cm. If they are between two sizes, size up — dogs that sprawl need the length more than you would think.</p><p>Get it wrong and the 100-night trial covers it: we collect it free and send the right one.</p>" },
     { "type": "url", "id": "size_guide_url", "label": "Size guide link" },
     { "type": "text", "id": "size_guide_label", "label": "Size guide label", "default": "Which size?" }
   ],

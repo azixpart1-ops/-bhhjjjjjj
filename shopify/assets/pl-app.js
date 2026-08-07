@@ -450,6 +450,61 @@
       });
     }
 
+
+    /* --- size helper panel ------------------------------------------- */
+    var help = document.getElementById('plSizeHelp');
+    if (help) {
+      var hq = help.querySelector('.sizehelp__q');
+      hq.addEventListener('click', function () {
+        var open = help.hasAttribute('data-open');
+        help.toggleAttribute('data-open', !open);
+        hq.setAttribute('aria-expanded', String(!open));
+      });
+    }
+
+    /* --- image zoom ---------------------------------------------------
+       Built once, on first use. Escape and backdrop both close it, and
+       focus returns to the image that opened it. */
+    var box = null, lastOpener = null;
+
+    function lightbox(src, alt) {
+      if (!box) {
+        box = document.createElement('div');
+        box.className = 'pl-lightbox';
+        box.innerHTML = '<button class="pl-lightbox__close" type="button" aria-label="Close">\u00d7</button><img alt="">';
+        document.body.appendChild(box);
+        box.addEventListener('click', function (e) {
+          if (e.target === box || e.target.closest('.pl-lightbox__close')) close();
+        });
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && box.hasAttribute('data-open')) close();
+        });
+      }
+      var img = box.querySelector('img');
+      img.src = src;
+      img.alt = alt || '';
+      box.setAttribute('data-open', '');
+      box.querySelector('.pl-lightbox__close').focus();
+    }
+
+    function close() {
+      if (!box) return;
+      box.removeAttribute('data-open');
+      if (lastOpener) lastOpener.focus();
+    }
+
+    if (slides) {
+      slides.querySelectorAll('img').forEach(function (img) {
+        img.style.cursor = 'zoom-in';
+        img.addEventListener('click', function () {
+          lastOpener = img;
+          // srcset picks a display-sized file; ask the CDN for a big one
+          var big = (img.currentSrc || img.src).replace(/([?&])width=\d+/, '$1width=1600');
+          lightbox(big, img.alt);
+        });
+      });
+    }
+
     /* --- sticky buy bar: show once the real button scrolls away --------- */
     var bar = document.getElementById('plBuyBar');
     if (bar && atc && 'IntersectionObserver' in window) {
