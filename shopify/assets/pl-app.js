@@ -22,8 +22,6 @@
      Contents are re-rendered by Shopify through the Section Rendering API
      after every change, so prices, discounts and currency stay server-side.
      ---------------------------------------------------------------------- */
-  var DRAWER_SECTION = 'pl_cart_drawer';
-
   function initDrawer() {
     var drawer = document.getElementById('plDrawer');
     if (!drawer || drawer.__plBound) return;
@@ -31,6 +29,9 @@
 
     var panel = drawer.querySelector('.pl-drawer__panel');
     var lastFocus = null;
+    // Shopify qualifies section ids in JSON templates, so read the real one
+    // off the element rather than assuming the key used in the template.
+    var sectionId = drawer.getAttribute('data-section-id') || 'pl_cart_drawer';
 
     function open() {
       if (drawer.hasAttribute('data-open')) return;
@@ -99,10 +100,10 @@
     }
 
     function refresh() {
-      return fetch(window.location.pathname + '?sections=' + DRAWER_SECTION, { headers: { Accept: 'application/json' } })
+      return fetch(window.location.pathname + '?sections=' + encodeURIComponent(sectionId), { headers: { Accept: 'application/json' } })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          var html = data[DRAWER_SECTION];
+          var html = data[sectionId];
           if (!html) return;
           var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById('plDrawer');
           if (!fresh) return;
