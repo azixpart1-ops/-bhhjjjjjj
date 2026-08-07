@@ -323,3 +323,68 @@ sort works, zero horizontal overflow at 1440px and 390px.
 2. **`/collections/orthopaedic-dog-beds` 404s** — I'd used it in the homepage nav in
    the earlier round. Corrected everywhere to `orthopaedic-dog-beds-uk`. If that URL
    is linked from ads or emails, set up a redirect.
+
+
+---
+
+## 9. Invisible text, and the slide-out cart
+
+### The bug
+
+Text on the dark sections was nearly invisible across the whole theme — cream on
+cream. The cause was a CSS class-name collision, not a colour mistake:
+
+```css
+/* Horizon, base.css */
+.shopify-section:not(.header-section) :is(.section,.cart-summary){background:transparent}
+```
+
+Three classes (0,3,0) against my two (`.pl .section--dark`, 0,2,0). The theme won and
+forced my dark sections transparent, while my `color: var(--oat)` still applied — so
+cream text landed on the cream page background.
+
+Ten of my class names collided with theme classes: `.section` (63 theme rules),
+`.card` (51), `.hero` (36), `.details` (34), `.field`, `.rte`, `.line`, `.stars`,
+`.hero__media`, `.visually-hidden`.
+
+**Why I missed it:** my offline render tests stripped the theme's stylesheets, so
+there was nothing there to collide with and everything looked correct. Tests now load
+the real cascade — all 18 stylesheets — before asserting anything.
+
+### The fix
+
+- All ten families namespaced to `pl-*` across CSS, Liquid and JS.
+- Scope raised from `.pl` to `.pl.pl`, so a future three-class theme or app rule
+  cannot outrank a single-class component of mine. No markup change.
+- Verified against the real cascade: dark sections compute to `rgb(39,49,42)` with
+  `rgb(241,233,219)` text — 11.2:1.
+
+One thing to know: the rename regex also matched quoted tokens in schema JSON, so it
+briefly rewrote `"tag": "section"` to `"pl-section"` in 21 sections and renamed a
+block setting id to `pl-stars` (which is additionally invalid, as Liquid paths cannot
+contain hyphens). Both were caught and reverted before deploying. The linter now
+checks schema tags, setting ids, block types and Liquid paths for stray prefixes.
+
+### Slide-out cart
+
+`sections/pl-cart-drawer.liquid`, on every template except the cart page.
+
+- Server-rendered, then re-rendered through the **Section Rendering API** after every
+  change, so money formatting, discounts and currency stay with Shopify. Nothing about
+  price is computed in JavaScript.
+- Opens on add to basket and on any link to `/cart`; quantity and remove update in
+  place; free-delivery progress bar; focus trap, Escape, scrim click, scroll lock.
+- Enters and leaves along the same path on the iOS drawer curve
+  (`cubic-bezier(0.32, 0.72, 0, 1)`, 340ms); reduced motion gets a fade instead.
+- While the drawer is present the PDP no longer fires `cart:*` events, so the theme's
+  own drawer cannot open on top of it.
+
+A detail worth recording: the Section Rendering API needs the **qualified** section id
+(`template--<n>__pl_cart_drawer`), not the `pl_cart_drawer` key from the template file.
+Requesting the key returns `{"pl_cart_drawer": null}` and would have left the drawer
+stale after every change. The section renders its own `{{ section.id }}` onto the
+element and the script reads it from there.
+
+Verified with real cart contents: line item, variant, price, quantity stepper, remove,
+"Free UK delivery unlocked", subtotal from Shopify (including the volume discount your
+app applies), checkout button. No console errors at 1440px or 390px.
