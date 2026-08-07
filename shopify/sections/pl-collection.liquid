@@ -7,20 +7,25 @@
 {%- liquid
   assign per = section.settings.per_page | default: 24
   assign sort = collection.sort_by | default: collection.default_sort_by
+
+  assign display_title = collection.title | strip_html
+  if section.settings.trim_title_at_pipe
+    assign display_title = display_title | split: '|' | first | strip
+  endif
 -%}
 <div class="pl">
   <section class="wrap">
     {%- if section.settings.show_breadcrumbs -%}
       <nav class="crumbs" aria-label="Breadcrumb">
         <a href="{{ routes.root_url }}">Home</a> <span>/</span>
-        <span aria-current="page">{{ collection.title | strip_html | truncate: 60 }}</span>
+        <span aria-current="page">{{ display_title | truncate: 60 }}</span>
       </nav>
     {%- endif -%}
 
     <div class="chero">
       <div class="chero__grid">
         <div class="reveal">
-          <h1>{{ collection.title | strip_html }}</h1>
+          <h1>{{ display_title }}</h1>
           {%- if section.settings.intro != blank -%}
             <div class="chero__intro">{{ section.settings.intro }}</div>
           {%- elsif collection.description != blank -%}
@@ -34,7 +39,7 @@
                srcset="{{ collection.image | image_url: width: 560 }} 560w, {{ collection.image | image_url: width: 1100 }} 1100w"
                sizes="(min-width: 900px) 45vw, 100vw"
                width="900" height="562" loading="eager" decoding="async"
-               alt="{{ collection.image.alt | escape | default: collection.title | strip_html | escape }}">
+               alt="{{ collection.image.alt | escape | default: display_title | escape }}">
         {%- endif -%}
       </div>
     </div>
@@ -134,7 +139,7 @@
     <section class="section section--oat">
       <div class="wrap">
         <div class="page-body reveal">
-          <div class="rte">{{ collection.description }}</div>
+          <div class="rte">{{ collection.description | replace: '<h1>', '<h2>' | replace: '</h1>', '</h2>' }}</div>
         </div>
       </div>
     </section>
@@ -149,6 +154,8 @@
     { "type": "checkbox", "id": "show_breadcrumbs", "label": "Show breadcrumbs", "default": true },
     { "type": "checkbox", "id": "show_image", "label": "Show collection image", "default": true },
     { "type": "richtext", "id": "intro", "label": "Intro override", "info": "Leave blank to use the collection's own description." },
+    { "type": "checkbox", "id": "trim_title_at_pipe", "label": "Trim the heading at the first \"|\"", "default": true,
+      "info": "Keeps SEO-stuffed collection titles out of the on-page heading. Titles without a pipe are unchanged." },
     { "type": "checkbox", "id": "show_sort", "label": "Show sort dropdown", "default": true },
     { "type": "checkbox", "id": "show_type", "label": "Show product type on cards", "default": false },
     { "type": "range", "id": "per_page", "label": "Products per page", "min": 8, "max": 48, "step": 4, "default": 24 },
