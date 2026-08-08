@@ -567,6 +567,96 @@ already has a `collection.cooling.json` and this must not overwrite it.
 - **The 5-year foam guarantee is off this collection.** None of the beds in it are
   memory foam. The 100-night trial stays.
 
+---
+
+## 12. The Fourth Bed, and a global audit
+
+### A second landing page, on a different lever
+
+`templates/page.pl-story.json`. Not a replacement for `page.pl-landing` — a
+second angle to test against it.
+
+| | Runs on | Best for |
+| --- | --- | --- |
+| `page.pl-landing` | Loss aversion. What the next six months cost. | Warm traffic, owners of an ageing dog |
+| `page.pl-story` | Sunk cost, answered with the mechanism. | Cold traffic, anyone who has already bought a bed that failed |
+
+Two new sections:
+
+- **`pl-story-hero`** — a ledger of the beds that came before, closing on what
+  they had in common. No invented prices: the rows describe what happened, which
+  is the store's own framing (*"You have bought him beds before. Good ones."*).
+- **`pl-story-autopsy`** — fibre migration **drawn rather than asserted**. Each
+  stage renders a cross-section whose top edge sags by the amount its block
+  specifies, against a dashed line marking the loft the bed arrived with. The SVG
+  path is computed from the settings, so the drawing cannot drift from the
+  numbers — change the loft, the diagram changes.
+
+### What the design-system pass changed, and what it didn't
+
+Ran the `ux` skill's design-system generator. Three of its recommendations were
+rejected on the evidence:
+
+- **Liquid Glass style** — the tool flags it itself as *"Performance:
+  ⚠ Moderate-Poor, Accessibility: ⚠ Text contrast"*. Wrong trade for a shop.
+- **Amatic SC / Cabin** typography — Amatic SC is a thin handwritten display
+  face. It would have replaced a type system already shipped across 31 sections,
+  against the skill's own `consistency` rule.
+- **Horizontal Scroll Journey** pattern — poor for mobile commerce.
+
+What it did earn:
+
+- **The palette was independently validated.** The skill's colour database
+  returns `#1C1917 / #44403C / #A16207 / #FAFAF9` for premium e-commerce. The
+  brand already runs `--ink #17150F / --ink-2 #3A352A / --gold #A87821 /
+  --bone #FAF6EF` — the same family. No change needed, and now there's a reason
+  on file for keeping it.
+- **Stagger timing was wrong.** The guidance is 30–50ms per item; reveals were
+  at 70ms, so a five-item row spent 350ms of pure delay before the last card
+  began. Now 45ms, applied across every section at once.
+- **A missing token.** `--clay` is tuned for bone and only reaches **2.84:1** on
+  `--moss`, so accent text on any dark section was failing. Added
+  `--clay-onDark` (#D18A5E, 4.82:1) and its cool-colourway counterpart
+  (#4FA3BE, 4.85:1). A gap in the system, not a one-off.
+
+### Global colour audit — two live failures
+
+Audited every foreground/background pair the theme's own `settings_data.json`
+binds to a role. Two fail, both on conversion elements:
+
+| Token | Role | Now | Needs | Fix |
+| --- | --- | --- | --- | --- |
+| `color3` | Secondary button label **and** border | **2.51:1** | 4.5:1 | `#8a6420` → 4.97:1 |
+| `color4` | Input **and variant-selector** borders | **1.34:1** | 3:1 | `#9c9184` → 3.09:1 |
+
+`color4` is the expensive one: it is the border on the size selector, so on
+every product page the control a customer must use to buy is drawn at 1.34:1 —
+effectively invisible. Both replacements hold the original hue.
+
+These are theme-editor values, so they are **not** changed in code here — set
+them in **Theme → Colours** rather than have a file write race the editor.
+
+The other palette entries (`color10`–`color16`) are unbound swatches with no
+role mapping, so they were left alone; several would fail as text but may be
+used deliberately as backgrounds.
+
+### Correcting an earlier note
+
+I previously reported the footer marking column headings as `<h1>` and blamed
+the theme. Checked against the rendered HTML: the theme's menu block puts `h1`
+on a `<summary>` as a **type-scale class**, not a heading element. The real
+source is the **smi footer app**, which emits three genuine `<h1>` elements
+("About", "Shop", "About the shop"). With the theme's `visually-hidden` H1 and
+the page's own, that is five H1s on the homepage. Fix it in that app's settings,
+not in theme code.
+
+Also verified while in there: meta description and canonical **are** present
+(an earlier strict grep of mine missed them). But **`og:image` is genuinely
+absent** while `twitter:card` is set to `summary_large_image` — so every share
+of the homepage renders as a bare text card. And the homepage title reads
+*"I'm Pawlunova | Orthopaedic Dog Beds Made for Real Sleep – PawLunova"*, which
+opens oddly and duplicates the brand.
+
 One caveat on method. Shopify's bot protection now issues a Cloudflare challenge to
 any request carrying a preview-theme cookie, so the draft theme's URLs could not be
 loaded from this sandbox — the challenge needs a real browser and this sandbox's
