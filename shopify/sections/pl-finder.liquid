@@ -62,15 +62,24 @@
           <p class="finder__hint">{{ section.settings.q3_hint }}</p>
           <div class="finder__options" role="group" aria-label="Dog size">
             <button class="opt" type="button" data-q="size" data-value="small" aria-pressed="false">
-              <b>Under 10kg</b><span>Terriers, dachshunds, cavaliers, small crossbreeds.</span>
+              <b>Small</b>
+              <span class="opt__eg">Dachshund · Cavalier · Shih Tzu · Jack Russell</span>
+              <span class="opt__kg">Up to 10kg</span>
             </button>
             <button class="opt" type="button" data-q="size" data-value="medium" aria-pressed="false">
-              <b>10 &ndash; 25kg</b><span>Spaniels, collies, staffies, whippets, medium crossbreeds.</span>
+              <b>Medium</b>
+              <span class="opt__eg">Cocker · Border Collie · Springer · Staffie</span>
+              <span class="opt__kg">10 &ndash; 25kg</span>
             </button>
             <button class="opt" type="button" data-q="size" data-value="large" aria-pressed="false">
-              <b>Over 25kg</b><span>Labradors, retrievers, shepherds, and everything larger.</span>
+              <b>Large</b>
+              <span class="opt__eg">Labrador · Golden Retriever · German Shepherd</span>
+              <span class="opt__kg">25kg and up</span>
             </button>
           </div>
+          {%- if section.settings.measure_note != blank -%}
+            <p class="finder__measure">{{ section.settings.measure_note }}</p>
+          {%- endif -%}
           <button class="finder__back" type="button" data-back>&larr; Back</button>
         </div>
 
@@ -81,6 +90,7 @@
               <span class="result__label">{{ section.settings.result_label }}</span>
               <h3 id="plResultName">&mdash;</h3>
               <p class="result__why" id="plResultWhy">&mdash;</p>
+              <p class="result__dims" id="plResultDims" hidden></p>
               <div class="result__meta">
                 <span class="result__price" id="plResultPrice">&mdash;</span>
                 <span class="result__size" id="plResultSize"></span>
@@ -123,32 +133,70 @@
   {%- if p != blank and block.settings.slot != blank -%}
     {%- unless first -%},{%- endunless -%}
     {%- assign first = false -%}
-    {%- assign stock = 0 -%}
-    {%- for v in p.variants -%}
-      {%- if v.inventory_quantity > 0 -%}{%- assign stock = stock | plus: v.inventory_quantity -%}{%- endif -%}
-    {%- endfor -%}
-    {%- assign is_single = false -%}
-    {%- if p.variants.size == 1 -%}{%- assign is_single = true -%}{%- endif -%}
-    {%- assign size_note = '' -%}
-    {%- if is_single -%}
-      {%- assign vt = p.variants.first.title -%}
-      {%- if vt == 'Default Title' -%}
-        {%- assign size_note = 'One standard size' -%}
-      {%- else -%}
-        {%- assign size_note = 'One size — ' | append: vt -%}
-      {%- endif -%}
-    {%- endif -%}
     "{{ block.settings.slot }}": {
       "title": {{ block.settings.display_title | default: p.title | json }},
       "short": {{ block.settings.short | default: p.title | json }},
       "why": {{ block.settings.why | json }},
       "url": {{ p.url | json }},
       "img": {%- if p.featured_image -%}{{ p.featured_image | image_url: width: 700 | json }}{%- else -%}""{%- endif -%},
-      "price": {{ p.price_min | money | strip_html | json }},
-      "single": {{ is_single | json }},
-      "size_note": {{ size_note | json }},
-      "stock": {{ stock | json }},
-      "available": {{ p.available | json }}
+      "bands": {
+        {%- assign bands = 'small|medium|large' | split: '|' -%}
+        {%- for band in bands -%}
+          {%- liquid
+            case band
+              when 'small'
+                assign want = block.settings.size_small
+                assign dims = block.settings.dims_small
+              when 'medium'
+                assign want = block.settings.size_medium
+                assign dims = block.settings.dims_medium
+              else
+                assign want = block.settings.size_large
+                assign dims = block.settings.dims_large
+            endcase
+            assign wlower = want | downcase | strip
+            assign vid = ''
+          -%}
+          {%- comment -%}
+            Match the wanted option value against the variant's option tokens
+            exactly. 'contains' would let 'l' match 'large', which silently
+            picks the wrong size.
+          {%- endcomment -%}
+          {%- if wlower != '' -%}
+            {%- for v in p.variants -%}
+              {%- if vid == '' -%}
+                {%- assign parts = v.title | downcase | split: ' / ' -%}
+                {%- for part in parts -%}
+                  {%- assign ptoken = part | strip -%}
+                  {%- if ptoken == wlower and vid == '' -%}
+                    {%- assign vid = v.id -%}
+                    {%- assign vtitle = v.title -%}
+                    {%- assign vprice = v.price | money | strip_html -%}
+                    {%- assign vavail = v.available -%}
+                    {%- assign vurl = v.url -%}
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- endif -%}
+            {%- endfor -%}
+          {%- endif -%}
+          {%- if vid == '' -%}
+            {%- assign fv = p.selected_or_first_available_variant -%}
+            {%- assign vid = fv.id -%}
+            {%- assign vtitle = fv.title -%}
+            {%- assign vprice = fv.price | money | strip_html -%}
+            {%- assign vavail = fv.available -%}
+            {%- assign vurl = fv.url -%}
+          {%- endif -%}
+          "{{ band }}": {
+            "id": {{ vid | json }},
+            "size": {{ vtitle | json }},
+            "price": {{ vprice | json }},
+            "url": {{ vurl | json }},
+            "available": {{ vavail | json }},
+            "dims": {{ dims | default: '' | json }}
+          }{%- unless forloop.last -%},{%- endunless -%}
+        {%- endfor -%}
+      }
     }
   {%- endif -%}
 {%- endfor -%}
@@ -169,10 +217,11 @@
     { "type": "text", "id": "q2", "label": "Question 2", "default": "How are their joints?" },
     { "type": "text", "id": "q2_hint", "label": "Question 2 hint", "default": "Be honest with this one — it's the answer that changes the foam." },
     { "type": "text", "id": "q3", "label": "Question 3", "default": "And how big are they?" },
-    { "type": "text", "id": "q3_hint", "label": "Question 3 hint", "default": "A rough weight is plenty. We'll size up if they're between two." },
+    { "type": "text", "id": "q3_hint", "label": "Question 3 hint", "default": "Pick the closest — we size up when a dog is between two." },
+    { "type": "textarea", "id": "measure_note", "label": "Measuring note", "default": "Rather measure? Wait until they're asleep and stretched out, measure nose to base of tail, and add 20cm. That's the smallest bed they'll actually use." },
     { "type": "header", "content": "Result" },
     { "type": "text", "id": "result_label", "label": "Result label", "default": "Based on your answers" },
-    { "type": "textarea", "id": "reassurance", "label": "Reassurance pl-line", "default": "Covered by the 100-night sleep trial. If they don't settle on it, we collect it free and refund you in full." },
+    { "type": "textarea", "id": "reassurance", "label": "Reassurance line", "default": "Covered by the 100-night sleep trial. If they don't settle on it, we collect it free and refund you in full." },
     { "type": "header", "content": "Sticky mobile bar" },
     { "type": "checkbox", "id": "show_sticky", "label": "Show sticky bar on mobile", "default": true },
     { "type": "text", "id": "sticky_title", "label": "Sticky title", "default": "Not sure which bed?" },
@@ -190,13 +239,13 @@
           "default": "nest_fine",
           "options": [
             { "value": "nest_fine", "label": "Curls up · No concerns" },
-            { "value": "nest_slowing", "label": "Curls up · Slowing down" },
-            { "value": "nest_diagnosed_sm", "label": "Curls up · Diagnosed · small & medium" },
-            { "value": "nest_diagnosed_lg", "label": "Curls up · Diagnosed · large" },
+            { "value": "nest_slowing", "label": "Curls up · Slowing down · small & medium" },
+            { "value": "nest_slowing_lg", "label": "Curls up · Slowing down · large" },
+            { "value": "nest_diagnosed", "label": "Curls up · Diagnosed" },
             { "value": "bolster_fine", "label": "Leans · No concerns" },
             { "value": "bolster_slowing", "label": "Leans · Slowing down" },
-            { "value": "bolster_diagnosed_sm", "label": "Leans · Diagnosed · small & medium" },
-            { "value": "bolster_diagnosed_lg", "label": "Leans · Diagnosed · large" },
+            { "value": "bolster_diagnosed", "label": "Leans · Diagnosed · small & large" },
+            { "value": "bolster_diagnosed_md", "label": "Leans · Diagnosed · medium" },
             { "value": "flat_fine", "label": "Sprawls · No concerns" },
             { "value": "flat_slowing", "label": "Sprawls · Slowing down" },
             { "value": "flat_diagnosed", "label": "Sprawls · Diagnosed" }
@@ -204,7 +253,15 @@
         { "type": "product", "id": "product", "label": "Bed to recommend" },
         { "type": "text", "id": "display_title", "label": "Display name", "info": "Leave blank to use the product title." },
         { "type": "text", "id": "short", "label": "Short name", "info": "Used on the button: \"See the ___\"." },
-        { "type": "textarea", "id": "why", "label": "Why this bed" }
+        { "type": "textarea", "id": "why", "label": "Why this bed" },
+        { "type": "header", "content": "Which size for each dog" },
+        { "type": "text", "id": "size_small", "label": "Size option for a small dog",
+          "info": "The option value exactly as it appears on the product, e.g. m or large. Leave blank to use the first available." },
+        { "type": "text", "id": "dims_small", "label": "Small — dimensions" },
+        { "type": "text", "id": "size_medium", "label": "Size option for a medium dog" },
+        { "type": "text", "id": "dims_medium", "label": "Medium — dimensions" },
+        { "type": "text", "id": "size_large", "label": "Size option for a large dog" },
+        { "type": "text", "id": "dims_large", "label": "Large — dimensions" }
       ]
     }
   ],

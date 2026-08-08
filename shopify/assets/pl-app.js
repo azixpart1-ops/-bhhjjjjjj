@@ -126,9 +126,140 @@
     }
   }
 
+
+  /* ------------------------------------------------------------------------
+     Collection filters
+     Runs over the cards already on the page, so filtering is instant and
+     costs no round trip. Facets are derived from the products themselves.
+     ---------------------------------------------------------------------- */
+  function initFilters() {
+    var root = document.getElementById('plFilters');
+    var grid = document.querySelector('.pl .cgrid');
+    if (!root || !grid || root.__plBound) return;
+    root.__plBound = true;
+
+    var cards  = Array.prototype.slice.call(grid.querySelectorAll('.pl-card'));
+    var toggle = document.getElementById('plFiltersToggle');
+    var badge  = document.getElementById('plFilterCount');
+    var results= document.getElementById('plFilterResults');
+    var clear  = document.getElementById('plFiltersClear');
+    var active = { fit: [], need: [], price: [] };
+
+    // Which size bands a card can serve, read off its real size options.
+    var BAND = {
+      small:  ['xs', 's', 'small'],
+      medium: ['m', 'medium'],
+      large:  ['l', 'large', 'xl', 'xxl', '2xl', '3xl']
+    };
+
+    function fits(card, band) {
+      var sizes = (card.getAttribute('data-sizes') || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+      if (!sizes.length) return true;               // one-size beds suit anyone
+      return sizes.some(function (sz) { return BAND[band].indexOf(sz) !== -1; });
+    }
+
+    function needs(card, need) {
+      var hay = (card.getAttribute('data-type') || '') + ',' + (card.getAttribute('data-tags') || '');
+      if (need === 'orthopaedic') return /orthopaedic|orthopedic|memory foam|joint|arthritis|senior/.test(hay);
+      if (need === 'nest')        return /nest|bolster|calming|high.?sided|raised edge|sofa/.test(hay);
+      if (need === 'waterproof')  return /waterproof|wipe.?clean/.test(hay);
+      return true;
+    }
+
+    function matches(card) {
+      if (active.fit.length   && !active.fit.some(function (b) { return fits(card, b); })) return false;
+      if (active.need.length  && !active.need.some(function (n) { return needs(card, n); })) return false;
+      if (active.price.length && active.price.indexOf(card.getAttribute('data-price-band')) === -1) return false;
+      return true;
+    }
+
+    var empty = null;
+    function apply() {
+      var shown = 0;
+      cards.forEach(function (c) {
+        var ok = matches(c);
+        c.hidden = !ok;
+        if (ok) shown++;
+      });
+
+      var n = active.fit.length + active.need.length + active.price.length;
+      if (badge) { badge.textContent = String(n); badge.hidden = n === 0; }
+      if (clear) clear.hidden = n === 0;
+      if (results) results.textContent = n === 0 ? '' : shown + (shown === 1 ? ' bed' : ' beds') + ' match';
+
+      if (!shown) {
+        if (!empty) {
+          empty = document.createElement('div');
+          empty.className = 'cgrid__none';
+          empty.innerHTML = '<h3>No beds match all of that.</h3><p>Try loosening one filter — most dogs have more than one bed that suits them.</p>';
+          grid.appendChild(empty);
+        }
+        empty.hidden = false;
+      } else if (empty) {
+        empty.hidden = true;
+      }
+
+      // keep the filter state shareable
+      if (window.history && window.history.replaceState) {
+        var url = new URL(window.location.href);
+        ['fit', 'need', 'price'].forEach(function (k) {
+          if (active[k].length) url.searchParams.set(k, active[k].join(','));
+          else url.searchParams.delete(k);
+        });
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+
+    root.addEventListener('click', function (e) {
+      var chip = e.target.closest('.fchip');
+      if (chip) {
+        var facet = chip.closest('[data-facet]').getAttribute('data-facet');
+        var val = chip.getAttribute('data-value');
+        var i = active[facet].indexOf(val);
+        if (i === -1) active[facet].push(val); else active[facet].splice(i, 1);
+        chip.setAttribute('aria-pressed', String(i === -1));
+        apply();
+        return;
+      }
+      if (e.target.closest('#plFiltersClear')) {
+        active = { fit: [], need: [], price: [] };
+        root.querySelectorAll('.fchip').forEach(function (c) { c.setAttribute('aria-pressed', 'false'); });
+        apply();
+      }
+    });
+
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        var open = root.hasAttribute('data-open');
+        root.toggleAttribute('data-open', !open);
+        toggle.setAttribute('aria-expanded', String(!open));
+      });
+    }
+
+    // restore from the URL so a filtered link opens filtered
+    var params = new URLSearchParams(window.location.search);
+    var restored = false;
+    ['fit', 'need', 'price'].forEach(function (k) {
+      var v = params.get(k);
+      if (!v) return;
+      active[k] = v.split(',').filter(Boolean);
+      active[k].forEach(function (val) {
+        var chip = root.querySelector('[data-facet="' + k + '"] .fchip[data-value="' + val + '"]');
+        if (chip) chip.setAttribute('aria-pressed', 'true');
+      });
+      restored = true;
+    });
+    if (restored) {
+      root.setAttribute('data-open', '');
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+      apply();
+    }
+  }
+
   function init() {
 
     initDrawer();
+    initFilters();
 
     /* ----------------------------------------------------------------------
        Scroll reveal
@@ -241,22 +372,21 @@
     /* style|joints → bed key, with a size override where a bed does not come
        small enough or large enough for the dog. Keys match the handles listed
        in the pl-section settings. */
+    /* style|joints -> slot, with a size override wherever the obvious bed
+       does not come in a size that actually fits that dog. Both overrides
+       below exist because of the products' own published dimensions:
+       the Windermere nest stops at 71cm, and the Borrowdale is a single
+       size its description puts at "to 25kg". */
     var MATRIX = {
       'nest|fine':         { all: 'nest_fine' },
-      'nest|slowing':      { all: 'nest_slowing' },
-      'nest|diagnosed':    { small: 'nest_diagnosed_sm', medium: 'nest_diagnosed_sm', large: 'nest_diagnosed_lg' },
+      'nest|slowing':      { small: 'nest_slowing', medium: 'nest_slowing', large: 'nest_slowing_lg' },
+      'nest|diagnosed':    { all: 'nest_diagnosed' },
       'bolster|fine':      { all: 'bolster_fine' },
       'bolster|slowing':   { all: 'bolster_slowing' },
-      'bolster|diagnosed': { small: 'bolster_diagnosed_sm', medium: 'bolster_diagnosed_sm', large: 'bolster_diagnosed_lg' },
+      'bolster|diagnosed': { small: 'bolster_diagnosed', medium: 'bolster_diagnosed_md', large: 'bolster_diagnosed' },
       'flat|fine':         { all: 'flat_fine' },
       'flat|slowing':      { all: 'flat_slowing' },
       'flat|diagnosed':    { all: 'flat_diagnosed' }
-    };
-
-    var SIZE_COPY = {
-      small:  'Recommended size: Small — for dogs under 10kg',
-      medium: 'Recommended size: Medium — for dogs 10–25kg',
-      large:  'Recommended size: Large — for dogs over 25kg'
     };
 
     var steps   = app.querySelectorAll('.finder__step');
@@ -280,28 +410,36 @@
       var bed = BEDS[entry.all || entry[answers.size]];
       if (!bed || !bed.url) return;
 
+      // Each bed carries a resolved variant per size band, so the customer is
+      // sent to the size that actually fits rather than a generic "size: large".
+      var band = (bed.bands && bed.bands[answers.size]) || null;
+
       var img = document.getElementById('plResultImg');
       img.src = bed.img;
       img.alt = bed.title;
 
       document.getElementById('plResultName').textContent = bed.title;
       document.getElementById('plResultWhy').textContent  = bed.why;
-      document.getElementById('plResultPrice').textContent =
-        (bed.single ? '' : 'From ') + bed.price;
-      document.getElementById('plResultSize').textContent =
-        bed.single ? (bed.size_note || '') : (SIZE_COPY[answers.size] || '');
+      document.getElementById('plResultPrice').textContent = band ? band.price : '';
+
+      var sizeEl = document.getElementById('plResultSize');
+      sizeEl.textContent = band && band.size && !/^default title$/i.test(band.size)
+        ? 'Size ' + band.size.toUpperCase()
+        : 'One size';
+
+      var dimsEl = document.getElementById('plResultDims');
+      if (dimsEl) {
+        if (band && band.dims) { dimsEl.textContent = band.dims; dimsEl.hidden = false; }
+        else dimsEl.hidden = true;
+      }
 
       var link = document.getElementById('plResultLink');
-      link.href = bed.url;
+      link.href = band && band.url ? band.url : bed.url;   // preselects the size
       document.getElementById('plResultLinkText').textContent = 'See the ' + bed.short;
 
-      // Live inventory, straight from Liquid — never a hardcoded number.
       var stock = document.getElementById('plResultStock');
-      if (bed.available === false) {
-        stock.textContent = 'Back in stock soon';
-        stock.hidden = false;
-      } else if (bed.stock > 0 && bed.stock <= 3) {
-        stock.textContent = 'Only ' + bed.stock + ' left in stock';
+      if (band && band.available === false) {
+        stock.textContent = 'That size is back in stock soon';
         stock.hidden = false;
       } else {
         stock.hidden = true;

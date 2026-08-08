@@ -56,6 +56,47 @@
       </div>
     </div>
 
+    {%- if section.settings.show_filters -%}
+      <div class="filters" id="plFilters">
+        <div class="filters__top">
+          <button class="filters__toggle" type="button" id="plFiltersToggle" aria-expanded="false" aria-controls="plFiltersBody">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M7 12h10M10 18h4"/></svg>
+            Filter
+            <b id="plFilterCount" hidden>0</b>
+          </button>
+          <span class="filters__count" id="plFilterResults"></span>
+        </div>
+        <div class="filters__body" id="plFiltersBody"><div><div class="filters__inner">
+          <div class="fgroup">
+            <h3>Who it's for</h3>
+            <div class="fgroup__opts" data-facet="fit">
+              <button class="fchip" type="button" data-value="small" aria-pressed="false">Small dog</button>
+              <button class="fchip" type="button" data-value="medium" aria-pressed="false">Medium dog</button>
+              <button class="fchip" type="button" data-value="large" aria-pressed="false">Large dog</button>
+            </div>
+          </div>
+          <div class="fgroup">
+            <h3>What they need</h3>
+            <div class="fgroup__opts" data-facet="need">
+              <button class="fchip" type="button" data-value="orthopaedic" aria-pressed="false">Joint support</button>
+              <button class="fchip" type="button" data-value="nest" aria-pressed="false">Walls to lean on</button>
+              <button class="fchip" type="button" data-value="waterproof" aria-pressed="false">Waterproof</button>
+            </div>
+          </div>
+          <div class="fgroup">
+            <h3>Budget</h3>
+            <div class="fgroup__opts" data-facet="price">
+              <button class="fchip" type="button" data-value="under-75" aria-pressed="false">Under £75</button>
+              <button class="fchip" type="button" data-value="75-125" aria-pressed="false">£75 &ndash; £125</button>
+              <button class="fchip" type="button" data-value="over-125" aria-pressed="false">£125+</button>
+            </div>
+          </div>
+        </div>
+        <p style="margin-top:1.25rem"><button class="filters__clear" type="button" id="plFiltersClear" hidden>Clear all filters</button></p>
+        </div></div>
+      </div>
+    {%- endif -%}
+
     <div class="ctoolbar">
       <span class="ctoolbar__count">Showing {{ collection.products.size }} of {{ collection.products_count }}</span>
       {%- if section.settings.show_sort -%}
@@ -88,7 +129,27 @@
                 </a>
               </div>
             {%- endif -%}
-            <a class="pl-card reveal" style="--i:{{ forloop.index0 | modulo: 4 | plus: 1 }}" href="{{ item.url }}">
+            {%- liquid
+              assign sizes = ''
+              for opt in item.options_with_values
+                assign nm = opt.name | downcase
+                if nm contains 'size'
+                  assign sizes = opt.values | join: ','  | downcase
+                endif
+              endfor
+              assign band = 'under-75'
+              if item.price_min >= 7500 and item.price_min < 12500
+                assign band = '75-125'
+              elsif item.price_min >= 12500
+                assign band = 'over-125'
+              endif
+            -%}
+            <a class="pl-card reveal" style="--i:{{ forloop.index0 | modulo: 4 | plus: 1 }}" href="{{ item.url }}"
+               data-price-band="{{ band }}"
+               data-sizes="{{ sizes | escape }}"
+               data-type="{{ item.type | downcase | escape }}"
+               data-tags="{{ item.tags | join: ',' | downcase | escape }}"
+               data-available="{{ item.available }}">
               <div class="pl-card__media">
                 {%- if item.featured_image -%}
                   <img src="{{ item.featured_image | image_url: width: 560 }}"
@@ -168,6 +229,8 @@
     { "type": "richtext", "id": "intro", "label": "Intro override", "info": "Leave blank to use the collection's own description." },
     { "type": "checkbox", "id": "trim_title_at_pipe", "label": "Trim the heading at the first \"|\"", "default": true,
       "info": "Keeps SEO-stuffed collection titles out of the on-page heading. Titles without a pipe are unchanged." },
+    { "type": "checkbox", "id": "show_filters", "label": "Show filters", "default": true,
+      "info": "Filters run in the browser across the products on this page, so nothing reloads." },
     { "type": "checkbox", "id": "show_sort", "label": "Show sort dropdown", "default": true },
     { "type": "checkbox", "id": "show_type", "label": "Show product type on cards", "default": false },
     { "type": "range", "id": "per_page", "label": "Products per page", "min": 8, "max": 48, "step": 4, "default": 24 },
