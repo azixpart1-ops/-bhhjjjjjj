@@ -388,3 +388,114 @@ element and the script reads it from there.
 Verified with real cart contents: line item, variant, price, quantity stepper, remove,
 "Free UK delivery unlocked", subtotal from Shopify (including the volume discount your
 app applies), checkout button. No console errors at 1440px or 390px.
+
+---
+
+## 10. Quiz sizing, collection filters, landing page
+
+### The quiz was sending people to the wrong size
+
+Three problems, all found by checking the recommendations back against the catalogue
+rather than against what the copy said.
+
+- **The Borrowdale was recommended for dogs over 25kg.** Its own description says
+  *"Large 90 x 65cm — internal 68 x 45cm — Border Collie, Springer, Cocker, Sheltie.
+  To 25kg."* It is a one-size bed rated **to** 25kg, so it now serves the medium band
+  and the large band goes elsewhere.
+- **The Windermere Nest topped out at 71 × 58cm**, which is not a bed for a Labrador.
+  Large nest sleepers now go to the **Rydal**, which runs to 2XL at 88cm across.
+- **The Langdale had no real sizes left** — its options are now `customizable` and
+  `standard` — so it came out of the matrix entirely.
+
+### And it was asking owners to guess kilos
+
+Question 3 used to lead with weight bands. Most people do not know what their dog
+weighs to the nearest 5kg, and the ones who guess, guess low. It now leads with breeds
+and keeps the weight underneath as a cross-check:
+
+> **Medium** — Cocker · Border Collie · Springer · Staffie — *10 – 25kg*
+
+Underneath the options is the measure-up from the Borrowdale page, for anyone who wants
+to be certain: *wait until they're asleep and stretched out, measure nose to base of
+tail, add 20cm.*
+
+### The result now names a size and links to it
+
+Each recommendation block carries a size option **and** the real internal dimensions per
+band. The result panel shows the price of *that* size, the dimensions, and links to the
+variant URL — so the customer lands on the product page with the right size already
+selected instead of having to pick again.
+
+The Liquid that resolves it compares option tokens **exactly**:
+
+```liquid
+{%- assign parts = v.title | downcase | split: ' / ' -%}
+{%- for part in parts -%}
+  {%- if part | strip == wlower and vid == '' -%}
+```
+
+`contains` would let `l` match `large` — on the Rydal, whose variants are
+`green / large`, that silently picked a bed two sizes too big.
+
+### Collection filters
+
+`sections/pl-collection.liquid` + `initFilters()` in `pl-app.js`.
+
+Three facets — who it's for, what they need, budget — filtering the cards that are
+already on the page. No reload, no flash, no Section Rendering round trip. The state
+lives in the URL (`?fit=large&price=under-75`), so a filtered view can be sent to
+someone or used as an ad landing URL.
+
+Every attribute a filter reads comes from real product data at render time:
+
+```liquid
+data-price-band="{{ band }}"          {%- comment -%} from price_min {%- endcomment -%}
+data-sizes="{{ sizes | escape }}"     {%- comment -%} from the size option's values {%- endcomment -%}
+data-type="{{ item.type | downcase | escape }}"
+data-tags="{{ item.tags | join: ',' | downcase | escape }}"
+```
+
+A bed with no size option is treated as suiting every dog rather than none. The size
+bands map the store's actual option values (`s`, `m`, `l`, `xl`, `2xl`, `medium`,
+`large`) onto small / medium / large, because the catalogue uses both conventions.
+
+One limit worth knowing: it filters the current page of results, which is 24 products.
+Collections longer than that would need server-side filtering.
+
+### The landing page
+
+`templates/page.pl-landing.json`, built from three new sections plus the ones the
+homepage already uses.
+
+| Section | Job |
+| --- | --- |
+| `pl-landing-hero` | The recognition moment. *"He used to drop. Now he lowers himself."* |
+| `pl-signs` | Naming the symptoms before offering the fix |
+| `pl-landing-cost` | Loss aversion, then the price reframe — 9p a night |
+| `pl-finder` | The quiz, as the buying path |
+| `pl-mechanism` | Why 50kg/m³ costs what it costs |
+| `pl-products` / `pl-reviews` | The beds, then other owners |
+| `pl-landing-offer` | Everything included, then what you actually risk |
+| `pl-finale` | The emotional close |
+
+**Every line of copy on it is the store's own.** The hero, the two columns, the 9p
+figure and the closing quote are all lifted from the Borrowdale product description —
+which is the best-written thing on the site and was buried three clicks deep. Nothing
+is invented: no countdown, no "3 people are viewing this", no discovered-today discount.
+
+The one number that does arithmetic is the 9p: £169 across the five years the foam core
+is guaranteed for is 9.26p a night, and the caption states that basis rather than just
+asserting the figure.
+
+The template is `page.pl-landing`, not `page.landing` — your theme already has a
+`page.landing.json` and this must not overwrite it. To use it: **Pages → Add page →
+Template suffix: `pl-landing`**.
+
+### Verified on the draft theme
+
+Quiz answered end to end for two combinations; result name, price, size, dimensions and
+variant deep link checked against the catalogue. Filters clicked, combined, shared by
+URL, restored from URL and cleared. Landing page checked at 1440px and 390px for
+horizontal overflow, and every text/background pair on it measured for contrast — with
+the theme's own 18 stylesheets loaded, which is the step that was missing when the
+invisible-text bug got through.
