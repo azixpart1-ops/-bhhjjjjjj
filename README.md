@@ -124,6 +124,22 @@ this build contains a space.
 
 ---
 
+## If the full build won't render
+
+The full build (`build.sh`) replaces most of the theme. Three uploads of it left
+product pages 404ing, and re-publishing the merchant's original theme restored
+them — so the fault was in the build, not the store, the products or Shopify.
+
+`build-pdp-only.sh` exists for that case. It takes the merchant's original
+export and changes exactly one thing: `templates/product.json`. No new sections,
+no new blocks, no settings, no layout changes. Every section and block type it
+references was verified to exist in that original export, and every setting
+value validated against that export's own schemas.
+
+It also drops the ten unused `product.d1 copy N.json` templates, the only
+filenames in the theme containing spaces, since every product's template suffix
+has been cleared in the store and nothing references them.
+
 ## Product pages
 
 **One** product template — `templates/product.json`, the default, so there is
