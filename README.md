@@ -491,11 +491,32 @@ The template is `page.pl-landing`, not `page.landing` — your theme already has
 `page.landing.json` and this must not overwrite it. To use it: **Pages → Add page →
 Template suffix: `pl-landing`**.
 
-### Verified on the draft theme
+### Two things in the catalogue
+
+- **A product called "Test" at £1.00 is published and sits in the Orthopaedic
+  Dog Beds collection.** It shows up in every filter combination, because a £1
+  product with no tags and no size options matches everything. Unpublish it.
+- The Borrowdale's size option is labelled **`l`** while its description rates it
+  **to 25kg**. The quiz follows the description; the collection filter follows the
+  option label, because that is what a customer sees on the product page. Worth
+  renaming the option if the description is the truth.
+
+### Verified
 
 Quiz answered end to end for two combinations; result name, price, size, dimensions and
 variant deep link checked against the catalogue. Filters clicked, combined, shared by
 URL, restored from URL and cleared. Landing page checked at 1440px and 390px for
 horizontal overflow, and every text/background pair on it measured for contrast — with
-the theme's own 18 stylesheets loaded, which is the step that was missing when the
+the theme's own stylesheets loaded, which is the step that was missing when the
 invisible-text bug got through.
+
+One caveat on method. Shopify's bot protection now issues a Cloudflare challenge to
+any request carrying a preview-theme cookie, so the draft theme's URLs could not be
+loaded from this sandbox — the challenge needs a real browser and this sandbox's
+browser has no outbound network. The pages were therefore rendered locally from the
+same `.liquid` files and the same template JSON, with the live theme's real
+stylesheets downloaded and loaded in their real cascade order, and the quiz and
+filter JSON built from live variant, tag and option data pulled through the Admin
+API. Shopify still validated every section server-side on upload — a section whose
+schema it rejects simply never appears, and all of them appear at exactly their
+local byte size.
