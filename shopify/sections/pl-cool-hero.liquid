@@ -1,0 +1,101 @@
+{% render 'pl-assets' %}
+{% render 'pl-cool-palette' %}
+{%- liquid
+  assign heading = section.settings.heading | default: collection.title
+  assign img = section.settings.image
+  if img == blank and section.settings.image_product != blank
+    assign img = section.settings.image_product.featured_image
+  endif
+  if img == blank
+    assign img = collection.image
+  endif
+-%}
+<div class="pl">
+  <section class="cool-hero">
+    <div class="wrap">
+      {%- if section.settings.show_breadcrumbs -%}
+        <nav class="crumbs crumbs--onDark" aria-label="Breadcrumb">
+          <a href="{{ routes.root_url }}">Home</a> <span>/</span>
+          <span aria-current="page">{{ heading | strip_html | truncate: 60 }}</span>
+        </nav>
+      {%- endif -%}
+
+      <div class="cool-hero__grid">
+        <div>
+          {%- if section.settings.eyebrow != blank -%}
+            <p class="eyebrow reveal">{{ section.settings.eyebrow }}</p>
+          {%- endif -%}
+
+          <h1 class="display-1 reveal" style="--i:1">{{ heading | escape | newline_to_br }}</h1>
+
+          {%- if section.settings.subhead != blank -%}
+            <p class="cool-hero__sub reveal" style="--i:2">{{ section.settings.subhead }}</p>
+          {%- endif -%}
+
+          {%- if section.settings.intro != blank -%}
+            <div class="cool-hero__intro reveal" style="--i:3">{{ section.settings.intro }}</div>
+          {%- endif -%}
+
+          <div class="cool-hero__cta reveal" style="--i:4">
+            {%- if section.settings.cta_1_text != blank -%}
+              <a class="btn btn--lg" href="{{ section.settings.cta_1_link | default: '#cool-grid' }}">
+                {{ section.settings.cta_1_text }}{% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 18 %}
+              </a>
+            {%- endif -%}
+            {%- if section.settings.cta_2_text != blank -%}
+              <a class="btn btn--lg btn--onDark" href="{{ section.settings.cta_2_link | default: '#cool-guide' }}">{{ section.settings.cta_2_text }}</a>
+            {%- endif -%}
+          </div>
+
+          {%- if section.blocks.size > 0 -%}
+            <p class="cool-hero__chips reveal" style="--i:5">
+              {%- for block in section.blocks -%}
+                <span {{ block.shopify_attributes }}>
+                  {% render 'pl-icon', icon: 'check', size: 14 %}{{ block.settings.text }}
+                </span>
+              {%- endfor -%}
+            </p>
+          {%- endif -%}
+        </div>
+
+        {%- if img != blank -%}
+          <div class="reveal" style="--i:2">
+            <img class="cool-hero__img"
+                 src="{{ img | image_url: width: 1000 }}"
+                 srcset="{{ img | image_url: width: 560 }} 560w, {{ img | image_url: width: 1000 }} 1000w, {{ img | image_url: width: 1400 }} 1400w"
+                 sizes="(min-width: 900px) 46vw, 100vw"
+                 width="1000" height="1000"
+                 fetchpriority="high" decoding="async"
+                 alt="{{ img.alt | escape | default: section.settings.image_alt }}">
+          </div>
+        {%- endif -%}
+      </div>
+    </div>
+  </section>
+</div>
+{% schema %}
+{
+  "name": "PL — Cooling hero",
+  "tag": "section",
+  "settings": [
+    { "type": "checkbox", "id": "show_breadcrumbs", "label": "Show breadcrumbs", "default": true },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The Cooling Collection" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "info": "Leave blank to use the collection title." },
+    { "type": "text", "id": "subhead", "label": "Subhead", "default": "Comfort that holds up when the temperature does not." },
+    { "type": "richtext", "id": "intro", "label": "Intro" },
+    { "type": "text", "id": "cta_1_text", "label": "Primary button", "default": "Shop cooling beds" },
+    { "type": "url", "id": "cta_1_link", "label": "Primary link" },
+    { "type": "text", "id": "cta_2_text", "label": "Secondary button", "default": "Which one for my dog?" },
+    { "type": "url", "id": "cta_2_link", "label": "Secondary link" },
+    { "type": "header", "content": "Image" },
+    { "type": "image_picker", "id": "image", "label": "Image", "info": "Falls back to the collection image." },
+    { "type": "product", "id": "image_product", "label": "…or use this product's photo" },
+    { "type": "text", "id": "image_alt", "label": "Alt text", "default": "A dog lying on a raised mesh cooling bed in a shaded garden" }
+  ],
+  "blocks": [
+    { "type": "chip", "name": "Reassurance chip", "limit": 4, "settings": [
+      { "type": "text", "id": "text", "label": "Text" } ] }
+  ],
+  "presets": [{ "name": "PL — Cooling hero" }]
+}
+{% endschema %}

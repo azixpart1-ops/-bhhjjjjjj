@@ -1,6 +1,19 @@
 {% render 'pl-assets' %}
 {%- liquid
   assign p = product
+
+  comment
+    Cooling products carry the safety line automatically, off their own tags and
+    type — so a new cooling bed is compliant the day it is added, with nobody
+    having to remember to tick a box. The colourway uses the same test, inside
+    the snippet.
+  endcomment
+  assign cool_hay = p.tags | join: ',' | append: ',' | append: p.type | downcase
+  assign is_cool = false
+  if cool_hay contains 'cooling' or cool_hay contains 'elevated'
+    assign is_cool = true
+  endif
+
   assign k1t = p.metafields.vitals.key_benefit_1_title.value
   assign k1d = p.metafields.vitals.key_benefit_1_description.value
   assign k2t = p.metafields.vitals.key_benefit_2_title.value
@@ -20,6 +33,12 @@
           <div class="pl-rte reveal" style="--i:2">
             {{ p.description }}
           </div>
+
+          {%- if is_cool -%}
+            <div class="reveal" style="--i:2;margin-top:1.75rem">
+              {% render 'pl-cool-note', text: section.settings.cool_note %}
+            </div>
+          {%- endif -%}
 
           {%- if k1t != blank -%}
             <div class="layers reveal" style="--i:3;margin-top:2rem">
@@ -73,7 +92,10 @@
   "settings": [
     { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The detail" },
     { "type": "text", "id": "heading", "label": "Heading" },
-    { "type": "text", "id": "specs_title", "label": "Specs panel title", "default": "At a glance" }
+    { "type": "text", "id": "specs_title", "label": "Specs panel title", "default": "At a glance" },
+    { "type": "header", "content": "Cooling products" },
+    { "type": "paragraph", "content": "Products tagged or typed as cooling or elevated automatically get the cool colourway and the safety note below. Nothing to switch on per product." },
+    { "type": "textarea", "id": "cool_note", "label": "Cooling safety note" }
   ],
   "blocks": [
     { "type": "spec", "name": "Spec row", "settings": [

@@ -1,0 +1,90 @@
+{% render 'pl-assets' %}
+{% render 'pl-cool-palette' %}
+<div class="pl">
+  <section class="pl-section" id="cool-guide">
+    <div class="wrap">
+      <div class="section-head section-head--center reveal">
+        {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
+        <h2 class="display-2">{{ section.settings.heading | escape | newline_to_br }}</h2>
+        {%- if section.settings.standfirst != blank -%}
+          <p class="body-lg" style="margin-top:1rem">{{ section.settings.standfirst }}</p>
+        {%- endif -%}
+      </div>
+
+      <div class="cguide reveal">
+        <div class="cguide__head" aria-hidden="true">
+          <span>{{ section.settings.col_1 }}</span>
+          <span>{{ section.settings.col_2 }}</span>
+        </div>
+
+        {%- for block in section.blocks -%}
+          {%- assign p = block.settings.product -%}
+          <div class="cguide__row" {{ block.shopify_attributes }}>
+            <div class="cguide__who">
+              <b>{{ block.settings.dog }}</b>
+              {%- if block.settings.examples != blank -%}
+                <span>{{ block.settings.examples }}</span>
+              {%- endif -%}
+            </div>
+
+            {%- if p != blank -%}
+              <a class="cguide__pick" href="{{ p.url }}">
+                {%- if p.featured_image -%}
+                  <img src="{{ p.featured_image | image_url: width: 200 }}"
+                       srcset="{{ p.featured_image | image_url: width: 120 }} 120w, {{ p.featured_image | image_url: width: 240 }} 240w"
+                       sizes="60px" width="120" height="120" loading="lazy" decoding="async"
+                       alt="{{ p.featured_image.alt | escape | default: p.title | escape }}">
+                {%- endif -%}
+                <span class="cguide__pick-body">
+                  <b>{{ block.settings.display_title | default: p.title }}</b>
+                  <span class="cguide__why">{{ block.settings.why }}</span>
+                  <span class="cguide__price">
+                    {%- if p.price_varies -%}From {% endif %}{{ p.price_min | money }}
+                    {%- unless p.available %} · back in stock soon{% endunless -%}
+                  </span>
+                </span>
+                {% render 'pl-icon', icon: 'arrow', class: 'cguide__arrow', size: 16 %}
+              </a>
+            {%- else -%}
+              <div class="cguide__pick cguide__pick--soon">
+                <span class="cguide__pick-body">
+                  <b>{{ block.settings.display_title }}</b>
+                  <span class="cguide__why">{{ block.settings.why }}</span>
+                  <span class="cguide__price">{{ section.settings.soon_label }}</span>
+                </span>
+              </div>
+            {%- endif -%}
+          </div>
+        {%- endfor -%}
+      </div>
+
+      {%- if section.settings.measure_note != blank -%}
+        <p class="cguide__measure reveal">{{ section.settings.measure_note }}</p>
+      {%- endif -%}
+    </div>
+  </section>
+</div>
+{% schema %}
+{
+  "name": "PL — Cooling buying guide",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Start here" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Which one for your dog." },
+    { "type": "textarea", "id": "standfirst", "label": "Standfirst" },
+    { "type": "text", "id": "col_1", "label": "Left column label", "default": "Your dog" },
+    { "type": "text", "id": "col_2", "label": "Right column label", "default": "Start with" },
+    { "type": "text", "id": "soon_label", "label": "Label when no product is linked", "default": "Coming to the collection" },
+    { "type": "textarea", "id": "measure_note", "label": "Measuring note", "default": "Measure your dog nose to tail base while they are lying stretched out, then add 15cm. Between two sizes, size up." }
+  ],
+  "blocks": [
+    { "type": "row", "name": "Guide row", "settings": [
+      { "type": "text", "id": "dog", "label": "Your dog" },
+      { "type": "text", "id": "examples", "label": "Examples" },
+      { "type": "product", "id": "product", "label": "Recommend this bed" },
+      { "type": "text", "id": "display_title", "label": "Display name", "info": "Leave blank to use the product title." },
+      { "type": "textarea", "id": "why", "label": "Why this one" } ] }
+  ],
+  "presets": [{ "name": "PL — Cooling buying guide" }]
+}
+{% endschema %}
