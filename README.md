@@ -98,11 +98,16 @@ Also rebuilt: `blog.json` (it was shipping its own second header *and* footer on
 top of the theme's own), the about and FAQ page templates, and the header and
 footer section groups.
 
-Every alternate template name that shipped with the export still exists —
-`product.d1.json`, `product.d1 copy N.json`, the `*.smi-backup.json` files and
-the `smi-humi-*` variants — each now carrying the rebuilt layout. Shopify 404s a
-product whose assigned theme template is missing, so these names have to survive
-even when the layout inside them is replaced.
+There is now exactly one product template: `templates/product.json`. Every
+product's `templateSuffix` has been cleared in the store, so nothing depends on
+the old `d1 copy N` names and they have been deleted.
+
+**Why they were deleted, and why this matters:** the first build's zip contained
+filenames with spaces (`product.d1 copy 2.json`). Shopify's theme upload
+silently dropped *every* `product.*` template from that zip — including
+`product.json` — so the live theme ended up with no product template at all and
+every product page 404'd while the rest of the store worked. No filename in
+this build contains a space.
 
 ### 4. Speed
 
