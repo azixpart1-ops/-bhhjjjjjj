@@ -145,17 +145,44 @@
     var clear  = document.getElementById('plFiltersClear');
     var active = { fit: [], need: [], price: [] };
 
-    // Which size bands a card can serve, read off its real size options.
-    var BAND = {
-      small:  ['xs', 's', 'small'],
-      medium: ['m', 'medium'],
-      large:  ['l', 'large', 'xl', 'xxl', '2xl', '3xl']
-    };
+    // Which size bands one option value can serve. The catalogue uses several
+    // conventions at once — s/m/l, medium/large, "Extra Large",
+    // "Large (110 x 75 cm)", plus "standard" and "customizable" — so anything
+    // unrecognised counts for every band rather than hiding the bed.
+    var ALL = ['small', 'medium', 'large'];
+    function bandsOf(size) {
+      var s = size.replace(/\([^)]*\)/g, '').replace(/[^a-z0-9 -]/g, '').trim();
+      if (!s) return ALL;
+      if (/^(xs|x-?small|extra ?small)$/.test(s)) return ['small'];
+      if (/^(s|small)$/.test(s)) return ['small'];
+      if (/^(m|med|medium)$/.test(s)) return ['medium'];
+      if (/^(l|large)$/.test(s)) return ['large'];
+      if (/^(xl|x-?large|extra ?large|xxl|2xl|xxxl|3xl|jumbo|giant)$/.test(s)) return ['large'];
+      return ALL;   // "standard", "customizable", one-size, anything new
+    }
+
+    // A one-size bed still has a dog it is meant for, and the catalogue says so
+    // in its tags ("large dog bed", "size-l", "medium dogs"). Without this a
+    // £154 bed for a Labrador would answer a search for a small dog.
+    function tagBands(card) {
+      var hay = ',' + (card.getAttribute('data-tags') || '') + ',';
+      var out = [];
+      if (/[ ,-](xs|x-?small|extra ?small|small|small dogs?)[ ,-]/.test(hay)) out.push('small');
+      if (/[ ,-](m|medium|medium dogs?)[ ,-]/.test(hay)) out.push('medium');
+      if (/[ ,-](l|xl|large|x-?large|extra ?large|xxl|2xl|large dogs?)[ ,-]/.test(hay)) out.push('large');
+      return out;
+    }
 
     function fits(card, band) {
       var sizes = (card.getAttribute('data-sizes') || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
-      if (!sizes.length) return true;               // one-size beds suit anyone
-      return sizes.some(function (sz) { return BAND[band].indexOf(sz) !== -1; });
+      var known = [];
+      sizes.forEach(function (sz) {
+        var bs = bandsOf(sz);
+        if (bs !== ALL) known = known.concat(bs);   // ALL means "couldn't tell"
+      });
+      if (known.length) return known.indexOf(band) !== -1;
+      var tagged = tagBands(card);
+      return tagged.length ? tagged.indexOf(band) !== -1 : true;
     }
 
     function needs(card, need) {
