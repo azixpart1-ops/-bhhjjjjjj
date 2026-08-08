@@ -92,6 +92,12 @@ def check_schema(path, src):
 
     if 'name' not in schema:
         err(path, 'schema has no name')
+    # Shopify caps section and preset names at 25 characters and rejects the
+    # whole file if either is longer — silently, when uploaded by URL.
+    for kind, name in ([('schema name', schema.get('name'))] +
+                       [('preset name', p.get('name')) for p in schema.get('presets', [])]):
+        if name and len(name) > 25:
+            err(path, '%s is %d characters, max is 25: %r' % (kind, len(name), name))
     tag = schema.get('tag')
     if tag is not None and tag not in ('article', 'aside', 'div', 'footer',
                                        'header', 'section'):
