@@ -510,6 +510,63 @@ horizontal overflow, and every text/background pair on it measured for contrast 
 the theme's own stylesheets loaded, which is the step that was missing when the
 invisible-text bug got through.
 
+---
+
+## 11. The Cooling Collection
+
+### Colour coding
+
+The collection runs on a **cool colourway**: same typeface, same layout, same
+components, only the palette moves. It lives in `snippets/pl-cool-palette.liquid`
+as a token override, so the product cards, filters, promo tile, FAQ, trial block
+and cart drawer all recolour without a line changing in any of those sections.
+
+The one non-obvious bit: the override is written at `.pl.pl.pl`, not `.pl.pl`.
+Every `pl-*` section renders its own `<link>` to `pl-styles.css`, so a section
+further down the page reloads the sheet *after* the override and would win on
+source order. One extra class settles it without `!important`.
+
+Cooling PDPs pick the colourway up automatically, off their own tags and type —
+so the collection and the product pages match, and a new cooling bed is the right
+colour the day it is added.
+
+Every pair on the page was measured against the ground it actually lands on.
+Lowest is 5.07:1 where 4.5 is required.
+
+### Sections
+
+| Section | Job |
+| --- | --- |
+| `pl-cool-hero` | H1, subhead, intro, two CTAs, reassurance chips |
+| `pl-cool-how` | The three mechanisms — gel, airflow, covers — each with a spec line |
+| `pl-cool-guide` | "Which one for your dog", seven rows, each linking to a real product at its live price |
+| `pl-collection` | The existing grid, with the filters already built for collections |
+| `pl-cool-trust` | Trust bar under the grid |
+
+`templates/collection.pl-cooling.json` ties them together with the FAQ, trial and
+closing CTA. `pl-collection` gained a `show_header` toggle so the bespoke hero can
+carry the H1 without the page shipping two of them.
+
+The template is `collection.pl-cooling`, not `collection.cooling` — your theme
+already has a `collection.cooling.json` and this must not overwrite it.
+
+### The compliance guardrails, and where they bit
+
+- **No medical claims.** The copy says what the products physically do: draw heat
+  away, allow airflow, keep the surface cooler than the floor.
+- **The safety line** — *"not a substitute for shade, fresh water, or keeping a dog
+  out of a hot car"* — appears twice on the collection page, once in the collection
+  description, and on **every cooling PDP automatically**. It is driven off product
+  tags and type rather than a per-product setting, so nobody has to remember it.
+- **No stars, no review counts, no origin claims.** "UK-based support" only.
+- **Duration claims.** The brief said 3–4 hours, recharging in 15–20 minutes. The
+  store's own spec sheet on the Coniston gel mat says *"Cooling duration:
+  approximately 3 hours per cycle"* and *"self-recharging during rest"* with no
+  recharge figure. The page says **around 3 hours**, and gives no recharge number.
+  If a supplier sheet backs 3–4 hours, the spec line is a section setting.
+- **The 5-year foam guarantee is off this collection.** None of the beds in it are
+  memory foam. The 100-night trial stays.
+
 One caveat on method. Shopify's bot protection now issues a Cloudflare challenge to
 any request carrying a preview-theme cookie, so the draft theme's URLs could not be
 loaded from this sandbox — the challenge needs a real browser and this sandbox's
