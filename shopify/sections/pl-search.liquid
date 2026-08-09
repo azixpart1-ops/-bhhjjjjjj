@@ -1,0 +1,176 @@
+{% render 'pl-assets' %}
+{%- liquid
+  assign per = section.settings.per_page | default: 24
+  assign terms = search.terms | default: ''
+-%}
+<div class="pl">
+  <section class="pl-section">
+    <div class="wrap">
+      {%- if section.settings.show_breadcrumbs -%}
+        <nav class="crumbs" aria-label="Breadcrumb">
+          <a href="{{ routes.root_url }}">Home</a> <span>/</span>
+          <span aria-current="page">Search</span>
+        </nav>
+      {%- endif -%}
+
+      <div class="page-hero reveal">
+        {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
+        {%- comment -%}
+          A search that found nothing says so in the H1 rather than announcing
+          "Results for trampoline" and then admitting underneath that there
+          were none.
+        {%- endcomment -%}
+        {%- liquid
+          assign h1 = section.settings.heading
+          if search.performed and terms != blank
+            if search.results_count > 0
+              assign h1 = section.settings.results_heading | replace: '[terms]', terms
+            else
+              assign h1 = section.settings.empty_heading | replace: '[terms]', terms
+            endif
+          endif
+        -%}
+        <h1>{{ h1 }}</h1>
+        {%- if section.settings.standfirst != blank and search.performed == false -%}
+          <p>{{ section.settings.standfirst }}</p>
+        {%- endif -%}
+      </div>
+
+      <form class="pl-search reveal" action="{{ routes.search_url }}" method="get" role="search" style="--i:1">
+        <label class="pl-vh" for="plSearchInput">{{ section.settings.field_label }}</label>
+        <input type="search" name="q" id="plSearchInput" value="{{ terms | escape }}"
+               placeholder="{{ section.settings.placeholder | escape }}" autocomplete="off">
+        <input type="hidden" name="options[prefix]" value="last">
+        <button class="btn" type="submit">
+          {{ section.settings.button_text }}{% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 18 %}
+        </button>
+      </form>
+
+      {%- if search.performed -%}
+        {%- if search.results_count > 0 -%}
+          <div class="ctoolbar" style="margin-top:2rem">
+            <span class="ctoolbar__count">
+              {{ search.results_count }}
+              {%- if search.results_count == 1 %} result{% else %} results{% endif -%}
+              {%- if terms != blank %} for &ldquo;{{ terms }}&rdquo;{% endif -%}
+            </span>
+          </div>
+
+          {%- paginate search.results by per -%}
+            <div class="cgrid">
+              {%- for item in search.results -%}
+                {%- liquid
+                  assign lazy = true
+                  if forloop.index <= 4
+                    assign lazy = false
+                  endif
+                  assign stagger = forloop.index0 | modulo: 4 | plus: 1
+                -%}
+                {%- case item.object_type -%}
+                  {%- when 'product' -%}
+                    {% render 'pl-product-card',
+                         product: item, index: stagger, heading: 'h2',
+                         show_desc: true, facets: false, lazy: lazy %}
+                  {%- else -%}
+                    {%- comment -%}
+                      Pages and articles come back from the same search. They get a
+                      text card rather than being dropped, because someone looking
+                      for "returns" wants the policy, not a bed.
+                    {%- endcomment -%}
+                    <a class="pl-card pl-card--text reveal" style="--i:{{ stagger }}" href="{{ item.url }}">
+                      <div class="pl-card__body">
+                        <span class="pl-card__role pl-card__role--inline">
+                          {%- if item.object_type == 'article' -%}Guide{%- else -%}Page{%- endif -%}
+                        </span>
+                        <h2 class="pl-card__name">{{ item.title }}</h2>
+                        {%- assign snippet = item.content | default: item.excerpt | strip_html | truncate: 140 -%}
+                        {%- if snippet != blank -%}<p class="pl-card__desc">{{ snippet }}</p>{%- endif -%}
+                        <div class="pl-card__foot">
+                          <span class="pl-card__buy">Read {% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 14 %}</span>
+                        </div>
+                      </div>
+                    </a>
+                {%- endcase -%}
+              {%- endfor -%}
+            </div>
+
+            {%- if paginate.pages > 1 -%}
+              <nav class="pager" aria-label="Pagination">
+                {%- if paginate.previous -%}<a href="{{ paginate.previous.url }}" rel="prev">Previous</a>{%- endif -%}
+                {%- for part in paginate.parts -%}
+                  {%- if part.is_link -%}
+                    <a href="{{ part.url }}">{{ part.title }}</a>
+                  {%- else -%}
+                    <span {% if part.title == paginate.current_page %}aria-current="page"{% endif %}>{{ part.title }}</span>
+                  {%- endif -%}
+                {%- endfor -%}
+                {%- if paginate.next -%}<a href="{{ paginate.next.url }}" rel="next">Next</a>{%- endif -%}
+              </nav>
+            {%- endif -%}
+          {%- endpaginate -%}
+        {%- else -%}
+          <div class="cgrid__none reveal" style="--i:1;margin-top:2rem">
+            <p>{{ section.settings.empty_text }}</p>
+          </div>
+        {%- endif -%}
+      {%- endif -%}
+
+      {%- comment -%}
+        The suggestion links show on the empty search page and on a no-results
+        page alike. A dead end is the one place on the site where somebody has
+        told you exactly what they wanted and found nothing, so it should be
+        the most helpful screen, not the emptiest.
+      {%- endcomment -%}
+      {%- if search.performed == false or search.results_count == 0 -%}
+        {%- if section.blocks.size > 0 -%}
+          <div class="pl-suggest reveal" style="--i:2">
+            <h2 class="pl-suggest__title">{{ section.settings.suggest_title }}</h2>
+            <ul class="pl-suggest__list">
+              {%- for block in section.blocks -%}
+                <li {{ block.shopify_attributes }}>
+                  <a href="{{ block.settings.link | default: '/' }}">
+                    {{ block.settings.label }}{% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 14 %}
+                  </a>
+                </li>
+              {%- endfor -%}
+            </ul>
+          </div>
+        {%- endif -%}
+      {%- endif -%}
+    </div>
+  </section>
+</div>
+{% schema %}
+{
+  "name": "PL – Search",
+  "tag": "section",
+  "settings": [
+    { "type": "checkbox", "id": "show_breadcrumbs", "label": "Show breadcrumbs", "default": true },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Search" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "What are you looking for?" },
+    { "type": "text", "id": "results_heading", "label": "Results heading",
+      "info": "Use [terms] where the search words should appear.",
+      "default": "Results for [terms]" },
+    { "type": "textarea", "id": "standfirst", "label": "Standfirst",
+      "default": "Search by breed, by size, or by the thing your dog actually does. Sprawler, burrower, curler." },
+    { "type": "header", "content": "The search field" },
+    { "type": "text", "id": "field_label", "label": "Field label", "default": "Search the site" },
+    { "type": "text", "id": "placeholder", "label": "Placeholder", "default": "Try memory foam, or large breed" },
+    { "type": "text", "id": "button_text", "label": "Button", "default": "Search" },
+    { "type": "range", "id": "per_page", "label": "Results per page", "min": 8, "max": 48, "step": 4, "default": 24 },
+    { "type": "header", "content": "When nothing matches" },
+    { "type": "text", "id": "empty_heading", "label": "Empty heading",
+      "info": "Use [terms] where the search words should appear.",
+      "default": "Nothing matched [terms]." },
+    { "type": "textarea", "id": "empty_text", "label": "Empty text",
+      "default": "Try a shorter word, or start from one of these instead." },
+    { "type": "text", "id": "suggest_title", "label": "Suggestions title", "default": "Most people start here" }
+  ],
+  "blocks": [
+    { "type": "link", "name": "Suggested link", "settings": [
+      { "type": "text", "id": "label", "label": "Label" },
+      { "type": "url", "id": "link", "label": "Link" } ] }
+  ],
+  "presets": [{ "name": "PL – Search" }]
+}
+{% endschema %}
