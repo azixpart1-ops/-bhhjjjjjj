@@ -139,6 +139,11 @@
     root.__plBound = true;
 
     var cards  = Array.prototype.slice.call(grid.querySelectorAll('.pl-card'));
+    // The "not sure which one?" tile sits at a fixed position in the grid. Once
+    // somebody is actively narrowing they have stopped being unsure, and a tile
+    // pinned to slot five looks stranded next to two results, so it steps out
+    // while any filter is on and comes back when they clear.
+    var promo  = grid.querySelector('.promo');
     var toggle = document.getElementById('plFiltersToggle');
     var badge  = document.getElementById('plFilterCount');
     var results= document.getElementById('plFilterResults');
@@ -210,6 +215,7 @@
       });
 
       var n = active.fit.length + active.need.length + active.price.length;
+      if (promo) promo.hidden = n > 0;
       if (badge) { badge.textContent = String(n); badge.hidden = n === 0; }
       if (clear) clear.hidden = n === 0;
       if (results) results.textContent = n === 0 ? '' : shown + (shown === 1 ? ' bed' : ' beds') + ' match';

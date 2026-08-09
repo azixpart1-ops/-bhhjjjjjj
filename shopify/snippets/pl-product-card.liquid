@@ -1,0 +1,119 @@
+{%- comment -%}
+  The product card. One implementation, used by the collection grid, the
+  homepage lineup, related products and search, so a fix to the card is a fix
+  everywhere rather than three near-identical blocks drifting apart.
+
+  Required
+    product   a product object
+
+  Optional
+    index     1-based position, drives the reveal stagger (--i)
+    heading   'h2' or 'h3'. Defaults to h3; the collection grid passes h2.
+    role      overrides the corner badge. Otherwise: sold out, then saving,
+              then the product type if show_type is on.
+    show_type show the product type as the badge when there is nothing else
+    desc      overrides the description line
+    show_desc show the size / option line. Off unless asked for.
+    stars     a rating out of 5. Draws the star row when set.
+    facets    emit the data-* attributes the collection filters read
+    lazy      lazy-load the image. Pass false for the first screenful.
+    attrs     block.shopify_attributes, for theme editor selection
+{%- endcomment -%}
+{%- liquid
+  assign p = product
+  assign lvl = heading | default: 'h3'
+  assign is_lazy = true
+  if lazy == false
+    assign is_lazy = false
+  endif
+
+  comment
+    Coerce the optional arguments to strings up front. An argument the caller
+    left off is nil, and "nil != blank" is the kind of comparison that quietly
+    means different things in different Liquid implementations, so nothing
+    below is allowed to depend on it.
+  endcomment
+  assign badge = role | default: '' | strip
+  assign star = stars | default: '' | strip
+  assign body_desc = desc | default: '' | strip
+
+  comment
+    The size option is the one customers scan a card for. Finding it by name
+    rather than taking whichever option happens to be first keeps a
+    colour-first bed from advertising "green - gray - bronze" as its sizes.
+  endcomment
+  assign sizes = ''
+  assign size_label = ''
+  for opt in p.options_with_values
+    assign nm = opt.name | downcase
+    if nm contains 'size'
+      assign sizes = opt.values | join: ',' | downcase
+      assign size_label = opt.values | join: ' · '
+    endif
+  endfor
+
+  assign band = 'under-75'
+  if p.price_min >= 7500 and p.price_min < 12500
+    assign band = '75-125'
+  elsif p.price_min >= 12500
+    assign band = 'over-125'
+  endif
+-%}
+<a class="pl-card reveal"{% if index %} style="--i:{{ index }}"{% endif %} href="{{ p.url }}"
+   {%- if facets %} data-price-band="{{ band }}"
+   data-sizes="{{ sizes | escape }}"
+   data-type="{{ p.type | downcase | escape }}"
+   data-tags="{{ p.tags | join: ',' | downcase | escape }}"
+   data-available="{{ p.available }}"{% endif %} {{ attrs }}>
+  <div class="pl-card__media">
+    {%- if p.featured_image -%}
+      <img src="{{ p.featured_image | image_url: width: 560 }}"
+           srcset="{{ p.featured_image | image_url: width: 400 }} 400w, {{ p.featured_image | image_url: width: 760 }} 760w"
+           sizes="(min-width: 1100px) 25vw, (min-width: 760px) 33vw, 45vw"
+           alt="{{ p.featured_image.alt | escape | default: p.title | escape }}"
+           width="560" height="560"
+           {% if is_lazy %}loading="lazy"{% endif %} decoding="async">
+    {%- endif -%}
+    {%- liquid
+      if badge == ''
+        unless p.available
+          assign badge = 'Sold out'
+        else
+          if p.compare_at_price_min > p.price_min
+            assign saving = p.compare_at_price_min | minus: p.price_min | money
+            assign badge = 'Save ' | append: saving
+          elsif show_type and p.type != blank
+            assign badge = p.type
+          endif
+        endunless
+      endif
+    -%}
+    {%- unless badge == '' -%}<span class="pl-card__role">{{ badge }}</span>{%- endunless -%}
+  </div>
+  <div class="pl-card__body">
+    {%- unless star == '' -%}
+      <span class="pl-stars" aria-label="Rated {{ star }} out of 5">
+        {% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}
+      </span>
+    {%- endunless -%}
+    <{{ lvl }} class="pl-card__name">{{ title | default: p.title }}</{{ lvl }}>
+    {%- unless body_desc == '' -%}
+      <p class="pl-card__desc">{{ body_desc }}</p>
+    {%- endunless -%}
+    {%- if body_desc == '' and show_desc -%}
+      {%- if size_label != blank -%}
+        <p class="pl-card__desc"><span class="pl-card__key">Sizes</span> {{ size_label }}</p>
+      {%- elsif p.has_only_default_variant -%}
+        <p class="pl-card__desc"><span class="pl-card__key">One size</span></p>
+      {%- else -%}
+        <p class="pl-card__desc"><span class="pl-card__key">{{ p.options_with_values.first.name }}</span> {{ p.options_with_values.first.values | join: ' · ' }}</p>
+      {%- endif -%}
+    {%- endif -%}
+    <div class="pl-card__foot">
+      <span class="pl-card__price">
+        {%- if p.price_varies -%}<small>From</small> {% endif %}{{ p.price_min | money }}
+      </span>
+      <span class="pl-card__buy">View {% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 14 %}</span>
+    </div>
+  </div>
+</a>

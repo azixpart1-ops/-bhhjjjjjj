@@ -136,72 +136,20 @@
               </div>
             {%- endif -%}
             {%- liquid
-              assign sizes = ''
-              assign size_label = ''
-              for opt in item.options_with_values
-                assign nm = opt.name | downcase
-                if nm contains 'size'
-                  assign sizes = opt.values | join: ','  | downcase
-                  comment
-                    Keep the original casing for display. The card used to print
-                    options_with_values.first, which on a bed whose first option
-                    is Colour showed "green - gray - bronze" where the customer
-                    was looking for sizes.
-                  endcomment
-                  assign size_label = opt.values | join: ' · '
-                endif
-              endfor
-              assign band = 'under-75'
-              if item.price_min >= 7500 and item.price_min < 12500
-                assign band = '75-125'
-              elsif item.price_min >= 12500
-                assign band = 'over-125'
+              assign lazy = true
+              if forloop.index <= 4
+                assign lazy = false
               endif
+              assign stagger = forloop.index0 | modulo: 4 | plus: 1
             -%}
-            <a class="pl-card reveal" style="--i:{{ forloop.index0 | modulo: 4 | plus: 1 }}" href="{{ item.url }}"
-               data-price-band="{{ band }}"
-               data-sizes="{{ sizes | escape }}"
-               data-type="{{ item.type | downcase | escape }}"
-               data-tags="{{ item.tags | join: ',' | downcase | escape }}"
-               data-available="{{ item.available }}">
-              <div class="pl-card__media">
-                {%- if item.featured_image -%}
-                  <img src="{{ item.featured_image | image_url: width: 560 }}"
-                       srcset="{{ item.featured_image | image_url: width: 400 }} 400w, {{ item.featured_image | image_url: width: 760 }} 760w"
-                       sizes="(min-width: 1100px) 25vw, (min-width: 760px) 33vw, 45vw"
-                       alt="{{ item.featured_image.alt | escape | default: item.title | escape }}"
-                       width="560" height="560"
-                       {% if forloop.index > 4 %}loading="lazy"{% endif %} decoding="async">
-                {%- endif -%}
-                {%- unless item.available -%}
-                  <span class="pl-card__role">Sold out</span>
-                {%- else -%}
-                  {%- if item.compare_at_price_min > item.price_min -%}
-                    <span class="pl-card__role">Save {{ item.compare_at_price_min | minus: item.price_min | money }}</span>
-                  {%- elsif item.type != blank and section.settings.show_type -%}
-                    <span class="pl-card__role">{{ item.type }}</span>
-                  {%- endif -%}
-                {%- endunless -%}
-              </div>
-              <div class="pl-card__body">
-                <h2 class="pl-card__name">{{ item.title }}</h2>
-                {%- unless item.has_only_default_variant -%}
-                  {%- if size_label != blank -%}
-                    <p class="pl-card__desc"><span class="pl-card__key">Sizes</span> {{ size_label }}</p>
-                  {%- elsif item.has_only_default_variant == false -%}
-                    <p class="pl-card__desc"><span class="pl-card__key">{{ item.options_with_values.first.name }}</span> {{ item.options_with_values.first.values | join: ' · ' }}</p>
-                  {%- else -%}
-                    <p class="pl-card__desc"><span class="pl-card__key">One size</span></p>
-                  {%- endif -%}
-                {%- endunless -%}
-                <div class="pl-card__foot">
-                  <span class="pl-card__price">
-                    {%- if item.price_varies -%}<small>From</small> {% endif %}{{ item.price_min | money }}
-                  </span>
-                  <span class="pl-card__buy">View {% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 14 %}</span>
-                </div>
-              </div>
-            </a>
+            {% render 'pl-product-card',
+                 product: item,
+                 index: stagger,
+                 heading: 'h2',
+                 show_desc: true,
+                 show_type: section.settings.show_type,
+                 facets: true,
+                 lazy: lazy %}
           {%- endfor -%}
         </div>
 
@@ -255,7 +203,8 @@
       "info": "Filters run in the browser across the products on this page, so nothing reloads." },
     { "type": "checkbox", "id": "show_sort", "label": "Show sort dropdown", "default": true },
     { "type": "checkbox", "id": "show_type", "label": "Show product type on cards", "default": false },
-    { "type": "range", "id": "per_page", "label": "Products per page", "min": 8, "max": 48, "step": 4, "default": 24 },
+    { "type": "range", "id": "per_page", "label": "Products per page", "min": 8, "max": 48, "step": 4, "default": 24,
+      "info": "The filters narrow the products already on the page, so keep this at or above the size of your largest collection." },
     { "type": "checkbox", "id": "show_full_description", "label": "Show the full collection description below the grid", "default": true,
       "info": "Good for SEO copy that would otherwise push the products down the page." },
     { "type": "header", "content": "In-grid promo" },
