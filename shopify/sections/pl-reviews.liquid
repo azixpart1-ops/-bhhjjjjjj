@@ -1,4 +1,22 @@
 {% render 'pl-assets' %}
+{%- liquid
+  comment
+    Count first. With no matching reviews the section would otherwise render a
+    heading and an aggregate score above an empty grid, which is worse than
+    showing nothing at all.
+  endcomment
+  assign matches = 0
+  for block in section.blocks
+    if section.settings.scope == 'product'
+      if block.settings.product != blank and block.settings.product.id == product.id
+        assign matches = matches | plus: 1
+      endif
+    else
+      assign matches = matches | plus: 1
+    endif
+  endfor
+-%}
+{%- if matches > 0 -%}
 <div class="pl">
   <section class="pl-section">
     <div class="wrap">
@@ -16,7 +34,22 @@
         </div>
       </div>
       <div class="reviews">
+        {%- comment -%}
+          Product scoping. On a PDP the section is set to "this product only",
+          and a review renders only if its block names this product. A review
+          about the Harrogate was appearing on every product page, which is the
+          kind of detail a customer notices and stops trusting you over.
+
+          There are currently no per-product reviews in the catalogue, so on a
+          PDP this loop renders nothing rather than borrowing the site-wide
+          ones. It starts working the day real ones are attached.
+        {%- endcomment -%}
         {%- for block in section.blocks -%}
+          {%- if section.settings.scope == 'product' -%}
+            {%- unless block.settings.product != blank and block.settings.product.id == product.id -%}
+              {%- continue -%}
+            {%- endunless -%}
+          {%- endif -%}
           <blockquote class="review reveal" style="--i:{{ forloop.index }}" {{ block.shopify_attributes }}>
             <span class="pl-stars" aria-label="{{ block.settings.stars }} out of 5">
               {% for i in (1..block.settings.stars) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}
@@ -34,6 +67,7 @@
     </div>
   </section>
 </div>
+{%- endif -%}
 {% schema %}
 {
   "name": "PL – Reviews",
@@ -41,12 +75,18 @@
   "settings": [
     { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "What owners tell us" },
     { "type": "textarea", "id": "heading", "label": "Heading", "default": "3,900 dogs have already moved in." },
+    { "type": "select", "id": "scope", "label": "Which reviews to show", "default": "all",
+      "options": [ { "value": "all", "label": "All reviews (site-wide)" },
+                   { "value": "product", "label": "Only reviews about this product" } ],
+      "info": "Set to product on the product template. Never mix the two." },
     { "type": "text", "id": "score", "label": "Score out of 5", "default": "4.8" },
     { "type": "html", "id": "score_meta", "label": "Score caption", "default": "Based on 3,900+<br>verified reviews" }
   ],
   "blocks": [
     { "type": "review", "name": "Review", "settings": [
       { "type": "textarea", "id": "quote", "label": "Review" },
+      { "type": "product", "id": "product", "label": "Which product is this review about?",
+        "info": "Required when the section is scoped to a single product." },
       { "type": "text", "id": "name", "label": "Name" },
       { "type": "range", "id": "stars", "label": "Stars", "min": 1, "max": 5, "step": 1, "default": 5 },
       { "type": "checkbox", "id": "verified", "label": "Show \"Verified\"", "default": true } ] }

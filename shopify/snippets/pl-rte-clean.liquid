@@ -1,0 +1,34 @@
+{%- comment -%}
+  Strips the internal copywriting scaffolding out of a product description at
+  render time.
+
+  The descriptions are written to a house framework whose headings ended up
+  live on the page as all-caps H2s: THE MOMENT, THE PROMISE, FEATURE TO
+  BENEFIT, THE CLOSE. Those are notes to the writer, not to the customer.
+
+  This removes them and leaves the prose to flow, then relabels the genuine
+  content headings into sentence case and demotes them to H3 so the page keeps
+  one H1 and a clean outline.
+
+  Doing it here rather than by editing the descriptions means the product copy
+  is never touched, every new product is handled automatically, and the whole
+  thing is reversible in one commit.
+
+  Usage: {% render 'pl-rte-clean', html: product.description %}
+         {% render 'pl-rte-clean', html: product.description, drop: 'the moment,the close' %}
+{%- endcomment -%}
+{%- liquid
+  assign drops = drop | default: 'the moment,the promise,the close,feature to benefit' | downcase | split: ','
+  assign chunks = html | split: '<h2>'
+-%}
+{{ chunks[0] }}
+{%- for chunk in chunks offset: 1 -%}
+  {%- liquid
+    assign pair = chunk | split: '</h2>'
+    assign head = pair[0]
+    assign key = head | strip_html | downcase | strip
+    assign body = chunk | remove_first: head | remove_first: '</h2>'
+  -%}
+  {%- unless drops contains key -%}<h3>{{ key | capitalize }}</h3>{%- endunless -%}
+  {{ body }}
+{%- endfor -%}

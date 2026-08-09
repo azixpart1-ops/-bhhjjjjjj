@@ -25,15 +25,42 @@
 <div class="pl">
   <section class="wrap">
     {%- if section.settings.show_breadcrumbs -%}
+      {%- comment -%}
+        The middle crumb used to read the product type but link to
+        /collections/all, so it never matched the path it claimed. Fall back to
+        the product's own first real collection instead, and only render a link
+        when there is somewhere true to send them.
+      {%- endcomment -%}
+      {%- liquid
+        assign crumb = collection
+        unless crumb
+          for c in p.collections
+            if crumb == blank and c.handle != 'all' and c.handle != 'frontpage'
+              assign crumb = c
+            endif
+          endfor
+        endunless
+      -%}
       <nav class="crumbs" aria-label="Breadcrumb">
         <a href="{{ routes.root_url }}">Home</a> <span>/</span>
-        {%- if collection -%}
-          <a href="{{ collection.url }}">{{ collection.title }}</a> <span>/</span>
-        {%- elsif p.type != blank -%}
-          <a href="{{ routes.all_products_collection_url }}">{{ p.type }}</a> <span>/</span>
+        {%- if crumb -%}
+          <a href="{{ crumb.url }}">{{ crumb.title | split: '|' | first | strip }}</a> <span>/</span>
         {%- endif -%}
-        <span aria-current="page">{{ p.title | truncate: 45 }}</span>
+        <span aria-current="page">{{ p.title | split: '|' | first | strip | truncate: 45 }}</span>
       </nav>
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": {{ shop.url | json }} }
+            {%- if crumb -%},
+            { "@type": "ListItem", "position": 2, "name": {{ crumb.title | split: '|' | first | strip | json }}, "item": {{ shop.url | append: crumb.url | json }} }
+            {%- endif -%},
+            { "@type": "ListItem", "position": {% if crumb %}3{% else %}2{% endif %}, "name": {{ p.title | split: '|' | first | strip | json }} }
+          ]
+        }
+      </script>
     {%- endif -%}
 
     <div class="pdp">
@@ -123,7 +150,11 @@
                 <div class="opt-group" data-option-index="{{ forloop.index0 }}">
                   <div class="opt-group__head">
                     <span class="opt-group__name">
-                      {{ opt.name }}<b data-selected-for="{{ forloop.index0 }}">{{ opt.selected_value }}</b>
+                      {%- comment -%}
+                        The catalogue names this option "Accessory size", which
+                        is supplier vocabulary, not the customer's.
+                      {%- endcomment -%}
+                      {{ opt.name | remove_first: 'Accessory ' | remove_first: 'accessory ' | capitalize }}<b data-selected-for="{{ forloop.index0 }}">{{ opt.selected_value }}</b>
                     </span>
                     {%- if is_size and section.settings.size_guide_url != blank -%}
                       <a class="opt-group__help" href="{{ section.settings.size_guide_url }}">{{ section.settings.size_guide_label }}</a>
