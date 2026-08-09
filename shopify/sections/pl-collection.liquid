@@ -137,10 +137,18 @@
             {%- endif -%}
             {%- liquid
               assign sizes = ''
+              assign size_label = ''
               for opt in item.options_with_values
                 assign nm = opt.name | downcase
                 if nm contains 'size'
                   assign sizes = opt.values | join: ','  | downcase
+                  comment
+                    Keep the original casing for display. The card used to print
+                    options_with_values.first, which on a bed whose first option
+                    is Colour showed "green - gray - bronze" where the customer
+                    was looking for sizes.
+                  endcomment
+                  assign size_label = opt.values | join: ' · '
                 endif
               endfor
               assign band = 'under-75'
@@ -178,7 +186,13 @@
               <div class="pl-card__body">
                 <h2 class="pl-card__name">{{ item.title }}</h2>
                 {%- unless item.has_only_default_variant -%}
-                  <p class="pl-card__desc">{{ item.options_with_values.first.values | join: ' · ' }}</p>
+                  {%- if size_label != blank -%}
+                    <p class="pl-card__desc"><span class="pl-card__key">Sizes</span> {{ size_label }}</p>
+                  {%- elsif item.has_only_default_variant == false -%}
+                    <p class="pl-card__desc"><span class="pl-card__key">{{ item.options_with_values.first.name }}</span> {{ item.options_with_values.first.values | join: ' · ' }}</p>
+                  {%- else -%}
+                    <p class="pl-card__desc"><span class="pl-card__key">One size</span></p>
+                  {%- endif -%}
                 {%- endunless -%}
                 <div class="pl-card__foot">
                   <span class="pl-card__price">
