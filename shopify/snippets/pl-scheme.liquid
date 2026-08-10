@@ -1,0 +1,163 @@
+{%- comment -%}
+  Per-section colour control.
+
+  Emits a style block scoped to one section that re-points the design tokens
+  for that section only. Because the sections are built on tokens rather than
+  hard-coded colours, moving the tokens moves headings, body text, rules,
+  eyebrows, buttons and cards together, instead of leaving half a section on
+  the old palette.
+
+  Text colour is measured, not guessed. Shopify's color_contrast filter gives
+  the real ratio, so the snippet picks whichever of the light or dark text
+  ramps actually reads on the ground the merchant chose, and says so in the
+  theme editor when even the better option falls under AA. A colour picker
+  that lets somebody publish cream text on a cream ground is not a feature.
+
+  Required
+    id       section.id
+  Optional
+    scheme   one of: default, cream, oat, forest, gold, clay, custom
+    bg       ground colour, custom scheme only
+    accent   button and link colour, custom scheme only
+    tone     auto, dark or light. Auto measures. Default auto.
+{%- endcomment -%}
+{%- liquid
+  assign s = scheme | default: 'default'
+
+  case s
+    when 'cream'
+      assign ground = '#FAF6EF'
+      assign acc = '#2C4A3E'
+    when 'oat'
+      assign ground = '#F1E9DB'
+      assign acc = '#2C4A3E'
+    when 'forest'
+      assign ground = '#1A2B24'
+      assign acc = '#C9943A'
+    when 'gold'
+      assign ground = '#F5EAD6'
+      assign acc = '#805E20'
+    when 'clay'
+      assign ground = '#2C4A3E'
+      assign acc = '#C9943A'
+    when 'custom'
+      assign ground = bg
+      assign acc = accent | default: '#2C4A3E'
+  endcase
+-%}
+{%- if s != 'default' and ground != blank -%}
+  {%- liquid
+    comment
+      Measure both ramps against the ground and take the winner. The numbers
+      are the real ratio, so "light" is chosen because it reads, not because
+      the colour looked dark in the picker.
+    endcomment
+    assign dark_ink = '#17150F'
+    assign light_ink = '#FAF6EF'
+    assign c_dark = ground | color_contrast: dark_ink
+    assign c_light = ground | color_contrast: light_ink
+
+    assign auto_light = false
+    if c_light > c_dark
+      assign auto_light = true
+    endif
+    assign auto_best = c_dark
+    if auto_light
+      assign auto_best = c_light
+    endif
+
+    assign use_light = auto_light
+    if tone == 'dark'
+      assign use_light = false
+    elsif tone == 'light'
+      assign use_light = true
+    endif
+
+    assign best = c_dark
+    if use_light
+      assign best = c_light
+    endif
+
+    comment
+      A forced tone is respected right up to the point where it stops being a
+      choice and becomes a mistake. Light text on a cream ground measures
+      1:1, which is not a look, it is an invisible section. Below AA, and only
+      when the measured option is genuinely better, the readable one wins and
+      the editor explains why. Anything merely close to the line is left alone.
+    endcomment
+    assign overridden = false
+    if best < 4.5 and auto_best > best
+      assign use_light = auto_light
+      assign best = auto_best
+      assign overridden = true
+    endif
+
+    comment
+      Same test for the button: the label takes whichever of cream or near
+      black reads on the accent the merchant picked.
+    endcomment
+    assign ac_dark = acc | color_contrast: dark_ink
+    assign ac_light = acc | color_contrast: light_ink
+    assign on_acc = dark_ink
+    if ac_light > ac_dark
+      assign on_acc = light_ink
+    endif
+
+    if use_light
+      assign ink = '#FAF6EF'
+      assign ink2 = '#D8E2DC'
+      assign ink3 = '#A9BBB1'
+    else
+      assign ink = '#17150F'
+      assign ink2 = '#453D2F'
+      assign ink3 = '#5E5442'
+    endif
+
+    comment
+      Surfaces and rules are mixed from the ground itself rather than being
+      translucent overlays, so they stay solid wherever they land and keep
+      their relationship to the background whatever it is set to.
+    endcomment
+    assign surface = ground | color_mix: ink, 95
+    assign rule = ground | color_mix: ink, 82
+  -%}
+  <style>
+    /* The id beats both the base tokens on .pl.pl and the cooling colourway
+       on .pl.pl.pl, so an explicit choice in the editor always wins. */
+    #shopify-section-{{ id }} .pl.pl {
+      --bone: {{ ground }};
+      --oat: {{ surface }};
+      --sand: {{ rule }};
+      --ink: {{ ink }};
+      --ink-2: {{ ink2 }};
+      --ink-3: {{ ink3 }};
+      --clay: {{ acc }};
+      --clay-dk: {{ acc }};
+      --clay-onDark: {{ acc }};
+      --on-dark-lede: {{ ink2 }};
+      --on-dark-body: {{ ink3 }};
+    }
+    #shopify-section-{{ id }} .pl .pl-section,
+    #shopify-section-{{ id }} .pl .pl-section--oat,
+    #shopify-section-{{ id }} .pl .pl-section--dark { background: {{ ground }}; }
+    /* The solid button re-declares its own label colour, so it needs saying
+       here. Ghost and on-dark variants already track --ink and --sand, which
+       moved with the tokens above, so they are left alone. */
+    #shopify-section-{{ id }} .pl .btn:not(.btn--ghost):not(.btn--onDark) { --btn-fg: {{ on_acc }}; }
+    #shopify-section-{{ id }} .pl .eyebrow { color: {{ ink3 }}; }
+  </style>
+  {%- if request.design_mode -%}
+    {%- if overridden -%}
+      <p style="margin:0;padding:.6rem 1rem;background:#7A1F1F;color:#fff;font:14px/1.4 system-ui">
+        Colour check: {{ tone }} text on this background measures under 4.5:1, so the
+        readable option is being used instead. Change the background if you want
+        {{ tone }} text here.
+      </p>
+    {%- elsif best < 4.5 -%}
+      <p style="margin:0;padding:.6rem 1rem;background:#7A1F1F;color:#fff;font:14px/1.4 system-ui">
+        Colour check: the best available text colour reaches only {{ best }}:1 on this
+        background. AA needs 4.5:1 for body text. Pick a lighter or darker background.
+      </p>
+    {%- endif -%}
+  {%- endif -%}
+{%- endif -%}

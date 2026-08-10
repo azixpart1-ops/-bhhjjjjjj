@@ -1,4 +1,5 @@
 {% render 'pl-assets' %}
+{% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
 {%- comment -%}
   Product buy block. Deliberately generic: works for 1–12 variants, 1–3 option
   sets, any number of images, and sold-out products. Nothing here is specific
@@ -191,6 +192,19 @@
 
           <p class="buy__stock" id="plStock" hidden></p>
 
+          {%- if section.settings.show_cutoff -%}
+            {%- comment -%}
+              Real urgency, not manufactured urgency. This is the workshop's
+              actual dispatch cut-off, counted in UK time, and it says nothing
+              at all once the cut-off has passed or at a weekend rather than
+              inventing a deadline. Empty until the script fills it, so it can
+              never show a stale time.
+            {%- endcomment -%}
+            <p class="buy__cutoff" id="plCutoff" hidden
+               data-hour="{{ section.settings.cutoff_hour }}"
+               data-text="{{ section.settings.cutoff_text | escape }}"></p>
+          {%- endif -%}
+
           <p class="atc-msg" id="plMsg" role="status" aria-live="polite"></p>
 
           <button class="btn btn--lg atc" type="submit" id="plAtc" {% unless v.available %}disabled{% endunless %}>
@@ -198,9 +212,36 @@
           </button>
 
           {%- if section.settings.show_dynamic_checkout -%}
+            {%- comment -%}
+              The buy-now button. Shopify renders whichever accelerated methods
+              the shop actually has switched on, so it stays truthful on its
+              own: turn Klarna on in payments and it appears here, turn it off
+              and it goes. payment_terms is the instalment line that belongs
+              with it, and prints nothing where instalments are unavailable.
+            {%- endcomment -%}
             {{ form | payment_button }}
+            {{ form | payment_terms }}
           {%- endif -%}
         </form>
+
+        {%- if section.settings.show_pay_methods -%}
+          {%- comment -%}
+            Drawn from shop.enabled_payment_types, so the row can only ever
+            show methods the customer can genuinely pay with. A badge for a
+            method the shop does not accept is a promise broken at checkout,
+            which is the worst possible place to break one.
+          {%- endcomment -%}
+          <div class="buy__pay">
+            {%- if section.settings.pay_label != blank -%}
+              <span class="buy__pay-label">{{ section.settings.pay_label }}</span>
+            {%- endif -%}
+            <span class="buy__pay-icons">
+              {%- for type in shop.enabled_payment_types -%}
+                {{ type | payment_type_svg_tag: class: 'buy__pay-icon' }}
+              {%- endfor -%}
+            </span>
+          </div>
+        {%- endif -%}
 
         <div class="buy__trust">
           {%- for block in section.blocks -%}
@@ -334,42 +375,305 @@
   "name": "PL – Product buy block",
   "tag": "section",
   "settings": [
-    { "type": "checkbox", "id": "show_breadcrumbs", "label": "Show breadcrumbs", "default": true },
-    { "type": "header", "content": "Rating" },
-    { "type": "checkbox", "id": "show_rating", "label": "Show rating line", "default": true },
-    { "type": "text", "id": "rating_text", "label": "Rating text",
+    {
+      "type": "checkbox",
+      "id": "show_breadcrumbs",
+      "label": "Show breadcrumbs",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Rating"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_rating",
+      "label": "Show rating line",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "rating_text",
+      "label": "Rating text",
       "info": "This is a store-wide rating, not a per-product one. Word it that way.",
-      "default": "4.8/5 across 3,900+ PawLunova owners" },
-    { "type": "header", "content": "Price" },
-    { "type": "text", "id": "price_note", "label": "Note under price", "default": "Free UK delivery on orders over £40." },
-    { "type": "header", "content": "Buttons" },
-    { "type": "text", "id": "atc_label", "label": "Add to cart label", "default": "Add to basket" },
-    { "type": "text", "id": "sold_out_label", "label": "Sold out label", "default": "Sold out" },
-    { "type": "text", "id": "unavailable_label", "label": "Unavailable combination label", "default": "Unavailable" },
-    { "type": "checkbox", "id": "show_dynamic_checkout", "label": "Show Shop Pay / express checkout", "default": true },
-    { "type": "checkbox", "id": "show_buybar", "label": "Show sticky buy bar", "default": true },
-    { "type": "header", "content": "Stock" },
-    { "type": "range", "id": "low_stock_threshold", "label": "Show \"only N left\" at or below", "min": 0, "max": 10, "step": 1, "default": 3,
-      "info": "Set to 0 to never show a low-stock message. Numbers come from live inventory." },
-    { "type": "header", "content": "Size guide" },
-    { "type": "checkbox", "id": "show_size_helper", "label": "Show the size helper panel", "default": true },
-    { "type": "text", "id": "size_helper_title", "label": "Size helper title", "default": "Not sure which size?" },
-    { "type": "richtext", "id": "size_helper_body", "label": "Size helper body", "default": "<p>Measure your dog nose to base of tail while they are lying down, then add 15–20cm. If they are between two sizes, size up – dogs that sprawl need the length more than you would think.</p><p>Get it wrong and the 100-night trial covers it: we collect it free and send the right one.</p>" },
-    { "type": "url", "id": "size_guide_url", "label": "Size guide link" },
-    { "type": "text", "id": "size_guide_label", "label": "Size guide label", "default": "Which size?" }
+      "default": "4.8/5 across 3,900+ PawLunova owners"
+    },
+    {
+      "type": "header",
+      "content": "Price"
+    },
+    {
+      "type": "text",
+      "id": "price_note",
+      "label": "Note under price",
+      "default": "Free UK delivery on orders over £40."
+    },
+    {
+      "type": "header",
+      "content": "Buttons"
+    },
+    {
+      "type": "text",
+      "id": "atc_label",
+      "label": "Add to cart label",
+      "default": "Add to basket"
+    },
+    {
+      "type": "text",
+      "id": "sold_out_label",
+      "label": "Sold out label",
+      "default": "Sold out"
+    },
+    {
+      "type": "text",
+      "id": "unavailable_label",
+      "label": "Unavailable combination label",
+      "default": "Unavailable"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_dynamic_checkout",
+      "label": "Show Shop Pay / express checkout",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_buybar",
+      "label": "Show sticky buy bar",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Stock"
+    },
+    {
+      "type": "range",
+      "id": "low_stock_threshold",
+      "label": "Show \"only N left\" at or below",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "default": 3,
+      "info": "Set to 0 to never show a low-stock message. Numbers come from live inventory."
+    },
+    {
+      "type": "header",
+      "content": "Size guide"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_size_helper",
+      "label": "Show the size helper panel",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "size_helper_title",
+      "label": "Size helper title",
+      "default": "Not sure which size?"
+    },
+    {
+      "type": "richtext",
+      "id": "size_helper_body",
+      "label": "Size helper body",
+      "default": "<p>Measure your dog nose to base of tail while they are lying down, then add 15–20cm. If they are between two sizes, size up – dogs that sprawl need the length more than you would think.</p><p>Get it wrong and the 100-night trial covers it: we collect it free and send the right one.</p>"
+    },
+    {
+      "type": "url",
+      "id": "size_guide_url",
+      "label": "Size guide link"
+    },
+    {
+      "type": "text",
+      "id": "size_guide_label",
+      "label": "Size guide label",
+      "default": "Which size?"
+    },
+    {
+      "type": "header",
+      "content": "Payment and dispatch"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_pay_methods",
+      "label": "Show accepted payment methods",
+      "default": true,
+      "info": "Lists only the methods your shop actually accepts. Add Klarna in Settings > Payments and it appears here automatically."
+    },
+    {
+      "type": "text",
+      "id": "pay_label",
+      "label": "Payment row label",
+      "default": "Pay with"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_cutoff",
+      "label": "Show the dispatch cut-off countdown",
+      "default": true,
+      "info": "Counts down to your real cut-off in UK time. Says nothing once it has passed, or at a weekend."
+    },
+    {
+      "type": "range",
+      "id": "cutoff_hour",
+      "label": "Cut-off hour, UK time, 24h",
+      "min": 8,
+      "max": 20,
+      "step": 1,
+      "default": 15
+    },
+    {
+      "type": "text",
+      "id": "cutoff_text",
+      "label": "Cut-off wording",
+      "info": "[time] is replaced by the time remaining.",
+      "default": "Order within [time] and it leaves our Yorkshire workshop today"
+    },
+    {
+      "type": "header",
+      "content": "Colour"
+    },
+    {
+      "type": "paragraph",
+      "content": "Text colour is chosen by measuring contrast against the background you pick, so a section cannot end up unreadable. The editor warns you if a background leaves no readable option."
+    },
+    {
+      "type": "select",
+      "id": "scheme",
+      "label": "Colour scheme",
+      "default": "default",
+      "options": [
+        {
+          "value": "default",
+          "label": "Theme default"
+        },
+        {
+          "value": "cream",
+          "label": "Cream, calm"
+        },
+        {
+          "value": "oat",
+          "label": "Oat, warm neutral"
+        },
+        {
+          "value": "gold",
+          "label": "Gold, warmth"
+        },
+        {
+          "value": "forest",
+          "label": "Forest, authority"
+        },
+        {
+          "value": "clay",
+          "label": "Deep green, focus"
+        },
+        {
+          "value": "custom",
+          "label": "Custom"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "bg",
+      "label": "Background",
+      "info": "Custom scheme only."
+    },
+    {
+      "type": "color",
+      "id": "accent",
+      "label": "Buttons and links",
+      "info": "Custom scheme only."
+    },
+    {
+      "type": "select",
+      "id": "tone",
+      "label": "Text colour",
+      "default": "auto",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Automatic, recommended"
+        },
+        {
+          "value": "dark",
+          "label": "Dark"
+        },
+        {
+          "value": "light",
+          "label": "Light"
+        }
+      ]
+    }
   ],
   "blocks": [
-    { "type": "trust", "name": "Trust line", "limit": 5, "settings": [
-      { "type": "select", "id": "icon", "label": "Icon", "default": "shield",
-        "options": [ {"value":"shield","label":"Shield"}, {"value":"medal","label":"Medal"},
-                     {"value":"truck","label":"Delivery"}, {"value":"pin","label":"Location"},
-                     {"value":"leaf","label":"Leaf"}, {"value":"drop","label":"Waterproof"} ] },
-      { "type": "text", "id": "title", "label": "Title" },
-      { "type": "text", "id": "text", "label": "Text" } ] },
-    { "type": "benefit", "name": "Fallback benefit", "limit": 5,
-      "settings": [ { "type": "text", "id": "text", "label": "Benefit",
-        "info": "Only shown when the product has no vitals.top_benefit metafields of its own." } ] }
+    {
+      "type": "trust",
+      "name": "Trust line",
+      "limit": 5,
+      "settings": [
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "default": "shield",
+          "options": [
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "medal",
+              "label": "Medal"
+            },
+            {
+              "value": "truck",
+              "label": "Delivery"
+            },
+            {
+              "value": "pin",
+              "label": "Location"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "drop",
+              "label": "Waterproof"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text"
+        }
+      ]
+    },
+    {
+      "type": "benefit",
+      "name": "Fallback benefit",
+      "limit": 5,
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Benefit",
+          "info": "Only shown when the product has no vitals.top_benefit metafields of its own."
+        }
+      ]
+    }
   ],
-  "presets": [{ "name": "PL – Product buy block" }]
+  "presets": [
+    {
+      "name": "PL – Product buy block"
+    }
+  ]
 }
 {% endschema %}

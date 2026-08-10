@@ -289,10 +289,74 @@
     }
   }
 
+  /* ------------------------------------------------------------------------
+     Dispatch cut-off
+     Counts down to the workshop's real cut-off, in UK time regardless of where
+     the visitor is, because "order within 2 hours" has to mean the shop's two
+     hours or it is just a number. Renders nothing once the cut-off has passed,
+     or at a weekend, rather than inventing a deadline that would not be met.
+     ------------------------------------------------------------------------ */
+  function initCutoff() {
+    var el = document.getElementById('plCutoff');
+    if (!el) return;
+
+    var hour = parseInt(el.getAttribute('data-hour'), 10);
+    if (isNaN(hour)) return;
+    var template = el.getAttribute('data-text') || '';
+
+    function londonParts() {
+      // Read the clock in the shop's timezone, not the visitor's.
+      try {
+        var f = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Europe/London', weekday: 'short',
+          hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false
+        });
+        var out = {};
+        f.formatToParts(new Date()).forEach(function (p) { out[p.type] = p.value; });
+        return {
+          day: out.weekday,
+          h: parseInt(out.hour, 10) % 24,
+          m: parseInt(out.minute, 10),
+          s: parseInt(out.second, 10)
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function tick() {
+      var now = londonParts();
+      if (!now) { el.hidden = true; return; }
+      if (now.day === 'Sat' || now.day === 'Sun') { el.hidden = true; return; }
+
+      var left = (hour * 3600) - (now.h * 3600 + now.m * 60 + now.s);
+      if (left <= 0) { el.hidden = true; return; }
+
+      var h = Math.floor(left / 3600);
+      var m = Math.floor((left % 3600) / 60);
+      var txt;
+      if (h > 0) {
+        txt = h + (h === 1 ? ' hour ' : ' hours ') + m + (m === 1 ? ' minute' : ' minutes');
+      } else if (m > 0) {
+        txt = m + (m === 1 ? ' minute' : ' minutes');
+      } else {
+        // Under sixty seconds. "Order within 0 minutes" is not a sentence.
+        txt = 'the next minute';
+      }
+
+      el.textContent = template.replace('[time]', txt);
+      el.hidden = false;
+    }
+
+    tick();
+    setInterval(tick, 30000);
+  }
+
   function init() {
 
     initDrawer();
     initFilters();
+    initCutoff();
 
     /* ----------------------------------------------------------------------
        Scroll reveal
