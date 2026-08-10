@@ -1,0 +1,112 @@
+{%- comment -%}
+  Star rating for a product card or a product page.
+
+  Reads real review data off the product. It renders nothing at all when a
+  product has no reviews yet, rather than defaulting to five stars, because a
+  card that claims a rating the product has not earned is a claim the store
+  has to be able to stand behind.
+
+  Source, in order of preference:
+    1. reviews.rating / reviews.rating_count
+       The Shopify standard metafields. Judge.me, Okendo, Loox, Yotpo,
+       Stamped and Shopify's own reviews app all write here, so connecting an
+       app is enough to switch this on across the whole site.
+    2. custom.rating / custom.rating_count
+       For entering figures by hand from a source held off Shopify.
+    3. rating: / count: passed in directly.
+
+  The fill is fractional, not rounded: 4.3 draws 86% of the row, so the stars
+  and the number never disagree.
+
+  Required
+    product     a product object
+
+  Optional
+    rating      override, a number out of 5
+    count       override, number of reviews
+    min_count   hide the rating until it has at least this many reviews
+    show_count  print "4.6 (312)" beside the stars. Default true.
+    schema      emit AggregateRating JSON-LD. Only ever on a product page,
+                and only where the rating is real.
+    size        star width in px, default 15
+{%- endcomment -%}
+{%- liquid
+  assign p = product
+
+  comment
+    Everything is resolved as a number, never by testing a variable against
+    blank. An argument the caller left off is nil, and "nil != blank" is a
+    comparison Liquid implementations disagree about: read one way, an absent
+    override silently overwrites a real rating with zero.
+  endcomment
+  assign r = p.metafields.reviews.rating.value.rating | default: 0 | plus: 0.0
+  assign n = p.metafields.reviews.rating_count.value | default: 0 | plus: 0
+
+  if r <= 0
+    assign r = p.metafields.custom.rating.value | default: 0 | plus: 0.0
+    assign n = p.metafields.custom.rating_count.value | default: 0 | plus: 0
+  endif
+
+  assign r_over = rating | default: 0 | plus: 0.0
+  if r_over > 0
+    assign r = r_over
+  endif
+  assign n_over = count | default: 0 | plus: 0
+  if n_over > 0
+    assign n = n_over
+  endif
+
+  assign floor_n = min_count | default: 1 | plus: 0
+  assign show_n = true
+  if show_count == false
+    assign show_n = false
+  endif
+  assign px = size | default: 15
+
+  comment
+    Guard both ways. No rating means nothing to show. A rating carried by
+    fewer reviews than the threshold is real but too thin to lead with, so it
+    stays off the card until it has weight behind it.
+  endcomment
+  assign ok = true
+  if r <= 0 or n < floor_n
+    assign ok = false
+  endif
+
+  assign pct = r | times: 20.0
+  if pct > 100
+    assign pct = 100
+  endif
+  assign shown = r | round: 1
+-%}
+{%- if ok -%}
+  <span class="pl-rate" style="--star:{{ px }}px">
+    <span class="pl-rate__stars" style="--fill:{{ pct }}%"
+          role="img"
+          aria-label="Rated {{ shown }} out of 5 from {{ n }} {% if n == 1 %}review{% else %}reviews{% endif %}">
+      <span class="pl-rate__row pl-rate__row--track" aria-hidden="true">
+        {% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}
+      </span>
+      <span class="pl-rate__row pl-rate__row--fill" aria-hidden="true">
+        {% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}
+      </span>
+    </span>
+    {%- if show_n -%}
+      <span class="pl-rate__count" aria-hidden="true">{{ shown }} <span>({{ n }})</span></span>
+    {%- endif -%}
+  </span>
+
+  {%- if schema -%}
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "AggregateRating",
+        "ratingValue": {{ shown | json }},
+        "reviewCount": {{ n | json }},
+        "bestRating": 5,
+        "worstRating": 1,
+        "itemReviewed": { "@type": "Product", "name": {{ p.title | json }} }
+      }
+    </script>
+  {%- endif -%}
+{%- endif -%}
