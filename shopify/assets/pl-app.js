@@ -99,21 +99,27 @@
         .finally(function () { if (body) body.classList.remove('pl-drawer__busy'); });
     }
 
+    // Resolves true only when the drawer genuinely holds fresh markup.
+    // It used to swallow every failure and resolve anyway, so a caller that
+    // opened the drawer on success would open it on failure too: the item was
+    // in the basket, but the drawer still showed the state from before the
+    // add, which on a first add is the empty basket.
     function refresh() {
       return fetch(window.location.pathname + '?sections=' + encodeURIComponent(sectionId), { headers: { Accept: 'application/json' } })
-        .then(function (r) { return r.json(); })
+        .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
-          var html = data[sectionId];
-          if (!html) return;
+          var html = data && data[sectionId];
+          if (!html) return false;
           var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById('plDrawer');
-          if (!fresh) return;
+          if (!fresh) return false;
           var wasOpen = drawer.hasAttribute('data-open');
           drawer.querySelector('.pl-drawer__panel').innerHTML = fresh.querySelector('.pl-drawer__panel').innerHTML;
           panel = drawer.querySelector('.pl-drawer__panel');
           if (wasOpen) drawer.setAttribute('data-open', '');
           syncCount(fresh);
+          return true;
         })
-        .catch(function () { /* leave the drawer as-is rather than blanking it */ });
+        .catch(function () { return false; });
     }
 
     function syncCount(fresh) {
@@ -783,7 +789,7 @@
       if (atcText) atcText.textContent = busyLabel;
       if (atc) atc.disabled = true;
 
-      fetch(DATA.cartUrl ? '/cart/add.js' : '/cart/add.js', {
+      fetch('/cart/add.js', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ items: [{ id: Number(idField.value), quantity: 1 }] })
@@ -798,7 +804,15 @@
             // Our own drawer is on the page: refresh it and slide it in.
             // Deliberately no cart:* events here — the theme's drawer listens
             // for those and we would end up with two open at once.
-            window.plCartDrawer.refresh().then(function () { window.plCartDrawer.open(); });
+            window.plCartDrawer.refresh().then(function (ok) {
+              if (ok) { window.plCartDrawer.open(); return; }
+              // The add succeeded but the drawer could not be re-rendered.
+              // Showing an empty-looking drawer over a basket that is not
+              // empty is the worst outcome, so say it worked and send them
+              // somewhere that reads the basket fresh from the server.
+              say('Added to your basket. Opening it now…', false, true);
+              window.location.href = '/cart';
+            });
           } else {
             say('Added to your basket.', false, true);
             ['cart:lines-update', 'cart:refresh', 'cart:update'].forEach(function (name) {
