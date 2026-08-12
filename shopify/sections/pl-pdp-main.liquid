@@ -114,7 +114,22 @@
         {%- if p.type != blank -%}<p class="buy__eyebrow">{{ p.type }}</p>{%- endif -%}
         <h1 class="buy__title">{{ p.title }}</h1>
 
-        {%- if section.settings.show_rating -%}
+        {%- comment -%}
+          This product's own score when it has one, the shop-wide figure when
+          it does not, so every product page carries stars rather than only
+          the reviewed ones. The per-product row wins because a score for the
+          bed in front of you beats an average across the catalogue.
+        {%- endcomment -%}
+        {%- liquid
+          assign own_rating = p.metafields.reviews.rating.value.rating | default: 0 | plus: 0.0
+          assign own_count = p.metafields.reviews.rating_count.value | default: 0 | plus: 0
+        -%}
+        {%- if own_rating > 0 and own_count > 0 -%}
+          <p class="buy__rating">
+            {% render 'pl-rating', product: p, min_count: 1, size: 17 %}
+            <a href="#pl-reviews">{{ own_count }} {% if own_count == 1 %}review{% else %}reviews{% endif %}</a>
+          </p>
+        {%- elsif section.settings.show_rating -%}
           <p class="buy__rating">
             <span class="pl-stars" aria-hidden="true">{% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}</span>
             <span>{{ section.settings.rating_text }}</span>
@@ -136,9 +151,15 @@
           <p class="buy__tax">{{ section.settings.price_note }}</p>
         {%- endif -%}
 
-        <form method="post" action="{{ routes.cart_add_url }}" id="plForm" novalidate>
-          <input type="hidden" name="form_type" value="product">
-          <input type="hidden" name="utf8" value="✓">
+        {%- comment -%}
+          This has to be Shopify's own product form tag, not a hand-written
+          one. payment_button and payment_terms both read the `form` object
+          that only the product form tag creates: with a plain form element
+          that object does not exist, both filters output nothing, and Apple
+          Pay, Shop Pay and Google Pay silently never appear. The tag also
+          emits form_type and utf8 itself, so neither is written by hand now.
+        {%- endcomment -%}
+        {%- form 'product', p, id: 'plForm', novalidate: 'novalidate' -%}
           <input type="hidden" name="id" id="plVariantId" value="{{ v.id }}">
           <input type="hidden" name="quantity" value="1">
 
@@ -270,7 +291,7 @@
             {{ form | payment_button }}
             {{ form | payment_terms }}
           {%- endif -%}
-        </form>
+        {%- endform -%}
 
         {%- if section.settings.show_pay_methods -%}
           {%- comment -%}
