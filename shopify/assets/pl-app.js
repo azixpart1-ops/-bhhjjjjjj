@@ -154,7 +154,7 @@
     var badge  = document.getElementById('plFilterCount');
     var results= document.getElementById('plFilterResults');
     var clear  = document.getElementById('plFiltersClear');
-    var active = { fit: [], need: [], price: [] };
+    var active = { fit: [], need: [], price: [], material: [] };
 
     // Which size bands one option value can serve. The catalogue uses several
     // conventions at once — s/m/l, medium/large, "Extra Large",
@@ -205,6 +205,8 @@
     }
 
     function matches(card) {
+      if (active.material.length &&
+          active.material.indexOf(card.getAttribute('data-material') || '') === -1) return false;
       if (active.fit.length   && !active.fit.some(function (b) { return fits(card, b); })) return false;
       if (active.need.length  && !active.need.some(function (n) { return needs(card, n); })) return false;
       if (active.price.length && active.price.indexOf(card.getAttribute('data-price-band')) === -1) return false;
@@ -220,7 +222,7 @@
         if (ok) shown++;
       });
 
-      var n = active.fit.length + active.need.length + active.price.length;
+      var n = active.fit.length + active.need.length + active.price.length + active.material.length;
       if (promo) promo.hidden = n > 0;
       if (badge) { badge.textContent = String(n); badge.hidden = n === 0; }
       if (clear) clear.hidden = n === 0;
@@ -241,7 +243,7 @@
       // keep the filter state shareable
       if (window.history && window.history.replaceState) {
         var url = new URL(window.location.href);
-        ['fit', 'need', 'price'].forEach(function (k) {
+        ['fit', 'need', 'price', 'material'].forEach(function (k) {
           if (active[k].length) url.searchParams.set(k, active[k].join(','));
           else url.searchParams.delete(k);
         });

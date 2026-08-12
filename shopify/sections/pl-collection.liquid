@@ -90,6 +90,37 @@
               <button class="fchip" type="button" data-value="waterproof" aria-pressed="false">Waterproof</button>
             </div>
           </div>
+          {%- comment -%}
+            Material is how the premium competitors let people browse, and it
+            is the thing shoppers use to judge which bed is the good one. The
+            options are built from the products actually in this collection,
+            so the filter can never offer a fabric that returns nothing.
+          {%- endcomment -%}
+          {%- liquid
+            assign mats = ''
+            assign known = 'corduroy,memory foam,boucle,velvet,sherpa,felt,fleece,plush,rattan,wicker,quilted'  | split: ','
+            for item in collection.products
+              assign hay = item.tags | join: ',' | append: ',' | append: item.type | append: ',' | append: item.title | downcase
+              for word in known
+                unless mats contains word
+                  if hay contains word
+                    assign mats = mats | append: word | append: ','
+                  endif
+                endunless
+              endfor
+            endfor
+            assign mat_list = mats | split: ','
+          -%}
+          {%- if mat_list.size > 1 -%}
+            <div class="fgroup">
+              <h3>Material</h3>
+              <div class="fgroup__opts" data-facet="material">
+                {%- for m in mat_list -%}
+                  <button class="fchip" type="button" data-value="{{ m }}" aria-pressed="false">{{ m | capitalize }}</button>
+                {%- endfor -%}
+              </div>
+            </div>
+          {%- endif -%}
           <div class="fgroup">
             <h3>Budget</h3>
             <div class="fgroup__opts" data-facet="price">
