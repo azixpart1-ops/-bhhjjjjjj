@@ -161,13 +161,43 @@
                       <a class="opt-group__help" href="{{ section.settings.size_guide_url }}">{{ section.settings.size_guide_label }}</a>
                     {%- endif -%}
                   </div>
-                  <div class="opt-values">
+                  {%- comment -%}
+                    Where a size already carries its measurements, as the
+                    Kendal's do ("S · 45 × 29.5cm"), the two are split so the
+                    code stays scannable and the centimetres sit under it.
+                    Nobody can judge whether "L" fits their dog; 83 × 66cm they
+                    can. Sizes without measurements simply render as they are,
+                    so this needs no data the catalogue does not already hold.
+                  {%- endcomment -%}
+                  <div class="opt-values{% if is_size %} opt-values--size{% endif %}">
                     {%- for value in opt.values -%}
-                      {%- assign uid = 'opt-' | append: forloop.parentloop.index0 | append: '-' | append: forloop.index0 -%}
+                      {%- liquid
+                        assign uid = 'opt-' | append: forloop.parentloop.index0 | append: '-' | append: forloop.index0
+                        assign vcode = value
+                        assign vdims = ''
+                        comment
+                          Two conventions live in the catalogue: the Kendal
+                          writes "S · 45 × 29.5cm", the Windermere Calming
+                          writes "Large (110 x 75 cm)". Both mean the same
+                          thing, so both are split.
+                        endcomment
+                        if value contains '·'
+                          assign vparts = value | split: '·'
+                          assign vcode = vparts[0] | strip
+                          assign vdims = value | remove_first: vparts[0] | remove_first: '·' | strip
+                        elsif value contains '('
+                          assign vparts = value | split: '('
+                          assign vcode = vparts[0] | strip
+                          assign vdims = vparts[1] | default: '' | replace: ')', '' | strip
+                        endif
+                      -%}
                       <input type="radio" id="{{ uid }}" name="pl-option-{{ forloop.parentloop.index0 }}"
                              value="{{ value | escape }}" data-option-index="{{ forloop.parentloop.index0 }}"
                              {% if value == opt.selected_value %}checked{% endif %}>
-                      <label for="{{ uid }}">{{ value }}</label>
+                      <label for="{{ uid }}"{% if vdims != '' %} class="has-dims"{% endif %}>
+                        <span class="opt-values__code">{{ vcode }}</span>
+                        {%- if vdims != '' -%}<span class="opt-values__dims">{{ vdims }}</span>{%- endif -%}
+                      </label>
                     {%- endfor -%}
                   </div>
                 </div>
