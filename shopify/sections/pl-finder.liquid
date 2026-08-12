@@ -157,11 +157,20 @@
             endcase
             assign wlower = want | downcase | strip
             assign vid = ''
+            assign fallback_used = false
           -%}
           {%- comment -%}
             Match the wanted option value against the variant's option tokens
             exactly. 'contains' would let 'l' match 'large', which silently
             picks the wrong size.
+
+            Sizes are also matched on their leading code, because some beds
+            label the option with the dimensions attached: the Kendal's sizes
+            read "S · 45 × 29.5cm". Comparing only the whole string meant every
+            band missed and every shopper was handed the smallest variant, so
+            "s" is now allowed to match "s · 45 × 29.5cm" while still refusing
+            to match "small" or "large". A variant relabelled with its
+            measurements can no longer silently break the quiz.
           {%- endcomment -%}
           {%- if wlower != '' -%}
             {%- for v in p.variants -%}
@@ -169,7 +178,9 @@
                 {%- assign parts = v.title | downcase | split: ' / ' -%}
                 {%- for part in parts -%}
                   {%- assign ptoken = part | strip -%}
-                  {%- if ptoken == wlower and vid == '' -%}
+                  {%- assign pshort = ptoken | split: ' ' | first | strip -%}
+                  {%- if ptoken == wlower or pshort == wlower -%}{%- assign hit = true -%}{%- else -%}{%- assign hit = false -%}{%- endif -%}
+                  {%- if hit and vid == '' -%}
                     {%- assign vid = v.id -%}
                     {%- comment -%}
                       Store the matched option token, not the whole variant
@@ -186,6 +197,7 @@
             {%- endfor -%}
           {%- endif -%}
           {%- if vid == '' -%}
+            {%- assign fallback_used = true -%}
             {%- assign fv = p.selected_or_first_available_variant -%}
             {%- assign vid = fv.id -%}
             {%- assign vtitle = fv.title -%}
@@ -193,12 +205,31 @@
             {%- assign vavail = fv.available -%}
             {%- assign vurl = fv.url -%}
           {%- endif -%}
+          {%- comment -%}
+            "matched" records whether the wanted size token actually found a
+            variant, or whether this fell back to the first available one. A
+            bed that only comes in Large must not be presented to someone with
+            a medium dog as though it were their size.
+          {%- endcomment -%}
+          {%- assign band_matched = true -%}
+          {%- if wlower == '' or vid == '' -%}{%- assign band_matched = false -%}{%- endif -%}
+          {%- if fallback_used -%}{%- assign band_matched = false -%}{%- endif -%}
+          {%- comment -%}
+            Collect the misses so the editor can report them. A size setting
+            that matches nothing fails silently: the quiz still answers, it
+            just answers with the wrong variant, which is the hardest kind of
+            fault to notice from the outside.
+          {%- endcomment -%}
+          {%- if fallback_used and wlower != '' and p.has_only_default_variant == false -%}
+            {%- capture miss -%}{{ miss }}{{ block.settings.slot }} · {{ band }} is set to "{{ want }}", which no size on {{ p.title }} matches. |{%- endcapture -%}
+          {%- endif -%}
           "{{ band }}": {
             "id": {{ vid | json }},
             "size": {{ vtitle | json }},
             "price": {{ vprice | json }},
             "url": {{ vurl | json }},
             "available": {{ vavail | json }},
+            "matched": {{ band_matched | json }},
             "dims": {{ dims | default: '' | json }}
           }{%- unless forloop.last -%},{%- endunless -%}
         {%- endfor -%}
@@ -208,6 +239,20 @@
 {%- endfor -%}
 }
 </script>
+
+{%- if request.design_mode and miss != blank -%}
+  <div style="margin:0;padding:.75rem 1rem;background:#7A1F1F;color:#fff;font:14px/1.5 system-ui">
+    <b>Bed finder size check</b>
+    <ul style="margin:.4rem 0 0;padding-left:1.1rem">
+      {%- assign misses = miss | split: '|' -%}
+      {%- for m in misses -%}
+        {%- assign m = m | strip -%}
+        {%- if m != blank -%}<li>{{ m }}</li>{%- endif -%}
+      {%- endfor -%}
+    </ul>
+    <p style="margin:.5rem 0 0">Those answers currently hand the shopper the bed's first size instead. Set each one to the size exactly as it appears on the product.</p>
+  </div>
+{%- endif -%}
 
 {% schema %}
 {

@@ -1,0 +1,118 @@
+{% render 'pl-assets' %}
+{% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{%- comment -%}
+  Category shortcuts.
+
+  Most shoppers arrive already knowing the category they want, and were
+  reaching it through the Shop menu because the hero's category button sits
+  second to the quiz. This gives that majority a one-click route without
+  demoting the quiz for the people who do want guiding.
+
+  Each tile counts its own collection, so a category that empties stops
+  advertising beds it cannot show.
+{%- endcomment -%}
+<div class="pl">
+  <section class="pl-section pl-section--tight">
+    <div class="wrap">
+      {%- if section.settings.heading != blank or section.settings.eyebrow != blank -%}
+        <div class="cats__head reveal">
+          {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
+          {%- if section.settings.heading != blank -%}<h2 class="display-3">{{ section.settings.heading }}</h2>{%- endif -%}
+        </div>
+      {%- endif -%}
+
+      <ul class="cats">
+        {%- for block in section.blocks -%}
+          {%- liquid
+            comment
+              Everything optional is coerced to a string before it is tested.
+              An unset picker is nil, and "nil != blank" does not mean the same
+              thing in every Liquid implementation: read one way, an empty
+              block renders a tile that links nowhere.
+            endcomment
+            assign col = block.settings.collection
+            assign label = block.settings.label | default: '' | strip
+            assign href = block.settings.link | default: '' | strip
+            assign note = block.settings.note | default: '' | strip
+            if col != blank
+              if label == ''
+                assign label = col.title | split: '|' | first | strip
+              endif
+              if href == ''
+                assign href = col.url
+              endif
+            endif
+            assign href = href | default: '' | strip
+          -%}
+          {%- if href != '' and label != '' -%}
+            <li class="reveal" style="--i:{{ forloop.index0 | modulo: 6 | plus: 1 }}" {{ block.shopify_attributes }}>
+              <a class="cat" href="{{ href }}">
+                {%- if block.settings.image != blank -%}
+                  <img class="cat__img" src="{{ block.settings.image | image_url: width: 240 }}"
+                       srcset="{{ block.settings.image | image_url: width: 160 }} 160w, {{ block.settings.image | image_url: width: 320 }} 320w"
+                       sizes="80px" width="240" height="240" loading="lazy" decoding="async"
+                       alt="{{ block.settings.image.alt | escape | default: label | escape }}">
+                {%- elsif col.image != blank -%}
+                  <img class="cat__img" src="{{ col.image | image_url: width: 240 }}"
+                       srcset="{{ col.image | image_url: width: 160 }} 160w, {{ col.image | image_url: width: 320 }} 320w"
+                       sizes="80px" width="240" height="240" loading="lazy" decoding="async"
+                       alt="{{ col.image.alt | escape | default: label | escape }}">
+                {%- endif -%}
+                <span class="cat__body">
+                  <span class="cat__name">{{ label }}</span>
+                  {%- if note != '' -%}
+                    <span class="cat__note">{{ note }}</span>
+                  {%- elsif col != blank and section.settings.show_counts -%}
+                    <span class="cat__note">{{ col.products_count }} {% if col.products_count == 1 %}bed{% else %}beds{% endif %}</span>
+                  {%- endif -%}
+                </span>
+                {% render 'pl-icon', icon: 'arrow', class: 'cat__arrow', size: 16 %}
+              </a>
+            </li>
+          {%- endif -%}
+        {%- endfor -%}
+      </ul>
+    </div>
+  </section>
+</div>
+{% schema %}
+{
+  "name": "PL – Shop by need",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Shop by need" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Already know what you're after?" },
+    { "type": "checkbox", "id": "show_counts", "label": "Show how many beds are in each", "default": true },
+    { "type": "header", "content": "Colour" },
+    { "type": "paragraph", "content": "Text colour is chosen by measuring contrast against the background you pick, so a section cannot end up unreadable. The editor warns you if a background leaves no readable option." },
+    { "type": "select", "id": "scheme", "label": "Colour scheme", "default": "default",
+      "options": [
+        { "value": "default", "label": "Theme default" },
+        { "value": "cream", "label": "Cream, calm" },
+        { "value": "oat", "label": "Oat, warm neutral" },
+        { "value": "gold", "label": "Gold, warmth" },
+        { "value": "forest", "label": "Forest, authority" },
+        { "value": "clay", "label": "Deep green, focus" },
+        { "value": "custom", "label": "Custom" }
+      ] },
+    { "type": "color", "id": "bg", "label": "Background", "info": "Custom scheme only." },
+    { "type": "color", "id": "accent", "label": "Buttons and links", "info": "Custom scheme only." },
+    { "type": "select", "id": "tone", "label": "Text colour", "default": "auto",
+      "options": [
+        { "value": "auto", "label": "Automatic, recommended" },
+        { "value": "dark", "label": "Dark" },
+        { "value": "light", "label": "Light" }
+      ] }
+  ],
+  "blocks": [
+    { "type": "cat", "name": "Category", "limit": 8, "settings": [
+      { "type": "collection", "id": "collection", "label": "Collection" },
+      { "type": "text", "id": "label", "label": "Label", "info": "Leave blank to use the collection title." },
+      { "type": "text", "id": "note", "label": "Note", "info": "Leave blank to show the number of beds." },
+      { "type": "url", "id": "link", "label": "Link", "info": "Leave blank to use the collection." },
+      { "type": "image_picker", "id": "image", "label": "Image", "info": "Leave blank to use the collection image." }
+    ] }
+  ],
+  "presets": [{ "name": "PL – Shop by need" }]
+}
+{% endschema %}

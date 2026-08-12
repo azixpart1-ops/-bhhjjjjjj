@@ -466,6 +466,11 @@
       return; // leave the first question standing rather than showing a broken result
     }
 
+    // Taken off the button's own initial href so it honours routes and locale
+    // rather than hard-coding a path that may not exist on every storefront.
+    var resultLink = document.getElementById('plResultLink');
+    var FALLBACK_URL = (resultLink && resultLink.getAttribute('href')) || '/collections/all';
+
     /* style|joints → bed key, with a size override where a bed does not come
        small enough or large enough for the dog. Keys match the handles listed
        in the pl-section settings. */
@@ -502,10 +507,14 @@
     }
 
     function render() {
+      // Returns false when there is nothing honest to show. The caller must not
+      // reveal the result panel in that case: bailing out silently used to
+      // leave the previous answer's bed on screen, so a shopper saw a
+      // recommendation that had nothing to do with what they had just chosen.
       var entry = MATRIX[answers.style + '|' + answers.joints];
-      if (!entry) return;
+      if (!entry) return false;
       var bed = BEDS[entry.all || entry[answers.size]];
-      if (!bed || !bed.url) return;
+      if (!bed || !bed.url) return false;
 
       // Each bed carries a resolved variant per size band, so the customer is
       // sent to the size that actually fits rather than a generic "size: large".
@@ -520,9 +529,14 @@
       document.getElementById('plResultPrice').textContent = band ? band.price : '';
 
       var sizeEl = document.getElementById('plResultSize');
-      sizeEl.textContent = band && band.size && !/^default title$/i.test(band.size)
-        ? 'Size ' + band.size.toUpperCase()
-        : 'One size';
+      var hasSize = band && band.size && !/^default title$/i.test(band.size);
+      // "matched" false means this bed does not come in the size they picked
+      // and we are showing what it does come in. Say that, rather than letting
+      // a Large-only bed read as though it were their dog's size.
+      sizeEl.textContent = !hasSize
+        ? 'One size'
+        : (band.matched === false ? 'Comes in ' + band.size.toUpperCase()
+                                  : 'Size ' + band.size.toUpperCase());
 
       var dimsEl = document.getElementById('plResultDims');
       if (dimsEl) {
@@ -538,9 +552,13 @@
       if (band && band.available === false) {
         stock.textContent = 'That size is back in stock soon';
         stock.hidden = false;
+      } else if (band && band.matched === false && hasSize) {
+        stock.textContent = 'This one is made in a single size';
+        stock.hidden = false;
       } else {
         stock.hidden = true;
       }
+      return true;
     }
 
     app.addEventListener('click', function (e) {
@@ -551,8 +569,15 @@
           el.setAttribute('aria-pressed', String(el === opt));
         });
         window.setTimeout(function () {
-          if (current < 2) { show(current + 1); }
-          else { render(); show(3); }
+          if (current < 2) { show(current + 1); return; }
+          // Only reveal the result once there is a real one. If the matrix has
+          // no bed for this combination, send them somewhere true rather than
+          // showing the last shopper's answer.
+          if (render()) {
+            show(3);
+          } else {
+            window.location.href = FALLBACK_URL;
+          }
         }, reduceMotion ? 0 : 170);
         return;
       }

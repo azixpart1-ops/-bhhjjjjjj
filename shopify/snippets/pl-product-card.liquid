@@ -52,6 +52,26 @@
     endif
   endfor
 
+  comment
+    The material is what shoppers use to judge whether a bed is the premium
+    one before they click, so it belongs on the card. It comes from the
+    owner's own data: the custom.material metafield first, otherwise the
+    first material word already present in the product's tags or type. Only
+    words the catalogue actually uses are listed, and each is shown as
+    written rather than dressed up, so the card cannot claim a fabric the
+    product does not have.
+  endcomment
+  assign material = p.metafields.custom.material.value | default: '' | strip
+  if material == ''
+    assign mat_hay = p.tags | join: ',' | append: ',' | append: p.type | downcase
+    assign known = 'corduroy,memory foam,boucle,velvet,sherpa,felt,fleece,plush,rattan,wicker,quilted,corduroy'  | split: ','
+    for word in known
+      if material == '' and mat_hay contains word
+        assign material = word | capitalize
+      endif
+    endfor
+  endif
+
   assign band = 'under-75'
   if p.price_min >= 7500 and p.price_min < 12500
     assign band = '75-125'
@@ -103,6 +123,9 @@
       <span class="pl-stars" aria-label="Rated {{ star }} out of 5">
         {% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}
       </span>
+    {%- endif -%}
+    {%- if show_material and material != '' -%}
+      <p class="pl-card__material">{{ material }}</p>
     {%- endif -%}
     <{{ lvl }} class="pl-card__name">{{ title | default: p.title }}</{{ lvl }}>
     {%- unless body_desc == '' -%}
