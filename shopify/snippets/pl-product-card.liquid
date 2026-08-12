@@ -119,7 +119,23 @@
       still used by the homepage lineup for the site-wide score.
     {%- endcomment -%}
     {%- if show_rating -%}
-      {% render 'pl-rating', product: p, min_count: rating_min, show_count: rating_show_count %}
+      {%- comment -%}
+        A product with its own verified score shows it. A product without one
+        falls back to the shop-wide figure, clearly labelled as the shop's
+        rating rather than this bed's, so every card carries stars without any
+        card claiming reviews it has not had.
+      {%- endcomment -%}
+      {%- liquid
+        assign own_r = p.metafields.reviews.rating.value.rating | default: 0 | plus: 0.0
+        assign own_n = p.metafields.reviews.rating_count.value | default: 0 | plus: 0
+        assign floor = rating_min | default: 1 | plus: 0
+        assign fb = fallback_rating | default: '' | strip
+      -%}
+      {%- if own_r > 0 and own_n >= floor -%}
+        {% render 'pl-rating', product: p, min_count: rating_min, show_count: rating_show_count %}
+      {%- elsif fb != '' -%}
+        {% render 'pl-rating', product: p, rating: fb, count: 1, min_count: 1, label: fallback_label %}
+      {%- endif -%}
     {%- elsif star != '' -%}
       <span class="pl-stars" aria-label="Rated {{ star }} out of 5">
         {% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}

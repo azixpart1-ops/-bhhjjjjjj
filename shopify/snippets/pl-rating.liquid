@@ -62,6 +62,7 @@
     assign show_n = false
   endif
   assign px = size | default: 15
+  assign lab = label | default: '' | strip
 
   comment
     Guard both ways. No rating means nothing to show. A rating carried by
@@ -81,9 +82,11 @@
 -%}
 {%- if ok -%}
   <span class="pl-rate" style="--star:{{ px }}px">
-    <span class="pl-rate__stars" style="--fill:{{ pct }}%"
-          role="img"
-          aria-label="Rated {{ shown }} out of 5 from {{ n }} {% if n == 1 %}review{% else %}reviews{% endif %}">
+    {%- assign a11y = 'Rated ' | append: shown | append: ' out of 5 from ' | append: n | append: ' reviews' -%}
+    {%- if lab != '' -%}
+      {%- assign a11y = 'Rated ' | append: shown | append: ' out of 5, ' | append: lab -%}
+    {%- endif -%}
+    <span class="pl-rate__stars" style="--fill:{{ pct }}%" role="img" aria-label="{{ a11y | escape }}">
       <span class="pl-rate__row pl-rate__row--track" aria-hidden="true">
         {% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}
       </span>
@@ -91,7 +94,14 @@
         {% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}
       </span>
     </span>
-    {%- if show_n -%}
+    {%- comment -%}
+      A label replaces the review count when the score is not this product's
+      own. "4.8 (3,900)" on a card nobody has reviewed reads as three
+      thousand reviews of that bed, which is not what the number means.
+    {%- endcomment -%}
+    {%- if lab != '' -%}
+      <span class="pl-rate__count" aria-hidden="true">{{ shown }} <span>{{ lab }}</span></span>
+    {%- elsif show_n -%}
       <span class="pl-rate__count" aria-hidden="true">{{ shown }} <span>({{ n }})</span></span>
     {%- endif -%}
   </span>
