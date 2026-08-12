@@ -172,9 +172,23 @@
                   <div class="opt-values{% if is_size %} opt-values--size{% endif %}">
                     {%- for value in opt.values -%}
                       {%- liquid
-                        assign uid = 'opt-' | append: forloop.parentloop.index0 | append: '-' | append: forloop.index0
+                        assign oidx = forloop.parentloop.index0
+                        assign uid = 'opt-' | append: oidx | append: '-' | append: forloop.index0
                         assign vcode = value
                         assign vdims = ''
+
+                        comment
+                          Preferred source: the variant's own Dimensions
+                          metafield, filled from the size table already
+                          published in the product description. Falls back to
+                          splitting the option label for the beds that carry
+                          their measurements inline.
+                        endcomment
+                        for v in p.variants
+                          if vdims == '' and v.options[oidx] == value
+                            assign vdims = v.metafields.custom.dimensions.value | default: '' | strip
+                          endif
+                        endfor
                         comment
                           Two conventions live in the catalogue: the Kendal
                           writes "S · 45 × 29.5cm", the Windermere Calming
@@ -184,11 +198,15 @@
                         if value contains '·'
                           assign vparts = value | split: '·'
                           assign vcode = vparts[0] | strip
-                          assign vdims = value | remove_first: vparts[0] | remove_first: '·' | strip
+                          if vdims == ''
+                            assign vdims = value | remove_first: vparts[0] | remove_first: '·' | strip
+                          endif
                         elsif value contains '('
                           assign vparts = value | split: '('
                           assign vcode = vparts[0] | strip
-                          assign vdims = vparts[1] | default: '' | replace: ')', '' | strip
+                          if vdims == ''
+                            assign vdims = vparts[1] | default: '' | replace: ')', '' | strip
+                          endif
                         endif
                       -%}
                       <input type="radio" id="{{ uid }}" name="pl-option-{{ forloop.parentloop.index0 }}"
