@@ -831,25 +831,38 @@
             say((res.body && res.body.description) || 'Sorry, that could not be added.', true, false);
             return;
           }
-          if (window.plCartDrawer) {
-            // Our own drawer is on the page: refresh it and slide it in.
-            // Deliberately no cart:* events here — the theme's drawer listens
-            // for those and we would end up with two open at once.
-            window.plCartDrawer.refresh().then(function (ok) {
-              if (ok) { window.plCartDrawer.open(); return; }
-              // The add succeeded but the drawer could not be re-rendered.
-              // Showing an empty-looking drawer over a basket that is not
-              // empty is the worst outcome, so say it worked and send them
-              // somewhere that reads the basket fresh from the server.
-              say('Added to your basket. Opening it now…', false, true);
-              window.location.href = '/cart';
-            });
-          } else {
-            say('Added to your basket.', false, true);
-            ['cart:lines-update', 'cart:refresh', 'cart:update'].forEach(function (name) {
+          // What happens next is the merchant's choice, not a guess. A shop
+          // running its own cart-slider app needs this code to stay out of
+          // the way and just announce the add; a shop using the built-in
+          // drawer wants it opened. Getting this wrong sends people to the
+          // cart page mid-purchase, which is the one outcome nobody wants.
+          var mode = DATA.afterAdd || 'drawer';
+
+          function announce() {
+            // The events every common cart app and the theme's own drawer
+            // listen for. This is how a third-party slider gets told to open.
+            ['cart:lines-update', 'cart:refresh', 'cart:update', 'cart:build'].forEach(function (name) {
               document.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: { action: 'add', source: 'pl-pdp' } }));
             });
+            document.body.dispatchEvent(new CustomEvent('ajaxProduct:added', { bubbles: true }));
           }
+
+          if (mode === 'cart') { window.location.href = '/cart'; return; }
+
+          if (mode === 'app' || !window.plCartDrawer) {
+            say('Added to your basket.', false, true);
+            announce();
+            return;
+          }
+
+          window.plCartDrawer.refresh().then(function (ok) {
+            if (ok) { window.plCartDrawer.open(); return; }
+            // The add worked but the drawer could not be re-rendered. Say so
+            // and let anything else on the page respond, rather than yanking
+            // them off the product page to /cart.
+            say('Added to your basket.', false, true);
+            announce();
+          });
         })
         .catch(function () {
           // network failed — fall back to the plain form post, which always works
