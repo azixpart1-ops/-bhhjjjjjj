@@ -154,7 +154,7 @@
     var badge  = document.getElementById('plFilterCount');
     var results= document.getElementById('plFilterResults');
     var clear  = document.getElementById('plFiltersClear');
-    var active = { fit: [], need: [], price: [], material: [] };
+    var active = { fit: [], need: [], price: [], material: [], shape: [] };
 
     // Which size bands one option value can serve. The catalogue uses several
     // conventions at once — s/m/l, medium/large, "Extra Large",
@@ -199,14 +199,43 @@
     function needs(card, need) {
       var hay = (card.getAttribute('data-type') || '') + ',' + (card.getAttribute('data-tags') || '');
       if (need === 'orthopaedic') return /orthopaedic|orthopedic|memory foam|joint|arthritis|senior/.test(hay);
-      if (need === 'nest')        return /nest|bolster|calming|high.?sided|raised edge|sofa/.test(hay);
       if (need === 'waterproof')  return /waterproof|wipe.?clean/.test(hay);
+      if (need === 'calming')     return /calming|anxiet|anxious|den bed|nest/.test(hay);
       return true;
+    }
+
+    // Shape is the form of the bed, kept separate from what the dog needs.
+    // The tests mirror the Liquid that builds the chips, so a shape can never
+    // be offered on a page where nothing matches it.
+    var SHAPES = {
+      nest:     /nest|high.?sided|den bed|burrow/,
+      bolster:  /bolster|raised edge/,
+      sofa:     /sofa/,
+      mattress: /mattress|flat|square|quilted/,
+      elevated: /elevated|raised cot|raised dog cot|\bcot\b/,
+      crate:    /crate|\bmat\b/
+    };
+
+    function shaped(card, shape) {
+      var hay = (card.getAttribute('data-type') || '') + ',' +
+                (card.getAttribute('data-tags') || '') + ',' +
+                (card.getAttribute('data-title') || '');
+      var known = false;
+      for (var k in SHAPES) { if (SHAPES[k].test(hay)) { known = true; break; } }
+      // A dog bed that is not a nest, a bolster, a sofa, a cot or a crate mat
+      // is a flat mattress, so that is where the unclassified ones go. The
+      // Kendal is exactly this case: its own description calls it "one
+      // continuous, level mattress" but none of its tags say so. Treating it
+      // as a wildcard instead would list a flat foam mattress under "raised
+      // and elevated", which is worse than leaving it out.
+      if (!known) return shape === 'mattress';
+      return SHAPES[shape] ? SHAPES[shape].test(hay) : true;
     }
 
     function matches(card) {
       if (active.material.length &&
           active.material.indexOf(card.getAttribute('data-material') || '') === -1) return false;
+      if (active.shape.length && !active.shape.some(function (h) { return shaped(card, h); })) return false;
       if (active.fit.length   && !active.fit.some(function (b) { return fits(card, b); })) return false;
       if (active.need.length  && !active.need.some(function (n) { return needs(card, n); })) return false;
       if (active.price.length && active.price.indexOf(card.getAttribute('data-price-band')) === -1) return false;
@@ -222,7 +251,7 @@
         if (ok) shown++;
       });
 
-      var n = active.fit.length + active.need.length + active.price.length + active.material.length;
+      var n = active.fit.length + active.need.length + active.price.length + active.material.length + active.shape.length;
       if (promo) promo.hidden = n > 0;
       if (badge) { badge.textContent = String(n); badge.hidden = n === 0; }
       if (clear) clear.hidden = n === 0;
@@ -243,7 +272,7 @@
       // keep the filter state shareable
       if (window.history && window.history.replaceState) {
         var url = new URL(window.location.href);
-        ['fit', 'need', 'price', 'material'].forEach(function (k) {
+        ['fit', 'need', 'price', 'material', 'shape'].forEach(function (k) {
           if (active[k].length) url.searchParams.set(k, active[k].join(','));
           else url.searchParams.delete(k);
         });

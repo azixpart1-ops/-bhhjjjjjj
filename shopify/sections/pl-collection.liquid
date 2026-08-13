@@ -86,10 +86,76 @@
             <h3>What they need</h3>
             <div class="fgroup__opts" data-facet="need">
               <button class="fchip" type="button" data-value="orthopaedic" aria-pressed="false">Joint support</button>
-              <button class="fchip" type="button" data-value="nest" aria-pressed="false">Walls to lean on</button>
               <button class="fchip" type="button" data-value="waterproof" aria-pressed="false">Waterproof</button>
+              <button class="fchip" type="button" data-value="calming" aria-pressed="false">Calming</button>
             </div>
           </div>
+
+          {%- comment -%}
+            Shape is the axis every premium competitor browses by: Omlet splits
+            Bolster, Nest and Cushion; Charley Chau splits Snuggle, Bolster,
+            Donut and Mattress. This site only offered "walls to lean on",
+            which is a vaguer version of the same question, so that chip has
+            moved out of "what they need" and become a proper shape facet.
+
+            Options are built from the beds actually in the collection, so it
+            can never offer a shape that returns nothing.
+          {%- endcomment -%}
+          {%- liquid
+            assign shape_keys = 'nest|Nest and den,bolster|Bolster,sofa|Sofa,mattress|Flat mattress,elevated|Raised and elevated,crate|Crate and mat' | split: ','
+            assign shapes = ''
+            for item in collection.products
+              assign hay = item.tags | join: ',' | append: ',' | append: item.type | append: ',' | append: item.title | downcase
+              for pair in shape_keys
+                assign parts = pair | split: '|'
+                assign key = parts[0]
+                unless shapes contains pair
+                  assign found = false
+                  case key
+                    when 'nest'
+                      if hay contains 'nest' or hay contains 'high sided' or hay contains 'high-sided' or hay contains 'den bed' or hay contains 'burrow'
+                        assign found = true
+                      endif
+                    when 'bolster'
+                      if hay contains 'bolster' or hay contains 'raised edge'
+                        assign found = true
+                      endif
+                    when 'sofa'
+                      if hay contains 'sofa'
+                        assign found = true
+                      endif
+                    when 'mattress'
+                      if hay contains 'mattress' or hay contains 'flat' or hay contains 'square' or hay contains 'quilted'
+                        assign found = true
+                      endif
+                    when 'elevated'
+                      if hay contains 'elevated' or hay contains 'raised cot' or hay contains 'raised dog cot' or hay contains 'cot'
+                        assign found = true
+                      endif
+                    when 'crate'
+                      if hay contains 'crate' or hay contains 'mat'
+                        assign found = true
+                      endif
+                  endcase
+                  if found
+                    assign shapes = shapes | append: pair | append: '~'
+                  endif
+                endunless
+              endfor
+            endfor
+            assign shape_list = shapes | split: '~'
+          -%}
+          {%- if shape_list.size > 1 -%}
+            <div class="fgroup">
+              <h3>Shape</h3>
+              <div class="fgroup__opts" data-facet="shape">
+                {%- for pair in shape_list -%}
+                  {%- assign parts = pair | split: '|' -%}
+                  <button class="fchip" type="button" data-value="{{ parts[0] }}" aria-pressed="false">{{ parts[1] }}</button>
+                {%- endfor -%}
+              </div>
+            </div>
+          {%- endif -%}
           {%- comment -%}
             Material is how the premium competitors let people browse, and it
             is the thing shoppers use to judge which bed is the good one. The
