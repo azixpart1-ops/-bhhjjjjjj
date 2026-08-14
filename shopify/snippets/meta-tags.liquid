@@ -1,0 +1,174 @@
+{% doc %}
+  Renders all meta tags for the page including Open Graph, Twitter Cards, and SEO tags.
+
+  @param {object} [product] - The product object, available on product pages for price meta tags.
+{% enddoc %}
+
+{%- comment -%}
+  Overrides the theme's own meta-tags snippet. Two fixes, both visible outside
+  the site rather than on it:
+
+  1. og:image only rendered when page_image was set, which is products,
+     articles and collections with an image. The homepage, every page template
+     and search had no share image at all, so a link posted anywhere came up
+     as a bare text card. It now falls back to the shop's own brand assets.
+
+  2. The shop name was appended unless the title already contained it, tested
+     case-sensitively. "I'm Pawlunova ..." does not contain "PawLunova", so
+     the name was appended a second time and the homepage title read
+     "I'm Pawlunova | ... - PawLunova". The test is now case-insensitive.
+{%- endcomment -%}
+
+<meta charset="utf-8">
+<meta
+  http-equiv="X-UA-Compatible"
+  content="IE=edge"
+>
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1"
+>
+<meta
+  name="theme-color"
+  content=""
+>
+
+{%- liquid
+  assign og_title = page_title | default: shop.name
+  assign og_url = canonical_url | default: request.origin
+  assign og_type = 'website'
+  assign og_description = page_description | default: shop.description | default: shop.name
+
+  if request.page_type == 'product'
+    assign og_type = 'product'
+  elsif request.page_type == 'article'
+    assign og_type = 'article'
+  elsif request.page_type == 'password'
+    assign og_url = request.origin
+  endif
+
+  comment
+    Share image, in order of how specific it is to this page. Shopify's brand
+    cover image exists for exactly this job; the logo is the last resort so
+    that a shared link is never imageless.
+  endcomment
+  assign share_image = page_image
+  unless share_image
+    assign share_image = shop.brand.cover_image
+  endunless
+  unless share_image
+    assign share_image = shop.brand.square_logo
+  endunless
+  unless share_image
+    assign share_image = settings.logo
+  endunless
+%}
+
+<meta
+  property="og:site_name"
+  content="{{ shop.name }}"
+>
+<meta
+  property="og:url"
+  content="{{ og_url }}"
+>
+<meta
+  property="og:title"
+  content="{{ og_title | escape }}"
+>
+<meta
+  property="og:type"
+  content="{{ og_type }}"
+>
+<meta
+  property="og:description"
+  content="{{ og_description | escape }}"
+>
+
+{%- if share_image -%}
+  {%- comment -%}
+    Served over https and sized for a large share card. The original emitted
+    a hard-coded "http:" URL, which some scrapers refuse outright.
+  {%- endcomment -%}
+  <meta
+    property="og:image"
+    content="{{ share_image | image_url: width: 1200 }}"
+  >
+  <meta
+    property="og:image:secure_url"
+    content="{{ share_image | image_url: width: 1200 }}"
+  >
+  <meta
+    property="og:image:width"
+    content="1200"
+  >
+  <meta
+    property="og:image:height"
+    content="{{ 1200 | divided_by: share_image.aspect_ratio | round }}"
+  >
+  <meta
+    property="og:image:alt"
+    content="{{ share_image.alt | escape | default: shop.name }}"
+  >
+  <meta
+    name="twitter:image"
+    content="{{ share_image | image_url: width: 1200 }}"
+  >
+{%- endif -%}
+
+{%- if request.page_type == 'product' -%}
+  <meta
+    property="og:price:amount"
+    content="{{ product.price | money_without_currency | strip_html }}"
+  >
+  <meta
+    property="og:price:currency"
+    content="{{ cart.currency.iso_code }}"
+  >
+{%- endif -%}
+
+{%- if settings.social_twitter_link != blank -%}
+  <meta
+    name="twitter:site"
+    content="{{ settings.social_twitter_link | split: 'twitter.com/' | last | prepend: '@' }}"
+  >
+{%- endif -%}
+<meta
+  name="twitter:card"
+  content="summary_large_image"
+>
+<meta
+  name="twitter:title"
+  content="{{ og_title | escape }}"
+>
+<meta
+  name="twitter:description"
+  content="{{ og_description | escape }}"
+>
+
+{%- liquid
+  assign title_l = page_title | downcase
+  assign shop_l = shop.name | downcase
+  assign needs_shop = true
+  if title_l contains shop_l
+    assign needs_shop = false
+  endif
+-%}
+<title>
+  {{ page_title }}
+  {%- if current_tags %} &ndash; tagged "{{ current_tags | join: ', ' }}"{% endif -%}
+  {%- if current_page != 1 %} &ndash; Page {{ current_page }}{% endif -%}
+  {%- if needs_shop %} &ndash; {{ shop.name }}{% endif -%}
+</title>
+
+<link
+  rel="canonical"
+  href="{{ canonical_url }}"
+>
+
+{% if page_description %}
+  <meta
+    name="description"
+    content="{{ page_description | escape }}"
+  >
+{% endif %}

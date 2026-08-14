@@ -20,6 +20,9 @@ BLOCK_TAGS = {
     'tablerow': 'endtablerow', 'comment': 'endcomment', 'raw': 'endraw',
     'schema': 'endschema', 'javascript': 'endjavascript',
     'stylesheet': 'endstylesheet', 'style': 'endstyle', 'liquid': None,
+    # Shopify's snippet documentation block. Theme-supplied snippets use it,
+    # so a snippet overriding one has to be allowed to keep its docs.
+    'doc': 'enddoc',
 }
 IDENT = re.compile(r'^[a-z_][a-z0-9_]*$', re.I)
 
