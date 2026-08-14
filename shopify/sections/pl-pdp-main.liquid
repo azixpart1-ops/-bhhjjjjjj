@@ -341,7 +341,10 @@
             {%- endcomment -%}
             <p class="buy__cutoff" id="plCutoff" hidden
                data-hour="{{ section.settings.cutoff_hour }}"
-               data-text="{{ section.settings.cutoff_text | escape }}"></p>
+               data-text="{{ section.settings.cutoff_text | escape }}"
+               {%- if section.settings.show_eta %}
+               data-transit="{{ section.settings.eta_transit_days }}"
+               data-eta="{{ section.settings.eta_text | escape }}"{% endif %}></p>
           {%- endif -%}
 
           <p class="atc-msg" id="plMsg" role="status" aria-live="polite"></p>
@@ -349,6 +352,32 @@
           <button class="btn btn--lg atc" type="submit" id="plAtc" {% unless v.available %}disabled{% endunless %}>
             <span id="plAtcText">{% if v.available %}{{ section.settings.atc_label }}{% else %}{{ section.settings.sold_out_label }}{% endif %}</span>
           </button>
+
+          {%- comment -%}
+            The risk-reversal strip, immediately under the button, where every
+            premium competitor puts it. It is the last thing a hesitant buyer
+            reads before deciding, so the three promises that remove the risk
+            of buying sit exactly here rather than only further down the page.
+            Blocks of type 'assure' drive it; a sensible default set renders
+            when none are configured.
+          {%- endcomment -%}
+          {%- if section.settings.show_assurance -%}
+            {%- assign assure_blocks = 0 -%}
+            {%- for block in section.blocks -%}{%- if block.type == 'assure' -%}{%- assign assure_blocks = assure_blocks | plus: 1 -%}{%- endif -%}{%- endfor -%}
+            <ul class="buy__assure">
+              {%- if assure_blocks > 0 -%}
+                {%- for block in section.blocks -%}
+                  {%- if block.type == 'assure' -%}
+                    <li {{ block.shopify_attributes }}>{% render 'pl-icon', icon: block.settings.icon | default: 'check' %}<span>{{ block.settings.text }}</span></li>
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- else -%}
+                <li>{% render 'pl-icon', icon: 'medal' %}<span>{{ section.settings.assure_1 }}</span></li>
+                <li>{% render 'pl-icon', icon: 'truck' %}<span>{{ section.settings.assure_2 }}</span></li>
+                <li>{% render 'pl-icon', icon: 'shield' %}<span>{{ section.settings.assure_3 }}</span></li>
+              {%- endif -%}
+            </ul>
+          {%- endif -%}
 
           {%- if section.settings.show_dynamic_checkout -%}
             {%- comment -%}
@@ -652,6 +681,38 @@
     },
     {
       "type": "header",
+      "content": "Reassurance strip"
+    },
+    {
+      "type": "paragraph",
+      "content": "Shown directly under the Add to basket button, where it does the most to remove a hesitant buyer's risk. Add 'Assurance line' blocks to override the three defaults below."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_assurance",
+      "label": "Show the reassurance strip",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "assure_1",
+      "label": "Line 1",
+      "default": "100-night sleep trial"
+    },
+    {
+      "type": "text",
+      "id": "assure_2",
+      "label": "Line 2",
+      "default": "Free returns, we collect"
+    },
+    {
+      "type": "text",
+      "id": "assure_3",
+      "label": "Line 3",
+      "default": "5-year foam guarantee"
+    },
+    {
+      "type": "header",
       "content": "Payment and dispatch"
     },
     {
@@ -689,6 +750,29 @@
       "label": "Cut-off wording",
       "info": "[time] is replaced by the time remaining.",
       "default": "Order within [time] and it leaves our Yorkshire workshop today"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_eta",
+      "label": "Show a delivery estimate",
+      "default": true,
+      "info": "Appends an estimated arrival to the dispatch line, shown only before the cut-off on a working day so it names a date you can actually hit."
+    },
+    {
+      "type": "range",
+      "id": "eta_transit_days",
+      "label": "Working days in transit",
+      "min": 1,
+      "max": 5,
+      "step": 1,
+      "default": 1
+    },
+    {
+      "type": "text",
+      "id": "eta_text",
+      "label": "Delivery estimate wording",
+      "info": "[day] is replaced by the estimated weekday.",
+      "default": "With you by [day]."
     },
     {
       "type": "header",
@@ -827,6 +911,49 @@
           "id": "text",
           "label": "Benefit",
           "info": "Only shown when the product has no vitals.top_benefit metafields of its own."
+        }
+      ]
+    },
+    {
+      "type": "assure",
+      "name": "Assurance line",
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text"
+        },
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "default": "check",
+          "options": [
+            {
+              "value": "check",
+              "label": "Tick"
+            },
+            {
+              "value": "medal",
+              "label": "Medal"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            }
+          ]
         }
       ]
     }

@@ -35,6 +35,13 @@ html { scroll-padding-top: calc(var(--header-height, 64px) + 16px); }
   --clay-tint:  #F5EAD6;
   --gold:       #C9943A;   /* pl-stars — 3.6:1 on bone, meets non-text contrast */
 
+  /* Urgency. A warm brick red rather than a supermarket red, so it signals
+     "act now" without breaking the warm palette. 5.51:1+ on every light
+     ground; the onDark lift clears 4.5:1 on both greens. Used only where the
+     scarcity is real, i.e. bound to live inventory. */
+  --alert:        #A8340E;
+  --alert-onDark: #F0A184;
+
   --focus:      #805E20;
   --focus-contrast: #FAF6EF;  /* the band that keeps the ring visible on dark */
 
@@ -1072,10 +1079,25 @@ html { scroll-padding-top: calc(var(--header-height, 64px) + 16px); }
 .pl.pl .atc-msg--error { color: var(--clay-dk); background: var(--clay-tint); border-color: rgba(179,90,51,.3); }
 .pl.pl .atc-msg svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.2; flex: none; }
 
-.pl.pl .buy__stock { display: flex; align-items: center; gap: 7px; font-size: .84rem; font-weight: 600; color: var(--clay-dk); margin-bottom: var(--s-3); }
+.pl.pl .buy__stock { display: flex; align-items: center; gap: 7px; font-size: .84rem; font-weight: 600; color: var(--ink-2); margin-bottom: var(--s-3); }
 .pl.pl .buy__stock::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--clay); flex: none; }
+/* In stock: calm green, the reassuring state. */
 .pl.pl .buy__stock--ok { color: var(--moss-2); }
 .pl.pl .buy__stock--ok::before { background: #5E8C6A; }
+/* Low stock: the scarcity is real, bound to live inventory, so it is allowed
+   to look urgent. Brick red, heavier weight, and a dot that pulses once a
+   second to pull the eye without becoming a nightclub sign. */
+.pl.pl .buy__stock--low { color: var(--alert); font-weight: 650; }
+.pl.pl .buy__stock--low::before { background: var(--alert); animation: pl-stockpulse 1.4s ease-in-out infinite; }
+.pl.pl .pl-section--dark .buy__stock--low { color: var(--alert-onDark); }
+.pl.pl .pl-section--dark .buy__stock--low::before { background: var(--alert-onDark); }
+@keyframes pl-stockpulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 52, 14, .45); }
+  50%      { box-shadow: 0 0 0 5px rgba(168, 52, 14, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pl.pl .buy__stock--low::before { animation: none; }
+}
 
 .pl.pl .buy__trust { display: grid; gap: var(--s-3); padding-top: var(--s-4); margin-top: var(--s-4); border-top: 1px solid var(--sand); }
 .pl.pl .buy__trust div { display: flex; gap: var(--s-3); align-items: flex-start; font-size: .88rem; color: var(--ink-2); line-height: 1.45; }
@@ -1826,9 +1848,26 @@ html { scroll-padding-top: calc(var(--header-height, 64px) + 16px); }
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--clay); transform: translateY(-1px);
 }
+.pl.pl .buy__cutoff b { color: var(--clay-text); font-weight: 650; }
 /* Shopify's own instalment message. Given room without being restyled, since
    the provider controls its wording and mark. */
 .pl.pl shopify-payment-terms { display: block; margin-top: var(--s-3); }
+
+/* Risk-reversal strip under the button. Short, scannable, three ticks. It is
+   the last reassurance a hesitant buyer reads before deciding, so it earns
+   its place directly beneath Add to basket rather than only in the trust row
+   further down. */
+.pl.pl .buy__assure {
+  list-style: none; margin: var(--s-3) 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: .35rem 1.1rem;
+}
+.pl.pl .buy__assure li {
+  display: inline-flex; align-items: center; gap: .4rem;
+  font-size: .84rem; font-weight: 550; color: var(--ink-2);
+}
+.pl.pl .buy__assure svg { width: 15px; height: 15px; color: var(--moss-2); flex: none; }
+.pl.pl .pl-section--dark .buy__assure li { color: var(--on-dark-lede); }
+.pl.pl .pl-section--dark .buy__assure svg { color: var(--moss-3); }
 
 /* Material overline on the product card. Shoppers use fabric to judge which
    bed is the premium one before clicking, so it sits above the name where it
@@ -1950,3 +1989,11 @@ html { scroll-padding-top: calc(var(--header-height, 64px) + 16px); }
 .pl.pl .sizetable tr:last-child td { border-bottom: 0; }
 .pl.pl .sizetable__out th,
 .pl.pl .sizetable__out td { color: var(--ink-3); }
+
+/* Low-stock badge on a card. Same brick urgency as the product page, so the
+   signal reads the same everywhere. Only ever shown against real, tracked,
+   low inventory. */
+.pl.pl .pl-card__role--low {
+  background: var(--alert); color: #FFF7F2;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}

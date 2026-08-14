@@ -340,6 +340,23 @@
     var hour = parseInt(el.getAttribute('data-hour'), 10);
     if (isNaN(hour)) return;
     var template = el.getAttribute('data-text') || '';
+    // Optional delivery estimate. transit is working days in transit after
+    // dispatch; the estimate only ever appears before the cut-off on a
+    // working day, so it promises a date the shop can actually hit.
+    var transit = parseInt(el.getAttribute('data-transit'), 10);
+    var etaTmpl = el.getAttribute('data-eta') || '';
+
+    // Add n working days (skipping Sat/Sun) to a Date, in the shop's timezone
+    // terms. Bank holidays are not modelled, so the copy says "by" not "on".
+    function addWorkingDays(from, n) {
+      var d = new Date(from.getTime());
+      while (n > 0) {
+        d.setDate(d.getDate() + 1);
+        var wd = d.getDay();          // 0 Sun .. 6 Sat, in the visitor's tz
+        if (wd !== 0 && wd !== 6) n--;
+      }
+      return d;
+    }
 
     function londonParts() {
       // Read the clock in the shop's timezone, not the visitor's.
@@ -381,7 +398,25 @@
         txt = 'the next minute';
       }
 
-      el.textContent = template.replace('[time]', txt);
+      // Built as text nodes with the countdown wrapped in a <b>, so a merchant
+      // setting can never inject markup. The [time] token in the template
+      // marks where the bold number goes.
+      var parts = template.split('[time]');
+      el.textContent = '';
+      el.appendChild(document.createTextNode(parts[0] || ''));
+      var strong = document.createElement('b');
+      strong.textContent = txt;
+      el.appendChild(strong);
+      el.appendChild(document.createTextNode(parts[1] || ''));
+
+      // Delivery estimate, appended only when configured and dispatch is still
+      // makeable today. "by" rather than "on" because bank holidays and
+      // courier slips are real and this must not become a broken promise.
+      if (etaTmpl && !isNaN(transit) && transit > 0) {
+        var eta = addWorkingDays(new Date(), transit);
+        var label = eta.toLocaleDateString('en-GB', { weekday: 'long' });
+        el.appendChild(document.createTextNode(' ' + etaTmpl.replace('[day]', label)));
+      }
       el.hidden = false;
     }
 
@@ -749,12 +784,16 @@
       if (atcText) atcText.textContent = variant.available ? (DATA.atcLabel || 'Add to basket') : (DATA.soldOutLabel || 'Sold out');
 
       // Low stock only when inventory is actually tracked and actually low.
+      // The urgent styling is only ever attached to a number Shopify is really
+      // counting down, so it can never become a fake scarcity clock.
       if (stockEl) {
         var threshold = Number(DATA.lowStockAt || 0);
         var tracked = variant.managed === 'shopify';
         if (variant.available && tracked && threshold > 0 && variant.qty > 0 && variant.qty <= threshold) {
-          stockEl.textContent = 'Only ' + variant.qty + ' left in stock';
-          stockEl.className = 'buy__stock';
+          stockEl.textContent = variant.qty === 1
+            ? 'Only 1 left, order today to secure it'
+            : 'Selling fast, only ' + variant.qty + ' left';
+          stockEl.className = 'buy__stock buy__stock--low';
           stockEl.hidden = false;
         } else if (variant.available) {
           stockEl.textContent = 'In stock, ready to dispatch';

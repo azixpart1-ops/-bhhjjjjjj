@@ -97,6 +97,30 @@
            {% if is_lazy %}loading="lazy"{% endif %} decoding="async">
     {%- endif -%}
     {%- liquid
+      comment
+        Low-stock badge on the card, from real inventory: sum the units of the
+        available, Shopify-tracked variants. It only shows a scarcity flag on
+        a product Shopify is genuinely counting down, and it never overrides a
+        sold-out or a saving, which the customer needs to see first.
+      endcomment
+      assign low_flag = ''
+      assign floor_units = low_stock | default: 0 | plus: 0
+      if floor_units > 0 and p.available
+        assign units = 0
+        assign is_tracked = false
+        for var in p.variants
+          if var.inventory_management == 'shopify' and var.available
+            assign is_tracked = true
+            if var.inventory_quantity > 0
+              assign units = units | plus: var.inventory_quantity
+            endif
+          endif
+        endfor
+        if is_tracked and units > 0 and units <= floor_units
+          assign low_flag = 'Low stock'
+        endif
+      endif
+
       if badge == ''
         unless p.available
           assign badge = 'Sold out'
@@ -104,13 +128,17 @@
           if p.compare_at_price_min > p.price_min
             assign saving = p.compare_at_price_min | minus: p.price_min | money
             assign badge = 'Save ' | append: saving
+          elsif low_flag != ''
+            assign badge = low_flag
           elsif show_type and p.type != blank
             assign badge = p.type
           endif
         endunless
       endif
     -%}
-    {%- unless badge == '' -%}<span class="pl-card__role">{{ badge }}</span>{%- endunless -%}
+    {%- assign badge_class = 'pl-card__role' -%}
+    {%- if badge == 'Low stock' -%}{%- assign badge_class = 'pl-card__role pl-card__role--low' -%}{%- endif -%}
+    {%- unless badge == '' -%}<span class="{{ badge_class }}">{{ badge }}</span>{%- endunless -%}
   </div>
   <div class="pl-card__body">
     {%- comment -%}
