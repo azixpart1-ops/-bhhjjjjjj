@@ -1074,3 +1074,182 @@ this round touches it.
 The live page renders `<span class="pl-bnpl__mark">Klarna</span>` and
 `<span class="pl-bnpl pl-bnpl--compact">`, which are exactly the two hooks the
 branding rules in §14 target. The fix will land on deploy.
+
+---
+
+## 17. Homepage v4 — asking the first question, and pricing the bed by the night
+
+> **DRAFT — PawLunova v4 conversion redesign (Claude)** · theme ID `205889175894`
+>
+> Online Store → Themes → … → **Preview**. The live theme is untouched.
+
+The brief this round: a conversion goal, an emotional and psychological
+redesign, competitor reference, and every section still fully editable —
+duplicated into a draft and worked section by section.
+
+The strategy, the diagnosis and the reusable prompts are a separate
+document: <https://claude.ai/code/artifact/ef329f3c-22f6-4ec4-a382-ac08c2d4c348>
+
+### The branch had drifted from the store again
+
+Three files, found by checksumming every homepage file against the live
+theme before writing anything:
+
+| File | What had happened on the store |
+|---|---|
+| `templates/index.json` | Carries the 80 layout keys from §13, and **every product handle has been renamed** — the Lake District system now runs across the whole catalogue (Duddon, Crummock, Catbells, Hawkshead, Cartmel, Elterwater, Bassenthwaite, Haweswater, Grizedale, Blencathra, Ennerdale). |
+| `sections/pl-finder.liquid` | Block limit raised 11 → 50, so the whole catalogue fits in the quiz. |
+| `snippets/pl-assets.liquid` | Also loads `pl-pdp-plus.css`. |
+
+Every other pl-* section, snippet and asset was byte identical, so that is
+the whole of the drift. It was pulled down and committed before anything
+else, because working from the branch's copies would have reverted all of it.
+
+### The catalogue reads as two different shops
+
+Half the products are titled cleanly — "The Duddon Reversible Bed". Half
+carry a search tail — "The Braithwaite Orthopaedic Dog Bed — Senior, Low
+Front, 122 × 89 × 17cm". Both are right for Google. Side by side in one
+grid they are the single loudest signal that a store was assembled rather
+than made, and no amount of layout work survives it.
+
+`snippets/pl-title.liquid` trims the tail for display and leaves the
+product's own title alone, so the search result, the structured data, the
+tab title and the order confirmation all keep every keyword they were
+written for. It is wired into `pl-product-card`, which means the collection
+grid, the homepage lineup, related products and search all inherit it from
+one place. Measured on the rendered draft collection page: **36 cards, zero
+still carrying a tail.**
+
+It refuses two things rather than guessing: a separator with nothing in
+front of it, and a head shorter than six characters — better a long title
+than a card labelled "The".
+
+### What changed on the page
+
+| | Was | Now | Why |
+|---|---|---|---|
+| **Hero** | Rating, headline, two buttons | + a **scale line** — *56 beds · From £49 · 100-night sleep trial* | Somebody landing on a range that runs £49 to £289 cannot tell a supermarket shop from a furniture shop, and that is the question that decides whether they read on. The count is read off a collection at render time. |
+| **Hero** | — | + **the finder's first question**, inline | The quiz is the best-converting thing on the page and it sat four sections down. Answering one question about your own dog changes who you are as a visitor. Each option is a plain link to the finder, so it works with the script blocked; with it on, the answer is already selected on arrival. |
+| **Order** | … marquee → *app grid* → categories → **signs → finder** … | … marquee → **signs → finder** → categories … | Problem before solution, guided path before browse path. |
+| **App best-sellers row** | Position three | **Hidden** | It showed the same catalogue the curated four show later. Two product grids on one considered-purchase page is the leak §1 of this document opens with. Hidden rather than deleted — every setting is still there and one click puts it back. |
+| **New: cost per night** | — | `sections/pl-worth.liquid` | The only section that argues about price, and it argues by changing the unit. |
+| **100-night trial** | "100 nights" | + **the date it runs to** | A policy becomes a date somebody can picture. |
+| **Reviews** | `From 3,900+ reviews collected on [SET SOURCE OR REMOVE]` | Placeholder gone; a review source it can name and link; a star distribution; a date and a bed per review | That placeholder was **live**, in the section that asks to be believed. |
+
+### The sum, and why it is defensible
+
+```
+Hours a day they are on it            14
+Nights inside the guarantee        1,825
+The Kendal Orthopaedic Bed          £169
+───────────────────────────────────────
+Which is, a night                     9p
+```
+
+£169 is a number a shopper compares to a £25 supermarket bed and loses on.
+Nine pence a night has nothing to compare to.
+
+The reason it is arithmetic rather than marketing is the denominator: it is
+the **five-year foam guarantee the shop already publishes**, not a lifespan
+chosen because it flattered the figure. Shorten the guarantee in the editor
+and the price per night goes up on its own. The note under the sum
+substitutes `[hours]`, `[nights]` and `[years]` from the sum itself, so the
+sentence can never disagree with the numbers above it.
+
+Neither Big Barker nor Omlet — the two references worth reading in this
+category — argues about price at all. Big Barker owns clinical proof, which
+is not available here and not worth inventing. Omlet owns a 180-day
+guarantee, which beats 100 nights on a straight comparison, which is exactly
+why the trial is framed as a sleep trial with free collection rather than as
+a returns window.
+
+### Two things ship switched off, deliberately
+
+The reviews section can now name where its reviews came from and draw the
+distribution behind the average. **Both are empty.** Naming a platform the
+shop does not use, or inventing a set of star counts, would be the exact
+fault the section was being fixed for. Both render nothing until real
+figures are entered, and the editor fields say what to put there.
+
+This is the single largest remaining gain on the page.
+
+### The trial date is rendered twice over
+
+Liquid works it out, so the line is right in the HTML for a crawler, for a
+printed page and for anyone with the script blocked. `initTrialDate` in
+`pl-app.js` then recomputes it in the reader's own timezone and overwrites,
+because **Shopify caches rendered sections** and a cached date is the one
+figure on the page that could go quietly wrong.
+
+### Two faults the render found
+
+Both were found by measuring rather than by looking.
+
+1. **The mobile bleed on the quick-start row was widening the hero.** A
+   scroll container's *margin box* still counts towards what its parent asks
+   for, so `margin-inline: -16px` on a nowrap row made the hero's copy column
+   35px wider than its grid track at 390px — which the page's overflow clip
+   then cut off the right-hand end of every line of the headline.
+   `pl-hero__copy` measured 24..401 inside a 390px viewport. The row is inset
+   with everything else now, and both grid items carry `min-width: 0`.
+
+2. **A pull quote outside a dark section is invisible.** `pl-styles.css`
+   declares `.pull { color: var(--bone) }` — the page's own background. It
+   reads only because the trial, the one section that had ever used it, sits
+   on moss. The first light-ground pull quote printed cream on cream.
+   Overridden in `pl-layout.css` to take the ink of the ground it is on.
+
+   **Not fixed, and worth knowing:** `.pl-section--dark` hard-codes
+   `color: var(--oat)` the same way, so setting a light colour scheme on the
+   trial or the finale still prints its body copy near-invisibly. That needs
+   the base rule reworking rather than an overlay — re-pointing `--ink` inside
+   a dark section would move every rule that reads it.
+
+### Uploading exactly, rather than retyping
+
+`themeFilesUpsert` accepts a `URL` body type, so every file was uploaded by
+pointing Shopify at `raw.githubusercontent.com` for the exact commit. Nothing
+was retyped into an API call, and each file was read back and checksummed
+against the copy on disk afterwards. All nine Liquid, CSS and JS files match
+byte for byte; `templates/index.json` does not, because Shopify re-serialises
+JSON templates on upload — that one was verified by parsing both and
+comparing 1,218 keys.
+
+### Verified
+
+- `scripts/lint-shopify.py` — 34 sections, **0 errors**. It caught two faults
+  before they shipped: a range slider with 186 steps against Shopify's cap of
+  101, and a section name one character over the limit.
+- `theme-check` — no new errors. The four remaining all name files that live
+  on the store and not in this repository.
+- `templates/index.json` is a **merge** onto the store's copy: 1,107 values
+  carried through byte identical, 93 new keys, **2 changed** — the
+  `[SET SOURCE OR REMOVE]` placeholder, and one review gaining the bed its own
+  text already names.
+- Rendered draft vs live homepage: 17 visible fragments gone, every one of
+  them either the hidden app row's contents or the placeholder; 23 new, every
+  one of them the new sections. **0 Liquid errors.**
+- Chromium at 1440, 820 and 390 against the repo's own stylesheet: no
+  horizontal overflow at any width, no page errors. The handoff carries an
+  answer — clicking "Leans on something" in the hero lands on question two
+  with `bolster` selected, and finishing the quiz returns the Grasmere
+  Bolster Sofa at £129 on a real product URL.
+
+### Left for the store
+
+Theme work cannot reach any of these; each is store data.
+
+1. **Name the review platform and enter the star counts.** Reviews →
+   "Where the reviews came from" and "Score distribution".
+2. **Two "Shop by need" tiles point at collections that no longer exist** —
+   `large-breed-dog-beds` and `cooling-dog-beds`. The section drops a tile
+   whose collection is missing rather than rendering a dead one, so the row
+   shows six of eight, and the two absent ones are the highest-value segment
+   and the seasonal one. Not created here: a collection gets a public URL,
+   which is a live-store decision rather than a draft one.
+3. **Three beds in the quiz shortlist have zero stock** — Crummock, Derwent,
+   Harewood.
+4. **The announcement bar carries a raw code**, `PRJJ1AE6P8ZZ`.
+5. **Seven non-products sit alongside the beds**, including one called `test`
+   and one titled "Next Day Delivry".
