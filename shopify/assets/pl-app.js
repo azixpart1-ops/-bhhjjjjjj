@@ -538,13 +538,30 @@
 
     var BEDS;
     try {
-      BEDS = JSON.parse(dataEl.textContent);
+      var parsed = JSON.parse(dataEl.textContent);
+      // The island used to be a map of slot -> bed, which capped the quiz at
+      // one bed per answer. It is an array now, so several beds can share a
+      // slot: the first is the recommendation, the rest are the shortlist.
+      // The old shape is still read, because other templates carry it until
+      // they are next saved.
+      BEDS = {};
+      if (Array.isArray(parsed)) {
+        parsed.forEach(function (bed) {
+          if (!bed || !bed.slot) return;
+          (BEDS[bed.slot] = BEDS[bed.slot] || []).push(bed);
+        });
+      } else {
+        Object.keys(parsed).forEach(function (k) { BEDS[k] = [parsed[k]]; });
+      }
     } catch (err) {
       return; // leave the first question standing rather than showing a broken result
     }
 
     // Taken off the button's own initial href so it honours routes and locale
     // rather than hard-coding a path that may not exist on every storefront.
+    var altsEl = document.getElementById('plResultAlts');
+    var ALT_MAX = altsEl ? (parseInt(altsEl.getAttribute('data-max'), 10) || 2) : 0;
+
     var resultLink = document.getElementById('plResultLink');
     var FALLBACK_URL = (resultLink && resultLink.getAttribute('href')) || '/collections/all';
 
@@ -590,7 +607,9 @@
       // recommendation that had nothing to do with what they had just chosen.
       var entry = MATRIX[answers.style + '|' + answers.joints];
       if (!entry) return false;
-      var bed = BEDS[entry.all || entry[answers.size]];
+      var slot = entry.all || entry[answers.size];
+      var group = BEDS[slot] || [];
+      var bed = group[0];
       if (!bed || !bed.url) return false;
 
       // Each bed carries a resolved variant per size band, so the customer is
@@ -634,6 +653,46 @@
         stock.hidden = false;
       } else {
         stock.hidden = true;
+      }
+
+      // The shortlist: every other bed sharing this answer, each linked to the
+      // variant that fits the size they picked. Built from the same live data
+      // as the recommendation, so a bed that goes out of stock stops being
+      // offered here too.
+      var altsBox = document.getElementById('plResultAlts');
+      var altList = document.getElementById('plResultAltList');
+      if (altsBox && altList) {
+        var alts = group.slice(1, 1 + ALT_MAX);
+        altList.textContent = '';
+        alts.forEach(function (alt) {
+          var aband = (alt.bands && alt.bands[answers.size]) || null;
+          var li = document.createElement('li');
+          var a = document.createElement('a');
+          a.className = 'result__alt';
+          a.href = (aband && aband.url) || alt.url;
+          if (alt.img) {
+            var im = document.createElement('img');
+            im.src = alt.img; im.alt = ''; im.loading = 'lazy'; im.width = 56; im.height = 56;
+            a.appendChild(im);
+          }
+          var txt = document.createElement('span');
+          var b = document.createElement('b');
+          b.textContent = alt.title;
+          txt.appendChild(b);
+          // Only quote a price when the size they picked was actually matched
+          // on that bed. On an unmatched bed the band falls back to the first
+          // available variant, and printing that under their chosen size reads
+          // as the price for their dog when it is not.
+          if (aband && aband.price && aband.matched !== false) {
+            var pr = document.createElement('span');
+            pr.textContent = aband.price;
+            txt.appendChild(pr);
+          }
+          a.appendChild(txt);
+          li.appendChild(a);
+          altList.appendChild(li);
+        });
+        altsBox.hidden = alts.length === 0;
       }
       return true;
     }

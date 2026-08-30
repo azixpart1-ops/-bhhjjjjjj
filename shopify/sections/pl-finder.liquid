@@ -126,6 +126,20 @@
                 </a>
                 <button class="finder__back" type="button" id="plFinderRestart">Start again</button>
               </div>
+              {%- comment -%}
+                The shortlist. One take-it-or-leave-it recommendation asks a
+                shopper who does not fancy that particular bed to start again
+                or leave; two alternates give them somewhere to go without
+                losing the answer they just gave. Hidden until the script
+                finds beds sharing the slot, so a quiz with one bed per
+                answer looks exactly as it did.
+              {%- endcomment -%}
+              {%- if section.settings.show_alternates -%}
+                <div class="result__alts" id="plResultAlts" data-max="{{ section.settings.alt_max | default: 2 }}" hidden>
+                  <p class="result__alts-label">{{ section.settings.alt_label }}</p>
+                  <ul id="plResultAltList"></ul>
+                </div>
+              {%- endif -%}
               {%- if section.settings.reassurance != blank -%}
                 <p class="muted" style="font-size:.85rem;margin-top:1.25rem">{{ section.settings.reassurance }}</p>
               {%- endif -%}
@@ -148,18 +162,49 @@
 </div>
 
 {%- comment -%} Live catalogue data for the finder. {%- endcomment -%}
+{%- comment -%}
+  A flat array rather than a map keyed by slot, so more than one bed can sit
+  in the same slot. The first block for a slot is the recommendation and the
+  rest become alternates, which is what lets the whole catalogue into the quiz
+  instead of the nine beds the matrix has room for. Grouping happens in the
+  script, because grouping in Liquid would mean walking the block list once
+  per slot.
+{%- endcomment -%}
 <script type="application/json" id="pl-beds">
-{
+[
 {%- assign first = true -%}
 {%- for block in section.blocks -%}
   {%- assign p = block.settings.product -%}
   {%- if p != blank and block.settings.slot != blank -%}
     {%- unless first -%},{%- endunless -%}
     {%- assign first = false -%}
-    "{{ block.settings.slot }}": {
+    {%- liquid
+      comment
+        The reason line falls back to the product's own words: its vitals
+        tagline, or the opening sentence of its description. That is the whole
+        point — a bed can be added to the quiz with a product picker and a
+        slot, and nothing has to be written about it a second time. Copy
+        written here still wins where somebody has written it.
+      endcomment
+      assign why = block.settings.why | default: '' | strip
+      if why == ''
+        assign why = p.metafields.vitals.tagline.value | default: '' | strip
+      endif
+      if why == ''
+        assign plain = p.description | strip_html | strip | replace: '  ', ' '
+        assign why = plain | split: '. ' | first | strip
+        if why != '' and why == plain
+          assign why = why | truncate: 190
+        elsif why != ''
+          assign why = why | append: '.'
+        endif
+      endif
+    -%}
+    {
+      "slot": {{ block.settings.slot | json }},
       "title": {{ block.settings.display_title | default: p.title | json }},
       "short": {{ block.settings.short | default: p.title | json }},
-      "why": {{ block.settings.why | json }},
+      "why": {{ why | json }},
       "url": {{ p.url | json }},
       "img": {%- if p.featured_image -%}{{ p.featured_image | image_url: width: 700 | json }}{%- else -%}""{%- endif -%},
       "bands": {
@@ -259,7 +304,7 @@
     }
   {%- endif -%}
 {%- endfor -%}
-}
+]
 </script>
 
 {%- if request.design_mode and miss != blank -%}
@@ -392,6 +437,29 @@
     {
       "type": "header",
       "content": "Design"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_alternates",
+      "label": "Show a shortlist under the match",
+      "default": true,
+      "info": "Any extra beds you give the same answer slot become the shortlist. One take-it-or-leave-it recommendation asks a shopper who does not fancy that bed to start again or leave; two alternates give them somewhere to go without losing the answer."
+    },
+    {
+      "type": "text",
+      "id": "alt_label",
+      "label": "Shortlist label",
+      "default": "Also worth a look"
+    },
+    {
+      "type": "range",
+      "id": "alt_max",
+      "label": "How many alternates",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "unit": "",
+      "default": 2
     },
     {
       "type": "select",

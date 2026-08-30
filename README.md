@@ -943,3 +943,76 @@ Only the files above were reconciled. The store also carries
 here. `snippets/pl-bnpl.liquid` was pulled in because the merged product card
 renders it. Treat the **store** as the source of truth for the product page and
 the Klarna work; treat this branch as the source of truth for the homepage.
+
+---
+
+## 15. The bed finder now holds the whole catalogue
+
+The quiz recommended eleven beds. The homepage's own sales-notification
+section lists twenty-two product handles, so **fifteen products were not in the
+quiz at all** — including every cooling, waterproof, travel and mattress line.
+
+That was structural, not an oversight. The matrix maps nine answer
+combinations to one bed each, so there was nowhere to put a twelfth bed.
+
+### One answer, several beds
+
+The data island was a map of `slot -> bed`, which is what capped it. It is an
+array now, and several blocks can share a slot: the first is the
+recommendation, the rest become a shortlist beneath it. The script groups
+them, and still reads the old shape, so a template that has not been re-saved
+keeps working.
+
+That also matters for conversion on its own. A single take-it-or-leave-it
+recommendation asks a shopper who does not fancy that particular bed to start
+again or leave. Two alternates give them somewhere to go without losing the
+answer they just gave.
+
+### Adding a bed needs no copy
+
+The reason line falls back to the product's **own** words — its
+`vitals.tagline` metafield, or the opening sentence of its description — so a
+bed joins the quiz with nothing but a product picker and a slot. Copy written
+in the block still wins where somebody has written it.
+
+This is why thirteen products could be added here without inventing a single
+claim about any of them. Checked: 857 values in `index.json` carried through
+unchanged, 260 copy strings intact, and every new string is a handle, a slot
+name or a block key.
+
+### What went where
+
+Placement is read off each handle's own words — `…-bolster-…`,
+`…-high-wall-boucle-…`, `…-elevated-cooling-…`, `…-waterproof-…-mat`. Sleep
+style is unambiguous from those; the joints axis is my inference, with the
+memory-foam and orthopaedic lines going to the "diagnosed" rows. **Worth a
+sanity check in the editor** — it is the one judgement here that the handles
+do not fully settle.
+
+| Answer | Recommendation | Shortlist added |
+|---|---|---|
+| Curls up · no concerns | Buttermere Bouclé | Cotswold high-wall bouclé, Harewood velvet nest |
+| Curls up · slowing | Windermere Nest | Balmoral calming donut, herringbone classic |
+| Curls up · slowing, large | Rydal High-Sided | Coniston waterproof nest |
+| Leans · no concerns | Harrogate Heritage | Marlow tartan bolster |
+| Leans · slowing | Grasmere Bolster Sofa | Chatsworth memory foam bolster |
+| Sprawls · no concerns | The Sprawler | Coniston reversible, Derwent waterproof mat |
+| Sprawls · slowing | Ambleside | Portable elevated, Windermere elevated cooling |
+| Sprawls · diagnosed | Kendal Corduroy | PawLunova orthopaedic L/XL, Buttermere mattress |
+
+Two are deliberately still out: the **plastic dog house** is not a bed, and
+the **personalised bed** says nothing about how a dog sleeps. Placing either
+would have been a guess.
+
+### The thing that would have gone wrong
+
+A shortlist bed whose size did not match shows **no price**. The island falls
+back to the first available variant when the size a shopper picked is not on
+that bed, and printing that figure under their chosen size reads as the price
+for their dog when it is not. Verified in Chromium end to end: Cotswold quotes
+£119 because Medium matched; Harewood, which does not come in Medium, quotes
+nothing.
+
+The new blocks are added with their size fields blank, so the editor's own
+size-check panel now lists exactly which ones need their option values filled
+in. Filling them in is what turns the price on.
