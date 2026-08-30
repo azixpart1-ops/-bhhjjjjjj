@@ -1,14 +1,36 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
 {%- comment -%}
   Bed finder. Each block maps one answer combination to a real product.
   Price, stock, image and URL are read from the catalogue at render time, so
   nothing here goes stale – including the "only N left" badge.
 {%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+
+  comment
+    The anchor defaults to pl-finder because the hero, the signs section, the
+    finale, the sticky bar and the empty cart all link to #pl-finder. A
+    merchant renaming it here has to update those links too, which is why the
+    field says so rather than silently breaking five buttons.
+  endcomment
+  assign finder_id = st.anchor | default: 'pl-finder' | handleize
+
+  assign head = 'section-head section-head--center'
+  if st.align == 'left'
+    assign head = 'section-head'
+  endif
+
+  assign panel = 'finder'
+  if st.panel == 'plain'
+    assign panel = panel | append: ' finder--plain'
+  endif
+-%}
 <div class="pl">
-  <section class="pl-section" id="pl-finder">
+  <section class="pl-section" id="{{ finder_id }}">
     <div class="wrap">
-      <div class="section-head section-head--center reveal">
+      <div class="{{ head }} reveal">
         {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
         <h2 class="display-2">{{ section.settings.heading | escape | newline_to_br }}</h2>
         {%- if section.settings.subheading != blank -%}
@@ -16,8 +38,8 @@
         {%- endif -%}
       </div>
 
-      <div class="finder reveal" id="plFinder">
-        <div class="finder__progress">
+      <div class="{{ panel }} reveal" id="plFinder">
+        <div class="finder__progress"{% unless st.show_progress %} hidden{% endunless %}>
           <span id="plFinderStepLabel">Question 1 of 3</span>
           <span class="finder__bar"><i id="plFinderBar" style="width:33%"></i></span>
         </div>
@@ -120,7 +142,7 @@
         <b>{{ section.settings.sticky_title }}</b>
         <span>{{ section.settings.sticky_text }}</span>
       </div>
-      <a class="btn" href="#pl-finder">{{ section.settings.sticky_cta }}</a>
+      <a class="btn" href="#{{ finder_id }}">{{ section.settings.sticky_cta }}</a>
     </div>
   {%- endif -%}
 </div>
@@ -366,6 +388,176 @@
       "id": "sticky_cta",
       "label": "Sticky button",
       "default": "Find their bed"
+    },
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "panel",
+      "label": "Panel style",
+      "default": "card",
+      "options": [
+        {
+          "value": "card",
+          "label": "Raised card"
+        },
+        {
+          "value": "plain",
+          "label": "Flat, no card"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_progress",
+      "label": "Show the step counter",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Centred"
+        }
+      ],
+      "info": "This section shipped centred. Left suits it when the heading sits beside other left-aligned sections."
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Defaults to pl-finder. The hero, the three-signs section, the finale, the sticky mobile bar and the empty basket all link to #pl-finder — change this and those links need changing too."
     },
     {
       "type": "header",

@@ -1,0 +1,102 @@
+{%- comment -%}
+  Per-section layout control.
+
+  Companion to pl-scheme: that snippet moves a section's colour tokens, this
+  one moves its geometry. Both work the same way — they emit a style block
+  scoped to one `#shopify-section-…` that re-points design tokens the CSS is
+  already written against, so a merchant changing a slider in the theme editor
+  moves the padding, the measure, the heading scale and the corner radius
+  together instead of leaving half the section on the old rhythm.
+
+  Nothing here is required. Every value falls back to the value the stylesheet
+  already uses, so a section that renders this without setting anything looks
+  exactly as it did before. That matters because six of these sections are
+  shared with the product page and other templates, whose JSON does not set
+  the new keys.
+
+  Usage
+    {% render 'pl-layout', id: section.id, s: section.settings %}
+
+  Reads, all optional, from `s`
+    pad_top, pad_bottom            desktop padding in px
+    pad_top_m, pad_bottom_m        the same on phones (below 750px)
+    width                          narrow | normal | wide | full
+    align                          left | center
+    heading_scale                  percentage applied to display headings
+    divider_top, divider_bottom    hairline rules on the section edges
+    corners                        square | soft | round
+    animate                        false stops the scroll reveal in this section
+{%- endcomment -%}
+{%- liquid
+  assign has_pt = false
+  assign has_pb = false
+  if s.pad_top != blank or s.pad_top == 0
+    assign has_pt = true
+  endif
+  if s.pad_bottom != blank or s.pad_bottom == 0
+    assign has_pb = true
+  endif
+
+  case s.width
+    when 'narrow'
+      assign maxw = '1040px'
+    when 'wide'
+      assign maxw = '1440px'
+    when 'full'
+      assign maxw = 'none'
+  endcase
+
+  case s.corners
+    when 'square'
+      assign r_sm = '0px'
+      assign r_lg = '0px'
+      assign r_pill = '4px'
+    when 'round'
+      assign r_sm = '22px'
+      assign r_lg = '34px'
+  endcase
+
+  assign scale = s.heading_scale | default: 100
+-%}
+<style>
+  #shopify-section-{{ id }} .pl.pl {
+    {%- if has_pt %} --sec-pt: {{ s.pad_top }}px;{% endif -%}
+    {%- if has_pb %} --sec-pb: {{ s.pad_bottom }}px;{% endif -%}
+    {%- if maxw != blank %} --sec-maxw: {{ maxw }};{% endif -%}
+    {%- if r_sm != blank %} --radius: {{ r_sm }}; --radius-lg: {{ r_lg }};{% endif -%}
+    {%- if r_pill != blank %} --radius-pill: {{ r_pill }};{% endif -%}
+    {%- if scale != 100 %} --sec-h-scale: {{ scale | divided_by: 100.0 }};{% endif -%}
+  }
+  {%- if s.align == 'center' %}
+  /* Centre the section's own head and any lead paragraph under it. The grids
+     below stay on their own alignment — centring a product row's copy is a
+     different decision and has its own control. */
+  #shopify-section-{{ id }} .pl .section-head,
+  #shopify-section-{{ id }} .pl .cats__head {
+    margin-inline: auto;
+    text-align: center;
+  }
+  {%- endif -%}
+  {%- if s.divider_top %}
+  #shopify-section-{{ id }} .pl > .pl-section,
+  #shopify-section-{{ id }} .pl > .pl-hero { border-top: 1px solid var(--sand); }
+  {%- endif -%}
+  {%- if s.divider_bottom %}
+  #shopify-section-{{ id }} .pl > .pl-section,
+  #shopify-section-{{ id }} .pl > .pl-hero { border-bottom: 1px solid var(--sand); }
+  {%- endif -%}
+  {%- if s.animate == false %}
+  /* Reveal is opt-out rather than removed from the markup, so turning motion
+     off cannot leave an element stuck at opacity 0 if the observer never
+     fires. */
+  #shopify-section-{{ id }} .pl .reveal { opacity: 1; transform: none; transition: none; }
+  {%- endif -%}
+  {%- if s.pad_top_m != blank or s.pad_bottom_m != blank %}
+  @media (max-width: 749px) {
+    #shopify-section-{{ id }} .pl.pl {
+      {%- if s.pad_top_m != blank %} --sec-pt: {{ s.pad_top_m }}px;{% endif -%}
+      {%- if s.pad_bottom_m != blank %} --sec-pb: {{ s.pad_bottom_m }}px;{% endif -%}
+    }
+  }
+  {%- endif -%}
+</style>

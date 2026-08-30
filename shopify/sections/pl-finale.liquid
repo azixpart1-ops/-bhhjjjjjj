@@ -1,9 +1,43 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
+{%- liquid
+  assign st = section.settings
+
+  assign bg = st.image
+  if bg == blank and st.image_product != blank
+    assign bg = st.image_product.featured_image
+  endif
+
+  assign sec = 'pl-section pl-section--dark'
+  if bg != blank
+    assign sec = sec | append: ' finale-bg'
+  endif
+
+  assign finale = 'finale'
+  if st.text_align == 'left'
+    assign finale = finale | append: ' finale--left'
+  endif
+
+  assign scrim = st.scrim | default: 80 | divided_by: 100.0
+-%}
 <div class="pl">
-  <section class="pl-section pl-section--dark">
+  <section class="{{ sec }}"
+           {% if st.anchor != blank %}id="{{ st.anchor | handleize }}"{% endif %}
+           style="--finale-scrim:{{ scrim }}">
+    {%- if bg != blank -%}
+      {%- comment -%}
+        Decorative: the close already says everything this photograph does, so
+        it carries an empty alt rather than a description a screen reader would
+        have to sit through before the two buttons.
+      {%- endcomment -%}
+      <img class="finale-bg__img"
+           src="{{ bg | image_url: width: 1800 }}"
+           srcset="{{ bg | image_url: width: 900 }} 900w, {{ bg | image_url: width: 1400 }} 1400w, {{ bg | image_url: width: 2000 }} 2000w"
+           sizes="100vw" width="1800" height="1013" loading="lazy" decoding="async" alt="">
+    {%- endif -%}
     <div class="wrap">
-      <div class="finale">
+      <div class="{{ finale }}">
         <h2 class="display-2 reveal">{{ section.settings.heading | escape | newline_to_br }}</h2>
         {%- if section.settings.lede != blank -%}
           <p class="lede reveal" style="--i:1">{{ section.settings.lede }}</p>
@@ -15,7 +49,7 @@
             </a>
           {%- endif -%}
           {%- if section.settings.cta_2_text != blank -%}
-            <a class="btn btn--lg btn--onDark" href="{{ section.settings.cta_2_link | default: routes.all_products_collection_url }}">{{ section.settings.cta_2_text }}</a>
+            <a class="btn btn--lg btn--{{ st.cta_2_style | default: 'onDark' }}" href="{{ section.settings.cta_2_link | default: routes.all_products_collection_url }}">{{ section.settings.cta_2_text }}</a>
           {%- endif -%}
         </div>
         {%- if section.settings.fine_print != blank -%}
@@ -69,6 +103,190 @@
       "id": "fine_print",
       "label": "Fine print",
       "default": "100-night sleep trial · 5-year foam guarantee · Free UK delivery over £40"
+    },
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "text_align",
+      "label": "Alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "center",
+          "label": "Centred"
+        },
+        {
+          "value": "left",
+          "label": "Left"
+        }
+      ]
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Background image"
+    },
+    {
+      "type": "product",
+      "id": "image_product",
+      "label": "…or use this product's photo"
+    },
+    {
+      "type": "range",
+      "id": "scrim",
+      "label": "Darken the image",
+      "min": 75,
+      "max": 95,
+      "step": 5,
+      "unit": "%",
+      "default": 80,
+      "info": "How much of the section's own colour sits over the photograph. 75% is the floor because that is where the headline and the lede still clear 4.5:1 against the brightest thing an image can put behind them."
+    },
+    {
+      "type": "select",
+      "id": "cta_2_style",
+      "label": "Second button style",
+      "default": "onDark",
+      "options": [
+        {
+          "value": "onDark",
+          "label": "Outline"
+        },
+        {
+          "value": "soft",
+          "label": "Filled, secondary"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 104
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 104
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Lets a button elsewhere jump here, e.g. an id of bed-finder is reached by a link to #bed-finder."
     },
     {
       "type": "header",

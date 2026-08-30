@@ -1,13 +1,59 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
 {%- liquid
-  assign img = section.settings.image
-  if img == blank and section.settings.image_product != blank
-    assign img = section.settings.image_product.featured_image
+  assign st = section.settings
+
+  assign img = st.image
+  if img == blank and st.image_product != blank
+    assign img = st.image_product.featured_image
+  endif
+
+  comment
+    Class list is built once rather than inline, so the markup below reads as
+    markup. Every modifier is additive: with no settings changed this resolves
+    to the single class the section shipped with.
+  endcomment
+  assign hero_class = 'pl-hero'
+  if st.layout == 'stacked'
+    assign hero_class = hero_class | append: ' pl-hero--stacked'
+  elsif st.media_side == 'left'
+    assign hero_class = hero_class | append: ' pl-hero--media-left'
+  endif
+  case st.image_shape
+    when 'arch'
+      assign hero_class = hero_class | append: ' pl-hero--arch'
+    when 'square'
+      assign hero_class = hero_class | append: ' pl-hero--square'
+  endcase
+  if st.image_shadow == false
+    assign hero_class = hero_class | append: ' pl-hero--flat'
+  endif
+
+  case st.split
+    when 'even'
+      assign split = '1fr 1fr'
+    when 'media'
+      assign split = '1fr 1.15fr'
+    else
+      assign split = '1.02fr 1fr'
+  endcase
+
+  assign trust_class = 'trust-strip'
+  case st.trust_style
+    when 'cards'
+      assign trust_class = trust_class | append: ' trust-strip--cards'
+    when 'plain'
+      assign trust_class = trust_class | append: ' trust-strip--plain'
+  endcase
+  if st.trust_scroll
+    assign trust_class = trust_class | append: ' trust-strip--scroll'
   endif
 -%}
 <div class="pl">
-  <section class="pl-hero">
+  <section class="{{ hero_class }}"
+           {% if st.anchor != blank %}id="{{ st.anchor | handleize }}"{% endif %}
+           style="--hero-split:{{ split }};--hero-ratio:{{ st.image_ratio | default: '5 / 6' }};--trust-cols:{{ st.trust_cols | default: 4 }}">
     <div class="wrap">
       <div class="pl-hero__grid">
         <div class="pl-hero__copy">
@@ -61,7 +107,7 @@
         </div>
       </div>
 
-      <div class="trust-strip reveal">
+      <div class="{{ trust_class }} reveal">
         {%- for block in section.blocks -%}
           <div class="trust-strip__item" {{ block.shopify_attributes }}>
             {% render 'pl-icon', icon: block.settings.icon %}
@@ -190,6 +236,304 @@
       "id": "proof_text",
       "label": "Caption",
       "default": "High-density memory foam core. Guaranteed for 5 years."
+    },
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "default": "split",
+      "options": [
+        {
+          "value": "split",
+          "label": "Copy beside the image"
+        },
+        {
+          "value": "stacked",
+          "label": "Copy above a wide image"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "media_side",
+      "label": "Image side",
+      "default": "right",
+      "options": [
+        {
+          "value": "right",
+          "label": "Right"
+        },
+        {
+          "value": "left",
+          "label": "Left"
+        }
+      ],
+      "info": "Desktop only. The headline stays first in the page's reading order either way."
+    },
+    {
+      "type": "select",
+      "id": "split",
+      "label": "Balance",
+      "default": "copy",
+      "options": [
+        {
+          "value": "copy",
+          "label": "Give the copy more room"
+        },
+        {
+          "value": "even",
+          "label": "Equal halves"
+        },
+        {
+          "value": "media",
+          "label": "Give the image more room"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "image_shape",
+      "label": "Image shape",
+      "default": "rounded",
+      "options": [
+        {
+          "value": "rounded",
+          "label": "Rounded"
+        },
+        {
+          "value": "arch",
+          "label": "Arch"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Image shape ratio",
+      "default": "5 / 6",
+      "options": [
+        {
+          "value": "1 / 1",
+          "label": "Square"
+        },
+        {
+          "value": "4 / 5",
+          "label": "Portrait, 4:5"
+        },
+        {
+          "value": "5 / 6",
+          "label": "Portrait, 5:6"
+        },
+        {
+          "value": "3 / 4",
+          "label": "Portrait, 3:4"
+        },
+        {
+          "value": "4 / 3",
+          "label": "Landscape, 4:3"
+        },
+        {
+          "value": "3 / 2",
+          "label": "Landscape, 3:2"
+        },
+        {
+          "value": "16 / 9",
+          "label": "Wide, 16:9"
+        }
+      ],
+      "info": "Applies from 900px up; below that the image is square. Switch the layout to a wide image and you want a landscape ratio here too."
+    },
+    {
+      "type": "checkbox",
+      "id": "image_shadow",
+      "label": "Drop shadow on the image",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Trust row"
+    },
+    {
+      "type": "select",
+      "id": "trust_style",
+      "label": "Style",
+      "default": "rules",
+      "options": [
+        {
+          "value": "rules",
+          "label": "Hairline band"
+        },
+        {
+          "value": "cards",
+          "label": "Cards"
+        },
+        {
+          "value": "plain",
+          "label": "No rules"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "trust_cols",
+      "label": "Columns",
+      "default": "4",
+      "options": [
+        {
+          "value": "2",
+          "label": "2"
+        },
+        {
+          "value": "3",
+          "label": "3"
+        },
+        {
+          "value": "4",
+          "label": "4"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "trust_scroll",
+      "label": "Swipe as one row on mobile",
+      "default": false,
+      "info": "Off, four claims wrap to a 2×2 block. On, they stay in one row the customer can swipe — which keeps the fourth claim visible instead of below the fold."
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Lets a button elsewhere jump here, e.g. an id of bed-finder is reached by a link to #bed-finder."
     },
     {
       "type": "header",

@@ -1,7 +1,54 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
+{%- liquid
+  assign st = section.settings
+
+  assign cols = st.cols | default: '4'
+  assign grid = 'products'
+  if st.card == 'framed'
+    assign grid = grid | append: ' products--framed'
+  endif
+  if st.mobile == 'scroll'
+    assign grid = grid | append: ' products--scroll'
+  endif
+
+  comment
+    The `sizes` hint has to follow the column count or the browser downloads a
+    quarter-width file for a card drawn at a third of the page. Worked out from
+    the setting rather than hardcoded to the four-up default.
+  endcomment
+  case cols
+    when '2'
+      assign card_sizes = '(min-width: 900px) 50vw, 45vw'
+    when '3'
+      assign card_sizes = '(min-width: 900px) 33vw, 45vw'
+    when '5'
+      assign card_sizes = '(min-width: 900px) 20vw, 45vw'
+    else
+      assign card_sizes = '(min-width: 1100px) 25vw, (min-width: 760px) 33vw, 45vw'
+  endcase
+  if st.mobile == 'scroll'
+    assign card_sizes = card_sizes | replace: '45vw', '70vw'
+  endif
+
+  assign hide_role = true
+  if st.show_role
+    assign hide_role = false
+  endif
+  assign hide_price = true
+  if st.show_price
+    assign hide_price = false
+  endif
+  assign hide_cta = true
+  if st.show_cta
+    assign hide_cta = false
+  endif
+-%}
 <div class="pl">
-  <section class="pl-section">
+  <section class="pl-section"
+           {% if st.anchor != blank %}id="{{ st.anchor | handleize }}"{% endif %}
+           style="--prod-cols:{{ cols }};--card-ratio:{{ st.ratio | default: '1 / 1' }}">
     <div class="wrap">
       <div class="section-head reveal" style="display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:space-between;align-items:flex-end;max-width:none">
         <div style="max-width:36rem">
@@ -15,7 +62,7 @@
         {%- endif -%}
       </div>
 
-      <div class="products">
+      <div class="{{ grid }}">
         {%- for block in section.blocks -%}
           {%- assign p = block.settings.product -%}
           {%- if p != blank -%}
@@ -31,6 +78,10 @@
                  rating_show_count: true,
                  fallback_rating: section.settings.rating,
                  fallback_label: section.settings.rating_label,
+                 img_sizes: card_sizes,
+                 hide_badge: hide_role,
+                 hide_price: hide_price,
+                 hide_cta: hide_cta,
                  attrs: block.shopify_attributes %}
           {%- endif -%}
         {%- endfor -%}
@@ -79,6 +130,264 @@
       "label": "Shop rating label",
       "default": "across all beds",
       "info": "Printed beside the score so it never reads as this bed's own review count."
+    },
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "cols",
+      "label": "Columns",
+      "default": "4",
+      "options": [
+        {
+          "value": "2",
+          "label": "2"
+        },
+        {
+          "value": "3",
+          "label": "3"
+        },
+        {
+          "value": "4",
+          "label": "4"
+        },
+        {
+          "value": "5",
+          "label": "5"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "ratio",
+      "label": "Image shape",
+      "default": "1 / 1",
+      "options": [
+        {
+          "value": "1 / 1",
+          "label": "Square"
+        },
+        {
+          "value": "4 / 5",
+          "label": "Portrait, 4:5"
+        },
+        {
+          "value": "5 / 6",
+          "label": "Portrait, 5:6"
+        },
+        {
+          "value": "3 / 4",
+          "label": "Portrait, 3:4"
+        },
+        {
+          "value": "4 / 3",
+          "label": "Landscape, 4:3"
+        },
+        {
+          "value": "3 / 2",
+          "label": "Landscape, 3:2"
+        },
+        {
+          "value": "16 / 9",
+          "label": "Wide, 16:9"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "card",
+      "label": "Card style",
+      "default": "bare",
+      "options": [
+        {
+          "value": "bare",
+          "label": "Image and text, no frame"
+        },
+        {
+          "value": "framed",
+          "label": "Framed card"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "mobile",
+      "label": "On mobile",
+      "default": "grid",
+      "options": [
+        {
+          "value": "grid",
+          "label": "Two-up grid"
+        },
+        {
+          "value": "scroll",
+          "label": "One swipeable row"
+        }
+      ],
+      "info": "A swipeable row shows the edge of the next card, so a customer knows the row continues. A grid puts cards three and four below the fold with no such signal."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_role",
+      "label": "Show the role label",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_price",
+      "label": "Show price",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_cta",
+      "label": "Show the card's link text",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Centred"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Lets a button elsewhere jump here, e.g. an id of bed-finder is reached by a link to #bed-finder."
     },
     {
       "type": "header",

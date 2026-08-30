@@ -1,5 +1,6 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
 {%- liquid
   comment
     Count first. With no matching reviews the section would otherwise render a
@@ -16,16 +17,29 @@
       assign matches = matches | plus: 1
     endif
   endfor
+
+  assign st = section.settings
+
+  assign revs = 'reviews'
+  if st.card == 'plain'
+    assign revs = revs | append: ' reviews--plain'
+  endif
+  if st.mobile == 'scroll'
+    assign revs = revs | append: ' reviews--scroll'
+  endif
 -%}
 {%- if matches > 0 -%}
 <div class="pl">
-  <section class="pl-section">
+  <section class="pl-section"
+           {% if st.anchor != blank %}id="{{ st.anchor | handleize }}"{% endif %}
+           style="--rev-cols:{{ st.cols | default: 4 }}">
     <div class="wrap">
       <div class="review-head">
         <div class="reveal">
           {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
           <h2 class="display-2">{{ section.settings.heading | escape | newline_to_br }}</h2>
         </div>
+        {%- if st.show_score -%}
         <div class="score reveal" style="--i:1">
           <div class="score__n" data-count="{{ section.settings.score }}" data-decimals="1">{{ section.settings.score }}<small>/5</small></div>
           <div>
@@ -33,8 +47,9 @@
             <p class="score__meta">{{ section.settings.score_meta }}</p>
           </div>
         </div>
+        {%- endif -%}
       </div>
-      <div class="reviews">
+      <div class="{{ revs }}">
         {%- comment -%}
           Product scoping. On a PDP the section is set to "this product only",
           and a review renders only if its block names this product. A review
@@ -114,6 +129,195 @@
       "id": "score_meta",
       "label": "Score caption",
       "default": "Based on 3,900+<br>verified reviews"
+    },
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "cols",
+      "label": "Columns",
+      "default": "4",
+      "options": [
+        {
+          "value": "2",
+          "label": "2"
+        },
+        {
+          "value": "3",
+          "label": "3"
+        },
+        {
+          "value": "4",
+          "label": "4"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "card",
+      "label": "Card style",
+      "default": "framed",
+      "options": [
+        {
+          "value": "framed",
+          "label": "Framed"
+        },
+        {
+          "value": "plain",
+          "label": "No frame"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "mobile",
+      "label": "On mobile",
+      "default": "stack",
+      "options": [
+        {
+          "value": "stack",
+          "label": "Stacked"
+        },
+        {
+          "value": "scroll",
+          "label": "One swipeable row"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_score",
+      "label": "Show the score panel",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Lets a button elsewhere jump here, e.g. an id of bed-finder is reached by a link to #bed-finder."
     },
     {
       "type": "header",

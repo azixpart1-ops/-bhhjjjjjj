@@ -1,16 +1,38 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
+{%- liquid
+  assign st = section.settings
+
+  assign faq = 'faq'
+  if st.columns == 'two'
+    assign faq = faq | append: ' faq--two'
+  endif
+
+  comment
+    The section head was hardcoded to centre. It now follows the shared
+    alignment control, defaulting to centre so nothing moves for anyone who
+    does not go looking for it.
+  endcomment
+  assign head = 'section-head section-head--center'
+  if st.align == 'left'
+    assign head = 'section-head'
+  endif
+-%}
 <div class="pl">
-  <section class="pl-section">
+  <section class="pl-section"
+           {% if st.anchor != blank %}id="{{ st.anchor | handleize }}"{% endif %}>
     <div class="wrap">
-      <div class="section-head section-head--center reveal">
+      <div class="{{ head }} reveal">
         {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
         <h2 class="display-2">{{ section.settings.heading | escape | newline_to_br }}</h2>
       </div>
-      <div class="faq reveal" id="plFaq">
+      <div class="{{ faq }} reveal" id="plFaq-{{ section.id }}">
         {%- for block in section.blocks -%}
-          <div class="faq__item" {{ block.shopify_attributes }}>
-            <h3><button class="faq__q" type="button" aria-expanded="false">{{ block.settings.question }}<span class="faq__icon" aria-hidden="true"></span></button></h3>
+          {%- assign is_open = false -%}
+          {%- if st.open_first and forloop.first -%}{%- assign is_open = true -%}{%- endif -%}
+          <div class="faq__item"{% if is_open %} data-open{% endif %} {{ block.shopify_attributes }}>
+            <h3><button class="faq__q" type="button" aria-expanded="{{ is_open }}">{{ block.settings.question }}<span class="faq__icon" aria-hidden="true"></span></button></h3>
             <div class="faq__a"><div>{{ block.settings.answer }}</div></div>
           </div>
         {%- endfor -%}
@@ -59,6 +81,178 @@
       "id": "emit_schema",
       "label": "Output FAQ structured data for Google",
       "default": true
+    },
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "columns",
+      "label": "Columns",
+      "default": "one",
+      "options": [
+        {
+          "value": "one",
+          "label": "One"
+        },
+        {
+          "value": "two",
+          "label": "Two, on desktop"
+        }
+      ],
+      "info": "Two columns halve the scroll depth of a long list. Below 900px it always falls back to one."
+    },
+    {
+      "type": "checkbox",
+      "id": "open_first",
+      "label": "Open the first question",
+      "default": false,
+      "info": "Showing one answer already open tells the customer the list is interactive. It also pushes the rest of the questions down."
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Centred"
+        }
+      ],
+      "info": "This section shipped centred. Left suits it when the heading sits beside other left-aligned sections."
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Lets a button elsewhere jump here, e.g. an id of bed-finder is reached by a link to #bed-finder."
     },
     {
       "type": "header",

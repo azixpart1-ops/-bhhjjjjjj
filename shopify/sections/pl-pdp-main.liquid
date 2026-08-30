@@ -368,7 +368,14 @@
               {%- if assure_blocks > 0 -%}
                 {%- for block in section.blocks -%}
                   {%- if block.type == 'assure' -%}
-                    <li {{ block.shopify_attributes }}>{% render 'pl-icon', icon: block.settings.icon | default: 'check' %}<span>{{ block.settings.text }}</span></li>
+                    {%- comment -%}
+                      The filter has to run before the render, not inside it:
+                      Liquid rejects a filter applied to a render argument, and
+                      it fails as a syntax error that takes the whole section
+                      down rather than just this line.
+                    {%- endcomment -%}
+                    {%- assign assure_icon = block.settings.icon | default: 'check' -%}
+                    <li {{ block.shopify_attributes }}>{% render 'pl-icon', icon: assure_icon %}<span>{{ block.settings.text }}</span></li>
                   {%- endif -%}
                 {%- endfor -%}
               {%- else -%}

@@ -1,5 +1,6 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
 {%- comment -%}
   Category shortcuts.
 
@@ -11,8 +12,49 @@
   Each tile counts its own collection, so a category that empties stops
   advertising beds it cannot show.
 {%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+
+  comment
+    Image tiles need images. A tile whose collection has no image and no
+    override is a large empty box, so the style only applies once at least one
+    block can actually produce a picture — otherwise it falls back to the
+    compact row, which is designed to work without one. This is checked here
+    rather than left to the merchant to notice on the live site.
+  endcomment
+  assign has_image = false
+  for block in section.blocks
+    if block.settings.image != blank or block.settings.collection.image != blank
+      assign has_image = true
+      break
+    endif
+  endfor
+
+  assign cats = 'cats'
+  if st.style == 'tiles' and has_image
+    assign cats = cats | append: ' cats--tiles'
+  endif
+  if st.cols != blank and st.cols != 'auto'
+    assign cats = cats | append: ' cats--fixed'
+  endif
+
+  comment
+    Tiles want a bigger image than the compact row's 52px thumbnail, so the
+    request width is chosen from the style rather than fixed. Asking for a
+    1200px file to draw it at 52 is the sort of thing that quietly costs a
+    second on a phone.
+  endcomment
+  assign img_w = 240
+  assign img_sizes = '80px'
+  if st.style == 'tiles' and has_image
+    assign img_w = 800
+    assign img_sizes = '(min-width: 760px) 26vw, 46vw'
+  endif
+-%}
 <div class="pl">
-  <section class="pl-section pl-section--tight">
+  <section class="pl-section pl-section--tight"
+           {% if st.anchor != blank %}id="{{ st.anchor | handleize }}"{% endif %}
+           style="--cat-cols:{{ st.cols | default: 3 }};--cat-ratio:{{ st.ratio | default: '4 / 3' }}">
     <div class="wrap">
       {%- if section.settings.heading != blank or section.settings.eyebrow != blank -%}
         <div class="cats__head reveal">
@@ -21,7 +63,7 @@
         </div>
       {%- endif -%}
 
-      <ul class="cats">
+      <ul class="{{ cats }}">
         {%- for block in section.blocks -%}
           {%- liquid
             comment
@@ -47,16 +89,17 @@
           {%- if href != '' and label != '' -%}
             <li class="reveal" style="--i:{{ forloop.index0 | modulo: 6 | plus: 1 }}" {{ block.shopify_attributes }}>
               <a class="cat" href="{{ href }}">
-                {%- if block.settings.image != blank -%}
-                  <img class="cat__img" src="{{ block.settings.image | image_url: width: 240 }}"
-                       srcset="{{ block.settings.image | image_url: width: 160 }} 160w, {{ block.settings.image | image_url: width: 320 }} 320w"
-                       sizes="80px" width="240" height="240" loading="lazy" decoding="async"
-                       alt="{{ block.settings.image.alt | escape | default: label | escape }}">
-                {%- elsif col.image != blank -%}
-                  <img class="cat__img" src="{{ col.image | image_url: width: 240 }}"
-                       srcset="{{ col.image | image_url: width: 160 }} 160w, {{ col.image | image_url: width: 320 }} 320w"
-                       sizes="80px" width="240" height="240" loading="lazy" decoding="async"
-                       alt="{{ col.image.alt | escape | default: label | escape }}">
+                {%- liquid
+                  assign tile = block.settings.image
+                  if tile == blank
+                    assign tile = col.image
+                  endif
+                -%}
+                {%- if tile != blank -%}
+                  <img class="cat__img" src="{{ tile | image_url: width: img_w }}"
+                       srcset="{{ tile | image_url: width: 160 }} 160w, {{ tile | image_url: width: 320 }} 320w, {{ tile | image_url: width: 640 }} 640w, {{ tile | image_url: width: 900 }} 900w"
+                       sizes="{{ img_sizes }}" width="{{ img_w }}" height="{{ img_w }}" loading="lazy" decoding="async"
+                       alt="{{ tile.alt | escape | default: label | escape }}">
                 {%- endif -%}
                 <span class="cat__body">
                   <span class="cat__name">{{ label }}</span>
@@ -66,7 +109,9 @@
                     <span class="cat__note">{{ col.products_count }} {% if col.products_count == 1 %}bed{% else %}beds{% endif %}</span>
                   {%- endif -%}
                 </span>
-                {% render 'pl-icon', icon: 'arrow', class: 'cat__arrow', size: 16 %}
+                {%- if st.show_arrow -%}
+                  {% render 'pl-icon', icon: 'arrow', class: 'cat__arrow', size: 16 %}
+                {%- endif -%}
               </a>
             </li>
           {%- endif -%}
@@ -80,39 +125,381 @@
   "name": "PL – Shop by need",
   "tag": "section",
   "settings": [
-    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Shop by need" },
-    { "type": "text", "id": "heading", "label": "Heading", "default": "Already know what you're after?" },
-    { "type": "checkbox", "id": "show_counts", "label": "Show how many beds are in each", "default": true },
-    { "type": "header", "content": "Colour" },
-    { "type": "paragraph", "content": "Text colour is chosen by measuring contrast against the background you pick, so a section cannot end up unreadable. The editor warns you if a background leaves no readable option." },
-    { "type": "select", "id": "scheme", "label": "Colour scheme", "default": "default",
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Shop by need"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Already know what you're after?"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_counts",
+      "label": "Show how many beds are in each",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "Tile style",
+      "default": "row",
       "options": [
-        { "value": "default", "label": "Theme default" },
-        { "value": "cream", "label": "Cream, calm" },
-        { "value": "oat", "label": "Oat, warm neutral" },
-        { "value": "gold", "label": "Gold, warmth" },
-        { "value": "forest", "label": "Forest, authority" },
-        { "value": "clay", "label": "Deep green, focus" },
-        { "value": "custom", "label": "Custom" }
-      ] },
-    { "type": "color", "id": "bg", "label": "Background", "info": "Custom scheme only." },
-    { "type": "color", "id": "accent", "label": "Buttons and links", "info": "Custom scheme only." },
-    { "type": "select", "id": "tone", "label": "Text colour", "default": "auto",
+        {
+          "value": "row",
+          "label": "Compact row — thumbnail and label"
+        },
+        {
+          "value": "tiles",
+          "label": "Image tiles"
+        }
+      ],
+      "info": "Image tiles give the categories the weight of a main route into the catalogue. The compact row keeps them a shortcut past the finder."
+    },
+    {
+      "type": "select",
+      "id": "cols",
+      "label": "Columns",
+      "default": "auto",
       "options": [
-        { "value": "auto", "label": "Automatic, recommended" },
-        { "value": "dark", "label": "Dark" },
-        { "value": "light", "label": "Light" }
-      ] }
+        {
+          "value": "auto",
+          "label": "Fit to the space"
+        },
+        {
+          "value": "2",
+          "label": "2"
+        },
+        {
+          "value": "3",
+          "label": "3"
+        },
+        {
+          "value": "4",
+          "label": "4"
+        },
+        {
+          "value": "5",
+          "label": "5"
+        },
+        {
+          "value": "6",
+          "label": "6"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "ratio",
+      "label": "Tile image shape",
+      "default": "4 / 3",
+      "options": [
+        {
+          "value": "1 / 1",
+          "label": "Square"
+        },
+        {
+          "value": "4 / 5",
+          "label": "Portrait, 4:5"
+        },
+        {
+          "value": "5 / 6",
+          "label": "Portrait, 5:6"
+        },
+        {
+          "value": "3 / 4",
+          "label": "Portrait, 3:4"
+        },
+        {
+          "value": "4 / 3",
+          "label": "Landscape, 4:3"
+        },
+        {
+          "value": "3 / 2",
+          "label": "Landscape, 3:2"
+        },
+        {
+          "value": "16 / 9",
+          "label": "Wide, 16:9"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_arrow",
+      "label": "Arrow on each tile",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Centred"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Lets a button elsewhere jump here, e.g. an id of bed-finder is reached by a link to #bed-finder."
+    },
+    {
+      "type": "header",
+      "content": "Colour"
+    },
+    {
+      "type": "paragraph",
+      "content": "Text colour is chosen by measuring contrast against the background you pick, so a section cannot end up unreadable. The editor warns you if a background leaves no readable option."
+    },
+    {
+      "type": "select",
+      "id": "scheme",
+      "label": "Colour scheme",
+      "default": "default",
+      "options": [
+        {
+          "value": "default",
+          "label": "Theme default"
+        },
+        {
+          "value": "cream",
+          "label": "Cream, calm"
+        },
+        {
+          "value": "oat",
+          "label": "Oat, warm neutral"
+        },
+        {
+          "value": "gold",
+          "label": "Gold, warmth"
+        },
+        {
+          "value": "forest",
+          "label": "Forest, authority"
+        },
+        {
+          "value": "clay",
+          "label": "Deep green, focus"
+        },
+        {
+          "value": "custom",
+          "label": "Custom"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "bg",
+      "label": "Background",
+      "info": "Custom scheme only."
+    },
+    {
+      "type": "color",
+      "id": "accent",
+      "label": "Buttons and links",
+      "info": "Custom scheme only."
+    },
+    {
+      "type": "select",
+      "id": "tone",
+      "label": "Text colour",
+      "default": "auto",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Automatic, recommended"
+        },
+        {
+          "value": "dark",
+          "label": "Dark"
+        },
+        {
+          "value": "light",
+          "label": "Light"
+        }
+      ]
+    }
   ],
   "blocks": [
-    { "type": "cat", "name": "Category", "limit": 8, "settings": [
-      { "type": "collection", "id": "collection", "label": "Collection" },
-      { "type": "text", "id": "label", "label": "Label", "info": "Leave blank to use the collection title." },
-      { "type": "text", "id": "note", "label": "Note", "info": "Leave blank to show the number of beds." },
-      { "type": "url", "id": "link", "label": "Link", "info": "Leave blank to use the collection." },
-      { "type": "image_picker", "id": "image", "label": "Image", "info": "Leave blank to use the collection image." }
-    ] }
+    {
+      "type": "cat",
+      "name": "Category",
+      "limit": 8,
+      "settings": [
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": "Collection"
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "info": "Leave blank to use the collection title."
+        },
+        {
+          "type": "text",
+          "id": "note",
+          "label": "Note",
+          "info": "Leave blank to show the number of beds."
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link",
+          "info": "Leave blank to use the collection."
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image",
+          "info": "Leave blank to use the collection image."
+        }
+      ]
+    }
   ],
-  "presets": [{ "name": "PL – Shop by need" }]
+  "presets": [
+    {
+      "name": "PL – Shop by need"
+    }
+  ]
 }
 {% endschema %}

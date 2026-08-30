@@ -667,3 +667,160 @@ filter JSON built from live variant, tag and option data pulled through the Admi
 API. Shopify still validated every section server-side on upload — a section whose
 schema it rejects simply never appears, and all of them appear at exactly their
 local byte size.
+
+---
+
+## 13. Homepage redesign — every section editable, no copy touched
+
+The brief for this round: redesign the homepage into something that converts,
+**without changing a word of the text**, and make each section as customisable in
+the theme editor as it can reasonably be, because the shop will be tuned there
+rather than in code from now on.
+
+So this round adds no copy and removes none. It changes what the sections *are*,
+and it hands the controls over.
+
+### The copy promise, checked rather than asserted
+
+`scripts/` has a companion to the linter for this. It diffs the committed
+`templates/index.json` against the working one and fails if any value that existed
+before has changed or disappeared; only new keys and a new `order` are allowed.
+
+```
+PASS — every value that existed before is byte identical.
+       100 new keys added (all design settings).
+       197 copy strings before, 197 after, on the same keys.
+       No copy string added, removed or altered.
+```
+
+### What changed on the page
+
+| | Was | Now | Why |
+|---|---|---|---|
+| **Hero image** | Rounded rectangle | **Arch** | The one silhouette no stock Shopify theme ships with, and the shape that crops a square product photo least badly — which is what the catalogue is full of. |
+| **Trust row on mobile** | 2×2 block | **One swipeable row** | At 2×2 the delivery promise sat below the fold. All four claims now stay in play. |
+| **Shop by need** | 52px thumbnail beside a label | **Image tiles, 3-up** | A photograph of a nest bed answers "which of these is my dog" faster than the words "Nest & bolster" do. Falls back to the compact row on its own if the collections have no images, so it cannot ship as six empty boxes. |
+| **Four beds on mobile** | 2-up grid | **One swipeable row** | A grid puts cards three and four below the fold with nothing to say they exist. A snapping row shows the edge of the next card, which is the signal. |
+| **Layer diagram** | Four separate cards | **Stacked cross-section** | The section's whole argument is that the bed is four layers in a fixed order. Now it is drawn that way. |
+| **Reviews on mobile** | Four stacked cards | **One swipeable row** | Same reasoning; it also stops the section costing four screens of scroll. |
+| **FAQ** | One column, six questions | **Two columns above 900px** | Halves the scroll depth immediately before the close. Reverts to one column below 900px, where two would be worse. |
+| **Closing CTA** | Flat green | **Photograph behind a scrim** | Bookends the page with the hero's image. |
+| **Marquee** | 42s loop | **58s, pauses on hover** | At 42s a claim left the screen before it could be read. |
+| **Order** | … mechanism → **reviews → trial** → brand … | … mechanism → **trial → reviews** → brand … | §2 of this document sets out the arc as *notice → name it → solve it → de-risk it → prove it → close*. The template had prove before de-risk. The 100-night trial now lands while the price is still the thing in the reader's head, and the reviews become the last push before the FAQ and the close. |
+
+### The contrast floor on the new background image
+
+The scrim over the closing photograph is a slider, and its floor is 75%, not 0.
+Worst case for a background image is a fully white region under the text. Measured
+against that:
+
+| Scrim | Heading | Sub-line | Fine print |
+|---|---|---|---|
+| 40% | 1.96:1 | 1.79:1 | 1.18:1 |
+| 60% | 3.38:1 | 3.07:1 | 2.03:1 |
+| **75%** | **5.46:1** | **4.96:1** | 3.27:1 |
+| 80% (default) | 6.47:1 | 5.88:1 | 3.88:1 |
+
+The fine print is the one that still fails at the floor, so over an image it takes
+the brighter of the two on-dark inks instead of the muted one — 4.96:1 at 75%. On a
+plain ground nothing changes. The slider cannot be dragged low enough to publish an
+unreadable close, which is the same principle `pl-scheme` already applies to colour.
+
+### The controls each section now has
+
+Every homepage section carries three groups: **Design**, **Layout and spacing**,
+**Colour**. Colour was already there. The other two are new.
+
+**Layout and spacing**, on all of them:
+
+- Content width — narrow 1040 / normal 1240 / wide 1440 / full
+- Heading alignment, where the section has a head to align
+- Heading size, 70–130%, which scales the display type *only* — body copy stays put
+- Top and bottom padding, separately for desktop and for phones
+- Hairline above / below
+- Corner radius — square, soft, rounded
+- Reveal on scroll, on or off
+- An anchor id, so a button anywhere can jump to the section
+
+**Design**, section by section:
+
+| Section | Controls |
+|---|---|
+| Hero | Split or stacked layout · image left or right · copy/media balance · image shape (rounded, arch, square) · aspect ratio · drop shadow · trust row style, column count and mobile behaviour |
+| Proof marquee | Band colour (dark, oat, accent, rules only) · caps or sentence case · dot, slash or no separator · loop speed · direction · gap · text size · band height · pause on hover |
+| Shop by need | Compact row or image tiles · 2–6 columns or auto-fit · tile aspect ratio · arrow on/off |
+| Three signs | 2–4 columns · cards, rule-above or plain · numbering on/off |
+| Bed finder | Raised card or flat panel · step counter on/off · anchor id (with a warning that five other buttons point at it) |
+| Four beds | 2–5 columns · image aspect ratio · bare or framed cards · grid or swipe row on mobile · role label, price and link text each on/off |
+| Why it costs this | Diagram left or right · balance · cards, stacked cross-section or colour bars · 1–4 proof points per row |
+| Reviews | 2–4 columns · framed or plain · stacked or swipe row on mobile · score panel on/off |
+| 100-night trial | Image left or right · balance · image aspect ratio |
+| Made in Yorkshire | Image left or right · balance · image aspect ratio |
+| FAQ | One or two columns · open the first answer on/off · structured data on/off |
+| Closing CTA | Centred or left · background image (or a product's photo) · scrim · second button style |
+
+### How it is built, and why nothing else moved
+
+`snippets/pl-layout.liquid` is the companion to `pl-scheme`: where that one moves a
+section's colour tokens, this one moves its geometry, by emitting custom properties
+scoped to a single `#shopify-section-…`. The stylesheet was rewritten to read those
+properties **with the old value as the fallback**:
+
+```css
+.pl.pl .pl-section {
+  padding-block: var(--sec-pt, clamp(3.5rem, 8vw, 7rem))
+                 var(--sec-pb, clamp(3.5rem, 8vw, 7rem));
+}
+```
+
+That matters because six of these sections are shared with the product page,
+the collection pages and eleven `page.*` templates, whose JSON does not carry any
+of the new keys. Every new default was chosen to reproduce what that section
+already did — the 96px desktop default is what `clamp(3.5rem, 8vw, 7rem)` resolves
+to at 1240px, and 56px is exactly what it resolves to on a phone.
+
+Two defaults needed care. `pl-faq` and `pl-finder` hardcoded a centred section
+head, so their alignment control defaults to centred rather than to the shared
+default of left — otherwise eight other templates would have quietly reflowed.
+
+One deliberate behaviour change everywhere: the marquee now pauses on hover.
+
+### Verified
+
+- `scripts/lint-shopify.py` — 33 sections, 0 errors, 0 warnings.
+- `@shopify/theme-check-node` — **0 errors** across the theme.
+- Rendered in Chromium at 1440px and 390px against the real stylesheet: zero
+  horizontal overflow at both, no console errors, and every new control measured on
+  the computed styles — arch radius applied, padding honoured, 4-up grids on desktop
+  becoming flex swipe rows on mobile, tiles at 3-up and 2-up, the FAQ resolving to
+  two column positions on desktop and one on mobile, the stacked layers sitting
+  edge to edge, and the scrim and background image in the right paint order.
+
+### Two things I fixed that were not the homepage
+
+Both were found by the checks above rather than looked for.
+
+1. **`sections/pl-pdp-main.liquid` had a Liquid syntax error** —
+   `{% render 'pl-icon', icon: block.settings.icon | default: 'check' %}`. A filter
+   cannot be applied to a `render` argument; it fails as a syntax error that takes
+   the whole section down, not just that line. The filter now runs in an `assign`
+   first. This is the same class of fault that has bitten this project before, and
+   theme-check reports it as an error rather than a warning for that reason.
+2. **The FAQ accordion was bound by `getElementById('plFaq')`** — so a merchant
+   adding the FAQ section twice (one general, one about delivery, which the new
+   controls make an obvious thing to do) would have got a second accordion that
+   did nothing, with nothing to explain why. It is now bound per list.
+
+### What is not done
+
+**None of this is on the store.** The Shopify connection this session was working
+through was lost part-way and re-authorising needs an interactive OAuth flow that a
+remote session cannot run, so these files were not uploaded to the preview theme and
+nothing was verified against a live render. Everything above was verified against the
+files themselves. Reconnect Shopify from claude.ai → Settings → Connectors and the
+upload is the last step.
+
+The standalone `index.html` at the repo root was **not** updated. It is the original
+prototype and had already diverged from the Shopify build — different palette values,
+no `.pl` scoping, half the stylesheet. The `shopify/` directory is the source of
+truth; treat the root page as a historical artefact.

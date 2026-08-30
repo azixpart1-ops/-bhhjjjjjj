@@ -18,6 +18,11 @@
     facets    emit the data-* attributes the collection filters read
     lazy      lazy-load the image. Pass false for the first screenful.
     attrs     block.shopify_attributes, for theme editor selection
+    img_sizes override the `sizes` attribute when the caller knows its columns
+    hide_badge, hide_price, hide_cta
+              suppress the corner badge, the price, or the "View" link. All
+              three are opt-out rather than opt-in so every existing caller
+              keeps the card it already had.
 {%- endcomment -%}
 {%- liquid
   assign p = product
@@ -91,7 +96,7 @@
     {%- if p.featured_image -%}
       <img src="{{ p.featured_image | image_url: width: 560 }}"
            srcset="{{ p.featured_image | image_url: width: 400 }} 400w, {{ p.featured_image | image_url: width: 760 }} 760w"
-           sizes="(min-width: 1100px) 25vw, (min-width: 760px) 33vw, 45vw"
+           sizes="{{ img_sizes | default: '(min-width: 1100px) 25vw, (min-width: 760px) 33vw, 45vw' }}"
            alt="{{ p.featured_image.alt | escape | default: p.title | escape }}"
            width="560" height="560"
            {% if is_lazy %}loading="lazy"{% endif %} decoding="async">
@@ -138,7 +143,7 @@
     -%}
     {%- assign badge_class = 'pl-card__role' -%}
     {%- if badge == 'Low stock' -%}{%- assign badge_class = 'pl-card__role pl-card__role--low' -%}{%- endif -%}
-    {%- unless badge == '' -%}<span class="{{ badge_class }}">{{ badge }}</span>{%- endunless -%}
+    {%- unless badge == '' or hide_badge -%}<span class="{{ badge_class }}">{{ badge }}</span>{%- endunless -%}
   </div>
   <div class="pl-card__body">
     {%- comment -%}
@@ -186,11 +191,17 @@
         <p class="pl-card__desc"><span class="pl-card__key">{{ p.options_with_values.first.name }}</span> {{ p.options_with_values.first.values | join: ' · ' }}</p>
       {%- endif -%}
     {%- endif -%}
-    <div class="pl-card__foot">
-      <span class="pl-card__price">
-        {%- if p.price_varies -%}<small>From</small> {% endif %}{{ p.price_min | money }}
-      </span>
-      <span class="pl-card__buy">View {% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 14 %}</span>
-    </div>
+    {%- unless hide_price and hide_cta -%}
+      <div class="pl-card__foot">
+        {%- unless hide_price -%}
+          <span class="pl-card__price">
+            {%- if p.price_varies -%}<small>From</small> {% endif %}{{ p.price_min | money }}
+          </span>
+        {%- endunless -%}
+        {%- unless hide_cta -%}
+          <span class="pl-card__buy">View {% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 14 %}</span>
+        {%- endunless -%}
+      </div>
+    {%- endunless -%}
   </div>
 </a>

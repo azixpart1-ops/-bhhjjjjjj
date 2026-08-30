@@ -475,11 +475,16 @@
     /* ----------------------------------------------------------------------
        FAQ accordion
        ---------------------------------------------------------------------- */
-    var faq = document.getElementById('plFaq');
-    if (faq) {
+    /* Bound per list, not by id. A merchant can add the FAQ section twice —
+       one general, one about delivery — and the id lookup this replaced would
+       have left the second one inert with nothing to explain why. */
+    document.querySelectorAll('.faq').forEach(function (faq) {
+      if (faq.dataset.plFaqBound) return;
+      faq.dataset.plFaqBound = '1';
+
       faq.addEventListener('click', function (e) {
         var btn = e.target.closest('.faq__q');
-        if (!btn) return;
+        if (!btn || !faq.contains(btn)) return;
         var item = btn.closest('.faq__item');
         var open = item.hasAttribute('data-open');
 
@@ -493,7 +498,7 @@
           btn.setAttribute('aria-expanded', 'true');
         }
       });
-    }
+    });
 
     /* ----------------------------------------------------------------------
        Count-up

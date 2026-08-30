@@ -1,12 +1,47 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{%- liquid
+  assign st = section.settings
+
+  assign mq = 'marquee'
+  case st.band
+    when 'light'
+      assign mq = mq | append: ' marquee--light'
+    when 'accent'
+      assign mq = mq | append: ' marquee--accent'
+    when 'bare'
+      assign mq = mq | append: ' marquee--bare'
+  endcase
+  if st.text_case == 'sentence'
+    assign mq = mq | append: ' marquee--sentence'
+  endif
+  case st.bullet
+    when 'slash'
+      assign mq = mq | append: ' marquee--slash'
+    when 'none'
+      assign mq = mq | append: ' marquee--nodot'
+  endcase
+  if st.direction == 'rtl'
+    assign mq = mq | append: ' marquee--rtl'
+  endif
+  if st.pause_hover
+    assign mq = mq | append: ' marquee--pause'
+  endif
+
+  comment
+    The band is decorative repetition of claims made in full elsewhere, so it
+    is hidden from assistive tech. That is also why it carries no landmark and
+    no heading.
+  endcomment
+-%}
 {%- capture items -%}
   {%- for block in section.blocks -%}
     <span class="marquee__item" {{ block.shopify_attributes }}>{{ block.settings.text }}</span>
   {%- endfor -%}
 {%- endcapture -%}
 <div class="pl">
-  <div class="marquee" aria-hidden="true">
+  <div class="{{ mq }}" aria-hidden="true"
+       style="--mq-speed:{{ st.speed | default: 42 }}s;--mq-gap:{{ st.gap | default: 48 }}px;--mq-size:{{ st.size | default: 100 | times: 0.0082 }}rem;--mq-pad:{{ st.pad | default: 16 }}px">
     <div class="marquee__track">{{ items }}</div>
     <div class="marquee__track">{{ items }}</div>
   </div>
@@ -35,6 +70,133 @@
     }
   ],
   "settings": [
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "band",
+      "label": "Band colour",
+      "default": "dark",
+      "options": [
+        {
+          "value": "dark",
+          "label": "Dark green"
+        },
+        {
+          "value": "light",
+          "label": "Oat"
+        },
+        {
+          "value": "accent",
+          "label": "Accent"
+        },
+        {
+          "value": "bare",
+          "label": "No fill, rules only"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "text_case",
+      "label": "Text style",
+      "default": "caps",
+      "options": [
+        {
+          "value": "caps",
+          "label": "Small caps, tracked"
+        },
+        {
+          "value": "sentence",
+          "label": "Sentence case"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "bullet",
+      "label": "Separator",
+      "default": "dot",
+      "options": [
+        {
+          "value": "dot",
+          "label": "Dot"
+        },
+        {
+          "value": "slash",
+          "label": "Slash"
+        },
+        {
+          "value": "none",
+          "label": "None"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "speed",
+      "label": "Seconds for one loop",
+      "min": 15,
+      "max": 120,
+      "step": 1,
+      "unit": "s",
+      "default": 42,
+      "info": "Higher is slower. Under about 25s the text is hard to read in passing."
+    },
+    {
+      "type": "select",
+      "id": "direction",
+      "label": "Direction",
+      "default": "ltr",
+      "options": [
+        {
+          "value": "ltr",
+          "label": "Right to left"
+        },
+        {
+          "value": "rtl",
+          "label": "Left to right"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "gap",
+      "label": "Space between claims",
+      "min": 16,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "size",
+      "label": "Text size",
+      "min": 60,
+      "max": 140,
+      "step": 5,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "pad",
+      "label": "Band height",
+      "min": 4,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "checkbox",
+      "id": "pause_hover",
+      "label": "Pause on hover",
+      "default": true
+    },
     {
       "type": "header",
       "content": "Colour"
