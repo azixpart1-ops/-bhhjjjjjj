@@ -1253,3 +1253,74 @@ Theme work cannot reach any of these; each is store data.
 4. **The announcement bar carries a raw code**, `PRJJ1AE6P8ZZ`.
 5. **Seven non-products sit alongside the beds**, including one called `test`
    and one titled "Next Day Delivry".
+
+### Three of §17's open items, closed
+
+Same draft, same theme id. All three were things the last round named and
+did not do.
+
+**1. The quiz was leading with beds nobody could buy.**
+
+Each bed in the data island already carries a resolved variant per size band
+with `available` on it, and the code read that only to print *"that size is
+back in stock soon"* underneath the recommendation. It now orders the beds
+sharing an answer so any bed whose variant for the chosen size cannot be
+bought sinks below one that can — keeping the shop's own order otherwise. The
+shortlist drops them outright, which is what the comment above it already
+claimed and the code did not do.
+
+If nothing in the slot is buyable the order is left alone. An answer carrying
+an honest back-in-stock line beats no answer, and that is the third of three
+outcomes, not the first.
+
+Driven across all 27 answer combinations in Chromium:
+
+```
+Buttermere Bouclé   medium: unavailable   large: available
+  curls up · no concerns · small    ->  Elterwater  £139
+  curls up · no concerns · medium   ->  Elterwater  £139
+  curls up · no concerns · large    ->  Buttermere   £89   (buyable, so it keeps the slot)
+27 combinations, 0 empty results, 0 page errors
+```
+
+**2. The dark section's ink is a token now.**
+
+`.pl-section--dark` set `color: var(--oat)` and its pull quote took
+`var(--bone)`. pl-scheme re-points both the moment a merchant picks a colour
+for that section — `--oat` to a surface mixed from the new ground, `--bone` to
+the ground itself — so a light scheme had the section painting its own copy in
+two shades of its own background. Measured, by injecting exactly what
+pl-scheme emits for the oat scheme:
+
+| | Ground | Body copy | Pull quote |
+|---|---|---|---|
+| Default scheme, before and after | moss | **12.31:1** | — |
+| Light scheme, before | oat | 1.05:1 | **1.00:1** |
+| Light scheme, after | oat | **15.14:1** | **15.14:1** |
+
+A ratio of 1.00 is not "hard to read". It is the same colour.
+
+`--sec-ink` and `--sec-lift` default to precisely the two values the base file
+used, so nothing moves on the schemes shipped today — the default measured
+`rgb(241, 233, 219)` before the change and after it. pl-scheme overrides them,
+scoped to the section id, with the ink it measured against whatever ground was
+actually chosen.
+
+**3. The quiz result was printing search tails.**
+
+Its name falls back to the product's own title, and the thirteen beds added to
+the shortlist in §15 have no display name typed — so the single most important
+line on the page read *"The Elterwater Bouclé High-Wall Nest Dog Bed —
+Calming, S–L"*. It goes through `pl-title` now, like every grid on the site.
+The short name used in "See the ___" also drops a leading article, on the
+fallback only, so it stops reading "See the The Elterwater". A name typed in
+the block is untouched either way.
+
+On the rendered draft: **22 beds in the quiz, 0 titles still carrying a tail,
+0 short names still starting "The ".**
+
+### Still left for the store
+
+Unchanged from §17, less the one item above that theme code could reach:
+name the review platform and enter the star counts; create the two missing
+collections; replace the raw discount code; tidy the seven non-products.
