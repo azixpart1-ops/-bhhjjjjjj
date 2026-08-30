@@ -63,6 +63,7 @@ def check_tag_balance(path, src):
 
 
 def walk_settings(path, settings, where):
+    seen_ids = {}
     for s in settings:
         if not isinstance(s, dict):
             err(path, '%s: setting is not an object' % where)
@@ -78,9 +79,28 @@ def walk_settings(path, settings, where):
         # parses as subtraction, so the value silently reads as nil.
         if not IDENT.match(sid):
             err(path, '%s: setting id %r is not a valid Liquid identifier' % (where, sid))
+        # Two settings sharing an id is not a merge Shopify performs — it is a
+        # schema it rejects, dropping the file with no error. It happens when
+        # two rounds of work add a control with the same name to one section,
+        # which is exactly how it reached pl-pdp-main: a checkbox and a range
+        # both called eyebrow_rule. Liquid could only ever read one of them.
+        if sid in seen_ids:
+            err(path, '%s: duplicate setting id %r (as %s and %s)'
+                % (where, sid, seen_ids[sid], stype))
+        seen_ids[sid] = stype
         # Shopify rejects an empty string default outright and drops the section.
         if 'default' in s and s['default'] == '':
             err(path, '%s: setting %r has an empty string default' % (where, sid))
+        # `unit` has to be absent or say something. Present-and-empty is the
+        # same silent drop as the rules above: the upload reports success, no
+        # userErrors, and the previous version of the file stays on the store.
+        # Omit the key when a slider counts bare numbers.
+        if s.get('unit') == '':
+            err(path, '%s: setting %r has an empty unit — omit the key instead'
+                % (where, sid))
+        for key in ('label', 'info', 'placeholder'):
+            if s.get(key) == '':
+                warn(path, '%s: setting %r has an empty %s' % (where, sid, key))
         # A range slider may have at most 101 positions, and its default has to
         # land on one of them. Break either rule and Shopify drops the whole
         # section on upload without saying so: the file uploads, reports no
@@ -270,6 +290,24 @@ def main():
             block_defs = {b['type']: b for b in schema.get('blocks', []) if b.get('type')}
             if sec.get('blocks') and not block_defs:
                 err(p, 'section %r has blocks but %s declares none' % (key, stype))
+            # A template carrying more blocks of a type than the section allows
+            # is rejected whole, and silently: the upload succeeds, reports no
+            # error, and the store keeps the template it already had. Growing a
+            # section's content without raising its limit is the easy way in —
+            # the bed finder went from 11 recommendations to 24 against a limit
+            # that still read 11.
+            used = {}
+            for b in sec.get('blocks', {}).values():
+                if b.get('type'):
+                    used[b['type']] = used.get(b['type'], 0) + 1
+            for btype, count in sorted(used.items()):
+                limit = block_defs.get(btype, {}).get('limit')
+                if limit and count > limit:
+                    err(p, 'section %r has %d %r blocks but %s allows %d'
+                        % (key, count, btype, stype, limit))
+            if sum(used.values()) > 50:
+                err(p, 'section %r has %d blocks, Shopify allows 50'
+                    % (key, sum(used.values())))
             for bkey, b in sec.get('blocks', {}).items():
                 btype = b.get('type')
                 if btype not in block_defs:

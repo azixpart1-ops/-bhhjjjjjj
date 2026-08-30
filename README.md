@@ -1074,3 +1074,146 @@ this round touches it.
 The live page renders `<span class="pl-bnpl__mark">Klarna</span>` and
 `<span class="pl-bnpl pl-bnpl--compact">`, which are exactly the two hooks the
 branding rules in §14 target. The fix will land on deploy.
+
+---
+
+## 17. Installed on the store as a draft — product page v3, full-catalogue finder
+
+> **DRAFT — Product page v3 + full-catalogue finder (Claude)** · theme ID `205867974998`
+>
+> Online Store → Themes → … → **Preview**. The live theme is untouched.
+
+Everything §13 and §15–§16 describe is now on the store. It was not before: the
+Shopify connection dropped part-way through those rounds, so §13 ends with
+"none of this is on the store" and §16 was diagnosed from the rendered public
+page because the Admin API was unavailable. The connection is back, so this
+round is the upload those sections were waiting for.
+
+### First, a change of ground: §14's draft is now live
+
+The theme §14 created as a draft — `205853622614`, *"DRAFT — Homepage redesign
++ editor controls"* — has since been **published**. It is the MAIN theme. So
+the homepage redesign, the editor controls and the merged copy are all live,
+and this new draft is duplicated from that, not from the older theme §6 built.
+
+### What the branch owed the store, established by checksum
+
+Rather than trust the notes, every one of the 69 files in `shopify/` was
+checksummed against the live theme, and each file that differed was matched
+against **every commit in its own git history**. That answers the only question
+that matters before an upload — is the branch ahead of the store, or behind it:
+
+| Result | Files | Meaning |
+|---|---|---|
+| Byte-identical | 46 | Nothing to do. Includes `pl-styles.css`, all 98KB of it. |
+| Store's copy **is** an older commit of this branch | 16 | Branch is strictly ahead. Safe to upload. |
+| Store's copy matches **no** commit here | 7 | Store-authored. Handle individually. |
+
+The 16 resolve cleanly: the store was carrying this branch at `3536e13` or
+`bc4cf04`, and the type-system round (`77145dd`), the finder round (`fff98c4`)
+and the app-block fix (`0a708f9`) are what it is missing.
+
+Of the 7 store-authored files, five were left alone — `templates/product.json`,
+`cart.json`, `collection.json`, `page.faq.json`, and `snippets/pl-assets.liquid`,
+whose store copy is a **superset** of this branch's (it also loads
+`pl-pdp-plus.css`). Uploading any of them would have reverted store-side work.
+`templates/index.json` was merged rather than replaced, as in §14.
+
+`sections/pl-pdp-main.liquid` was the one judgement call. The store's copy is
+the admin refactor `.store-only` describes, and this branch's is a rewrite built
+on top of it. Checked before uploading rather than assumed: the branch's schema
+declares **all 39** settings the store's declares and **all three** block types,
+renders **every** snippet the store's version renders, and adds 21 settings and
+the `@app` block on top. Every value the store's `product.json` configures
+survives.
+
+### The merge on the homepage template
+
+Purely additive, and checked the same way §14 checked its own:
+
+```
+live templates/index.json  vs  merged templates/index.json
+  952 values before, 1124 after
+    0 pre-existing values changed
+    0 pre-existing values missing
+   13 new finder blocks, 3 new settings (show_alternates, alt_label, alt_max)
+  741 copy strings before, 911 after — every original one byte identical
+```
+
+All 13 new product handles were checked against the live catalogue before
+upload. All 13 exist and are ACTIVE.
+
+### Three schema faults that Shopify drops in silence
+
+§14 recorded one file that "uploaded successfully, reported no error, and did
+not change". This round hit three more, and they cost most of the session.
+The API returns `userErrors: []` and a success response, and the previous
+version of the file simply stays in place. Each was found by bisecting the
+rejected file against a known-good copy, using one of the disposable probe
+files §14 left behind as the target so no real file was ever at risk.
+
+| File | Fault | Why it happened |
+|---|---|---|
+| `sections/pl-finder.liquid` | `alt_max` carried **`"unit": ""`** | A range slider counting bare numbers. Absent is fine; present-and-empty is rejected. It was the only empty attribute in the whole theme. |
+| `sections/pl-pdp-main.liquid` | **duplicate setting id `eyebrow_rule`** | Two rounds added a control with that name: a checkbox for the buy-column rule, then the shared type-system range. Liquid could only ever read one. |
+| `templates/index.json` | 24 `recommendation` blocks against **`"limit": 11`** | §15 tripled the finder's contents without raising the section's own cap. |
+
+The fixes: drop the empty `unit`; rename the PDP checkbox to
+`buy_eyebrow_rule` so the shared `eyebrow_rule` range keeps the id that
+`pl-layout.liquid` reads as a pixel width; raise the block limit to 50, which
+is Shopify's own per-section maximum rather than another number to outgrow.
+
+**All three are now checked by `scripts/lint-shopify.py`** — empty `unit`,
+duplicate setting ids within a scope, and a template carrying more blocks of a
+type than its section allows. Confirmed the checks fire on the pre-fix files
+and that the fixed tree is clean.
+
+The duplicate id is the one worth dwelling on. It is not a merge Shopify
+performs and it is not a warning: it takes the whole product page's buy block
+down to whatever version the store had. Two rounds of work touching one
+section is how it arises, and nothing before this reported it.
+
+### One process fault of my own
+
+The first upload went out while `themeDuplicate` was still `processing: true`.
+The duplication finished afterwards and copied the live theme's files over the
+top, silently reverting most of the writes. Nothing was lost — the checksum
+pass caught it — but the rule is: **wait for `processing` to go false before
+writing to a duplicated theme.** Files also land serially, roughly one per
+second, so a verification query fired immediately after the mutation reads a
+theme that is still being written.
+
+### Verified
+
+- All **18** uploaded files re-read from the draft and compared by MD5 against
+  the local file: 18 of 18 identical, including the merged template.
+- `scripts/lint-shopify.py` — 33 sections, **0 errors**, 9 warnings (the
+  expected `.store-only` and `product.json` ones).
+- Every `.liquid` file in the theme parsed with Shopify's own
+  `@shopify/liquid-html-parser` — 44 files, **0 syntax errors**.
+- `scripts/check-copy-unchanged.py` — PASS, 1029 values carried through,
+  261 copy strings intact.
+- All 13 new finder handles confirmed ACTIVE in the catalogue.
+
+The preview pages could not be fetched and driven in a browser: as §12
+records, Shopify serves a Cloudflare challenge to any request carrying a
+preview-theme cookie, and that has not changed. Validation here is Shopify's
+own server-side schema validation on upload — which, as the table above shows,
+this round proved is real and unforgiving — plus the checks listed.
+
+### Left for you
+
+1. **The finder's 13 new beds show no price until their sizes are set.** This
+   is §15's deliberate behaviour, not a fault: a shortlist bed quotes nothing
+   rather than quoting a price for a size the shopper did not choose. The
+   editor's own size-check panel lists which blocks need their option values.
+2. **The three probe files are still there** — `assets/pl-probe.txt`,
+   `sections/pl-probe2.liquid`, `sections/pl-probe3.liquid`. `themeFilesDelete`
+   is still blocked for this connection, so they can only go in **Edit code**.
+   None carries a preset, so none appears in the Add section picker. `pl-probe2`
+   was used as the bisect target above and has been restored to a copy of
+   `pl-probe3`, so it is once again a 278-byte unreferenced note.
+3. **Category tiles still need images**, exactly as §14 left it.
+4. **The branch is still behind the store** on the product page: `pl-pdp-plus.*`,
+   `pl-finder-bar.*`, `pl-delivery` and the `pl-pdp-*` snippets live only on the
+   store. `.store-only` still lists them, and the linter still enforces it.
