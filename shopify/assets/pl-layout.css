@@ -767,7 +767,14 @@
 .pl.pl .pl-quick__opt:active { transform: translateY(1px); }
 
 /* On a phone the three options are a snapping row rather than a wrap, so the
-   third never lands alone on its own line looking like an afterthought. */
+   third never lands alone on its own line looking like an afterthought.
+
+   No bleed to the viewport edge. The obvious way to get one is a negative
+   inline margin, and a scroll container's margin box still counts towards
+   what its parent asks for: measured at 390px it widened the hero's copy
+   column by 35px, which the page's overflow clip then quietly cut off the
+   right-hand end of every line of the headline. The row is inset with
+   everything else instead. */
 @media (max-width: 749px) {
   .pl.pl .pl-quick__opts {
     flex-wrap: nowrap;
@@ -775,13 +782,17 @@
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    /* Bleed to the viewport edge so the row reads as scrollable. */
-    margin-inline: calc(var(--s-4) * -1);
-    padding-inline: var(--s-4);
   }
   .pl.pl .pl-quick__opts::-webkit-scrollbar { display: none; }
   .pl.pl .pl-quick__opt { flex: none; scroll-snap-align: start; }
 }
+
+/* Belt and braces for the same class of fault: a grid item defaults to
+   min-width:auto, so any child that cannot shrink pushes the column wider
+   than its track. The hero's copy column has a scroll row in it now. */
+.pl.pl .pl-hero__copy { min-width: 0; }
+.pl.pl .worth__say,
+.pl.pl .worth__sum { min-width: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .pl.pl .pl-quick__opt { transition: background var(--dur-hover) var(--ease-out); }
@@ -1066,3 +1077,22 @@
   color: var(--ink-2);
 }
 .pl.pl .pl-section:not(.pl-section--dark) .trial__date b { color: var(--clay-text); }
+
+/* --- A pull quote outside a dark section --------------------------------
+   The base file declares `.pull { color: var(--bone) }` — the page's own
+   background colour. It reads only because the one section that had ever
+   used it, the trial, sits on moss. Put a pull quote on any light ground and
+   it prints cream on cream, which is what happened the first time one was
+   used outside that section.
+
+   Ink from the ground it is actually on: the page ink outside a dark
+   section, the light ink inside one. Same selector weight as the base rule
+   and later in the cascade, so it wins on source order.
+
+   Not fixed here, and worth knowing: `.pl-section--dark` also hard-codes
+   `color: var(--oat)`, so setting a light colour scheme on the trial or the
+   finale still prints its body copy near-invisibly. That one needs the base
+   rule reworking rather than an overlay, because re-pointing --ink inside a
+   dark section would move every rule that reads it. */
+.pl.pl .pull { color: var(--ink); }
+.pl.pl .pl-section--dark .pull { color: var(--bone); }
