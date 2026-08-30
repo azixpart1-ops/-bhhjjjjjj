@@ -424,11 +424,44 @@
     setInterval(tick, 30000);
   }
 
+  /* --------------------------------------------------------------------
+     Trial end date.
+
+     Liquid already worked this out and put it in the HTML, so the line is
+     correct with this file blocked, for a crawler and on a printed page.
+     This recomputes it for two reasons: Shopify caches rendered sections,
+     and a cached date is the one figure on the page that could go quietly
+     wrong; and the reader's own timezone is the one that decides what
+     "today" means to them.
+
+     If the browser cannot format a date in en-GB it leaves the server's
+     answer alone rather than replacing a good line with a worse one.
+     -------------------------------------------------------------------- */
+  function initTrialDate() {
+    document.querySelectorAll('[data-trial-nights]').forEach(function (host) {
+      var nights = parseInt(host.getAttribute('data-trial-nights'), 10);
+      var out = host.querySelector('[data-trial-date]');
+      if (!out || isNaN(nights) || nights <= 0) return;
+
+      var end = new Date();
+      end.setDate(end.getDate() + nights);
+
+      var text;
+      try {
+        text = end.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      } catch (err) {
+        return;
+      }
+      if (text) out.textContent = text;
+    });
+  }
+
   function init() {
 
     initDrawer();
     initFilters();
     initCutoff();
+    initTrialDate();
 
     /* ----------------------------------------------------------------------
        Scroll reveal
@@ -727,6 +760,55 @@
         app.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
       }
     });
+
+    /* ----------------------------------------------------------------------
+       Handoff from anywhere else on the page.
+
+       The hero asks the finder's first question inline, so an answer can be
+       given before a visitor has decided to scroll this far. Each of those is
+       a plain link to the finder carrying data-finder-jump, which means the
+       row keeps working with this file blocked — it simply lands them on
+       question one instead of question two.
+
+       Bound on the document rather than on the hero, because any section can
+       hand over this way and the finder is the only thing that has to be on
+       the page for it to mean anything.
+
+       Bound once, with the same __plBound flag the drawer and the filters
+       use — the theme editor re-runs init on every section save, and a second
+       copy of this listener would answer the question twice. Which is also
+       why it looks the finder up on each click rather than closing over the
+       one it can see now: after an editor reload that element is detached,
+       and clicking an option nobody can see does nothing at all.
+       ---------------------------------------------------------------------- */
+    if (!document.__plJumpBound) {
+      document.__plJumpBound = true;
+      document.addEventListener('click', function (e) {
+        var jump = e.target.closest('[data-finder-jump]');
+        if (!jump) return;
+
+        var value = (jump.getAttribute('data-finder-jump') || '').trim();
+        // The value goes into a selector, so it is checked rather than trusted.
+        if (!/^[a-z0-9_-]+$/.test(value)) return;
+
+        var finder = document.getElementById('plFinder');
+        if (!finder) return;
+
+        var opt = finder.querySelector('.opt[data-q="style"][data-value="' + value + '"]');
+        // An answer this finder does not offer: leave the href to do its job.
+        if (!opt) return;
+
+        e.preventDefault();
+        (finder.closest('.pl-section') || finder).scrollIntoView({
+          behavior: reduceMotion ? 'auto' : 'smooth',
+          block: 'start'
+        });
+
+        // Answered on a timer rather than on scrollend, which several browsers
+        // still do not fire — waiting for it would leave the question hanging.
+        window.setTimeout(function () { opt.click(); }, reduceMotion ? 0 : 320);
+      });
+    }
 
     /* ----------------------------------------------------------------------
        Product page: variants, gallery, add to cart

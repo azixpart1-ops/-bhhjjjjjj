@@ -1,0 +1,718 @@
+{% render 'pl-assets' %}
+{% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
+{%- comment -%}
+  The arithmetic.
+
+  Every other section on this page argues that the bed is good. This one is
+  the only place that argues about the price, and it does it by changing the
+  unit rather than by discounting: £169 is a number a shopper compares to a
+  £25 supermarket bed and loses on, and 9p a night is a number with nothing
+  to compare it to at all.
+
+  The figure is not a marketing claim, which is the point. It is the price
+  divided by the guarantee the shop already publishes — so the denominator is
+  underwritten by a promise that is already on the page, and the section
+  cannot be accused of picking a flattering lifespan. Shorten the guarantee
+  in the editor and the per-night figure goes up on its own.
+
+  Nothing here needs a photograph. The section is deliberately typographic:
+  it is a sum, and a sum reads better set than illustrated.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+
+  comment
+    The price. A product picker is offered first because a figure read off
+    the catalogue cannot go stale, and a typed override second because a shop
+    may want to reason about a bed it does not sell yet. The typed field is
+    in pounds; everything below works in pence, as Shopify does.
+  endcomment
+  assign pence = 0
+  if st.price_product != blank
+    assign pence = st.price_product.price_min
+  endif
+  assign typed = st.price_override | plus: 0
+  if typed > 0
+    assign pence = typed | times: 100
+  endif
+
+  assign years = st.years | default: 5 | plus: 0
+  assign hours_day = st.hours_day | default: 14 | plus: 0
+
+  assign nights = years | times: 365
+  assign hours = nights | times: hours_day
+
+  comment
+    Guard the division. A guarantee of zero years is a setting somebody can
+    reach with the slider, and dividing by it would either error or print an
+    infinity, so the whole panel stands down instead.
+  endcomment
+  assign can_divide = false
+  if nights > 0 and pence > 0
+    assign can_divide = true
+  endif
+
+  if can_divide
+    assign per_night = pence | divided_by: nights
+    comment
+      Under a pound reads as pence, over it as money. Rounding down rather
+      than to nearest, deliberately: the figure the shop prints should be one
+      it cannot be accused of flattering, and integer division already floors.
+    endcomment
+    if per_night < 1
+      assign per_night = 1
+      assign floored_to_a_penny = true
+    endif
+  endif
+
+  assign panel = 'worth__sum'
+  if st.panel == 'plain'
+    assign panel = panel | append: ' worth__sum--plain'
+  endif
+
+  assign head = 'section-head'
+  if st.align == 'center'
+    assign head = 'section-head section-head--center'
+  endif
+-%}
+<div class="pl">
+  <section class="pl-section"
+           {% if st.anchor != blank %}id="{{ st.anchor | handleize }}"{% endif %}
+           style="--worth-split:{{ st.split | default: '1fr 1fr' }}">
+    <div class="wrap">
+      {%- if st.eyebrow != blank or st.heading != blank -%}
+        <div class="{{ head }} reveal">
+          {%- if st.eyebrow != blank -%}<p class="eyebrow">{{ st.eyebrow }}</p>{%- endif -%}
+          {%- if st.heading != blank -%}
+            <h2 class="display-2">{{ st.heading | escape | newline_to_br }}</h2>
+          {%- endif -%}
+          {%- if st.lede != blank -%}
+            <p class="body-lg" style="margin-top:1rem">{{ st.lede }}</p>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      <div class="worth{% if st.media_side == 'left' %} worth--flip{% endif %}">
+        {%- if can_divide -%}
+          <div class="{{ panel }} reveal">
+            <dl class="worth__rows">
+              <div class="worth__row">
+                <dt>{{ st.row_hours_label }}</dt>
+                <dd>{% render 'pl-num', n: hours_day %}</dd>
+              </div>
+              <div class="worth__row">
+                <dt>{{ st.row_nights_label }}</dt>
+                <dd>{% render 'pl-num', n: nights %}</dd>
+              </div>
+              <div class="worth__row">
+                <dt>
+                  {{ st.row_price_label }}
+                  {%- if st.price_product != blank and st.show_price_name -%}
+                    <span class="worth__which">{% render 'pl-title', product: st.price_product %}</span>
+                  {%- endif -%}
+                </dt>
+                <dd>{{ pence | money_without_trailing_zeros }}</dd>
+              </div>
+              <div class="worth__row worth__row--total">
+                <dt>{{ st.row_total_label }}</dt>
+                <dd>
+                  {%- if per_night < 100 -%}
+                    {%- if floored_to_a_penny -%}under {% endif -%}{{ per_night }}p
+                  {%- else -%}
+                    {{ per_night | money_without_trailing_zeros }}
+                  {%- endif -%}
+                </dd>
+              </div>
+            </dl>
+            {%- if st.sum_note != blank -%}
+              <p class="worth__note">
+                {%- comment -%}
+                  The hours figure is substituted rather than typed, so the
+                  note can never disagree with the sum above it — change the
+                  guarantee and the sentence changes with it.
+                {%- endcomment -%}
+                {%- capture hours_fmt %}{% render 'pl-num', n: hours %}{% endcapture -%}
+                {{ st.sum_note | replace: '[hours]', hours_fmt | replace: '[years]', years | replace: '[nights]', nights }}
+              </p>
+            {%- endif -%}
+          </div>
+        {%- else -%}
+          {%- comment -%}
+            No price to divide, so there is no sum. In the editor this says
+            why; on the live page it renders nothing at all rather than an
+            empty frame.
+          {%- endcomment -%}
+          {%- if request.design_mode -%}
+            <div class="worth__sum worth__sum--empty">
+              <p><b>No figure to work from.</b> Pick a bed under “The price this is worked out from”, or type a price. The sum stays hidden on the live page until you do.</p>
+            </div>
+          {%- endif -%}
+        {%- endif -%}
+
+        <div class="worth__say reveal" style="--i:2">
+          {%- if st.pull != blank -%}
+            <p class="pull">{{ st.pull }}</p>
+          {%- endif -%}
+          {%- if st.body != blank -%}
+            <div class="pl-rte">{{ st.body }}</div>
+          {%- endif -%}
+
+          {%- if section.blocks.size > 0 -%}
+            <ul class="worth__list">
+              {%- for block in section.blocks -%}
+                {%- comment -%}
+                  The filter runs in an assign rather than on the render
+                  argument. A filter applied to a `render` argument is a
+                  Liquid syntax error, and it takes the whole section down
+                  rather than the one line — this file has been bitten by it
+                  before.
+                {%- endcomment -%}
+                {%- assign point_icon = block.settings.icon | default: 'check' -%}
+                <li {{ block.shopify_attributes }}>
+                  {% render 'pl-icon', icon: point_icon %}
+                  <span>{{ block.settings.text }}</span>
+                </li>
+              {%- endfor -%}
+            </ul>
+          {%- endif -%}
+
+          {%- if st.cta_text != blank -%}
+            <div class="worth__cta">
+              <a class="btn btn--lg" href="{{ st.cta_link | default: '#pl-finder' }}">
+                {{ st.cta_text }}{% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 18 %}
+              </a>
+              {%- if st.cta_2_text != blank -%}
+                <a class="btn btn--lg btn--{{ st.cta_2_style | default: 'ghost' }}" href="{{ st.cta_2_link }}">{{ st.cta_2_text }}</a>
+              {%- endif -%}
+            </div>
+          {%- endif -%}
+
+          {%- if st.fine_print != blank -%}
+            <p class="worth__fine">{{ st.fine_print }}</p>
+          {%- endif -%}
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+{% schema %}
+{
+  "name": "PL – Cost per night",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "The only section on the page that argues about price. £169 is a number a shopper compares to a supermarket bed and loses on; 9p a night is a number with nothing to compare it to. The figure is the price divided by the guarantee you already publish, so it is arithmetic rather than a claim — shorten the guarantee and the per-night figure goes up on its own."
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "The arithmetic"
+    },
+    {
+      "type": "textarea",
+      "id": "heading",
+      "label": "Heading (line breaks are kept)",
+      "default": "Fourteen hours a day,\non the same surface."
+    },
+    {
+      "type": "text",
+      "id": "lede",
+      "label": "Sub-line"
+    },
+    {
+      "type": "header",
+      "content": "The sum"
+    },
+    {
+      "type": "product",
+      "id": "price_product",
+      "label": "The price this is worked out from",
+      "info": "Uses the bed's cheapest price, read at render time, so it cannot go stale."
+    },
+    {
+      "type": "number",
+      "id": "price_override",
+      "label": "…or a price in pounds",
+      "info": "Whole pounds. Overrides the product above when set."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_price_name",
+      "label": "Name the bed in the sum",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "hours_day",
+      "label": "Hours a dog sleeps a day",
+      "min": 6,
+      "max": 20,
+      "step": 1,
+      "unit": "h",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "years",
+      "label": "Years to divide over",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "unit": "y",
+      "default": 5,
+      "info": "Set this to the foam guarantee and not a day longer. A figure divided over a lifespan you have not promised is the one number here anybody could argue with."
+    },
+    {
+      "type": "text",
+      "id": "row_hours_label",
+      "label": "Row 1 label",
+      "default": "Hours a day they are on it"
+    },
+    {
+      "type": "text",
+      "id": "row_nights_label",
+      "label": "Row 2 label",
+      "default": "Nights inside the guarantee"
+    },
+    {
+      "type": "text",
+      "id": "row_price_label",
+      "label": "Row 3 label",
+      "default": "What the bed costs"
+    },
+    {
+      "type": "text",
+      "id": "row_total_label",
+      "label": "Total label",
+      "default": "Which is, a night"
+    },
+    {
+      "type": "textarea",
+      "id": "sum_note",
+      "label": "Note under the sum",
+      "default": "[hours] hours on one surface, inside the guarantee alone. That is what the price is buying.",
+      "info": "[hours], [nights] and [years] are replaced with the figures above, so this line can never disagree with the sum."
+    },
+    {
+      "type": "header",
+      "content": "Beside it"
+    },
+    {
+      "type": "textarea",
+      "id": "pull",
+      "label": "Pull quote",
+      "default": "A bed is not a thing you buy once a year. It is the floor of their whole day."
+    },
+    {
+      "type": "richtext",
+      "id": "body",
+      "label": "Body"
+    },
+    {
+      "type": "text",
+      "id": "cta_text",
+      "label": "Primary button",
+      "default": "Find their bed"
+    },
+    {
+      "type": "url",
+      "id": "cta_link",
+      "label": "Primary link"
+    },
+    {
+      "type": "text",
+      "id": "cta_2_text",
+      "label": "Secondary button"
+    },
+    {
+      "type": "url",
+      "id": "cta_2_link",
+      "label": "Secondary link"
+    },
+    {
+      "type": "select",
+      "id": "cta_2_style",
+      "label": "Secondary button style",
+      "default": "ghost",
+      "options": [
+        {
+          "value": "ghost",
+          "label": "Text only"
+        },
+        {
+          "value": "soft",
+          "label": "Outline"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "fine_print",
+      "label": "Fine print"
+    },
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "media_side",
+      "label": "The sum sits",
+      "default": "right",
+      "options": [
+        {
+          "value": "right",
+          "label": "Left, words on the right"
+        },
+        {
+          "value": "left",
+          "label": "Right, words on the left"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "split",
+      "label": "Column balance",
+      "default": "1fr 1fr",
+      "options": [
+        {
+          "value": "1fr 1fr",
+          "label": "Even"
+        },
+        {
+          "value": "1.2fr 1fr",
+          "label": "More room for the sum"
+        },
+        {
+          "value": "1fr 1.2fr",
+          "label": "More room for the words"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "panel",
+      "label": "Sum panel",
+      "default": "card",
+      "options": [
+        {
+          "value": "card",
+          "label": "Raised card"
+        },
+        {
+          "value": "plain",
+          "label": "Rules only"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "eyebrow_style",
+      "label": "Section label",
+      "default": "rule",
+      "options": [
+        {
+          "value": "rule",
+          "label": "With a leading rule"
+        },
+        {
+          "value": "plain",
+          "label": "Plain"
+        }
+      ],
+      "info": "A short rule before the small uppercase label. It gives every section the same entry note, which is most of what makes a page read as designed rather than assembled."
+    },
+    {
+      "type": "range",
+      "id": "eyebrow_rule",
+      "label": "Rule length",
+      "min": 16,
+      "max": 96,
+      "step": 4,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Centred"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Lets a button elsewhere jump here, e.g. an id of the-maths is reached by a link to #the-maths."
+    },
+    {
+      "type": "header",
+      "content": "Colour"
+    },
+    {
+      "type": "paragraph",
+      "content": "Text colour is chosen by measuring contrast against the background you pick, so a section cannot end up unreadable. The editor warns you if a background leaves no readable option."
+    },
+    {
+      "type": "select",
+      "id": "scheme",
+      "label": "Colour scheme",
+      "default": "default",
+      "options": [
+        {
+          "value": "default",
+          "label": "Theme default"
+        },
+        {
+          "value": "cream",
+          "label": "Cream, calm"
+        },
+        {
+          "value": "oat",
+          "label": "Oat, warm neutral"
+        },
+        {
+          "value": "gold",
+          "label": "Gold, warmth"
+        },
+        {
+          "value": "forest",
+          "label": "Forest, authority"
+        },
+        {
+          "value": "clay",
+          "label": "Deep green, focus"
+        },
+        {
+          "value": "custom",
+          "label": "Custom"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "bg",
+      "label": "Background",
+      "info": "Custom scheme only."
+    },
+    {
+      "type": "color",
+      "id": "accent",
+      "label": "Buttons and links",
+      "info": "Custom scheme only."
+    },
+    {
+      "type": "select",
+      "id": "tone",
+      "label": "Text colour",
+      "default": "auto",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Automatic, recommended"
+        },
+        {
+          "value": "dark",
+          "label": "Dark"
+        },
+        {
+          "value": "light",
+          "label": "Light"
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "type": "point",
+      "name": "Point",
+      "limit": 5,
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Line",
+          "default": "Free collection and a full refund inside 100 nights"
+        },
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "default": "check",
+          "options": [
+            {
+              "value": "check",
+              "label": "Tick"
+            },
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "medal",
+              "label": "Medal"
+            },
+            {
+              "value": "truck",
+              "label": "Delivery"
+            },
+            {
+              "value": "drop",
+              "label": "Waterproof"
+            },
+            {
+              "value": "pin",
+              "label": "Location pin"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "PL – Cost per night",
+      "blocks": [
+        {
+          "type": "point"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

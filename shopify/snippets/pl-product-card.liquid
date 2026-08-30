@@ -25,6 +25,9 @@
               keeps the card it already had.
     hide_bnpl suppress the instalment line. It is on everywhere by default,
               and shows nothing at all unless Klarna is genuinely enabled.
+    title     override the name printed on the card
+    raw_title keep the product's full title, search tail and all. Off by
+              default: see the note beside pl-card__name.
 {%- endcomment -%}
 {%- liquid
   assign p = product
@@ -180,7 +183,18 @@
     {%- if show_material and material != '' -%}
       <p class="pl-card__material">{{ material }}</p>
     {%- endif -%}
-    <{{ lvl }} class="pl-card__name">{{ title | default: p.title }}</{{ lvl }}>
+    {%- comment -%}
+      The name on the card is the trimmed one. Half the catalogue carries a
+      search tail after an em dash, and a grid mixing "The Duddon Reversible
+      Bed" with "The Braithwaite Orthopaedic Dog Bed — Senior, Low Front,
+      122 × 89 × 17cm" reads as two different shops. pl-title cuts the tail
+      for display and leaves the product's own title alone, so nothing is
+      lost from search. `raw_title: true` opts a caller back out.
+    {%- endcomment -%}
+    {%- capture card_name -%}
+      {% render 'pl-title', product: p, title: title, full: raw_title %}
+    {%- endcapture -%}
+    <{{ lvl }} class="pl-card__name">{{ card_name | strip }}</{{ lvl }}>
     {%- unless body_desc == '' -%}
       <p class="pl-card__desc">{{ body_desc }}</p>
     {%- endunless -%}

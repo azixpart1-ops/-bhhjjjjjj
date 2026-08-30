@@ -48,6 +48,36 @@
           {%- if section.settings.pull != blank -%}
             <p class="pull reveal" style="--i:2;margin-top:1.75rem">{{ section.settings.pull }}</p>
           {%- endif -%}
+
+          {%- comment -%}
+            The date the trial runs to, worked out rather than described.
+            "100 nights" is a policy; "you have until the 8th of December" is
+            a thing a person can picture, and the whole job of this section is
+            to make the risk feel already handled rather than merely covered.
+
+            It is rendered twice over. Liquid does the sum so the line is
+            right in the HTML — for a crawler, for a printed page, and for
+            anyone with the script blocked. The script then recomputes it in
+            the reader's own timezone and overwrites, because Shopify caches
+            rendered sections and a cached date is the one thing here that
+            could go quietly wrong. See the trial-date note in pl-app.js.
+          {%- endcomment -%}
+          {%- if st.show_date and st.date_line != blank -%}
+            {%- liquid
+              assign trial_nights = st.trial_nights | default: 100 | plus: 0
+              assign seconds = trial_nights | times: 86400
+              assign ends_at = 'now' | date: '%s' | plus: seconds
+              assign ends_on = ends_at | date: '%-d %B %Y'
+              assign dparts = st.date_line | split: '[date]'
+            -%}
+            <p class="trial__date reveal" style="--i:3" data-trial-nights="{{ trial_nights }}">
+              {{ dparts[0] }}
+              {%- if dparts.size > 1 -%}
+                <b data-trial-date>{{ ends_on }}</b>{{ dparts[1] }}
+              {%- endif -%}
+            </p>
+          {%- endif -%}
+
           <div class="steps reveal" style="--i:3">
             {%- for block in section.blocks -%}
               <div class="step" {{ block.shopify_attributes }}>
@@ -93,6 +123,38 @@
       "id": "pull",
       "label": "Pull quote",
       "default": "If your dog isn't visibly more comfortable, we collect it free of charge and refund every penny."
+    },
+    {
+      "type": "header",
+      "content": "The date it runs to"
+    },
+    {
+      "type": "paragraph",
+      "content": "\"100 nights\" is a policy. \"You have until the 8th of December\" is something a person can picture, and picturing it is what turns a stated return window into a risk that already feels handled. The date is worked out from today every time the page loads — there is nothing to keep up to date."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_date",
+      "label": "Show the date the trial runs to",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "trial_nights",
+      "label": "How many nights",
+      "min": 30,
+      "max": 200,
+      "step": 5,
+      "unit": "n",
+      "default": 100,
+      "info": "Must match the returns policy. This is the number the date is counted from."
+    },
+    {
+      "type": "text",
+      "id": "date_line",
+      "label": "The line",
+      "default": "Order today and you have until [date] to change your mind.",
+      "info": "[date] is replaced with the date the trial ends. Leave the token out and the line prints without a date."
     },
     {
       "type": "text",

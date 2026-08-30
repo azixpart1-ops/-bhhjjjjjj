@@ -39,13 +39,99 @@
           {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{%- endif -%}
           <h2 class="display-2">{{ section.settings.heading | escape | newline_to_br }}</h2>
         </div>
+        {%- liquid
+          assign d5 = st.dist_5 | default: 0 | plus: 0
+          assign d4 = st.dist_4 | default: 0 | plus: 0
+          assign d3 = st.dist_3 | default: 0 | plus: 0
+          assign d2 = st.dist_2 | default: 0 | plus: 0
+          assign d1 = st.dist_1 | default: 0 | plus: 0
+          assign dist_total = d5 | plus: d4 | plus: d3 | plus: d2 | plus: d1
+
+          assign draw_dist = false
+          if st.show_dist and dist_total > 0
+            assign draw_dist = true
+          endif
+        -%}
+        {%- if st.show_score or draw_dist -%}
+        <div class="score-col">
+        {%- endif -%}
         {%- if st.show_score -%}
         <div class="score reveal" style="--i:1">
           <div class="score__n" data-count="{{ section.settings.score }}" data-decimals="1">{{ section.settings.score }}<small>/5</small></div>
           <div>
             <span class="pl-stars" aria-hidden="true">{% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}</span>
             <p class="score__meta">{{ section.settings.score_meta }}</p>
+            {%- comment -%}
+              Where the reviews were collected, as an attributed line rather
+              than an assertion. An aggregate score with no source behind it
+              is the one number on a shop that a careful buyer discounts
+              entirely, and it is discounted hardest by exactly the buyer who
+              is weighing up £150. Blank renders nothing: a source that is not
+              named is better than one that is invented.
+            {%- endcomment -%}
+            {%- if st.source_name != blank -%}
+              <p class="score__source">
+                {{ st.source_prefix }}
+                {%- if st.source_url != blank -%}
+                  <a href="{{ st.source_url }}" rel="nofollow noopener"{% if st.source_new_tab %} target="_blank"{% endif %}>{{ st.source_name }}{% if st.source_new_tab %}<span class="pl-vh"> (opens in a new tab)</span>{% endif %}</a>
+                {%- else -%}
+                  <b>{{ st.source_name }}</b>
+                {%- endif -%}
+              </p>
+            {%- endif -%}
           </div>
+        </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          The distribution. A single average is the weakest form a rating can
+          take: it is one number, unfalsifiable from the outside, and it reads
+          the same whether it came from eleven reviews or eleven thousand.
+          The shape underneath it is what a buyer actually reads for honesty —
+          a real distribution has a tail, and showing the tail is what makes
+          the head believable.
+
+          Every figure is typed in the editor and the bars are drawn from
+          those figures, so the section can only ever show what the shop has
+          entered. Leave them at zero and the panel does not render.
+        {%- endcomment -%}
+        {%- if draw_dist -%}
+          <div class="dist reveal" style="--i:2">
+            {%- assign rows = '5,4,3,2,1' | split: ',' -%}
+            {%- for row in rows -%}
+              {%- liquid
+                case row
+                  when '5'
+                    assign n = d5
+                  when '4'
+                    assign n = d4
+                  when '3'
+                    assign n = d3
+                  when '2'
+                    assign n = d2
+                  else
+                    assign n = d1
+                endcase
+                comment
+                  Rounded to a whole percent for the label and kept at one
+                  decimal for the bar, so a 0.4% row still draws a sliver
+                  rather than vanishing into the track.
+                endcomment
+                assign pct = n | times: 100.0 | divided_by: dist_total
+                assign pct_label = pct | round
+              -%}
+              <div class="dist__row">
+                <span class="dist__star">{{ row }}{% render 'pl-icon', icon: 'star' %}</span>
+                <span class="dist__track"><i style="width:{{ pct }}%"></i></span>
+                <span class="dist__pct">{{ pct_label }}%</span>
+              </div>
+            {%- endfor -%}
+            {%- if st.dist_note != blank -%}
+              <p class="dist__note">{{ st.dist_note }}</p>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+        {%- if st.show_score or draw_dist -%}
         </div>
         {%- endif -%}
       </div>
@@ -77,6 +163,24 @@
                 <span class="review__verified">{% render 'pl-icon', icon: 'check' %} Verified</span>
               {%- endif -%}
             </footer>
+            {%- comment -%}
+              What they bought and when. Both are optional and both render
+              nothing when empty, but together they are what separates a
+              quotation from a review: a named bed and a date are checkable,
+              and a wall of undated praise is not. The bed name is trimmed the
+              same way it is on a card, so a review does not print a search
+              tail the rest of the page hides.
+            {%- endcomment -%}
+            {%- if block.settings.product != blank or block.settings.date != blank -%}
+              <p class="review__meta">
+                {%- if block.settings.product != blank -%}
+                  <a href="{{ block.settings.product.url }}">{% render 'pl-title', product: block.settings.product %}</a>
+                {%- endif -%}
+                {%- if block.settings.date != blank -%}
+                  <span>{{ block.settings.date }}</span>
+                {%- endif -%}
+              </p>
+            {%- endif -%}
           </blockquote>
         {%- endfor -%}
       </div>
@@ -129,6 +233,82 @@
       "id": "score_meta",
       "label": "Score caption",
       "default": "Based on 3,900+<br>verified reviews"
+    },
+    {
+      "type": "header",
+      "content": "Where the reviews came from"
+    },
+    {
+      "type": "paragraph",
+      "content": "An aggregate score with nothing behind it is the one number on a shop that a careful buyer discounts entirely — and it is discounted hardest by the buyer weighing up £150. Naming the platform is the single cheapest credibility gain on this page. Leave the name empty and the line does not render at all, which is better than a source that is not real."
+    },
+    {
+      "type": "text",
+      "id": "source_prefix",
+      "label": "Lead-in",
+      "default": "Collected on"
+    },
+    {
+      "type": "text",
+      "id": "source_name",
+      "label": "Platform name",
+      "info": "For example Trustpilot, Judge.me, Google or Reviews.io. Empty hides the whole line."
+    },
+    {
+      "type": "url",
+      "id": "source_url",
+      "label": "Link to the profile",
+      "info": "Optional. With a link the name becomes clickable, which is what makes it checkable."
+    },
+    {
+      "type": "checkbox",
+      "id": "source_new_tab",
+      "label": "Open the link in a new tab",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Score distribution"
+    },
+    {
+      "type": "paragraph",
+      "content": "How many reviews sit on each star. A real distribution has a tail, and showing the tail is what makes the average believable — it is the difference between a claim and a record. Enter the counts from your review platform; the percentages and bars are worked out from them. Leave them all at zero and the panel does not render."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_dist",
+      "label": "Show the distribution",
+      "default": true
+    },
+    {
+      "type": "number",
+      "id": "dist_5",
+      "label": "5-star reviews"
+    },
+    {
+      "type": "number",
+      "id": "dist_4",
+      "label": "4-star reviews"
+    },
+    {
+      "type": "number",
+      "id": "dist_3",
+      "label": "3-star reviews"
+    },
+    {
+      "type": "number",
+      "id": "dist_2",
+      "label": "2-star reviews"
+    },
+    {
+      "type": "number",
+      "id": "dist_1",
+      "label": "1-star reviews"
+    },
+    {
+      "type": "text",
+      "id": "dist_note",
+      "label": "Note under the bars"
     },
     {
       "type": "header",
@@ -437,12 +617,18 @@
           "type": "product",
           "id": "product",
           "label": "Which product is this review about?",
-          "info": "Required when the section is scoped to a single product."
+          "info": "Required when the section is scoped to a single product. Wherever it is set, the bed is also named and linked under the review, which is what lets a reader check it."
         },
         {
           "type": "text",
           "id": "name",
           "label": "Name"
+        },
+        {
+          "type": "text",
+          "id": "date",
+          "label": "When",
+          "info": "Typed as you want it read, for example \"March 2026\". A dated review is checkable; an undated one is a quotation."
         },
         {
           "type": "range",

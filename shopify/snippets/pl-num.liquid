@@ -1,0 +1,57 @@
+{%- comment -%}
+  Thousands separators for a whole number.
+
+  Liquid has no delimiter filter and `money` is no help here, because these
+  are counts rather than prices — hours, nights, reviews. "25550" and
+  "25,550" are the same figure and only one of them reads as a quantity a
+  person can picture, which is the whole reason the number is on the page.
+
+  Handles up to twelve digits, which is several more than anything this
+  shop counts. `plus: 0` first, so a figure arriving as a string of digits
+  is a number by the time it is rounded.
+
+  Required
+    n   a number, or a string of digits
+
+  Optional
+    sep  the separator, default ","
+{%- endcomment -%}
+{%- liquid
+  assign s = n | plus: 0 | round: 0 | append: ''
+  assign mark = sep | default: ','
+
+  comment
+    A negative would put the separator on the wrong side of the sign, and no
+    count on this site can be negative, so the sign is carried out and back.
+  endcomment
+  assign sign = ''
+  assign lead = s | slice: 0
+  if lead == '-'
+    assign sign = '-'
+    assign len_all = s | size
+    assign rest = len_all | minus: 1
+    assign s = s | slice: 1, rest
+  endif
+
+  assign len = s | size
+  assign out = s
+  if len > 3
+    assign cut = len | minus: 3
+    assign out = s | slice: cut, 3
+    assign s = s | slice: 0, cut
+    assign len = cut
+    if len > 3
+      assign cut = len | minus: 3
+      assign out = s | slice: cut, 3 | append: mark | append: out
+      assign s = s | slice: 0, cut
+      assign len = cut
+    endif
+    if len > 3
+      assign cut = len | minus: 3
+      assign out = s | slice: cut, 3 | append: mark | append: out
+      assign s = s | slice: 0, cut
+    endif
+    assign out = s | append: mark | append: out
+  endif
+-%}
+{{- sign }}{{ out -}}

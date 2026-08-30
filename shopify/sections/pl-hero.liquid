@@ -86,6 +86,86 @@
               <a class="btn btn--lg btn--{{ section.settings.cta_2_style | default: 'soft' }}" href="{{ section.settings.cta_2_link }}">{{ section.settings.cta_2_text }}{% if section.settings.cta_2_style != 'ghost' %}{% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 18 %}{% endif %}</a>
             {%- endif -%}
           </div>
+
+          {%- comment -%}
+            The scale line. A visitor landing on a £69–£289 catalogue cannot
+            tell from the hero whether this is a supermarket shop or a
+            furniture shop, and the answer decides whether they read on. The
+            count is taken live off a collection so it cannot go stale as beds
+            are added; the price is typed, because Liquid is not given a
+            collection's price floor and a number computed off the first page
+            of products would be wrong the moment the collection passes fifty.
+          {%- endcomment -%}
+          {%- if st.show_scale -%}
+            {%- liquid
+              assign scale_bits = ''
+              if st.scale_collection != blank and st.scale_collection.all_products_count > 0
+                assign counted = st.scale_collection.all_products_count | append: ' ' | append: st.scale_noun
+                assign scale_bits = scale_bits | append: counted | append: '|'
+              endif
+              if st.scale_price != blank
+                assign scale_bits = scale_bits | append: st.scale_price | append: '|'
+              endif
+              if st.scale_extra != blank
+                assign scale_bits = scale_bits | append: st.scale_extra | append: '|'
+              endif
+              assign scale_list = scale_bits | split: '|'
+            -%}
+            {%- if scale_list.size > 0 -%}
+              <p class="pl-hero__scale reveal" style="--i:5">
+                {%- for bit in scale_list -%}
+                  <span>{{ bit }}</span>
+                {%- endfor -%}
+              </p>
+            {%- endif -%}
+          {%- endif -%}
+
+          {%- comment -%}
+            The handoff. The bed finder is the highest-converting thing on this
+            page and it sits four sections down, where a first-time visitor has
+            to decide to keep scrolling before they ever see it. Asking its
+            first question here costs one row and gets an answer out of someone
+            while they are still reading the headline — and a visitor who has
+            answered one question is a different visitor from one who has not.
+
+            Each option is an ordinary link to the finder, so with no
+            JavaScript at all it still lands them on the quiz. The script picks
+            the answer up and pre-selects it; see the handoff note in
+            pl-app.js.
+          {%- endcomment -%}
+          {%- liquid
+            comment
+              Counted with a loop rather than the `where` filter. `where` reads
+              a property off each item, and a section block is a drop rather
+              than a hash — this way the section cannot depend on which of
+              those Shopify's Liquid happens to allow.
+            endcomment
+            assign quick_count = 0
+            for block in section.blocks
+              if block.type == 'quick'
+                assign quick_count = quick_count | plus: 1
+              endif
+            endfor
+          -%}
+          {%- if st.show_quick and quick_count > 0 -%}
+            <div class="pl-quick reveal" style="--i:6">
+              {%- if st.quick_label != blank -%}
+                <p class="pl-quick__label">{{ st.quick_label }}</p>
+              {%- endif -%}
+              <div class="pl-quick__opts">
+                {%- for block in section.blocks -%}
+                  {%- if block.type != 'quick' -%}{%- continue -%}{%- endif -%}
+                  <a class="pl-quick__opt"
+                     href="{{ st.quick_target | default: '#pl-finder' }}"
+                     data-finder-jump="{{ block.settings.answer }}"
+                     {{ block.shopify_attributes }}>
+                    {%- if block.settings.icon != blank -%}{% render 'pl-icon', icon: block.settings.icon %}{%- endif -%}
+                    <span>{{ block.settings.label }}</span>
+                  </a>
+                {%- endfor -%}
+              </div>
+            </div>
+          {%- endif -%}
         </div>
 
         <div class="pl-hero__media reveal" style="--i:2">
@@ -107,14 +187,30 @@
         </div>
       </div>
 
-      <div class="{{ trust_class }} reveal">
-        {%- for block in section.blocks -%}
-          <div class="trust-strip__item" {{ block.shopify_attributes }}>
-            {% render 'pl-icon', icon: block.settings.icon %}
-            <div><b>{{ block.settings.title }}</b><span>{{ block.settings.text }}</span></div>
-          </div>
-        {%- endfor -%}
-      </div>
+      {%- comment -%}
+        Filtered by type now that the section hosts two kinds of block. Every
+        block that existed before this change is a trust item, so the row it
+        renders is unchanged.
+      {%- endcomment -%}
+      {%- liquid
+        assign trust_count = 0
+        for block in section.blocks
+          if block.type == 'trust'
+            assign trust_count = trust_count | plus: 1
+          endif
+        endfor
+      -%}
+      {%- if trust_count > 0 -%}
+        <div class="{{ trust_class }} reveal">
+          {%- for block in section.blocks -%}
+            {%- if block.type != 'trust' -%}{%- continue -%}{%- endif -%}
+            <div class="trust-strip__item" {{ block.shopify_attributes }}>
+              {% render 'pl-icon', icon: block.settings.icon %}
+              <div><b>{{ block.settings.title }}</b><span>{{ block.settings.text }}</span></div>
+            </div>
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
     </div>
   </section>
 </div>
@@ -200,6 +296,72 @@
           "label": "Solid, equal weight"
         }
       ]
+    },
+    {
+      "type": "header",
+      "content": "Scale line"
+    },
+    {
+      "type": "paragraph",
+      "content": "One line under the buttons that answers \"what kind of shop is this\" before anyone scrolls. Somebody landing on a range that runs from £69 to £289 cannot tell a supermarket shop from a furniture shop, and that is the question that decides whether they read on."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_scale",
+      "label": "Show the scale line",
+      "default": true
+    },
+    {
+      "type": "collection",
+      "id": "scale_collection",
+      "label": "Count the beds in",
+      "info": "The number is read from this collection every time the page renders, so adding a bed updates it on its own. Leave empty to drop the count."
+    },
+    {
+      "type": "text",
+      "id": "scale_noun",
+      "label": "What to call them",
+      "default": "beds"
+    },
+    {
+      "type": "text",
+      "id": "scale_price",
+      "label": "Price anchor",
+      "default": "From £69",
+      "info": "Typed rather than calculated. Shopify does not hand a collection its cheapest price, and a figure worked out from the first page of products would go quietly wrong the moment the collection passes fifty."
+    },
+    {
+      "type": "text",
+      "id": "scale_extra",
+      "label": "Third item",
+      "default": "100 nights to change your mind"
+    },
+    {
+      "type": "header",
+      "content": "Quick start"
+    },
+    {
+      "type": "paragraph",
+      "content": "Asks the bed finder's first question here, in the hero. Each option is an ordinary link to the finder, so it works with the script switched off; with it on, the answer is already selected when they arrive. Add or remove options with the \"Quick start option\" blocks below."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_quick",
+      "label": "Show the quick start row",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "quick_label",
+      "label": "Prompt",
+      "default": "Start here — how does your dog sleep?"
+    },
+    {
+      "type": "text",
+      "id": "quick_target",
+      "label": "Where it jumps to",
+      "default": "#pl-finder",
+      "info": "The bed finder's anchor. Change this only if you have renamed the finder's anchor id."
     },
     {
       "type": "header",
@@ -688,6 +850,64 @@
           "id": "text",
           "label": "Subtitle",
           "default": "Free collection, full refund"
+        }
+      ]
+    },
+    {
+      "type": "quick",
+      "name": "Quick start option",
+      "limit": 4,
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Curls up tight"
+        },
+        {
+          "type": "select",
+          "id": "answer",
+          "label": "Answers the finder with",
+          "default": "nest",
+          "info": "Must match one of the finder's first-question answers. An option set to something the finder does not offer still links there — it just arrives with nothing selected.",
+          "options": [
+            {
+              "value": "nest",
+              "label": "Curls up tight"
+            },
+            {
+              "value": "bolster",
+              "label": "Leans on something"
+            },
+            {
+              "value": "flat",
+              "label": "Sprawls flat out"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "default": "curl",
+          "options": [
+            {
+              "value": "curl",
+              "label": "Curled"
+            },
+            {
+              "value": "lean",
+              "label": "Leaning"
+            },
+            {
+              "value": "flat",
+              "label": "Flat out"
+            },
+            {
+              "value": "",
+              "label": "None"
+            }
+          ]
         }
       ]
     }

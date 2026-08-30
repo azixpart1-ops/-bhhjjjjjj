@@ -1,0 +1,65 @@
+{%- comment -%}
+  Display name for a product.
+
+  Half the catalogue is titled cleanly — "The Borrowdale Bolster Bed" — and
+  half carries a search tail: "The Braithwaite Orthopaedic Dog Bed — Senior,
+  Low Front, 122 × 89 × 17cm". Both are right for Google. Side by side in a
+  four-up grid they read as two different shops, and that split is most of
+  what makes a catalogue look assembled rather than made.
+
+  This trims the tail for display only. The product's own title is never
+  touched, so the search result, the structured data, the browser tab and the
+  order confirmation all keep every keyword they were written for.
+
+  What counts as a tail
+    Only a spaced em dash or en dash. A hyphen does not, because plenty of
+    real names carry one, and a comma does not, because "The Kendal Bed, Grey"
+    is a name and not a tail.
+
+  What is refused
+    A separator with nothing in front of it, and a head so short it is clearly
+    not the name — better a long title than a card labelled "The".
+
+  Required
+    product   a product object, or `title` as a plain string
+
+  Optional
+    title     trim this string instead of the product's title
+    full      true renders the title untouched, for anywhere the keywords
+              are the point
+    fallback  used when the resolved title is empty
+{%- endcomment -%}
+{%- liquid
+  assign t = title | default: product.title | default: fallback | default: '' | strip
+
+  assign out = t
+  unless full
+    comment
+      Em dash first, then en dash, so a title carrying both loses only the
+      longest tail rather than being cut twice at the wrong place.
+    endcomment
+    assign marks = '—|–' | split: '|'
+    for mark in marks
+      assign sep = ' ' | append: mark | append: ' '
+      assign parts = out | split: sep
+      if parts.size > 1
+        assign head = parts.first | strip
+        assign head_len = head | size
+        if head_len >= 6
+          assign out = head
+        endif
+      endif
+    endfor
+  endunless
+
+  comment
+    A trailing comma or colon is left over often enough to be worth removing:
+    "The Wasdale Bolster Bed," reads as a mistake, not a name.
+  endcomment
+  assign last = out | slice: -1
+  if last == ',' or last == ':' or last == '·'
+    assign keep = out | size | minus: 1
+    assign out = out | slice: 0, keep | strip
+  endif
+-%}
+{{- out -}}
