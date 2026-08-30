@@ -190,6 +190,34 @@
       if why == ''
         assign why = p.metafields.vitals.tagline.value | default: '' | strip
       endif
+
+      comment
+        The name falls back to the product's own title, and half the
+        catalogue's titles carry a search tail — "The Elterwater Bouclé
+        High-Wall Nest Dog Bed — Calming, S–L". The quiz result is the single
+        most important line on this page, so it gets the same trim every grid
+        gets. A display name typed in the block still wins, untouched.
+      endcomment
+    -%}
+    {%- capture bed_title -%}{% render 'pl-title', product: p, title: block.settings.display_title %}{%- endcapture -%}
+    {%- capture bed_short -%}{% render 'pl-title', product: p, title: block.settings.short %}{%- endcapture -%}
+    {%- liquid
+      assign bed_title = bed_title | strip
+      assign bed_short = bed_short | strip
+
+      comment
+        The short name goes into "See the ___". Falling back to the product
+        title makes that read "See the The Elterwater ...", so a leading
+        article is dropped — but only on the fallback. A short name somebody
+        typed is left exactly as they typed it.
+      endcomment
+      if block.settings.short == blank
+        assign lead = bed_short | slice: 0, 4
+        if lead == 'The '
+          assign rest = bed_short | size | minus: 4
+          assign bed_short = bed_short | slice: 4, rest
+        endif
+      endif
       if why == ''
         assign plain = p.description | strip_html | strip | replace: '  ', ' '
         assign why = plain | split: '. ' | first | strip
@@ -202,8 +230,8 @@
     -%}
     {
       "slot": {{ block.settings.slot | json }},
-      "title": {{ block.settings.display_title | default: p.title | json }},
-      "short": {{ block.settings.short | default: p.title | json }},
+      "title": {{ bed_title | json }},
+      "short": {{ bed_short | json }},
       "why": {{ why | json }},
       "url": {{ p.url | json }},
       "img": {%- if p.featured_image -%}{{ p.featured_image | image_url: width: 700 | json }}{%- else -%}""{%- endif -%},

@@ -642,7 +642,27 @@
       if (!entry) return false;
       var slot = entry.all || entry[answers.size];
       var group = BEDS[slot] || [];
-      var bed = group[0];
+
+      // Prefer a bed they can actually buy. Blocks stay in the order the shop
+      // put them in, except that any bed whose variant for the chosen size
+      // cannot be bought sinks below one that can. Three beds in this quiz
+      // have had no stock at a time, and being handed one of those at the
+      // moment of highest intent is worse than being handed the second choice.
+      //
+      // If nothing in the slot is buyable the order is left alone: the answer
+      // still gets a bed, carrying the honest "back in stock soon" line
+      // below, because no answer at all is the worst of the three outcomes.
+      function buyable(candidate) {
+        var b = candidate && candidate.bands && candidate.bands[answers.size];
+        // Missing band data is not evidence of anything, so it does not sink.
+        return !b || b.available !== false;
+      }
+      var ranked = group;
+      if (group.length > 1 && group.some(buyable)) {
+        ranked = group.filter(buyable).concat(group.filter(function (b) { return !buyable(b); }));
+      }
+
+      var bed = ranked[0];
       if (!bed || !bed.url) return false;
 
       // Each bed carries a resolved variant per size band, so the customer is
@@ -690,12 +710,15 @@
 
       // The shortlist: every other bed sharing this answer, each linked to the
       // variant that fits the size they picked. Built from the same live data
-      // as the recommendation, so a bed that goes out of stock stops being
-      // offered here too.
+      // as the recommendation, and a bed that cannot be bought in that size is
+      // dropped rather than listed — which is what the comment here used to
+      // claim and the code did not do. The recommendation above must always
+      // exist; a shortlist is allowed to be empty, and the box hides itself
+      // when it is.
       var altsBox = document.getElementById('plResultAlts');
       var altList = document.getElementById('plResultAltList');
       if (altsBox && altList) {
-        var alts = group.slice(1, 1 + ALT_MAX);
+        var alts = ranked.slice(1).filter(buyable).slice(0, ALT_MAX);
         altList.textContent = '';
         alts.forEach(function (alt) {
           var aband = (alt.bands && alt.bands[answers.size]) || null;
