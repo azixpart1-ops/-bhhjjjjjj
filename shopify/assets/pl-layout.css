@@ -388,3 +388,260 @@
    white region under the scrim — the muted ink reaches only 3.3:1 at the 75%
    floor, where this one reaches 5.0:1. On a plain ground nothing changes. */
 .pl.pl .finale-bg .finale__fine.muted { color: var(--on-dark-lede); }
+
+/* ==========================================================================
+   Part 3: the design lift
+
+   Everything above this point was about handing controls to the editor.
+   This part is about the pages looking better than they did, and most of it
+   is on by default because it cannot break a layout: tracking, wrapping,
+   hover behaviour and hairlines. Anything structural is gated behind a class
+   the section only emits when the setting asks for it.
+   ========================================================================== */
+
+/* --- Display type ------------------------------------------------------- */
+
+/* Large display type wants tighter tracking than small display type; one
+   letter-spacing across a scale that spans 1.5rem to 4.75rem is a compromise
+   at both ends. These are the values the sizes actually want. */
+.pl.pl .display-1 {
+  font-size: calc(clamp(2.6rem, 5vw, 4.75rem) * var(--sec-h-scale, 1));
+  letter-spacing: -0.032em;
+  line-height: 1.02;
+}
+.pl.pl .display-2 {
+  font-size: calc(clamp(2.15rem, 4.8vw, 3.5rem) * var(--sec-h-scale, 1));
+  letter-spacing: -0.026em;
+  line-height: 1.06;
+}
+/* Balance stops a two-line heading breaking as seven words then one. */
+.pl.pl .display-1,
+.pl.pl .display-2,
+.pl.pl .display-3,
+.pl.pl .buy__title { text-wrap: balance; }
+.pl.pl .lede { text-wrap: pretty; }
+
+/* --- The eyebrow, as an editorial device -------------------------------- */
+
+/* A short rule leading into the label. It costs nothing, it reads as
+   considered rather than decorative, and it gives every section the same
+   entry note — which is what makes a page feel designed rather than
+   assembled. Off unless the section asks for it. */
+.pl.pl .eyebrow--rule {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.pl.pl .eyebrow--rule::before {
+  content: "";
+  width: var(--eyebrow-rule, 2.25rem);
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+  flex: none;
+}
+/* Numbering. The counter lives on the section so each page restarts at 01. */
+.pl.pl .eyebrow--num::after {
+  content: var(--sec-num, "");
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.5;
+}
+
+/* --- Card craft --------------------------------------------------------- */
+
+/* The image already scales on hover. What was missing is the rest of the card
+   acknowledging the pointer, and a price row that sits on one baseline
+   instead of drifting with the description's last line. */
+.pl.pl .pl-card__foot {
+  align-items: baseline;
+  padding-top: var(--s-3);
+  border-top: 1px solid transparent;
+  transition: border-color var(--dur-hover) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pl.pl .pl-card:hover .pl-card__foot { border-top-color: var(--sand); }
+  .pl.pl .pl-card:hover .pl-card__buy { gap: 9px; }
+  .pl.pl .pl-card__buy { transition: gap var(--dur-hover) var(--ease-out); }
+}
+.pl.pl .pl-card__name { text-wrap: balance; }
+
+/* --- Section seams ------------------------------------------------------ */
+
+/* A hairline where two sections on the same ground meet, so the page reads as
+   a sequence of parts rather than one long scroll. Only between like grounds:
+   a dark band is its own separator. */
+.pl.pl .pl-section--seam { border-top: 1px solid var(--sand); }
+
+/* ==========================================================================
+   Part 4: the product page
+   ========================================================================== */
+
+/* Which column sticks. The base stylesheet sticks the buy column, but on this
+   catalogue the buy column is the tall one — title, rating, tagline, price,
+   instalments, options, stock, delivery, button, assurances, payment methods,
+   footnotes — and the gallery is a square stage with a thumb row. Sticking the
+   taller column means it barely moves while the short one scrolls out of
+   sight, so by the time a customer reaches the size picker the bed is gone.
+   Sticking the media instead keeps the product visible for the whole
+   decision, which is the entire point of a product page. */
+@media (min-width: 900px) {
+  .pl.pl .pdp { grid-template-columns: var(--pdp-split, 1.15fr 0.85fr); }
+
+  .pl.pl .pdp--stick-buy .buy {
+    position: sticky;
+    top: calc(var(--header-height, 64px) + 20px);
+  }
+  .pl.pl .pdp--stick-buy .gal { position: static; }
+
+  .pl.pl .pdp--stick-media .buy { position: static; }
+  .pl.pl .pdp--stick-media .gal {
+    position: sticky;
+    top: calc(var(--header-height, 64px) + 20px);
+  }
+  /* Neither: both columns scroll. Right when the buy column is short. */
+  .pl.pl .pdp--stick-none .buy,
+  .pl.pl .pdp--stick-none .gal { position: static; }
+}
+
+/* Gallery shape. A dog bed is wider than it is tall, and a square stage crops
+   the ends off every landscape shot in the catalogue. */
+.pl.pl .gal__stage { aspect-ratio: var(--gal-ratio, 1 / 1); }
+.pl.pl .gal--square .gal__stage { aspect-ratio: 1 / 1; }
+
+/* Price. 1.9rem fixed sat below the product title and read as a caption; at
+   display scale it reads as the number the page is about. Tabular figures
+   keep it from reflowing as the variant changes. */
+.pl.pl .buy__now {
+  font-size: calc(clamp(2rem, 3vw, 2.5rem) * var(--price-scale, 1));
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.pl.pl .buy__price { gap: var(--s-3) var(--s-4); margin-bottom: var(--s-3); }
+.pl.pl .buy__save { align-self: center; }
+
+/* The button. Full width already; what it lacked was height and presence
+   against a long column of small type. */
+.pl.pl .atc {
+  min-height: var(--atc-height, 56px);
+  font-size: var(--atc-size, 1rem);
+  letter-spacing: 0.02em;
+}
+
+/* Assurances as a bordered card rather than a loose list, so the risk
+   reversal reads as one object directly under the button. */
+.pl.pl .buy--framed .buy__assure {
+  border: 1px solid var(--sand);
+  border-radius: var(--radius);
+  background: var(--oat);
+  padding: var(--s-4);
+  display: grid;
+  gap: var(--s-3);
+  list-style: none;
+  margin: var(--s-4) 0 0;
+}
+.pl.pl .buy--framed .buy__assure li { margin: 0; }
+
+/* Spec rows. Zebra striping makes a long table scannable across the gap
+   between the label and the figure, which is exactly where the eye loses the
+   row on a wide column. */
+.pl.pl .specs--zebra .specs__row:nth-child(even) { background: var(--oat); }
+.pl.pl .specs__row dt { letter-spacing: 0.01em; }
+
+/* Breadcrumbs sit tight to the top of the page; give them room to read as
+   navigation rather than as a stray line of small text. */
+.pl.pl .crumbs { padding-block: var(--s-5) var(--s-2); }
+
+/* The sticky buy bar gains the selected variant, so a customer who has
+   scrolled past the picker can still see what they are about to add. */
+.pl.pl .buybar__txt em { font-style: normal; color: var(--ink-3); }
+.pl.pl .buybar--wide { justify-content: center; }
+.pl.pl .buybar--wide > * { max-width: var(--maxw); }
+
+/* The buy block is wrapped in a bare .wrap rather than a .pl-section, so the
+   shared padding controls need their own hook here. */
+.pl.pl .pdp {
+  padding-block:
+    var(--sec-pt, clamp(1.5rem, 3vw, 2.5rem))
+    var(--sec-pb, clamp(1.5rem, 3vw, 2.5rem));
+}
+
+/* --- Description + specs, and related products -------------------------- */
+
+@media (min-width: 900px) {
+  .pl.pl .pl-details { grid-template-columns: var(--details-split, 1.35fr 1fr); }
+  .pl.pl .pl-details--flip > :first-child { order: 2; }
+  .pl.pl .related { grid-template-columns: repeat(var(--rel-cols, 4), 1fr); }
+}
+/* Same swipe row the homepage lineup uses, for the same reason: a 2-up grid
+   hides the last two beds with nothing to say they are there. */
+@media (max-width: 899px) {
+  .pl.pl .related--scroll {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: var(--s-4);
+    margin-inline: calc(-1 * var(--s-5));
+    padding-inline: var(--s-5);
+    padding-bottom: var(--s-2);
+  }
+  .pl.pl .related--scroll::-webkit-scrollbar { display: none; }
+  .pl.pl .related--scroll > * { flex: 0 0 min(70vw, 20rem); scroll-snap-align: start; }
+}
+
+/* --- Klarna ------------------------------------------------------------- */
+
+/* The instalment line renders the word "Klarna" as plain text, so it came out
+   in the body ink — grey, and reading as a footnote rather than as a payment
+   method the shopper recognises. Klarna's own mark is their pink with near
+   black on top, and a recognised badge is worth far more at this point in the
+   page than a tidy monochrome line: it is the reassurance that the price can
+   be split, in the form the shopper already knows.
+
+   Both colours are custom properties, so a merchant who needs to follow a
+   different Klarna asset (or swap the provider entirely) can re-point them
+   without touching this rule. */
+.pl.pl {
+  --klarna-bg: #FFB3C7;
+  --klarna-fg: #0B051D;
+}
+.pl.pl .pl-bnpl {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+.pl.pl .pl-bnpl__mark {
+  background: var(--klarna-bg);
+  color: var(--klarna-fg);
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.005em;
+  line-height: 1;
+  padding: 5px 8px 6px;
+  border-radius: 5px;
+  flex: none;
+}
+/* The compact form on a product card has no room for the badge, so it gets a
+   pink dot instead — enough to read as the same thing at a glance. */
+.pl.pl .pl-bnpl--compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+.pl.pl .pl-bnpl--compact::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--klarna-bg);
+  flex: none;
+}
+/* On a dark ground the pink still carries; the near-black on it is unchanged,
+   so the badge keeps its contrast wherever the section lands. */
+.pl.pl .pl-section--dark .pl-bnpl { color: var(--on-dark-lede); }

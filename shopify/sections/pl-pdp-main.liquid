@@ -1,17 +1,65 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
+{{ 'pl-pdp-plus.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'pl-pdp-plus.js' | asset_url }}" defer></script>
 {%- comment -%}
-  Product buy block. Deliberately generic: works for 1–12 variants, 1–3 option
-  sets, any number of images, and sold-out products. Nothing here is specific
-  to a single product – every value is read from the product itself.
-{%- endcomment -%}
-{%- comment -%}
-  Rendered from the first PDP section so a cooling product is already the right
-  colour on first paint, rather than repainting when the details section further
-  down the page is parsed. The snippet decides for itself whether it applies.
+  Product buy block. Deliberately generic: works for 1-12 variants, 1-3 option
+  sets, any number of images, and sold-out products. Every value is read from
+  the product itself.
+
+  Order in the buy column follows the order the questions actually arrive in:
+  what is it, what do people think, what does it cost, can I spread it, which
+  size, when does it come, buy. Delivery sits immediately above the button
+  because "when will it get here" is the last unanswered question for most
+  people, and sending them to a policy page to find it loses them.
+
+  Rendered from the first PDP section so a cooling product is the right colour
+  on first paint rather than repainting further down the page.
 {%- endcomment -%}
 {% render 'pl-cool-palette', product: product %}
 {%- liquid
+  assign st = section.settings
+
+  comment
+    Which column stays put while the other scrolls. The default is the media,
+    which is a change from how this shipped: the buy column is the tall one
+    here — title, rating, tagline, price, instalments, options, stock,
+    delivery, button, assurances, payment methods, footnotes — so sticking it
+    barely moves anything while the square gallery scrolls out of sight. By
+    the size picker the customer could no longer see the bed.
+  endcomment
+  assign pdp_class = 'pdp'
+  case st.sticky_side
+    when 'buy'
+      assign pdp_class = pdp_class | append: ' pdp--stick-buy'
+    when 'none'
+      assign pdp_class = pdp_class | append: ' pdp--stick-none'
+    else
+      assign pdp_class = pdp_class | append: ' pdp--stick-media'
+  endcase
+
+  case st.media_split
+    when 'even'
+      assign pdp_split = '1fr 1fr'
+    when 'buy'
+      assign pdp_split = '1fr 1.1fr'
+    when 'media_wide'
+      assign pdp_split = '1.3fr 0.7fr'
+    else
+      assign pdp_split = '1.15fr 0.85fr'
+  endcase
+
+  assign buy_class = 'buy'
+  if st.frame_assurance
+    assign buy_class = buy_class | append: ' buy--framed'
+  endif
+
+  assign eyebrow_class = 'buy__eyebrow'
+  if st.eyebrow_rule
+    assign eyebrow_class = eyebrow_class | append: ' eyebrow--rule'
+  endif
+
   assign p = product
   assign v = p.selected_or_first_available_variant
   assign has_options = true
@@ -22,26 +70,19 @@
   assign b1 = p.metafields.vitals.top_benefit_1.value
   assign b2 = p.metafields.vitals.top_benefit_2.value
   assign b3 = p.metafields.vitals.top_benefit_3.value
+
+  assign crumb = collection
+  unless crumb
+    for c in p.collections
+      if crumb == blank and c.handle != 'all' and c.handle != 'frontpage'
+        assign crumb = c
+      endif
+    endfor
+  endunless
 -%}
 <div class="pl">
   <section class="wrap">
     {%- if section.settings.show_breadcrumbs -%}
-      {%- comment -%}
-        The middle crumb used to read the product type but link to
-        /collections/all, so it never matched the path it claimed. Fall back to
-        the product's own first real collection instead, and only render a link
-        when there is somewhere true to send them.
-      {%- endcomment -%}
-      {%- liquid
-        assign crumb = collection
-        unless crumb
-          for c in p.collections
-            if crumb == blank and c.handle != 'all' and c.handle != 'frontpage'
-              assign crumb = c
-            endif
-          endfor
-        endunless
-      -%}
       <nav class="crumbs" aria-label="Breadcrumb">
         <a href="{{ routes.root_url }}">Home</a> <span>/</span>
         {%- if crumb -%}
@@ -49,76 +90,21 @@
         {%- endif -%}
         <span aria-current="page">{{ p.title | split: '|' | first | strip | truncate: 45 }}</span>
       </nav>
-      <script type="application/ld+json">
-        {
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          "itemListElement": [
-            { "@type": "ListItem", "position": 1, "name": "Home", "item": {{ shop.url | json }} }
-            {%- if crumb -%},
-            { "@type": "ListItem", "position": 2, "name": {{ crumb.title | split: '|' | first | strip | json }}, "item": {{ shop.url | append: crumb.url | json }} }
-            {%- endif -%},
-            { "@type": "ListItem", "position": {% if crumb %}3{% else %}2{% endif %}, "name": {{ p.title | split: '|' | first | strip | json }} }
-          ]
-        }
-      </script>
     {%- endif -%}
 
-    <div class="pdp">
-      <!-- Gallery -->
-      <div class="gal">
-        <div class="gal__stage">
-          {%- unless p.available -%}
-            <span class="gal__flag gal__flag--out">Sold out</span>
-          {%- else -%}
-            {%- if v.compare_at_price > v.price -%}
-              {%- assign pct = v.compare_at_price | minus: v.price | times: 100.0 | divided_by: v.compare_at_price | round -%}
-              <span class="gal__flag">Save {{ pct }}%</span>
-            {%- endif -%}
-          {%- endunless -%}
-          <div class="gal__slides" id="plGalSlides">
-            {%- if p.media.size > 0 -%}
-              {%- for m in p.media -%}
-                <div class="gal__slide" data-index="{{ forloop.index0 }}">
-                  <img src="{{ m | image_url: width: 900 }}"
-                       srcset="{{ m | image_url: width: 560 }} 560w, {{ m | image_url: width: 1100 }} 1100w"
-                       sizes="(min-width: 900px) 52vw, 100vw"
-                       alt="{{ m.alt | escape | default: p.title | escape }}"
-                       width="900" height="900"
-                       {% if forloop.first %}fetchpriority="high"{% else %}loading="lazy"{% endif %}
-                       decoding="async">
-                </div>
-              {%- endfor -%}
-            {%- else -%}
-              <div class="gal__slide">{{ 'product-1' | placeholder_svg_tag }}</div>
-            {%- endif -%}
-          </div>
-        </div>
-
-        {%- if p.media.size > 1 -%}
-          <div class="gal__thumbs" role="tablist" aria-label="Product images">
-            {%- for m in p.media -%}
-              <button class="gal__thumb" type="button" role="tab"
-                      data-goto="{{ forloop.index0 }}"
-                      aria-current="{% if forloop.first %}true{% else %}false{% endif %}"
-                      aria-label="Image {{ forloop.index }} of {{ p.media.size }}">
-                <img src="{{ m | image_url: width: 160 }}" alt="" width="160" height="160" loading="lazy" decoding="async">
-              </button>
-            {%- endfor -%}
-          </div>
-        {%- endif -%}
-      </div>
+    <div class="{{ pdp_class }}"
+         style="--pdp-split:{{ pdp_split }};--gal-ratio:{{ st.gallery_ratio | default: '1 / 1' }};--price-scale:{{ st.price_size | default: 100 | divided_by: 100.0 }};--atc-height:{{ st.atc_height | default: 56 }}px">
+      {% render 'pl-pdp-gallery', p: p, v: v %}
 
       <!-- Buy column -->
-      <div class="buy" id="plBuy">
-        {%- if p.type != blank -%}<p class="buy__eyebrow">{{ p.type }}</p>{%- endif -%}
+      <div class="{{ buy_class }}" id="plBuy">
+        {%- if p.type != blank -%}<p class="{{ eyebrow_class }}">{{ p.type }}</p>{%- endif -%}
         <h1 class="buy__title">{{ p.title }}</h1>
 
         {%- comment -%}
           This product's own score when it has one, the shop-wide figure when
-          it does not, so every product page carries stars rather than only
-          the reviewed ones. The per-product row wins because a score for the
-          bed in front of you beats an average across the catalogue.
+          it does not. The per-product row wins, because a score for the bed in
+          front of you beats an average across the catalogue.
         {%- endcomment -%}
         {%- liquid
           assign own_rating = p.metafields.reviews.rating.value.rating | default: 0 | plus: 0.0
@@ -129,7 +115,7 @@
             {% render 'pl-rating', product: p, min_count: 1, size: 17 %}
             <a href="#pl-reviews">{{ own_count }} {% if own_count == 1 %}review{% else %}reviews{% endif %}</a>
           </p>
-        {%- elsif section.settings.show_rating -%}
+        {%- elsif section.settings.show_rating and section.settings.rating_text != blank -%}
           <p class="buy__rating">
             <span class="pl-stars" aria-hidden="true">{% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}</span>
             <span>{{ section.settings.rating_text }}</span>
@@ -151,200 +137,29 @@
           <p class="buy__tax">{{ section.settings.price_note }}</p>
         {%- endif -%}
 
+        {%- if section.settings.show_bnpl -%}
+          {% render 'pl-bnpl', price: v.price, min: section.settings.bnpl_min, max: section.settings.bnpl_max, force: section.settings.bnpl_force %}
+        {%- endif -%}
+
         {%- comment -%}
           This has to be Shopify's own product form tag, not a hand-written
           one. payment_button and payment_terms both read the `form` object
           that only the product form tag creates: with a plain form element
           that object does not exist, both filters output nothing, and Apple
-          Pay, Shop Pay and Google Pay silently never appear. The tag also
-          emits form_type and utf8 itself, so neither is written by hand now.
+          Pay, Shop Pay and Google Pay silently never appear.
         {%- endcomment -%}
         {%- form 'product', p, id: 'plForm', novalidate: 'novalidate' -%}
           <input type="hidden" name="id" id="plVariantId" value="{{ v.id }}">
           <input type="hidden" name="quantity" value="1">
 
-          {%- if has_options -%}
-            <div class="opts">
-              {%- for opt in p.options_with_values -%}
-                {%- assign is_size = false -%}
-                {%- assign lower = opt.name | downcase -%}
-                {%- if lower contains 'size' -%}{%- assign is_size = true -%}{%- endif -%}
-                <div class="opt-group" data-option-index="{{ forloop.index0 }}">
-                  <div class="opt-group__head">
-                    <span class="opt-group__name">
-                      {%- comment -%}
-                        The catalogue names this option "Accessory size", which
-                        is supplier vocabulary, not the customer's.
-                      {%- endcomment -%}
-                      {{ opt.name | remove_first: 'Accessory ' | remove_first: 'accessory ' | capitalize }}<b data-selected-for="{{ forloop.index0 }}">{{ opt.selected_value }}</b>
-                    </span>
-                    {%- if is_size and section.settings.size_guide_url != blank -%}
-                      <a class="opt-group__help" href="{{ section.settings.size_guide_url }}">{{ section.settings.size_guide_label }}</a>
-                    {%- endif -%}
-                  </div>
-                  {%- comment -%}
-                    Where a size already carries its measurements, as the
-                    Kendal's do ("S · 45 × 29.5cm"), the two are split so the
-                    code stays scannable and the centimetres sit under it.
-                    Nobody can judge whether "L" fits their dog; 83 × 66cm they
-                    can. Sizes without measurements simply render as they are,
-                    so this needs no data the catalogue does not already hold.
-                  {%- endcomment -%}
-                  <div class="opt-values{% if is_size %} opt-values--size{% endif %}">
-                    {%- for value in opt.values -%}
-                      {%- liquid
-                        assign oidx = forloop.parentloop.index0
-                        assign uid = 'opt-' | append: oidx | append: '-' | append: forloop.index0
-                        assign vcode = value
-                        assign vdims = ''
-
-                        comment
-                          Preferred source: the variant's own Dimensions
-                          metafield, filled from the size table already
-                          published in the product description. Falls back to
-                          splitting the option label for the beds that carry
-                          their measurements inline.
-                        endcomment
-                        for v in p.variants
-                          if vdims == '' and v.options[oidx] == value
-                            assign vdims = v.metafields.custom.dimensions.value | default: '' | strip
-                          endif
-                        endfor
-                        comment
-                          Two conventions live in the catalogue: the Kendal
-                          writes "S · 45 × 29.5cm", the Windermere Calming
-                          writes "Large (110 x 75 cm)". Both mean the same
-                          thing, so both are split.
-                        endcomment
-                        if value contains '·'
-                          assign vparts = value | split: '·'
-                          assign vcode = vparts[0] | strip
-                          if vdims == ''
-                            assign vdims = value | remove_first: vparts[0] | remove_first: '·' | strip
-                          endif
-                        elsif value contains '('
-                          assign vparts = value | split: '('
-                          assign vcode = vparts[0] | strip
-                          if vdims == ''
-                            assign vdims = vparts[1] | default: '' | replace: ')', '' | strip
-                          endif
-                        endif
-                      -%}
-                      <input type="radio" id="{{ uid }}" name="pl-option-{{ forloop.parentloop.index0 }}"
-                             value="{{ value | escape }}" data-option-index="{{ forloop.parentloop.index0 }}"
-                             {% if value == opt.selected_value %}checked{% endif %}>
-                      <label for="{{ uid }}"{% if vdims != '' %} class="has-dims"{% endif %}>
-                        <span class="opt-values__code">{{ vcode }}</span>
-                        {%- if vdims != '' -%}<span class="opt-values__dims">{{ vdims }}</span>{%- endif -%}
-                      </label>
-                    {%- endfor -%}
-                  </div>
-                </div>
-              {%- endfor -%}
-            </div>
-          {%- endif -%}
-
-
-          {%- if section.settings.show_size_helper and has_options -%}
-            <div class="sizehelp" id="plSizeHelp">
-              <button class="sizehelp__q" type="button" aria-expanded="false">
-                {{ section.settings.size_helper_title }}<span class="faq__icon" aria-hidden="true"></span>
-              </button>
-              <div class="sizehelp__body"><div><div class="sizehelp__inner">
-                {{ section.settings.size_helper_body }}
-
-                {%- comment -%}
-                  The size table, built from the product's own variants rather
-                  than written out by hand: measurements come from each
-                  variant's Dimensions field, price and availability from the
-                  variant itself, so it can never drift from what is actually
-                  for sale. Rows with no measurement still list price and
-                  stock, and the whole table is skipped when no size carries
-                  measurements at all.
-                {%- endcomment -%}
-                {%- liquid
-                  assign size_ix = -1
-                  for opt in p.options_with_values
-                    assign onm = opt.name | downcase
-                    if size_ix == -1 and onm contains 'size'
-                      assign size_ix = forloop.index0
-                      assign size_opt = opt
-                    endif
-                  endfor
-                  assign any_dims = false
-                  if size_ix > -1
-                    for value in size_opt.values
-                      for v in p.variants
-                        if v.options[size_ix] == value and any_dims == false
-                          if v.metafields.custom.dimensions.value != blank
-                            assign any_dims = true
-                          endif
-                        endif
-                      endfor
-                    endfor
-                  endif
-                -%}
-                {%- if any_dims -%}
-                  <table class="sizetable">
-                    <thead>
-                      <tr><th scope="col">Size</th><th scope="col">Bed measures</th><th scope="col">Price</th></tr>
-                    </thead>
-                    <tbody>
-                      {%- for value in size_opt.values -%}
-                        {%- liquid
-                          assign row = nil
-                          for v in p.variants
-                            if row == nil and v.options[size_ix] == value
-                              assign row = v
-                            endif
-                          endfor
-                          assign rdims = row.metafields.custom.dimensions.value | default: '' | strip
-                          assign rcode = value
-                          if value contains '·'
-                            assign rcode = value | split: '·' | first | strip
-                            if rdims == ''
-                              assign rdims = value | split: '·' | last | strip
-                            endif
-                          elsif value contains '('
-                            assign rcode = value | split: '(' | first | strip
-                            if rdims == ''
-                              assign rdims = value | split: '(' | last | replace: ')', '' | strip
-                            endif
-                          endif
-                        -%}
-                        <tr{% unless row.available %} class="sizetable__out"{% endunless %}>
-                          <th scope="row">{{ rcode }}</th>
-                          <td>{{ rdims | default: '—' }}</td>
-                          <td>{% if row.available %}{{ row.price | money }}{% else %}Sold out{% endif %}</td>
-                        </tr>
-                      {%- endfor -%}
-                    </tbody>
-                  </table>
-                {%- endif -%}
-
-                {%- if section.settings.size_guide_url != blank -%}
-                  <p><a class="link-arrow" href="{{ section.settings.size_guide_url }}">Full size &amp; firmness guide{% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 14 %}</a></p>
-                {%- endif -%}
-              </div></div></div>
-            </div>
-          {%- endif -%}
+          {% render 'pl-pdp-options', p: p, has_options: has_options, section: section %}
 
           <p class="buy__stock" id="plStock" hidden></p>
 
-          {%- if section.settings.show_cutoff -%}
-            {%- comment -%}
-              Real urgency, not manufactured urgency. This is the workshop's
-              actual dispatch cut-off, counted in UK time, and it says nothing
-              at all once the cut-off has passed or at a weekend rather than
-              inventing a deadline. Empty until the script fills it, so it can
-              never show a stale time.
-            {%- endcomment -%}
-            <p class="buy__cutoff" id="plCutoff" hidden
-               data-hour="{{ section.settings.cutoff_hour }}"
-               data-text="{{ section.settings.cutoff_text | escape }}"
-               {%- if section.settings.show_eta %}
-               data-transit="{{ section.settings.eta_transit_days }}"
-               data-eta="{{ section.settings.eta_text | escape }}"{% endif %}></p>
+          {%- if section.settings.show_delivery -%}
+            {% render 'pl-delivery',
+               std_label: section.settings.del_std_label, std_min: section.settings.del_std_min, std_max: section.settings.del_std_max, std_note: section.settings.del_std_note,
+               exp_label: section.settings.del_exp_label, exp_min: section.settings.del_exp_min, exp_max: section.settings.del_exp_max, exp_note: section.settings.del_exp_note %}
           {%- endif -%}
 
           <p class="atc-msg" id="plMsg" role="status" aria-live="polite"></p>
@@ -356,10 +171,7 @@
           {%- comment -%}
             The risk-reversal strip, immediately under the button, where every
             premium competitor puts it. It is the last thing a hesitant buyer
-            reads before deciding, so the three promises that remove the risk
-            of buying sit exactly here rather than only further down the page.
-            Blocks of type 'assure' drive it; a sensible default set renders
-            when none are configured.
+            reads before deciding.
           {%- endcomment -%}
           {%- if section.settings.show_assurance -%}
             {%- assign assure_blocks = 0 -%}
@@ -368,14 +180,7 @@
               {%- if assure_blocks > 0 -%}
                 {%- for block in section.blocks -%}
                   {%- if block.type == 'assure' -%}
-                    {%- comment -%}
-                      The filter has to run before the render, not inside it:
-                      Liquid rejects a filter applied to a render argument, and
-                      it fails as a syntax error that takes the whole section
-                      down rather than just this line.
-                    {%- endcomment -%}
-                    {%- assign assure_icon = block.settings.icon | default: 'check' -%}
-                    <li {{ block.shopify_attributes }}>{% render 'pl-icon', icon: assure_icon %}<span>{{ block.settings.text }}</span></li>
+                    <li {{ block.shopify_attributes }}>{% render 'pl-icon', icon: block.settings.icon, default: 'check' %}<span>{{ block.settings.text }}</span></li>
                   {%- endif -%}
                 {%- endfor -%}
               {%- else -%}
@@ -388,69 +193,21 @@
 
           {%- if section.settings.show_dynamic_checkout -%}
             {%- comment -%}
-              The buy-now button. Shopify renders whichever accelerated methods
-              the shop actually has switched on, so it stays truthful on its
-              own: turn Klarna on in payments and it appears here, turn it off
-              and it goes. payment_terms is the instalment line that belongs
-              with it, and prints nothing where instalments are unavailable.
+              Shopify renders whichever accelerated methods the shop actually
+              has switched on, so this stays truthful on its own.
             {%- endcomment -%}
             {{ form | payment_button }}
             {{ form | payment_terms }}
           {%- endif -%}
         {%- endform -%}
 
-        {%- if section.settings.show_pay_methods -%}
-          {%- comment -%}
-            Drawn from shop.enabled_payment_types, so the row can only ever
-            show methods the customer can genuinely pay with. A badge for a
-            method the shop does not accept is a promise broken at checkout,
-            which is the worst possible place to break one.
-          {%- endcomment -%}
-          <div class="buy__pay">
-            {%- if section.settings.pay_label != blank -%}
-              <span class="buy__pay-label">{{ section.settings.pay_label }}</span>
-            {%- endif -%}
-            <span class="buy__pay-icons">
-              {%- for type in shop.enabled_payment_types -%}
-                {{ type | payment_type_svg_tag: class: 'buy__pay-icon' }}
-              {%- endfor -%}
-            </span>
-          </div>
-        {%- endif -%}
-
-        <div class="buy__trust">
-          {%- for block in section.blocks -%}
-            {%- if block.type == 'trust' -%}
-              <div {{ block.shopify_attributes }}>
-                {% render 'pl-icon', icon: block.settings.icon %}
-                <span><b>{{ block.settings.title }}</b> – {{ block.settings.text }}</span>
-              </div>
-            {%- endif -%}
-          {%- endfor -%}
-        </div>
-
-        {%- if b1 != blank or b2 != blank or b3 != blank or section.blocks.size > 0 -%}
-          <div class="benefits">
-            <ul>
-              {%- if b1 != blank -%}<li>{% render 'pl-icon', icon: 'check' %}<span>{{ b1 }}</span></li>{%- endif -%}
-              {%- if b2 != blank -%}<li>{% render 'pl-icon', icon: 'check' %}<span>{{ b2 }}</span></li>{%- endif -%}
-              {%- if b3 != blank -%}<li>{% render 'pl-icon', icon: 'check' %}<span>{{ b3 }}</span></li>{%- endif -%}
-              {%- if b1 == blank and b2 == blank and b3 == blank -%}
-                {%- for block in section.blocks -%}
-                  {%- if block.type == 'benefit' -%}
-                    <li {{ block.shopify_attributes }}>{% render 'pl-icon', icon: 'check' %}<span>{{ block.settings.text }}</span></li>
-                  {%- endif -%}
-                {%- endfor -%}
-              {%- endif -%}
-            </ul>
-          </div>
-        {%- endif -%}
+        {% render 'pl-pdp-footnotes', p: p, section: section, b1: b1, b2: b2, b3: b3 %}
       </div>
     </div>
   </section>
 
   {%- if section.settings.show_buybar -%}
-    <div class="buybar" id="plBuyBar">
+    <div class="buybar{% if st.buybar_wide %} buybar--wide{% endif %}" id="plBuyBar">
       {%- if p.featured_image -%}
         <img class="buybar__img" src="{{ p.featured_image | image_url: width: 120 }}" alt="" width="42" height="42" loading="lazy">
       {%- endif -%}
@@ -465,86 +222,10 @@
   {%- endif -%}
 </div>
 
-{%- comment -%} Live variant data – price, stock and image, straight from the catalogue. {%- endcomment -%}
-<script type="application/json" id="pl-variants">
-{
-  "cartUrl": {{ routes.cart_url | json }},
-  "lowStockAt": {{ section.settings.low_stock_threshold | default: 3 | json }},
-  "soldOutLabel": {{ section.settings.sold_out_label | json }},
-  "atcLabel": {{ section.settings.atc_label | json }},
-  "afterAdd": {{ section.settings.after_add | default: 'drawer' | json }},
-  "unavailableLabel": {{ section.settings.unavailable_label | json }},
-  "variants": [
-    {%- for var in p.variants -%}
-      {
-        "id": {{ var.id }},
-        "options": {{ var.options | json }},
-        "available": {{ var.available | json }},
-        "price": {{ var.price | money | strip_html | json }},
-        "compareAt": {%- if var.compare_at_price > var.price -%}{{ var.compare_at_price | money | strip_html | json }}{%- else -%}null{%- endif -%},
-        "save": {%- if var.compare_at_price > var.price -%}{{ var.compare_at_price | minus: var.price | money | strip_html | json }}{%- else -%}null{%- endif -%},
-        "qty": {{ var.inventory_quantity | default: 0 | json }},
-        "policy": {{ var.inventory_policy | json }},
-        "managed": {{ var.inventory_management | json }},
-        "mediaIndex": {%- if var.featured_media -%}{{ var.featured_media.position | minus: 1 }}{%- else -%}null{%- endif -%}
-      }{%- unless forloop.last -%},{%- endunless -%}
-    {%- endfor -%}
-  ]
-}
-</script>
+{%- comment -%} Live variant data - price, stock and image, straight from the catalogue. {%- endcomment -%}
+{% render 'pl-pdp-variants-json', p: p, section: section %}
 
-{%- comment -%} Structured data so Google can show price, availability and reviews. {%- endcomment -%}
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Product",
-      "@id": {{ p.url | prepend: request.origin | append: '#product' | json }},
-      "name": {{ p.title | json }},
-      "description": {{ p.description | strip_html | truncate: 500 | json }},
-      "url": {{ p.url | prepend: request.origin | json }},
-      "sku": {{ v.sku | default: v.id | json }},
-      "brand": { "@type": "Brand", "name": {{ p.vendor | default: 'PawLunova' | json }} },
-      {%- if p.featured_image -%}
-      "image": [
-        {%- for m in p.media limit: 5 -%}
-          {{ m | image_url: width: 1200 | prepend: 'https:' | json }}{%- unless forloop.last -%},{%- endunless -%}
-        {%- endfor -%}
-      ],
-      {%- endif -%}
-      {%- if p.type != blank -%}"category": {{ p.type | json }},{%- endif -%}
-      "offers": [
-        {%- for var in p.variants -%}
-        {
-          "@type": "Offer",
-          "url": {{ var.url | prepend: request.origin | json }},
-          "sku": {{ var.sku | default: var.id | json }},
-          "price": {{ var.price | divided_by: 100.0 | json }},
-          "priceCurrency": {{ cart.currency.iso_code | json }},
-          "availability": {%- if var.available -%}"https://schema.org/InStock"{%- else -%}"https://schema.org/OutOfStock"{%- endif -%},
-          "itemCondition": "https://schema.org/NewCondition",
-          {%- unless p.has_only_default_variant -%}"name": {{ var.title | json }},{%- endunless -%}
-          "seller": { "@type": "Organization", "name": "PawLunova" }
-        }{%- unless forloop.last -%},{%- endunless -%}
-        {%- endfor -%}
-      ]
-    },
-    {
-      "@type": "BreadcrumbList",
-      "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "Home", "item": {{ request.origin | append: routes.root_url | json }} },
-        {%- if collection -%}
-        { "@type": "ListItem", "position": 2, "name": {{ collection.title | strip_html | json }}, "item": {{ collection.url | prepend: request.origin | json }} },
-        { "@type": "ListItem", "position": 3, "name": {{ p.title | json }} }
-        {%- else -%}
-        { "@type": "ListItem", "position": 2, "name": {{ p.title | json }} }
-        {%- endif -%}
-      ]
-    }
-  ]
-}
-</script>
+{% render 'pl-pdp-jsonld', p: p, v: v, crumb: crumb %}
 
 {% schema %}
 {
@@ -562,17 +243,20 @@
       "content": "Rating"
     },
     {
+      "type": "paragraph",
+      "content": "A product with real reviews in the reviews.rating metafield always shows its own score and ignores the line below. Connect a review app and every reviewed product switches over on its own."
+    },
+    {
       "type": "checkbox",
       "id": "show_rating",
-      "label": "Show rating line",
-      "default": true
+      "label": "Show a store-wide rating where a product has no reviews of its own",
+      "default": false
     },
     {
       "type": "text",
       "id": "rating_text",
-      "label": "Rating text",
-      "info": "This is a store-wide rating, not a per-product one. Word it that way.",
-      "default": "4.8/5 across 3,900+ PawLunova owners"
+      "label": "Store-wide rating text",
+      "info": "This is a store-wide figure, not this product's score. Word it that way, and only use a number you could evidence if asked."
     },
     {
       "type": "header",
@@ -582,7 +266,115 @@
       "type": "text",
       "id": "price_note",
       "label": "Note under price",
-      "default": "Free UK delivery on orders over £40."
+      "default": "Free UK delivery on every order. 100 nights to change your mind."
+    },
+    {
+      "type": "header",
+      "content": "Instalments"
+    },
+    {
+      "type": "paragraph",
+      "content": "The Klarna line appears only when Klarna is actually switched on in Settings > Payments. Until then it stays hidden, whatever this is set to, so the page cannot offer a split the customer would not be given at checkout."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_bnpl",
+      "label": "Show the Klarna instalment line",
+      "default": true
+    },
+    {
+      "type": "number",
+      "id": "bnpl_min",
+      "label": "Lowest order Klarna will split, in pence",
+      "default": 3500
+    },
+    {
+      "type": "number",
+      "id": "bnpl_max",
+      "label": "Highest order Klarna will split, in pence",
+      "default": 100000
+    },
+    {
+      "type": "checkbox",
+      "id": "bnpl_force",
+      "label": "Show it even though Klarna is not detected",
+      "default": false,
+      "info": "Only for a provider that does not register a payment type of its own. Leave off otherwise – it overrides the safety check above."
+    },
+    {
+      "type": "header",
+      "content": "Delivery"
+    },
+    {
+      "type": "paragraph",
+      "content": "Shown directly above the Add to basket button. Working days are counted from today in the visitor's browser and skip weekends, so the dates are never stale. Set a range you can hit every time, not your best case."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_delivery",
+      "label": "Show the delivery window",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "del_std_label",
+      "label": "Free option label",
+      "default": "Free UK delivery"
+    },
+    {
+      "type": "range",
+      "id": "del_std_min",
+      "label": "Free option, fastest working days",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "default": 1
+    },
+    {
+      "type": "range",
+      "id": "del_std_max",
+      "label": "Free option, slowest working days",
+      "min": 0,
+      "max": 14,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "text",
+      "id": "del_std_note",
+      "label": "Free option note",
+      "default": "On every order, no minimum spend."
+    },
+    {
+      "type": "text",
+      "id": "del_exp_label",
+      "label": "Paid option label",
+      "info": "Leave blank to hide the paid option entirely.",
+      "default": "Express £6.99"
+    },
+    {
+      "type": "range",
+      "id": "del_exp_min",
+      "label": "Paid option, fastest working days",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "default": 1
+    },
+    {
+      "type": "range",
+      "id": "del_exp_max",
+      "label": "Paid option, slowest working days",
+      "min": 0,
+      "max": 14,
+      "step": 1,
+      "default": 2
+    },
+    {
+      "type": "text",
+      "id": "del_exp_note",
+      "label": "Paid option note",
+      "default": "Chosen at checkout."
     },
     {
       "type": "header",
@@ -599,7 +391,7 @@
       "id": "after_add",
       "label": "After adding to basket",
       "default": "drawer",
-      "info": "Choose 'my cart app' if you have a cart slider app installed, so this theme announces the add and lets your app open its own drawer.",
+      "info": "Choose 'my cart app' if you have a cart slider app installed.",
       "options": [
         {
           "value": "drawer",
@@ -673,7 +465,7 @@
       "type": "richtext",
       "id": "size_helper_body",
       "label": "Size helper body",
-      "default": "<p>Measure your dog nose to base of tail while they are lying down, then add 15–20cm. If they are between two sizes, size up – dogs that sprawl need the length more than you would think.</p><p>Get it wrong and the 100-night trial covers it: we collect it free and send the right one.</p>"
+      "default": "<p>Measure your dog nose to base of tail while they are lying down, then add 15–20cm. If they are between two sizes, size up.</p>"
     },
     {
       "type": "url",
@@ -692,7 +484,7 @@
     },
     {
       "type": "paragraph",
-      "content": "Shown directly under the Add to basket button, where it does the most to remove a hesitant buyer's risk. Add 'Assurance line' blocks to override the three defaults below."
+      "content": "Shown directly under the Add to basket button, where it does the most to remove a hesitant buyer's risk. Add 'Assurance line' blocks to override the three defaults."
     },
     {
       "type": "checkbox",
@@ -720,7 +512,7 @@
     },
     {
       "type": "header",
-      "content": "Payment and dispatch"
+      "content": "Payment methods"
     },
     {
       "type": "checkbox",
@@ -736,58 +528,287 @@
       "default": "Pay with"
     },
     {
-      "type": "checkbox",
-      "id": "show_cutoff",
-      "label": "Show the dispatch cut-off countdown",
-      "default": true,
-      "info": "Counts down to your real cut-off in UK time. Says nothing once it has passed, or at a weekend."
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "sticky_side",
+      "label": "Which column stays put",
+      "default": "media",
+      "options": [
+        {
+          "value": "media",
+          "label": "The images"
+        },
+        {
+          "value": "buy",
+          "label": "The buy column"
+        },
+        {
+          "value": "none",
+          "label": "Neither"
+        }
+      ],
+      "info": "The buy column is the taller of the two, so sticking it barely moves while the gallery scrolls away — by the size picker the customer can no longer see the bed. Sticking the images keeps the product in view for the whole decision."
+    },
+    {
+      "type": "select",
+      "id": "media_split",
+      "label": "Balance",
+      "default": "media",
+      "options": [
+        {
+          "value": "media",
+          "label": "More room for the images"
+        },
+        {
+          "value": "even",
+          "label": "Equal halves"
+        },
+        {
+          "value": "buy",
+          "label": "More room for the buy column"
+        },
+        {
+          "value": "media_wide",
+          "label": "Images much wider"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "gallery_ratio",
+      "label": "Gallery shape",
+      "default": "1 / 1",
+      "options": [
+        {
+          "value": "1 / 1",
+          "label": "Square"
+        },
+        {
+          "value": "4 / 5",
+          "label": "Portrait, 4:5"
+        },
+        {
+          "value": "5 / 6",
+          "label": "Portrait, 5:6"
+        },
+        {
+          "value": "3 / 4",
+          "label": "Portrait, 3:4"
+        },
+        {
+          "value": "4 / 3",
+          "label": "Landscape, 4:3"
+        },
+        {
+          "value": "3 / 2",
+          "label": "Landscape, 3:2"
+        },
+        {
+          "value": "16 / 9",
+          "label": "Wide, 16:9"
+        }
+      ],
+      "info": "A square stage crops the ends off a landscape product shot."
     },
     {
       "type": "range",
-      "id": "cutoff_hour",
-      "label": "Cut-off hour, UK time, 24h",
-      "min": 8,
-      "max": 20,
-      "step": 1,
-      "default": 15
-    },
-    {
-      "type": "text",
-      "id": "cutoff_text",
-      "label": "Cut-off wording",
-      "info": "[time] is replaced by the time remaining.",
-      "default": "Order within [time] and it leaves our Yorkshire workshop today"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_eta",
-      "label": "Show a delivery estimate",
-      "default": true,
-      "info": "Appends an estimated arrival to the dispatch line, shown only before the cut-off on a working day so it names a date you can actually hit."
+      "id": "price_size",
+      "label": "Price size",
+      "min": 70,
+      "max": 160,
+      "step": 5,
+      "unit": "%",
+      "default": 100
     },
     {
       "type": "range",
-      "id": "eta_transit_days",
-      "label": "Working days in transit",
-      "min": 1,
-      "max": 5,
-      "step": 1,
-      "default": 1
+      "id": "atc_height",
+      "label": "Button height",
+      "min": 44,
+      "max": 76,
+      "step": 2,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "checkbox",
+      "id": "frame_assurance",
+      "label": "Frame the assurances under the button",
+      "default": true,
+      "info": "Groups the trial, guarantee and delivery lines into one card, so the risk reversal reads as a single object rather than three loose lines."
+    },
+    {
+      "type": "checkbox",
+      "id": "eyebrow_rule",
+      "label": "Rule before the product type",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "buybar_wide",
+      "label": "Centre the sticky bar on wide screens",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "eyebrow_style",
+      "label": "Section label",
+      "default": "rule",
+      "options": [
+        {
+          "value": "rule",
+          "label": "With a leading rule"
+        },
+        {
+          "value": "plain",
+          "label": "Plain"
+        }
+      ],
+      "info": "A short rule before the small uppercase label. It gives every section the same entry note, which is most of what makes a page read as designed rather than assembled."
+    },
+    {
+      "type": "range",
+      "id": "eyebrow_rule",
+      "label": "Rule length",
+      "min": 16,
+      "max": 96,
+      "step": 4,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
     },
     {
       "type": "text",
-      "id": "eta_text",
-      "label": "Delivery estimate wording",
-      "info": "[day] is replaced by the estimated weekday.",
-      "default": "With you by [day]."
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Lets a button elsewhere jump here, e.g. an id of bed-finder is reached by a link to #bed-finder."
     },
     {
       "type": "header",
       "content": "Colour"
-    },
-    {
-      "type": "paragraph",
-      "content": "Text colour is chosen by measuring contrast against the background you pick, so a section cannot end up unreadable. The editor warns you if a background leaves no readable option."
     },
     {
       "type": "select",

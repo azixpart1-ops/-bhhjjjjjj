@@ -1,6 +1,23 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
 {%- liquid
+  assign st = section.settings
+
+  case st.details_split
+    when 'even'
+      assign details_split = '1fr 1fr'
+    when 'copy'
+      assign details_split = '1.7fr 1fr'
+    else
+      assign details_split = '1.35fr 1fr'
+  endcase
+
+  assign details_class = 'pl-details'
+  if st.specs_side == 'left'
+    assign details_class = details_class | append: ' pl-details--flip'
+  endif
+
   assign p = product
 
   comment
@@ -38,9 +55,11 @@
   assign k3d = p.metafields.vitals.key_benefit_3_description.value
 -%}
 <div class="pl">
-  <section class="pl-section pl-section--oat">
+  <section class="pl-section pl-section--oat"
+           {% if st.anchor != blank %}id="{{ st.anchor | handleize }}"{% endif %}
+           style="--details-split:{{ details_split }}">
     <div class="wrap">
-      <div class="pl-details">
+      <div class="{{ details_class }}">
         <div>
           {%- if section.settings.eyebrow != blank -%}<p class="eyebrow reveal">{{ section.settings.eyebrow }}</p>{%- endif -%}
           {%- assign lead = lifted | default: section.settings.heading -%}
@@ -75,7 +94,7 @@
           {%- endif -%}
         </div>
 
-        <div class="specs reveal" style="--i:2">
+        <div class="specs{% if st.specs_zebra %} specs--zebra{% endif %} reveal" style="--i:2">
           <h3>{{ section.settings.specs_title }}</h3>
           <dl>
             {%- unless p.has_only_default_variant -%}
@@ -158,6 +177,206 @@
       "type": "textarea",
       "id": "cool_note",
       "label": "Cooling safety note"
+    },
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "details_split",
+      "label": "Balance",
+      "default": "copy_led",
+      "options": [
+        {
+          "value": "copy_led",
+          "label": "More room for the description"
+        },
+        {
+          "value": "even",
+          "label": "Equal halves"
+        },
+        {
+          "value": "copy",
+          "label": "Description much wider"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "specs_side",
+      "label": "Specs panel side",
+      "default": "right",
+      "options": [
+        {
+          "value": "right",
+          "label": "Right"
+        },
+        {
+          "value": "left",
+          "label": "Left"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "specs_zebra",
+      "label": "Stripe alternate spec rows",
+      "default": true,
+      "info": "On a wide panel the eye loses the row between the label and the figure. Striping is what stops that."
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "eyebrow_style",
+      "label": "Section label",
+      "default": "rule",
+      "options": [
+        {
+          "value": "rule",
+          "label": "With a leading rule"
+        },
+        {
+          "value": "plain",
+          "label": "Plain"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "eyebrow_rule",
+      "label": "Rule length",
+      "min": 16,
+      "max": 96,
+      "step": 4,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Lets a button elsewhere jump here, e.g. an id of bed-finder is reached by a link to #bed-finder."
     },
     {
       "type": "header",

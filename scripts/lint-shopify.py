@@ -149,10 +149,32 @@ def check_schema(path, src):
     return schema
 
 
-def check_render_targets(path, src, snippets):
+def load_store_only(root):
+    """Files that live on the store but not in this repo — see shopify/.store-only.
+
+    Without this the linter reports six broken references on a product page
+    that renders perfectly well on the store, which trains you to ignore its
+    errors. That is worse than not checking at all."""
+    path = os.path.join(root, '.store-only')
+    names = set()
+    if os.path.exists(path):
+        for line in open(path, encoding='utf-8'):
+            line = line.split('#', 1)[0].strip()
+            if line:
+                names.add(line)
+    return names
+
+
+def check_render_targets(path, src, snippets, store_only):
     for m in re.finditer(r"{%-?\s*render\s+'([^']+)'", src):
-        if m.group(1) not in snippets:
-            err(path, 'renders missing snippet %r' % m.group(1))
+        name = m.group(1)
+        if name in snippets:
+            continue
+        if 'snippets/%s.liquid' % name in store_only:
+            warn(path, 'renders %r, which lives on the store only (.store-only)'
+                 % name)
+        else:
+            err(path, 'renders missing snippet %r' % name)
 
 
 def main():
@@ -166,6 +188,7 @@ def main():
     snip_dir = os.path.join(root, 'snippets')
 
     snippets = {f[:-7] for f in os.listdir(snip_dir) if f.endswith('.liquid')}
+    store_only = load_store_only(root)
 
     schemas = {}
     for f in sorted(os.listdir(sec_dir)):
@@ -174,7 +197,7 @@ def main():
         p = os.path.join(sec_dir, f)
         src = open(p, encoding='utf-8').read()
         check_tag_balance(p, src)
-        check_render_targets(p, src, snippets)
+        check_render_targets(p, src, snippets, store_only)
         s = check_schema(p, src)
         if s is None:
             err(p, 'no {% schema %} block')
@@ -186,7 +209,7 @@ def main():
             p = os.path.join(snip_dir, f)
             src = open(p, encoding='utf-8').read()
             check_tag_balance(p, src)
-            check_render_targets(p, src, snippets)
+            check_render_targets(p, src, snippets, store_only)
 
     for f in sorted(os.listdir(tpl_dir)):
         if not f.endswith('.json'):

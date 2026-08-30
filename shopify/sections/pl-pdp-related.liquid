@@ -1,6 +1,14 @@
 {% render 'pl-assets' %}
 {% render 'pl-scheme', id: section.id, scheme: section.settings.scheme, bg: section.settings.bg, accent: section.settings.accent, tone: section.settings.tone %}
+{% render 'pl-layout', id: section.id, s: section.settings %}
 {%- liquid
+  assign st = section.settings
+
+  assign rel_class = 'related'
+  if st.mobile == 'scroll'
+    assign rel_class = rel_class | append: ' related--scroll'
+  endif
+
   assign source = section.settings.collection
   if source == blank
     assign source = product.collections.first
@@ -9,7 +17,9 @@
 -%}
 {%- if source != blank -%}
 <div class="pl">
-  <section class="pl-section">
+  <section class="pl-section"
+           {% if st.anchor != blank %}id="{{ st.anchor | handleize }}"{% endif %}
+           style="--rel-cols:{{ st.cols | default: 4 }};--card-ratio:{{ st.ratio | default: '1 / 1' }}">
     <div class="wrap">
       <div class="section-head reveal" style="display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:space-between;align-items:flex-end;max-width:none">
         <div style="max-width:34rem">
@@ -20,7 +30,7 @@
           {{ section.settings.link_text }}{% render 'pl-icon', icon: 'arrow', class: 'btn__arrow', size: 16 %}
         </a>
       </div>
-      <div class="related">
+      <div class="{{ rel_class }}">
         {%- assign shown = 0 -%}
         {%- for item in source.products -%}
           {%- if item.id != product.id and shown < limit -%}
@@ -70,6 +80,239 @@
       "id": "link_text",
       "label": "Link text",
       "default": "See them all"
+    },
+    {
+      "type": "header",
+      "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "cols",
+      "label": "Columns",
+      "default": "4",
+      "options": [
+        {
+          "value": "2",
+          "label": "2"
+        },
+        {
+          "value": "3",
+          "label": "3"
+        },
+        {
+          "value": "4",
+          "label": "4"
+        },
+        {
+          "value": "5",
+          "label": "5"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "ratio",
+      "label": "Image shape",
+      "default": "1 / 1",
+      "options": [
+        {
+          "value": "1 / 1",
+          "label": "Square"
+        },
+        {
+          "value": "4 / 5",
+          "label": "Portrait, 4:5"
+        },
+        {
+          "value": "5 / 6",
+          "label": "Portrait, 5:6"
+        },
+        {
+          "value": "3 / 4",
+          "label": "Portrait, 3:4"
+        },
+        {
+          "value": "4 / 3",
+          "label": "Landscape, 4:3"
+        },
+        {
+          "value": "3 / 2",
+          "label": "Landscape, 3:2"
+        },
+        {
+          "value": "16 / 9",
+          "label": "Wide, 16:9"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "mobile",
+      "label": "On mobile",
+      "default": "scroll",
+      "options": [
+        {
+          "value": "scroll",
+          "label": "One swipeable row"
+        },
+        {
+          "value": "grid",
+          "label": "Two-up grid"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Layout and spacing"
+    },
+    {
+      "type": "paragraph",
+      "content": "These control the section's geometry only. Colour is the group below."
+    },
+    {
+      "type": "select",
+      "id": "eyebrow_style",
+      "label": "Section label",
+      "default": "rule",
+      "options": [
+        {
+          "value": "rule",
+          "label": "With a leading rule"
+        },
+        {
+          "value": "plain",
+          "label": "Plain"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "eyebrow_rule",
+      "label": "Rule length",
+      "min": 16,
+      "max": 96,
+      "step": 4,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Content width",
+      "default": "normal",
+      "options": [
+        {
+          "value": "narrow",
+          "label": "Narrow — 1040px"
+        },
+        {
+          "value": "normal",
+          "label": "Normal — 1240px"
+        },
+        {
+          "value": "wide",
+          "label": "Wide — 1440px"
+        },
+        {
+          "value": "full",
+          "label": "Full width"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "min": 70,
+      "max": 130,
+      "step": 5,
+      "unit": "%",
+      "default": 100,
+      "info": "Scales this section's headings only. Body copy stays put."
+    },
+    {
+      "type": "range",
+      "id": "pad_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "pad_top_m",
+      "label": "Top padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "pad_bottom_m",
+      "label": "Bottom padding, mobile",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_top",
+      "label": "Hairline above",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "divider_bottom",
+      "label": "Hairline below",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "corners",
+      "label": "Corners",
+      "default": "soft",
+      "options": [
+        {
+          "value": "soft",
+          "label": "Soft"
+        },
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "round",
+          "label": "Rounded"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "animate",
+      "label": "Reveal on scroll",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "anchor",
+      "label": "Anchor link id",
+      "info": "Lets a button elsewhere jump here, e.g. an id of bed-finder is reached by a link to #bed-finder."
     },
     {
       "type": "header",
