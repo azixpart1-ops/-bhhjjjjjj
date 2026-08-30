@@ -162,6 +162,21 @@
                exp_label: section.settings.del_exp_label, exp_min: section.settings.del_exp_min, exp_max: section.settings.del_exp_max, exp_note: section.settings.del_exp_note %}
           {%- endif -%}
 
+          {%- if section.settings.app_position != 'below_button' -%}
+            {%- comment -%}
+              App blocks. The section declared only its own three block types,
+              so no app could be placed in the buy column at all — a discount
+              widget, a volume table, a reviews summary, a bundle offer all had
+              nowhere to render, however the app was configured. Any app block
+              the merchant adds renders here, in the order they arrange them.
+            {%- endcomment -%}
+            {%- for block in section.blocks -%}
+              {%- if block.type == '@app' -%}
+                <div class="buy__app" {{ block.shopify_attributes }}>{% render block %}</div>
+              {%- endif -%}
+            {%- endfor -%}
+          {%- endif -%}
+
           <p class="atc-msg" id="plMsg" role="status" aria-live="polite"></p>
 
           <button class="btn btn--lg atc" type="submit" id="plAtc" {% unless v.available %}disabled{% endunless %}>
@@ -189,6 +204,21 @@
                 <li>{% render 'pl-icon', icon: 'shield' %}<span>{{ section.settings.assure_3 }}</span></li>
               {%- endif -%}
             </ul>
+          {%- endif -%}
+
+          {%- if section.settings.app_position == 'below_button' -%}
+            {%- comment -%}
+              App blocks. The section declared only its own three block types,
+              so no app could be placed in the buy column at all — a discount
+              widget, a volume table, a reviews summary, a bundle offer all had
+              nowhere to render, however the app was configured. Any app block
+              the merchant adds renders here, in the order they arrange them.
+            {%- endcomment -%}
+            {%- for block in section.blocks -%}
+              {%- if block.type == '@app' -%}
+                <div class="buy__app" {{ block.shopify_attributes }}>{% render block %}</div>
+              {%- endif -%}
+            {%- endfor -%}
           {%- endif -%}
 
           {%- if section.settings.show_dynamic_checkout -%}
@@ -530,6 +560,23 @@
     {
       "type": "header",
       "content": "Design"
+    },
+    {
+      "type": "select",
+      "id": "app_position",
+      "label": "Where app blocks render",
+      "default": "above_button",
+      "options": [
+        {
+          "value": "above_button",
+          "label": "Above the Add to basket button"
+        },
+        {
+          "value": "below_button",
+          "label": "Under the assurances"
+        }
+      ],
+      "info": "Apps you add to this section — discounts, volume tables, bundles, reviews — appear here. Above the button is the default because a discount belongs where the price decision is made."
     },
     {
       "type": "select",
@@ -984,6 +1031,9 @@
           ]
         }
       ]
+    },
+    {
+      "type": "@app"
     }
   ],
   "presets": [

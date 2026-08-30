@@ -139,6 +139,16 @@ def check_schema(path, src):
         if not btype:
             err(path, 'block has no type')
             continue
+        # @app and @theme are Shopify's own reserved block types, not merchant
+        # identifiers. @app is what lets an app put a block inside a section at
+        # all; without it the app has nowhere to render and no error says so.
+        if btype in ('@app', '@theme'):
+            if b.get('settings'):
+                err(path, 'block %r cannot declare settings' % btype)
+            if btype in seen:
+                err(path, 'duplicate block type %r' % btype)
+            seen.add(btype)
+            continue
         if not IDENT.match(btype):
             err(path, 'block type %r is not a valid identifier' % btype)
         if btype in seen:

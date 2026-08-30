@@ -1016,3 +1016,61 @@ nothing.
 The new blocks are added with their size fields blank, so the editor's own
 size-check panel now lists exactly which ones need their option values filled
 in. Filling them in is what turns the price on.
+
+---
+
+## 16. Why the discount app could not appear on the product page
+
+Diagnosed from the rendered live page, since the Admin API was unavailable.
+`https://pawlunova.co.uk/products/…` is fetchable without it, and the answer
+was in the HTML.
+
+### The cause
+
+`sections/pl-pdp-main.liquid` declared three block types — `trust`, `benefit`
+and `assure` — and nothing else. **A Shopify section can only host an app
+block if its schema declares the reserved `@app` type and its markup renders
+it.** This one did neither, so no app could be placed in the buy column at
+all: not a discount widget, not a volume table, not a bundle offer, not a
+reviews summary. The theme editor simply offers nothing to add.
+
+The discount app is installed and configured — its payload is on the page,
+carrying `discountValue: 10` — but its widget had nowhere to render.
+
+Nothing was "blocking" it in the sense of a conflict. The slot did not exist.
+
+### The fix
+
+`{"type": "@app"}` added to the schema, and an app-block zone rendered in the
+buy column. Where it sits is a setting: **above the Add to basket button** by
+default, because a discount belongs where the price decision is made, or under
+the assurances for anyone who wants it after.
+
+Apps arrange themselves in the order the merchant drags them, as they do in
+any Shopify section.
+
+`scripts/lint-shopify.py` rejected `@app` as an invalid identifier when this
+went in — its rule was written for merchant-defined types and did not know
+about Shopify's reserved ones. The linter was wrong, not the code; it now
+accepts `@app` and `@theme`, and checks they carry no settings of their own.
+
+### Two things I checked and did not change
+
+**The structured data is fine.** My first guess was that `pl-pdp-jsonld` was
+publishing a price Google could not reconcile. It is not: the Product sits in
+a valid `@graph` with nine `Offer` entries, each with price, currency,
+availability, `shippingDetails` and a 100-day `hasMerchantReturnPolicy`. It is
+missing `priceValidUntil`, which Merchant Center warns about but does not
+reject. That snippet is store-only, so the addition is noted rather than made.
+
+**The delivery block is present and intact.** It renders "Free UK delivery,
+arrives in 1–3 working days" and the £6.99 express option, immediately above
+the button. It uses its own class names rather than the `pl-deliv*` I first
+grepped for, which is why an early check of mine came up empty. Nothing in
+this round touches it.
+
+### Klarna, confirmed against the live markup
+
+The live page renders `<span class="pl-bnpl__mark">Klarna</span>` and
+`<span class="pl-bnpl pl-bnpl--compact">`, which are exactly the two hooks the
+branding rules in §14 target. The fix will land on deploy.
