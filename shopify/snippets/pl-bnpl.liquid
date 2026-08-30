@@ -1,0 +1,85 @@
+{%- comment -%}
+  Klarna "Pay in 3" line for the buy column and the product card.
+
+  This renders only when Klarna is genuinely switched on for the shop, read
+  from shop.enabled_payment_types — the same list that drives the payment icon
+  row. An instalment offer the customer cannot actually take at checkout is a
+  promise broken at the worst possible moment, so the page is not allowed to
+  make one on its own. Turn Klarna on in Settings > Payments and every one of
+  these lines appears; turn it off and they all go.
+
+  Klarna's UK Pay in 3 also has an order floor and ceiling. Outside that range
+  Klarna declines the split, so the line stays hidden rather than quoting an
+  instalment the shopper would never be offered.
+
+  On a product page the figure has to follow the variant the shopper picks: a
+  £29.67 instalment sitting under a £169 price is a wrong number, not a stale
+  one. The element carries its bounds as data attributes and pl-pdp-plus.js
+  recomputes it from the displayed price, hiding it on a variant Klarna would
+  not split. Pass `product` as well and the line is rendered for any product
+  with at least one splittable variant, so switching to that variant can
+  reveal it even when the one loaded first was out of range.
+
+  Required
+    price      variant or product price, in pence
+
+  Optional
+    product    the product, so a splittable variant can reveal the line
+    min        lowest order Klarna will split, pence. Default 3500.
+    max        highest order Klarna will split, pence. Default 100000.
+    compact    short form for product cards. Default false.
+    force      render even when Klarna is not detected. Only for a provider
+               that does not register a payment type of its own.
+{%- endcomment -%}
+{%- liquid
+  assign amount = price | default: 0 | plus: 0
+  assign floor_p = min | default: 3500 | plus: 0
+  assign ceil_p = max | default: 100000 | plus: 0
+
+  assign live = false
+  for t in shop.enabled_payment_types
+    assign tn = t | downcase
+    if tn contains 'klarna'
+      assign live = true
+    endif
+  endfor
+  if force
+    assign live = true
+  endif
+
+  comment
+    Klarna puts any remainder in the first instalment, so the split is never
+    below this figure. Rounding up keeps the quoted number one the shopper
+    will actually see rather than one that is a penny short.
+  endcomment
+  assign per = amount | plus: 2 | divided_by: 3
+
+  assign in_range = false
+  if amount >= floor_p and amount <= ceil_p
+    assign in_range = true
+  endif
+
+  assign any_range = in_range
+  if product
+    for var in product.variants
+      if var.price >= floor_p and var.price <= ceil_p
+        assign any_range = true
+      endif
+    endfor
+  endif
+
+  assign ok = false
+  if live and any_range
+    assign ok = true
+  endif
+-%}
+{%- if ok -%}
+  {%- if compact -%}
+    <span class="pl-bnpl pl-bnpl--compact">3 &times; {{ per | money }} with Klarna</span>
+  {%- else -%}
+    <p class="pl-bnpl" data-pl-bnpl data-min="{{ floor_p }}" data-max="{{ ceil_p }}"{% unless in_range %} hidden{% endunless %}>
+      <span class="pl-bnpl__mark" aria-hidden="true">Klarna</span>
+      <span>Or 3 interest-free payments of <b data-pl-bnpl-amt>{{ per | money }}</b>. Chosen at checkout.</span>
+    </p>
+  {%- endif -%}
+{%- endif -%}

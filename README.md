@@ -824,3 +824,122 @@ The standalone `index.html` at the repo root was **not** updated. It is the orig
 prototype and had already diverged from the Shopify build — different palette values,
 no `.pl` scoping, half the stylesheet. The `shopify/` directory is the source of
 truth; treat the root page as a historical artefact.
+
+---
+
+## 14. Installed on the store, as a draft
+
+> **DRAFT — Homepage redesign + editor controls (Claude)** · theme ID `205853622614`
+>
+> Online Store → Themes → … → **Preview**. The live theme is untouched.
+
+Duplicated from the **live** theme, so the draft carries the current header,
+footer, settings and every other template, and only the seventeen files below
+differ from it.
+
+### The store had moved on from this branch
+
+Before writing anything, every file was checksummed against the live theme.
+Thirteen were byte-identical to this branch. Four were not:
+
+| File | What had happened |
+|---|---|
+| `templates/index.json` | **Every string of homepage copy had been rewritten on the store**, and two app sections added (a Modulo featured-products row, an SMI sales-notification popup). |
+| `snippets/pl-product-card.liquid` | Gained a Klarna instalment line. |
+| `sections/pl-pdp-main.liquid` | Refactored, and 20KB smaller — the PDP was split into `pl-pdp-*` snippets. |
+| `snippets/pl-assets.liquid` | Now also loads `pl-pdp-plus.css`. |
+
+Uploading this branch's versions would have reverted all of it. So the two
+files that needed my changes were **merged onto the live content** rather than
+replacing it, and the two that did not were left alone — the PDP section is
+untouched, and the syntax error §13 reports fixing no longer exists there,
+because that file has since been rewritten on the store.
+
+**The homepage copy on the draft is the store's, not this branch's.** The
+branch's older wording was not restored anywhere.
+
+### Proof that no copy changed
+
+Two independent checks, both on the merge rather than on my own file:
+
+```
+live templates/index.json  vs  merged templates/index.json
+  757 values carried through byte identical
+  100 new keys, all design settings, on the 12 pl_* sections only
+  255 copy strings before, 255 after — identical
+```
+
+Then, on the actual rendered pages fetched from Shopify:
+
+```
+live homepage  vs  draft homepage
+  211 visible text fragments on each
+  0 present on live and missing from the draft
+  0 on the draft that were not on live
+  0 Liquid errors
+```
+
+Section order is the single intended swap, with both app sections in place:
+
+> hero → marquee → **[app: featured]** → categories → signs → finder →
+> products → mechanism → **trial → reviews** → brand → faq → finale →
+> cart drawer → **[app: popup]**
+
+### The stylesheet was not touched
+
+`pl-styles.css` on the store is 98KB and is edited there independently, so
+folding 13KB of new rules into it would make every future store-side change a
+merge conflict on the one file every page loads. Instead the new rules live in
+**`assets/pl-layout.css`**, loaded after it by `pl-layout.liquid`:
+
+- **Part 1** re-declares the dozen base rules that had to become
+  variable-driven — same selectors, same specificity, later in the cascade, so
+  they win on source order. Each keeps the original value as its fallback.
+- **Part 2** is the new modifier classes, which the base file has never heard of.
+
+Verified by rendering the harness against **the store's own `pl-styles.css`**
+plus this overlay: identical computed styles to the full rewritten stylesheet,
+zero horizontal overflow at 1440px and 390px, no console errors.
+
+`pl-app.js` was likewise not uploaded. Its only change was the FAQ
+per-list binding, so the FAQ section keeps the `plFaq` id the store's existing
+script binds to. The fix stays in this branch for whenever that file next
+deploys; both combinations work.
+
+### One deploy failure worth recording
+
+`sections/pl-marquee.liquid` uploaded successfully, reported no error, and did
+not change. Sixteen other files in the same call landed fine.
+
+The cause: its `speed` slider ran `min: 15, max: 120, step: 1` — **105 steps,
+where Shopify's cap is 101.** A section whose schema breaks that rule is
+dropped on upload *silently*: the API returns success, no `userErrors`, and the
+previous version of the file simply stays in place.
+
+Fixed to `min: 20, max: 120, step: 2`, and **`scripts/lint-shopify.py` now
+checks it** — step count, default within range, and default on a step — so the
+next one fails locally instead of in a deploy. Confirmed the check fires on the
+old values before the fix went in.
+
+### Two things left for you
+
+1. **Three probe files** are in the draft from verifying the upload path:
+   `assets/pl-probe.txt`, `sections/pl-probe2.liquid`, `sections/pl-probe3.liquid`.
+   They carry no preset, so they never appear in the Add section picker, and
+   nothing references them. `themeFilesDelete` is blocked for this connection,
+   so delete them in **Edit code** if you want them gone. Each one says so in
+   its own contents.
+2. **Category tiles need images.** `pl_categories` is set to the image-tile
+   style, but its blocks have no image override, so each tile falls back to its
+   collection's image. Any collection without one makes the whole section fall
+   back to the compact row — that is deliberate, not a bug. Set collection
+   images, or an image per block, to get the tiles.
+
+### This branch is still behind the store
+
+Only the files above were reconciled. The store also carries
+`pl-finder-bar.*`, `pl-pdp-plus.*`, `pl-delivery`, `pl-pdp-footnotes`,
+`pl-pdp-gallery`, `pl-pdp-jsonld` and `pl-pdp-options`, none of which exist
+here. `snippets/pl-bnpl.liquid` was pulled in because the merged product card
+renders it. Treat the **store** as the source of truth for the product page and
+the Klarna work; treat this branch as the source of truth for the homepage.

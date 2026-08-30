@@ -81,6 +81,31 @@ def walk_settings(path, settings, where):
         # Shopify rejects an empty string default outright and drops the section.
         if 'default' in s and s['default'] == '':
             err(path, '%s: setting %r has an empty string default' % (where, sid))
+        # A range slider may have at most 101 positions, and its default has to
+        # land on one of them. Break either rule and Shopify drops the whole
+        # section on upload without saying so: the file uploads, reports no
+        # error, and the previous version of the section stays in place.
+        if stype == 'range':
+            try:
+                lo, hi, step = s['min'], s['max'], s['step']
+            except KeyError as e:
+                err(path, '%s: range %r is missing %s' % (where, sid, e))
+                continue
+            if step <= 0:
+                err(path, '%s: range %r has a step of %r' % (where, sid, step))
+                continue
+            steps = (hi - lo) / step
+            if steps > 101:
+                err(path, '%s: range %r spans %.0f steps, max is 101 '
+                          '(min %s, max %s, step %s)' % (where, sid, steps, lo, hi, step))
+            dflt = s.get('default')
+            if dflt is not None:
+                if dflt < lo or dflt > hi:
+                    err(path, '%s: range %r default %r is outside %s-%s'
+                        % (where, sid, dflt, lo, hi))
+                elif (dflt - lo) % step:
+                    err(path, '%s: range %r default %r is not a step from %s'
+                        % (where, sid, dflt, lo))
 
 
 def check_schema(path, src):
@@ -167,8 +192,14 @@ def main():
         if not f.endswith('.json'):
             continue
         p = os.path.join(tpl_dir, f)
+        raw = open(p, encoding='utf-8').read()
+        # Shopify's theme editor writes a /* ... */ banner above the JSON in
+        # every template it saves. It is valid for Shopify and invalid for
+        # json.load, so a template round-tripped through the editor would
+        # otherwise fail this check for no reason.
+        body = re.sub(r'\A\s*/\*.*?\*/\s*', '', raw, flags=re.S)
         try:
-            tpl = json.load(open(p, encoding='utf-8'))
+            tpl = json.loads(body)
         except ValueError as e:
             err(p, 'not valid JSON: %s' % e)
             continue

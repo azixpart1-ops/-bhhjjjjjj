@@ -16,8 +16,16 @@ any change that is meant to be design-only.
 """
 import argparse
 import json
+import re
 import subprocess
 import sys
+
+
+def load(text):
+    """Shopify's theme editor writes a /* ... */ banner above the JSON in every
+    template it saves, so anything round-tripped through the admin carries one.
+    It is valid to Shopify and invalid to json.loads."""
+    return json.loads(re.sub(r'\A\s*/\*.*?\*/\s*', '', text, flags=re.S))
 
 
 def flatten(obj, path=''):
@@ -41,8 +49,8 @@ def check(rel, ref):
         print('%s: not in %s, nothing to compare' % (rel, ref))
         return 0
 
-    old = json.loads(raw.decode('utf-8'))
-    new = json.load(open(rel, encoding='utf-8'))
+    old = load(raw.decode('utf-8'))
+    new = load(open(rel, encoding='utf-8').read())
 
     old.pop('order', None)
     new.pop('order', None)
