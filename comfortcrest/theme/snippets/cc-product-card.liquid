@@ -1,0 +1,144 @@
+{%- comment -%}
+  ComfortCrest product card. One card, used by every grid and rail on the site
+  so a bed looks the same wherever a shopper meets it.
+
+  Params:
+    product      - required
+    show_rating  - optional bool (default true); a rating still only renders
+                   when the product actually carries one
+    show_finance - optional bool (default true)
+    index        - optional int, used to stagger the reveal
+
+  Conversion signals, in the order they earn attention: saving flag, name,
+  the size range the bed is available in, price against RRP, monthly finance,
+  then the fabrics it comes in.
+{%- endcomment -%}
+{%- liquid
+  assign p = product
+  assign show_rating = show_rating | default: true, allow_false: true
+  assign show_finance = show_finance | default: true, allow_false: true
+
+  assign on_sale = false
+  if p.compare_at_price_max > p.price_min
+    assign saved = p.compare_at_price_max | minus: p.price_min
+    assign pct = saved | times: 100.0 | divided_by: p.compare_at_price_max | round
+    if pct > 0
+      assign on_sale = true
+    endif
+  endif
+
+  comment
+    Size range. UK bed sizes have a conventional order that is not
+    alphabetical, so the option values are ranked against a known list and the
+    smallest and largest actually stocked are shown.
+  endcomment
+  assign size_order = 'single,small double,double,king,super king,emperor'
+  assign size_names = 'Single,Small Double,Double,King,Super King,Emperor' | split: ','
+  assign lo = 99
+  assign hi = -1
+  assign colour_opt = null
+  for opt in p.options_with_values
+    assign lower_name = opt.name | downcase
+    if lower_name contains 'size'
+      for v in opt.values
+        assign vl = v.name | default: v | downcase | strip
+        assign ranks = size_order | split: ','
+        for r in ranks
+          if vl contains r
+            assign idx = forloop.index0
+            if idx < lo
+              assign lo = idx
+            endif
+            if idx > hi
+              assign hi = idx
+            endif
+          endif
+        endfor
+      endfor
+    endif
+    if lower_name contains 'colour' or lower_name contains 'color' or lower_name contains 'fabric' or lower_name contains 'finish'
+      assign colour_opt = opt
+    endif
+  endfor
+
+  assign rating = p.metafields.reviews.rating.value.rating | default: p.metafields.reviews.rating.value
+  assign rating_count = p.metafields.reviews.rating_count.value
+
+  assign delay = index | default: 0 | times: 70
+  if delay > 420
+    assign delay = 420
+  endif
+-%}
+<article class="cc-pcard cc-reveal" style="--cc-delay:{{ delay }}ms">
+  <div class="cc-pcard__media cc-media--zoom">
+    {%- if p.featured_media -%}
+      {{ p.featured_media | image_url: width: 800 | image_tag:
+           loading: 'lazy',
+           widths: '300,400,600,800',
+           sizes: '(min-width: 861px) 25vw, 70vw',
+           alt: p.featured_media.alt | default: p.title | escape }}
+      {%- if p.media[1] -%}
+        {{ p.media[1] | image_url: width: 800 | image_tag:
+             loading: 'lazy',
+             class: 'cc-pcard__alt',
+             widths: '300,400,600,800',
+             sizes: '(min-width: 861px) 25vw, 70vw',
+             alt: '' }}
+      {%- endif -%}
+    {%- else -%}
+      <div class="cc-media__ph"><span>{{ p.title | truncatewords: 4, '' }}</span></div>
+    {%- endif -%}
+
+    <div class="cc-pcard__flags">
+      {%- if on_sale -%}<span class="cc-badge cc-badge--save">Save {{ pct }}%</span>{%- endif -%}
+      {%- if p.tags contains 'New' or p.tags contains 'new' -%}<span class="cc-badge cc-badge--new">New</span>{%- endif -%}
+      {%- unless p.available -%}<span class="cc-badge cc-badge--quiet">Sold out</span>{%- endunless -%}
+    </div>
+  </div>
+
+  <div class="cc-pcard__body">
+    {%- if show_rating and rating -%}
+      {%- render 'cc-stars', rating: rating, count: rating_count -%}
+    {%- endif -%}
+
+    <h3 class="cc-pcard__title">
+      <a href="{{ p.url }}">{{ p.title | escape }}</a>
+    </h3>
+
+    {%- if hi >= 0 -%}
+      <p class="cc-pcard__meta">
+        {%- if lo == hi -%}
+          {{ size_names[lo] }}
+        {%- else -%}
+          {{ size_names[lo] }} to {{ size_names[hi] }}
+        {%- endif -%}
+      </p>
+    {%- elsif p.type != blank -%}
+      <p class="cc-pcard__meta">{{ p.type }}</p>
+    {%- endif -%}
+
+    <div class="cc-pcard__price">
+      {%- render 'cc-price', product: p, finance: show_finance -%}
+    </div>
+
+    {%- if colour_opt -%}
+      <div class="cc-pcard__foot">
+        <span class="cc-pcard__swatches">
+          {%- for v in colour_opt.values limit: 5 -%}
+            {%- liquid
+              assign sw = v.swatch.color
+              assign vname = v.name | default: v
+            -%}
+            <span class="cc-pcard__dot"
+                  title="{{ vname | escape }}"
+                  style="background:{% if sw %}{{ sw }}{% else %}var(--cc-stone){% endif %}"></span>
+          {%- endfor -%}
+          {%- if colour_opt.values.size > 5 -%}
+            <span class="cc-pcard__more">+{{ colour_opt.values.size | minus: 5 }}</span>
+          {%- endif -%}
+        </span>
+        <span class="cc-pcard__more">{{ colour_opt.name | downcase }}</span>
+      </div>
+    {%- endif -%}
+  </div>
+</article>

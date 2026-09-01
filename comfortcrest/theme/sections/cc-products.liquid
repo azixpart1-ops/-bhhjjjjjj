@@ -1,0 +1,117 @@
+{%- comment -%}
+  A row of beds from one collection. Used more than once on the homepage —
+  best sellers, new designs, a sale row — so everything that differs between
+  those is a setting rather than a second section.
+
+  On phones the row becomes a snap-scrolling rail: a shopper sees the edge of
+  the next card and knows to swipe, which beats a "load more" button for a
+  catalogue this size.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+{%- liquid
+  assign col = section.settings.collection
+  assign limit = section.settings.count | default: 4
+  assign cols = section.settings.columns | default: 4
+-%}
+
+<section class="cc cc-section cc-ground--{{ section.settings.ground }}">
+  <div class="cc-wrap cc-wrap--wide">
+    <div class="cc-head-row">
+      <div class="cc-head{% if section.settings.align == 'center' %} cc-head--center{% endif %}">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="cc-eyebrow cc-eyebrow--rule">{{ section.settings.eyebrow }}</p>
+        {%- endif -%}
+        {%- if section.settings.heading != blank -%}
+          <h2 class="cc-h2">{{ section.settings.heading }}</h2>
+        {%- endif -%}
+        {%- if section.settings.body != blank -%}
+          <div class="cc-lede">{{ section.settings.body }}</div>
+        {%- endif -%}
+      </div>
+      {%- if section.settings.show_link and col != blank -%}
+        <a class="cc-link" href="{{ col.url }}">
+          {{ section.settings.link_text | default: 'View all' }}{%- render 'cc-icon', name: 'arrow-right' -%}
+        </a>
+      {%- endif -%}
+    </div>
+
+    {%- if col != blank and col.products.size > 0 -%}
+      <div class="cc-rail cc-rail--desk-grid" style="--cc-cols:{{ cols }}">
+        {%- for product in col.products limit: limit -%}
+          {%- render 'cc-product-card',
+                product: product,
+                index: forloop.index0,
+                show_finance: section.settings.show_finance,
+                show_rating: section.settings.show_rating -%}
+        {%- endfor -%}
+      </div>
+    {%- else -%}
+      {%- comment -%}
+        An unset or empty collection would otherwise leave a silent gap that
+        looks like a broken page. Say what is missing, but only to the person
+        who can fix it — the storefront gets nothing.
+      {%- endcomment -%}
+      {%- if request.design_mode -%}
+        <p class="cc-empty-note">Pick a collection for this section, or add products to
+          {%- if col != blank %} “{{ col.title }}”{% else %} the collection you choose{% endif %}.</p>
+      {%- endif -%}
+    {%- endif -%}
+
+    {%- if section.settings.cta_text != blank -%}
+      <div class="cc-actions cc-actions--center cc-products__cta">
+        <a class="cc-btn cc-btn--ghost" href="{{ section.settings.cta_link | default: col.url | default: '/collections/all' }}">
+          {{ section.settings.cta_text }}
+        </a>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  .cc-products__cta { margin-top: clamp(2rem, 1.4rem + 1.6vw, 3rem); }
+  .cc-empty-note {
+    border: 1px dashed var(--cc-stone); border-radius: var(--cc-radius-lg);
+    padding: 2rem; text-align: center; color: var(--cc-slate-light);
+    font-size: var(--cc-t-small);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Product row",
+  "class": "cc-section-products",
+  "settings": [
+    { "type": "collection", "id": "collection", "label": "Collection" },
+    {
+      "type": "select", "id": "ground", "label": "Background", "default": "paper",
+      "options": [
+        { "value": "paper", "label": "Alabaster" },
+        { "value": "linen", "label": "Linen" },
+        { "value": "cream", "label": "Cream" },
+        { "value": "ink", "label": "Ink" }
+      ]
+    },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Most loved" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Our best-selling beds" },
+    { "type": "richtext", "id": "body", "label": "Body" },
+    {
+      "type": "select", "id": "align", "label": "Header alignment", "default": "left",
+      "options": [ { "value": "left", "label": "Left" }, { "value": "center", "label": "Centred" } ]
+    },
+    { "type": "range", "id": "count", "label": "Products shown", "min": 2, "max": 12, "step": 1, "default": 4 },
+    {
+      "type": "select", "id": "columns", "label": "Columns on desktop", "default": "4",
+      "options": [ { "value": "3", "label": "Three" }, { "value": "4", "label": "Four" }, { "value": "5", "label": "Five" } ]
+    },
+    { "type": "header", "content": "Card details" },
+    { "type": "checkbox", "id": "show_finance", "label": "Show monthly finance line", "default": true },
+    { "type": "checkbox", "id": "show_rating", "label": "Show star rating where a product has one", "default": true },
+    { "type": "header", "content": "Links" },
+    { "type": "checkbox", "id": "show_link", "label": "Show the header link", "default": true },
+    { "type": "text", "id": "link_text", "label": "Header link text", "default": "View all" },
+    { "type": "text", "id": "cta_text", "label": "Button below the row" },
+    { "type": "url", "id": "cta_link", "label": "Button link" }
+  ],
+  "presets": [ { "name": "CC Product row" } ]
+}
+{% endschema %}

@@ -1,0 +1,169 @@
+{%- comment -%}
+  Bed finder.
+
+  Three questions that map onto how people actually shop for a bed: what shape,
+  what size, what they want to spend. Each answer narrows the destination URL.
+  Nothing is required — an unanswered question is left out of the query, so
+  the button always leads somewhere real rather than to an empty filter.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+
+<section class="cc cc-section cc-ground--{{ section.settings.ground }}" id="{{ section.settings.anchor | default: 'bed-finder' }}">
+  <div class="cc-wrap">
+    <div class="cc-finder-shell cc-reveal">
+      <div class="cc-finder-shell__intro">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="cc-eyebrow cc-eyebrow--rule">{{ section.settings.eyebrow }}</p>
+        {%- endif -%}
+        <h2 class="cc-h2">{{ section.settings.heading }}</h2>
+        {%- if section.settings.body != blank -%}
+          <div class="cc-lede">{{ section.settings.body }}</div>
+        {%- endif -%}
+      </div>
+
+      <div class="cc-finder" data-cc-finder data-default-url="{{ section.settings.default_url | default: '/collections/all' }}">
+
+        <div class="cc-finder__q">
+          <span class="cc-finder__label" id="cc-fq-type">{{ section.settings.q1 }}</span>
+          <div class="cc-chips" role="group" aria-labelledby="cc-fq-type">
+            {%- for block in section.blocks -%}
+              {%- if block.type == 'type' -%}
+                <button type="button" class="cc-chip" aria-pressed="false"
+                        data-group="type"
+                        data-value="{{ block.settings.collection.url | default: block.settings.url }}"
+                        data-label="{{ block.settings.label | escape }}"
+                        {{ block.shopify_attributes }}>
+                  {{ block.settings.label }}
+                  {%- if block.settings.note != blank -%}<small>{{ block.settings.note }}</small>{%- endif -%}
+                </button>
+              {%- endif -%}
+            {%- endfor -%}
+          </div>
+        </div>
+
+        <div class="cc-finder__q">
+          <span class="cc-finder__label" id="cc-fq-size">{{ section.settings.q2 }}</span>
+          <div class="cc-chips" role="group" aria-labelledby="cc-fq-size">
+            {%- assign sizes = section.settings.sizes | split: ',' -%}
+            {%- for s in sizes -%}
+              {%- assign s = s | strip -%}
+              {%- if s != blank -%}
+                <button type="button" class="cc-chip" aria-pressed="false"
+                        data-group="size" data-value="{{ s | escape }}" data-label="{{ s | escape }}">{{ s }}</button>
+              {%- endif -%}
+            {%- endfor -%}
+          </div>
+        </div>
+
+        <div class="cc-finder__q">
+          <span class="cc-finder__label" id="cc-fq-budget">{{ section.settings.q3 }}</span>
+          <div class="cc-chips" role="group" aria-labelledby="cc-fq-budget">
+            {%- for block in section.blocks -%}
+              {%- if block.type == 'budget' -%}
+                <button type="button" class="cc-chip" aria-pressed="false"
+                        data-group="budget"
+                        data-value="{{ block.settings.query | escape }}"
+                        data-label="{{ block.settings.label | escape }}"
+                        {{ block.shopify_attributes }}>{{ block.settings.label }}</button>
+              {%- endif -%}
+            {%- endfor -%}
+          </div>
+        </div>
+
+        <div class="cc-finder__go">
+          <p class="cc-finder__summary" data-cc-finder-summary data-empty="{{ section.settings.empty_note | escape }}">{{ section.settings.empty_note }}</p>
+          <a class="cc-btn cc-btn--brass cc-btn--lg" data-cc-finder-go
+             href="{{ section.settings.default_url | default: '/collections/all' }}">
+            {{ section.settings.cta_text }}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% stylesheet %}
+  .cc-finder-shell {
+    background: var(--cc-cream); border: 1px solid var(--cc-stone);
+    border-radius: var(--cc-radius-lg); padding: clamp(1.75rem, 1.2rem + 3vw, 3.5rem);
+    position: relative;
+  }
+  .cc-finder-shell::before {
+    content: ''; position: absolute; inset: 0; border-top: 2px solid var(--cc-brass);
+    border-radius: var(--cc-radius-lg) var(--cc-radius-lg) 0 0; pointer-events: none;
+  }
+  .cc-finder-shell__intro { margin-bottom: 2rem; max-width: 46rem; }
+  .cc-finder__go {
+    display: flex; align-items: center; justify-content: space-between; gap: 1.25rem;
+    flex-wrap: wrap; border-top: 1px solid var(--cc-stone); padding-top: 1.75rem;
+  }
+  .cc-finder__summary {
+    margin: 0; font-family: var(--cc-font-label); font-size: var(--cc-t-micro);
+    letter-spacing: 0.11em; text-transform: uppercase; color: var(--cc-slate-light);
+  }
+  @media (max-width: 560px) {
+    .cc-finder__go .cc-btn { width: 100%; }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Bed finder",
+  "class": "cc-section-finder",
+  "settings": [
+    {
+      "type": "select", "id": "ground", "label": "Background", "default": "linen",
+      "options": [
+        { "value": "paper", "label": "Alabaster" },
+        { "value": "linen", "label": "Linen" },
+        { "value": "ink", "label": "Ink" }
+      ]
+    },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Not sure where to start?" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Find your bed in three questions" },
+    { "type": "richtext", "id": "body", "label": "Body", "default": "<p>Answer as many as you like. We will take you straight to the beds that fit.</p>" },
+    { "type": "text", "id": "q1", "label": "Question 1", "default": "What kind of bed?" },
+    { "type": "text", "id": "q2", "label": "Question 2", "default": "What size?" },
+    { "type": "text", "id": "sizes", "label": "Sizes — comma separated", "default": "Single, Small Double, Double, King, Super King" },
+    { "type": "text", "id": "q3", "label": "Question 3", "default": "Roughly what budget?" },
+    { "type": "text", "id": "cta_text", "label": "Button", "default": "Show me these beds" },
+    { "type": "url", "id": "default_url", "label": "Fallback destination" },
+    { "type": "text", "id": "empty_note", "label": "Prompt before any answer", "default": "Answer as many as you like" },
+    { "type": "text", "id": "anchor", "label": "Anchor id", "default": "bed-finder" }
+  ],
+  "blocks": [
+    {
+      "type": "type",
+      "name": "Bed type",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Label", "default": "Ottoman storage" },
+        { "type": "text", "id": "note", "label": "Note under the label" },
+        { "type": "collection", "id": "collection", "label": "Collection" },
+        { "type": "url", "id": "url", "label": "URL if no collection" }
+      ]
+    },
+    {
+      "type": "budget",
+      "name": "Budget",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Label", "default": "Under £600" },
+        { "type": "text", "id": "query", "label": "Filter query", "default": "filter.v.price.lte=600", "info": "A storefront filter parameter, e.g. filter.v.price.lte=600" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "CC Bed finder",
+      "blocks": [
+        { "type": "type", "settings": { "label": "Ottoman storage", "note": "Lifts to a full-size store" } },
+        { "type": "type", "settings": { "label": "Bed frame", "note": "No storage" } },
+        { "type": "type", "settings": { "label": "Divan", "note": "Drawers underneath" } },
+        { "type": "type", "settings": { "label": "TV bed", "note": "Screen in the footboard" } },
+        { "type": "budget", "settings": { "label": "Under £600", "query": "filter.v.price.lte=600" } },
+        { "type": "budget", "settings": { "label": "£600 to £1,200", "query": "filter.v.price.gte=600&filter.v.price.lte=1200" } },
+        { "type": "budget", "settings": { "label": "£1,200 and up", "query": "filter.v.price.gte=1200" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

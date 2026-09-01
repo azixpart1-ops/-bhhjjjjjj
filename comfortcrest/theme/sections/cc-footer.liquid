@@ -1,0 +1,250 @@
+{%- comment -%}
+  Footer.
+
+  A furniture shop's footer does real work: it is where a shopper checks the
+  company is a company. So it carries the four link columns, the payment
+  methods actually enabled on the store, and a registered-business line —
+  rather than a row of social icons and a copyright.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+
+<footer class="cc cc-footer">
+  {%- if section.settings.show_reassurance -%}
+    <div class="cc-footer__reassure">
+      <div class="cc-wrap cc-wrap--wide">
+        <ul>
+          {%- assign marks = section.settings.reassurance | newline_to_br | split: '<br />' -%}
+          {%- for m in marks -%}
+            {%- assign clean = m | strip_newlines | strip -%}
+            {%- if clean != blank -%}
+              {%- assign parts = clean | split: '|' -%}
+              <li>
+                {%- assign icon_name = parts[1] | default: 'check' | strip -%}
+                {%- render 'cc-icon', name: icon_name -%}
+                <span>{{ parts[0] | strip }}</span>
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </div>
+    </div>
+  {%- endif -%}
+
+  <div class="cc-wrap cc-wrap--wide cc-footer__main">
+    <div class="cc-footer__brand">
+      {%- if section.settings.logo != blank -%}
+        {{ section.settings.logo | image_url: width: 400 | image_tag:
+             loading: 'lazy', class: 'cc-footer__logo-img',
+             widths: '160,240,320,400', sizes: '200px',
+             alt: shop.name | escape }}
+      {%- else -%}
+        <p class="cc-footer__wordmark">{{ section.settings.wordmark | default: shop.name }}</p>
+      {%- endif -%}
+      {%- if section.settings.blurb != blank -%}
+        <div class="cc-footer__blurb">{{ section.settings.blurb }}</div>
+      {%- endif -%}
+
+      {%- if section.settings.phone != blank or section.settings.email != blank -%}
+        <ul class="cc-footer__contact">
+          {%- if section.settings.phone != blank -%}
+            <li>{%- render 'cc-icon', name: 'phone' -%}
+              <a href="tel:{{ section.settings.phone | remove: ' ' }}">{{ section.settings.phone }}</a></li>
+          {%- endif -%}
+          {%- if section.settings.email != blank -%}
+            <li>{%- render 'cc-icon', name: 'chat' -%}
+              <a href="mailto:{{ section.settings.email }}">{{ section.settings.email }}</a></li>
+          {%- endif -%}
+          {%- if section.settings.hours != blank -%}
+            <li>{%- render 'cc-icon', name: 'clock' -%}<span>{{ section.settings.hours }}</span></li>
+          {%- endif -%}
+        </ul>
+      {%- endif -%}
+    </div>
+
+    <div class="cc-footer__cols">
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'menu' -%}
+          <nav class="cc-footer__col" aria-labelledby="cc-fcol-{{ block.id }}" {{ block.shopify_attributes }}>
+            <h2 class="cc-footer__col-title" id="cc-fcol-{{ block.id }}">{{ block.settings.title }}</h2>
+            <ul>
+              {%- if block.settings.menu != blank -%}
+                {%- for link in block.settings.menu.links -%}
+                  <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+                {%- endfor -%}
+              {%- else -%}
+                {%- assign items = block.settings.links | newline_to_br | split: '<br />' -%}
+                {%- for item in items -%}
+                  {%- assign clean = item | strip_newlines | strip -%}
+                  {%- if clean contains '|' -%}
+                    {%- assign pair = clean | split: '|' -%}
+                    <li><a href="{{ pair[1] | strip }}">{{ pair[0] | strip }}</a></li>
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- endif -%}
+            </ul>
+          </nav>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </div>
+
+  <div class="cc-footer__bar">
+    <div class="cc-wrap cc-wrap--wide cc-footer__bar-in">
+      <div class="cc-footer__legal">
+        <p>&copy; {{ 'now' | date: '%Y' }} {{ section.settings.legal_name | default: shop.name }}. All rights reserved.</p>
+        {%- if section.settings.registration != blank -%}
+          <p class="cc-footer__reg">{{ section.settings.registration }}</p>
+        {%- endif -%}
+        <ul class="cc-footer__policies">
+          {%- for policy in shop.policies -%}
+            {%- if policy != blank -%}
+              <li><a href="{{ policy.url }}">{{ policy.title }}</a></li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </div>
+
+      {%- if section.settings.show_payment and shop.enabled_payment_types.size > 0 -%}
+        <div class="cc-footer__pay">
+          <span class="cc-sr">Accepted payment methods</span>
+          {%- for type in shop.enabled_payment_types -%}
+            {{ type | payment_type_svg_tag: class: 'cc-footer__pay-icon' }}
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</footer>
+
+{% stylesheet %}
+  .cc-footer { background: var(--cc-ink); color: #98A2AC; font-family: var(--cc-font-body); }
+
+  .cc-footer__reassure { border-bottom: 1px solid var(--cc-ink-3); }
+  .cc-footer__reassure ul {
+    list-style: none; margin: 0; padding: 1.5rem 0; display: flex; flex-wrap: wrap;
+    gap: 1rem 2.5rem; justify-content: center;
+  }
+  .cc-footer__reassure li {
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    font-family: var(--cc-font-label); font-size: var(--cc-t-micro);
+    letter-spacing: 0.11em; text-transform: uppercase; color: #C6CDD4;
+  }
+  .cc-footer__reassure svg { width: 17px; height: 17px; color: var(--cc-brass-light); flex: none; }
+
+  .cc-footer__main {
+    display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 2.4fr);
+    gap: clamp(2rem, 1.2rem + 3.4vw, 5rem);
+    padding-block: clamp(3rem, 2rem + 3vw, 4.5rem);
+  }
+  .cc-footer__wordmark {
+    font-family: var(--cc-font-display); font-size: 1.5rem; color: var(--cc-cream);
+    margin: 0 0 1rem; letter-spacing: 0.02em; font-weight: 500;
+  }
+  .cc-footer__logo-img { max-width: 200px; height: auto; margin-bottom: 1rem; }
+  .cc-footer__blurb { font-size: var(--cc-t-small); line-height: 1.7; max-width: 40ch; }
+  .cc-footer__blurb p { margin: 0 0 0.75rem; }
+
+  .cc-footer__contact { list-style: none; margin: 1.75rem 0 0; padding: 0; display: grid; gap: 0.75rem; }
+  .cc-footer__contact li {
+    display: grid; grid-template-columns: auto 1fr; gap: 0.65rem; align-items: center;
+    font-size: var(--cc-t-small);
+  }
+  .cc-footer__contact svg { width: 17px; height: 17px; color: var(--cc-brass-light); }
+  .cc-footer__contact a { color: var(--cc-cream); text-decoration: none; border-bottom: 1px solid transparent; }
+  .cc-footer__contact a:hover { border-bottom-color: var(--cc-brass-light); color: var(--cc-brass-light); }
+
+  .cc-footer__cols {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2rem 1.5rem;
+  }
+  .cc-footer__col-title {
+    font-family: var(--cc-font-label); font-size: var(--cc-t-micro); font-weight: 500;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--cc-brass-light);
+    margin: 0 0 1.15rem;
+  }
+  .cc-footer__col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.7rem; }
+  .cc-footer__col a {
+    color: #98A2AC; text-decoration: none; font-size: var(--cc-t-small); line-height: 1.4;
+    transition: color 200ms var(--cc-ease);
+  }
+  .cc-footer__col a:hover { color: var(--cc-cream); }
+
+  .cc-footer__bar { border-top: 1px solid var(--cc-ink-3); }
+  .cc-footer__bar-in {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1.5rem; flex-wrap: wrap; padding-block: 1.75rem;
+  }
+  .cc-footer__legal p { margin: 0 0 0.35rem; font-size: var(--cc-t-micro); color: #78828C; }
+  .cc-footer__reg { max-width: 60ch; line-height: 1.6; }
+  .cc-footer__policies {
+    list-style: none; margin: 0.65rem 0 0; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 0.4rem 1.15rem;
+  }
+  .cc-footer__policies a { color: #98A2AC; font-size: var(--cc-t-micro); text-decoration: none; }
+  .cc-footer__policies a:hover { color: var(--cc-cream); text-decoration: underline; }
+
+  .cc-footer__pay { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+  .cc-footer__pay svg { height: 24px; width: auto; border-radius: 2px; }
+
+  .cc-footer :is(a, button):focus-visible {
+    outline: 2px solid var(--cc-brass-light); outline-offset: 2px; box-shadow: none;
+  }
+
+  @media (max-width: 1000px) {
+    .cc-footer__main { grid-template-columns: minmax(0, 1fr); }
+    .cc-footer__cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 560px) {
+    .cc-footer__reassure ul { gap: 0.85rem 1.5rem; }
+    .cc-footer__bar-in { flex-direction: column; align-items: flex-start; }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Footer",
+  "class": "cc-section-footer",
+  "max_blocks": 4,
+  "settings": [
+    { "type": "header", "content": "Reassurance strip" },
+    { "type": "checkbox", "id": "show_reassurance", "label": "Show the strip", "default": true },
+    {
+      "type": "textarea", "id": "reassurance", "label": "Marks — Text | icon, one per line",
+      "default": "Handmade in Britain|flag-uk\n10-year frame guarantee|shield\nFree UK delivery|truck\n0% finance available|card\nFree fabric samples|swatch"
+    },
+    { "type": "header", "content": "Brand" },
+    { "type": "image_picker", "id": "logo", "label": "Logo" },
+    { "type": "text", "id": "wordmark", "label": "Wordmark if no logo", "default": "ComfortCrest" },
+    { "type": "richtext", "id": "blurb", "label": "About", "default": "<p>Beds made to order in Britain. Solid hardwood frames, hand-upholstered, delivered and built in the room you want them in.</p>" },
+    { "type": "text", "id": "phone", "label": "Phone" },
+    { "type": "text", "id": "email", "label": "Email" },
+    { "type": "text", "id": "hours", "label": "Opening hours", "default": "Mon–Fri 9am–5.30pm, Sat 10am–4pm" },
+    { "type": "header", "content": "Legal" },
+    { "type": "text", "id": "legal_name", "label": "Legal name" },
+    { "type": "textarea", "id": "registration", "label": "Registration line", "info": "Company number, VAT number and registered address. Replace the placeholder with your real details before going live." },
+    { "type": "checkbox", "id": "show_payment", "label": "Show payment methods", "default": true }
+  ],
+  "blocks": [
+    {
+      "type": "menu",
+      "name": "Link column",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Title", "default": "Shop" },
+        { "type": "link_list", "id": "menu", "label": "Menu", "info": "Leave empty to use the typed links below." },
+        { "type": "textarea", "id": "links", "label": "Links — Label | /url, one per line" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "CC Footer",
+      "blocks": [
+        { "type": "menu", "settings": { "title": "Shop", "links": "Ottoman storage beds|/collections/ottoman-storage-beds\nUpholstered bed frames|/collections/bed-frames\nDivan beds|/collections/divan-beds\nTV beds|/collections/tv-beds\nHeadboards|/collections/headboards\nMattresses|/collections/mattresses" } },
+        { "type": "menu", "settings": { "title": "Buying a bed", "links": "UK bed size guide|/pages/bed-size-guide\nFabrics and finishes|/pages/fabrics\nFree fabric samples|/pages/fabric-samples\nFinance options|/pages/finance\nDelivery and assembly|/pages/delivery" } },
+        { "type": "menu", "settings": { "title": "Help", "links": "Contact us|/pages/contact\nFrequently asked questions|/pages/faq\nGuarantee|/pages/guarantee\nReturns|/pages/returns\nTrack my order|/pages/contact" } },
+        { "type": "menu", "settings": { "title": "About", "links": "Our workshop|/pages/our-workshop\nHow our beds are made|/pages/how-we-build\nReviews|/pages/reviews\nSustainability|/pages/sustainability" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

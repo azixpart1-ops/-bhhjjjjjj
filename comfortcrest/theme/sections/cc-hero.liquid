@@ -1,0 +1,263 @@
+{%- comment -%}
+  Homepage hero.
+
+  Two layouts. "Split" pairs the headline with a panel on the right and is the
+  default, because it holds up with no photography loaded — the panel falls
+  back to a set of guarantees on paper rather than an empty grey box. "Full"
+  is the edge-to-edge treatment for once a real bedroom shot exists.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+{%- liquid
+  assign layout = section.settings.layout
+  assign has_image = false
+  if section.settings.image != blank
+    assign has_image = true
+  endif
+  assign ground = section.settings.ground
+  if layout == 'full' and has_image
+    assign ground = 'ink'
+  endif
+-%}
+
+<section class="cc cc-section cc-hero cc-hero--{{ layout }} cc-ground--{{ ground }}"
+         {% if layout == 'full' %}style="--cc-hero-min:{{ section.settings.height }}vh"{% endif %}>
+
+  {%- if layout == 'full' and has_image -%}
+    <div class="cc-hero__bg">
+      {{ section.settings.image | image_url: width: 2400 | image_tag:
+           loading: 'eager', fetchpriority: 'high',
+           widths: '600,900,1200,1600,2000,2400',
+           sizes: '100vw',
+           alt: section.settings.image.alt | default: section.settings.heading | strip_html | escape }}
+      <span class="cc-hero__scrim" style="opacity:{{ section.settings.overlay | divided_by: 100.0 }}"></span>
+    </div>
+  {%- endif -%}
+
+  <div class="cc-wrap cc-wrap--wide cc-hero__wrap">
+    <div class="cc-hero__copy cc-reveal">
+      {%- if section.settings.eyebrow != blank -%}
+        <p class="cc-eyebrow cc-eyebrow--rule">{{ section.settings.eyebrow }}</p>
+      {%- endif -%}
+
+      <h1 class="cc-h1 cc-hero-type">{{ section.settings.heading }}</h1>
+
+      {%- if section.settings.body != blank -%}
+        <div class="cc-lede">{{ section.settings.body }}</div>
+      {%- endif -%}
+
+      <div class="cc-actions cc-hero__actions">
+        {%- if section.settings.cta_text != blank -%}
+          <a class="cc-btn cc-btn--lg{% if ground == 'ink' %} cc-btn--solid-light{% endif %}"
+             href="{{ section.settings.cta_link | default: '/collections/all' }}">
+            {{ section.settings.cta_text }}
+          </a>
+        {%- endif -%}
+        {%- if section.settings.cta2_text != blank -%}
+          <a class="cc-btn cc-btn--lg {% if ground == 'ink' %}cc-btn--light{% else %}cc-btn--ghost{% endif %}"
+             href="{{ section.settings.cta2_link | default: '#' }}">
+            {{ section.settings.cta2_text }}
+          </a>
+        {%- endif -%}
+      </div>
+
+      {%- if section.blocks.size > 0 -%}
+        <ul class="cc-hero__marks">
+          {%- for block in section.blocks -%}
+            <li {{ block.shopify_attributes }}>
+              {%- render 'cc-icon', name: block.settings.icon -%}
+              <span>{{ block.settings.text }}</span>
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </div>
+
+    {%- if layout == 'split' -%}
+      <div class="cc-hero__panel cc-reveal" style="--cc-delay:140ms">
+        {%- if has_image -%}
+          <div class="cc-media cc-hero__media">
+            {{ section.settings.image | image_url: width: 1400 | image_tag:
+                 loading: 'eager', fetchpriority: 'high',
+                 widths: '500,700,900,1200,1400',
+                 sizes: '(min-width: 1000px) 46vw, 92vw',
+                 alt: section.settings.image.alt | default: '' }}
+          </div>
+        {%- else -%}
+          {%- comment -%}
+            No photograph yet. Rather than a placeholder box, the panel carries
+            the shop's promises — so the hero is complete as it stands and the
+            merchant can drop a bedroom shot in later without a redesign.
+          {%- endcomment -%}
+          <div class="cc-hero__crest">
+            <span class="cc-hero__crest-mark">{%- render 'cc-icon', name: 'crown' -%}</span>
+            <p class="cc-eyebrow">{{ section.settings.panel_title }}</p>
+            <ul class="cc-hero__promises">
+              {%- assign promises = section.settings.panel_list | newline_to_br | split: '<br />' -%}
+              {%- for line in promises -%}
+                {%- assign clean = line | strip_newlines | strip -%}
+                {%- if clean != blank -%}
+                  <li>{%- render 'cc-icon', name: 'check' -%}<span>{{ clean }}</span></li>
+                {%- endif -%}
+              {%- endfor -%}
+            </ul>
+            {%- if section.settings.panel_note != blank -%}
+              <p class="cc-hero__crest-note">{{ section.settings.panel_note }}</p>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  .cc-hero { overflow: hidden; }
+  .cc-hero__wrap { position: relative; z-index: 1; }
+
+  /* --- Split --- */
+  .cc-hero--split .cc-hero__wrap {
+    display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: clamp(2rem, 1rem + 4.5vw, 5.5rem); align-items: center;
+  }
+  .cc-hero--split { padding-block: clamp(3rem, 1.5rem + 6vw, 7rem); }
+  .cc-hero__copy { max-width: 40rem; }
+  .cc-hero__copy .cc-lede { margin-top: 1.5rem; }
+  .cc-hero__actions { margin-top: 2.25rem; }
+
+  .cc-hero__media { aspect-ratio: 4 / 5; }
+  .cc-hero__media img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* The no-photography panel */
+  .cc-hero__crest {
+    background: var(--cc-linen); border: 1px solid var(--cc-stone);
+    border-radius: var(--cc-radius-lg); padding: clamp(1.75rem, 1.2rem + 2.4vw, 3rem);
+    position: relative;
+  }
+  .cc-hero__crest::before {
+    content: ''; position: absolute; inset: 10px; border: 1px solid var(--cc-brass);
+    opacity: 0.28; border-radius: 2px; pointer-events: none;
+  }
+  .cc-hero__crest-mark {
+    display: grid; place-items: center; width: 46px; height: 46px; margin-bottom: 1.25rem;
+    color: var(--cc-brass); border: 1px solid var(--cc-brass); border-radius: 50%;
+  }
+  .cc-hero__crest-mark svg { width: 24px; height: 24px; }
+  .cc-hero__promises { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; gap: 0.9rem; }
+  .cc-hero__promises li {
+    display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: start;
+    font-size: var(--cc-t-body); color: var(--cc-ink); line-height: 1.5;
+  }
+  .cc-hero__promises svg { width: 17px; height: 17px; color: var(--cc-brass); margin-top: 0.2rem; }
+  .cc-hero__crest-note {
+    margin: 1.5rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--cc-stone);
+    font-size: var(--cc-t-micro); color: var(--cc-slate-light); line-height: 1.6;
+  }
+
+  /* --- Full bleed --- */
+  .cc-hero--full { padding-block: 0; min-height: var(--cc-hero-min, 78vh); display: grid; align-items: center; }
+  .cc-hero--full .cc-hero__wrap { padding-block: clamp(4rem, 2rem + 8vw, 9rem); }
+  .cc-hero--full .cc-hero__copy { max-width: 44rem; }
+  .cc-hero__bg { position: absolute; inset: 0; z-index: 0; }
+  .cc-hero__bg img { width: 100%; height: 100%; object-fit: cover; }
+  .cc-hero__scrim {
+    position: absolute; inset: 0;
+    background: linear-gradient(105deg, rgba(23,28,34,0.92) 0%, rgba(23,28,34,0.62) 48%, rgba(23,28,34,0.24) 100%);
+  }
+
+  /* --- Micro trust marks under the buttons --- */
+  .cc-hero__marks {
+    list-style: none; margin: 2.5rem 0 0; padding: 1.5rem 0 0; display: flex; flex-wrap: wrap;
+    gap: 1.25rem 2rem; border-top: 1px solid var(--cc-stone);
+  }
+  .cc-ground--ink .cc-hero__marks { border-color: rgba(255,255,255,0.18); }
+  .cc-hero__marks li {
+    display: inline-flex; align-items: center; gap: 0.55rem;
+    font-family: var(--cc-font-label); font-size: var(--cc-t-micro); font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--cc-ink);
+  }
+  .cc-ground--ink .cc-hero__marks li { color: rgba(255,255,255,0.86); }
+  .cc-hero__marks svg { width: 17px; height: 17px; color: var(--cc-brass); }
+  .cc-ground--ink .cc-hero__marks svg { color: var(--cc-brass-light); }
+
+  @media (max-width: 1000px) {
+    .cc-hero--split .cc-hero__wrap { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; }
+    .cc-hero__media { aspect-ratio: 5 / 4; }
+  }
+  @media (max-width: 560px) {
+    .cc-hero__actions .cc-btn { width: 100%; }
+    .cc-hero__marks { gap: 0.9rem 1.5rem; }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Hero",
+  "class": "cc-section-hero",
+  "max_blocks": 4,
+  "settings": [
+    {
+      "type": "select", "id": "layout", "label": "Layout", "default": "split",
+      "options": [
+        { "value": "split", "label": "Split — copy and panel" },
+        { "value": "full", "label": "Full bleed — needs an image" }
+      ]
+    },
+    {
+      "type": "select", "id": "ground", "label": "Background", "default": "paper",
+      "options": [
+        { "value": "paper", "label": "Alabaster" },
+        { "value": "linen", "label": "Linen" },
+        { "value": "ink", "label": "Ink" }
+      ],
+      "info": "Full bleed with an image always uses ink so the copy stays legible."
+    },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Handmade in Britain" },
+    { "type": "html", "id": "heading", "label": "Heading", "default": "Beds built for the way <em>Britain</em> sleeps." },
+    { "type": "richtext", "id": "body", "label": "Body", "default": "<p>Hand-upholstered frames on solid kiln-dried hardwood, made to order in our workshop and delivered to the room of your choice. Ten-year frame guarantee as standard.</p>" },
+    { "type": "text", "id": "cta_text", "label": "Primary button", "default": "Shop bed frames" },
+    { "type": "url", "id": "cta_link", "label": "Primary button link" },
+    { "type": "text", "id": "cta2_text", "label": "Secondary button", "default": "Find my bed" },
+    { "type": "url", "id": "cta2_link", "label": "Secondary button link" },
+    { "type": "header", "content": "Image" },
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "range", "id": "overlay", "label": "Overlay", "min": 0, "max": 100, "step": 5, "unit": "%", "default": 100 },
+    { "type": "range", "id": "height", "label": "Full-bleed height", "min": 50, "max": 100, "step": 2, "unit": "vh", "default": 78 },
+    { "type": "header", "content": "Panel", "info": "Shown in the split layout when no image is set." },
+    { "type": "text", "id": "panel_title", "label": "Panel title", "default": "Every ComfortCrest bed" },
+    { "type": "textarea", "id": "panel_list", "label": "Promises — one per line", "default": "Solid kiln-dried hardwood frame\nHand-upholstered by our own makers\nSprung slatted base, not a flat board\nTen-year guarantee on every frame\nFree two-person delivery to your room" },
+    { "type": "text", "id": "panel_note", "label": "Panel note", "default": "Made to order in 14 working days. Free fabric samples posted first class." }
+  ],
+  "blocks": [
+    {
+      "type": "mark",
+      "name": "Trust mark",
+      "settings": [
+        { "type": "text", "id": "text", "label": "Text", "default": "10-year guarantee" },
+        {
+          "type": "select", "id": "icon", "label": "Icon", "default": "shield",
+          "options": [
+            { "value": "shield", "label": "Guarantee" },
+            { "value": "truck", "label": "Delivery" },
+            { "value": "flag-uk", "label": "Union flag" },
+            { "value": "card", "label": "Finance" },
+            { "value": "hammer", "label": "Handmade" },
+            { "value": "moon", "label": "Sleep trial" },
+            { "value": "star", "label": "Star" },
+            { "value": "leaf", "label": "Sustainable" }
+          ]
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "CC Hero",
+      "blocks": [
+        { "type": "mark", "settings": { "text": "10-year frame guarantee", "icon": "shield" } },
+        { "type": "mark", "settings": { "text": "Free UK delivery", "icon": "truck" } },
+        { "type": "mark", "settings": { "text": "0% finance", "icon": "card" } }
+      ]
+    }
+  ]
+}
+{% endschema %}
