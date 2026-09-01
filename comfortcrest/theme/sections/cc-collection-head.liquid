@@ -1,0 +1,121 @@
+{%- comment -%}
+  Collection banner.
+
+  Title, count and description on paper, with the guarantees repeated beneath.
+  A shopper who lands here from an advert has not seen the homepage, so the
+  reassurance has to be on this page too rather than assumed.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+{%- liquid
+  assign heading = section.settings.heading | default: collection.title
+  assign body = section.settings.body
+  if body == blank
+    assign body = collection.description
+  endif
+-%}
+
+<section class="cc cc-section cc-section--tight cc-ground--{{ section.settings.ground }} cc-chead">
+  <div class="cc-wrap cc-wrap--wide">
+    <nav class="cc-crumbs" aria-label="Breadcrumb">
+      <ol>
+        <li><a href="{{ routes.root_url }}">Home</a></li>
+        {%- if collection != blank -%}
+          <li><a href="{{ routes.collections_url }}">Beds</a></li>
+          <li aria-current="page">{{ collection.title }}</li>
+        {%- endif -%}
+      </ol>
+    </nav>
+
+    <div class="cc-chead__grid">
+      <div class="cc-head">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="cc-eyebrow cc-eyebrow--rule">{{ section.settings.eyebrow }}</p>
+        {%- endif -%}
+        <h1 class="cc-h1 cc-chead__title">{{ heading }}</h1>
+        {%- if body != blank -%}
+          <div class="cc-lede cc-chead__body">{{ body }}</div>
+        {%- endif -%}
+        {%- if collection != blank and collection.products_count > 0 -%}
+          <p class="cc-chead__count">{{ collection.products_count }} {{ collection.products_count | pluralize: 'design', 'designs' }}, every one made to order</p>
+        {%- endif -%}
+      </div>
+
+      {%- if section.settings.marks != blank -%}
+        <ul class="cc-chead__marks">
+          {%- assign marks = section.settings.marks | newline_to_br | split: '<br />' -%}
+          {%- for m in marks -%}
+            {%- assign clean = m | strip_newlines | strip -%}
+            {%- if clean != blank -%}
+              {%- assign parts = clean | split: '|' -%}
+              <li>
+                {%- assign icon_name = parts[1] | default: 'check' | strip -%}
+                {%- render 'cc-icon', name: icon_name -%}
+                <span>{{ parts[0] | strip }}</span>
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% stylesheet %}
+  .cc-chead { padding-bottom: clamp(1.5rem, 1rem + 1.6vw, 2.5rem); }
+  .cc-crumbs ol {
+    list-style: none; margin: 0 0 1.75rem; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 0.4rem 0.65rem;
+    font-family: var(--cc-font-label); font-size: var(--cc-t-micro);
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--cc-slate-light);
+  }
+  .cc-crumbs li + li::before { content: '/'; margin-right: 0.65rem; color: var(--cc-stone); }
+  .cc-crumbs a { color: var(--cc-slate-light); text-decoration: none; }
+  .cc-crumbs a:hover { color: var(--cc-brass); }
+  .cc-chead__grid {
+    display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: clamp(1.5rem, 1rem + 2.4vw, 3.5rem); align-items: end;
+  }
+  .cc-chead__body { margin-top: 1.15rem; }
+  .cc-chead__body p { margin: 0 0 0.75rem; }
+  .cc-chead__count {
+    margin: 1.15rem 0 0; font-family: var(--cc-font-label); font-size: var(--cc-t-micro);
+    letter-spacing: 0.11em; text-transform: uppercase; color: var(--cc-brass);
+  }
+  .cc-chead__marks {
+    list-style: none; margin: 0; padding: 1.25rem 0 0; display: grid; gap: 0.8rem;
+    border-top: 1px solid var(--cc-stone);
+  }
+  .cc-chead__marks li {
+    display: grid; grid-template-columns: auto 1fr; gap: 0.65rem; align-items: center;
+    font-size: var(--cc-t-small); color: var(--cc-slate);
+  }
+  .cc-chead__marks svg { width: 18px; height: 18px; color: var(--cc-brass); flex: none; }
+  @media (max-width: 860px) {
+    .cc-chead__grid { grid-template-columns: minmax(0, 1fr); }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Collection banner",
+  "class": "cc-section-chead",
+  "settings": [
+    {
+      "type": "select", "id": "ground", "label": "Background", "default": "paper",
+      "options": [
+        { "value": "paper", "label": "Alabaster" },
+        { "value": "linen", "label": "Linen" },
+        { "value": "cream", "label": "Cream" }
+      ]
+    },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "ComfortCrest" },
+    { "type": "text", "id": "heading", "label": "Heading override", "info": "Defaults to the collection title." },
+    { "type": "richtext", "id": "body", "label": "Description override", "info": "Defaults to the collection description." },
+    {
+      "type": "textarea", "id": "marks", "label": "Reassurance — Text | icon, one per line",
+      "default": "Made to order in our British workshop|hammer\nFree two-person delivery and assembly|truck\nTen-year guarantee on every frame|shield\n0% finance over 12 months|card"
+    }
+  ],
+  "presets": [ { "name": "CC Collection banner" } ]
+}
+{% endschema %}

@@ -1,0 +1,124 @@
+{%- comment -%}
+  FAQ accordion, with FAQPage structured data.
+
+  The JSON-LD is built from the same blocks the accordion renders, so the
+  answers Google shows can never drift from the answers on the page. Tags are
+  stripped and the result escaped through json, which also handles the quotes
+  and apostrophes that would otherwise break the document.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+
+<section class="cc cc-section cc-ground--{{ section.settings.ground }}" id="{{ section.settings.anchor | default: 'faq' }}">
+  <div class="cc-wrap">
+    <div class="cc-faq-layout">
+      <div class="cc-faq__intro cc-reveal">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="cc-eyebrow cc-eyebrow--rule">{{ section.settings.eyebrow }}</p>
+        {%- endif -%}
+        <h2 class="cc-h2">{{ section.settings.heading }}</h2>
+        {%- if section.settings.body != blank -%}
+          <div class="cc-lede">{{ section.settings.body }}</div>
+        {%- endif -%}
+        {%- if section.settings.cta_text != blank -%}
+          <div class="cc-actions cc-faq__cta">
+            <a class="cc-btn cc-btn--ghost cc-btn--sm" href="{{ section.settings.cta_link | default: '/pages/contact' }}">{{ section.settings.cta_text }}</a>
+          </div>
+        {%- endif -%}
+      </div>
+
+      <div class="cc-acc cc-reveal" {% if section.settings.one_open %}data-cc-acc-single{% endif %}>
+        {%- for block in section.blocks -%}
+          <details class="cc-acc__item"{% if forloop.first and section.settings.open_first %} open{% endif %} {{ block.shopify_attributes }}>
+            <summary>{{ block.settings.question }}</summary>
+            <div class="cc-acc__body">{{ block.settings.answer }}</div>
+          </details>
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{%- if section.blocks.size > 0 -%}
+  {%- capture faq_ld -%}
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {%- for block in section.blocks -%}
+          {
+            "@type": "Question",
+            "name": {{ block.settings.question | strip_html | strip | json }},
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": {{ block.settings.answer | strip_html | strip | json }}
+            }
+          }{% unless forloop.last %},{% endunless %}
+        {%- endfor -%}
+      ]
+    }
+  {%- endcapture -%}
+  <script type="application/ld+json">{{ faq_ld }}</script>
+{%- endif -%}
+
+{% stylesheet %}
+  .cc-faq-layout {
+    display: grid; grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+    gap: clamp(2rem, 1.2rem + 3vw, 4.5rem); align-items: start;
+  }
+  .cc-faq__intro { position: sticky; top: 1.5rem; }
+  .cc-faq__cta { margin-top: 1.75rem; }
+  @media (max-width: 860px) {
+    .cc-faq-layout { grid-template-columns: minmax(0, 1fr); }
+    .cc-faq__intro { position: static; }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC FAQ",
+  "class": "cc-section-faq",
+  "max_blocks": 14,
+  "settings": [
+    {
+      "type": "select", "id": "ground", "label": "Background", "default": "paper",
+      "options": [
+        { "value": "paper", "label": "Alabaster" },
+        { "value": "linen", "label": "Linen" },
+        { "value": "cream", "label": "Cream" },
+        { "value": "ink", "label": "Ink" }
+      ]
+    },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Before you order" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Questions we get asked" },
+    { "type": "richtext", "id": "body", "label": "Body", "default": "<p>If yours is not here, our team answers the phone in the workshop, not a call centre.</p>" },
+    { "type": "text", "id": "cta_text", "label": "Button", "default": "Talk to us" },
+    { "type": "url", "id": "cta_link", "label": "Button link" },
+    { "type": "checkbox", "id": "open_first", "label": "Open the first question", "default": true },
+    { "type": "checkbox", "id": "one_open", "label": "Only one question open at a time", "default": true },
+    { "type": "text", "id": "anchor", "label": "Anchor id", "default": "faq" }
+  ],
+  "blocks": [
+    {
+      "type": "qa",
+      "name": "Question",
+      "settings": [
+        { "type": "text", "id": "question", "label": "Question", "default": "How long will my bed take?" },
+        { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>Most beds leave the workshop within 14 working days.</p>" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "CC FAQ",
+      "blocks": [
+        { "type": "qa", "settings": { "question": "How long will my bed take to arrive?", "answer": "<p>Every bed is made to order, so allow around 14 working days from the day you order to the day it arrives. We call to book a delivery slot once your frame is finished, and give you a two-hour window the night before.</p>" } },
+        { "type": "qa", "settings": { "question": "Will you take it upstairs?", "answer": "<p>Yes. Two people deliver every bed to the room of your choice, assemble it, and take all the packaging away with them. Please measure your stairs and doorways first — the size guide on this page lists the space each bed needs.</p>" } },
+        { "type": "qa", "settings": { "question": "Can I see the fabric before I commit?", "answer": "<p>Please do. We post up to six swatches first class, free, with no obligation. Colours read differently on a screen than they do on your wall, and this is the one part of the decision a photograph cannot make for you.</p>" } },
+        { "type": "qa", "settings": { "question": "What does the guarantee cover?", "answer": "<p>Ten years on the frame against manufacturing defects, and two years on moving parts such as ottoman gas struts. It covers the things we control — joints, timber and workmanship — rather than accidental damage or ordinary wear on the fabric.</p>" } },
+        { "type": "qa", "settings": { "question": "Will my existing mattress fit?", "answer": "<p>If it is a standard UK size, yes. Every ComfortCrest bed is built to the UK sizes listed in the size guide above, so a UK Double mattress fits a UK Double frame. European and American sizes differ — measure yours before ordering.</p>" } },
+        { "type": "qa", "settings": { "question": "Can I change my mind?", "answer": "<p>Beds in our standard fabrics can be returned within 14 days of delivery under the Consumer Contracts Regulations. Because each bed is made to your order, please tell us as soon as you can — and note that a bed made in a bespoke fabric you supplied cannot be resold, so it is excluded.</p>" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

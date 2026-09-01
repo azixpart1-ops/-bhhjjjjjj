@@ -1,0 +1,53 @@
+{%- comment -%}
+  Price block for cards and the product page.
+
+  Params:
+    product   - required
+    variant   - optional; when given, prices that variant instead of the range
+    finance   - optional bool, show the "from £x/month" line (default false)
+    size      - optional 'lg' for the product page
+
+  Shows "From" only when the variants actually differ in price, so a
+  single-price bed does not get a qualifier it has not earned. The saving is
+  computed from compare_at_price and rendered only when it is a real
+  reduction — never from a made-up RRP.
+{%- endcomment -%}
+{%- liquid
+  assign p = product
+  if variant != blank
+    assign price = variant.price
+    assign compare = variant.compare_at_price
+    assign show_from = false
+  else
+    assign price = p.price_min
+    assign compare = p.compare_at_price_max
+    assign show_from = false
+    if p.price_min != p.price_max
+      assign show_from = true
+    endif
+  endif
+
+  assign on_sale = false
+  if compare > price
+    assign on_sale = true
+    assign saved = compare | minus: price
+    assign pct = saved | times: 100.0 | divided_by: compare | round
+  endif
+
+  assign months = settings.cc_finance_months | default: 12
+  if months < 1
+    assign months = 12
+  endif
+  assign monthly = price | divided_by: months
+-%}
+<div class="cc-price{% if size == 'lg' %} cc-price--lg{% endif %}">
+  {%- if show_from -%}<span class="cc-price__from">From</span>{%- endif -%}
+  <span class="cc-price__now">{{ price | money }}</span>
+  {%- if on_sale -%}
+    <s class="cc-price__was">{{ compare | money }}</s>
+    <span class="cc-price__save">Save {{ saved | money }} ({{ pct }}%)</span>
+  {%- endif -%}
+</div>
+{%- if finance and price > 0 -%}
+  <span class="cc-finance">or {{ monthly | money }}/month over {{ months }} months, interest free</span>
+{%- endif -%}

@@ -1,0 +1,95 @@
+{%- comment -%}
+  Email capture.
+
+  Framed around the fabric samples rather than "sign up for our newsletter":
+  a shopper who is not ready to spend £900 today will still give an address
+  for something they want posted to them, and that address is the whole point.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+
+<section class="cc cc-section cc-ground--{{ section.settings.ground }}">
+  <div class="cc-wrap">
+    <div class="cc-news{% if section.settings.align == 'center' %} cc-news--center{% endif %} cc-reveal">
+      <div class="cc-news__copy">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="cc-eyebrow cc-eyebrow--rule">{{ section.settings.eyebrow }}</p>
+        {%- endif -%}
+        <h2 class="cc-h2">{{ section.settings.heading }}</h2>
+        {%- if section.settings.body != blank -%}
+          <div class="cc-lede{% if section.settings.align == 'center' %} cc-lede--center{% endif %}">{{ section.settings.body }}</div>
+        {%- endif -%}
+      </div>
+
+      <div class="cc-news__form">
+        {%- form 'customer', class: 'cc-news__el', data-cc-form: '' -%}
+          <input type="hidden" name="contact[tags]" value="{{ section.settings.tag | default: 'newsletter' }}">
+          {%- if form.posted_successfully? -%}
+            <p class="cc-form-ok">{%- render 'cc-icon', name: 'check-circle' -%} {{ section.settings.success | default: 'Thank you — check your inbox.' }}</p>
+          {%- else -%}
+            <div class="cc-field">
+              <label class="cc-sr" for="cc-news-{{ section.id }}">Email address</label>
+              <input id="cc-news-{{ section.id }}" type="email" name="contact[email]"
+                     placeholder="{{ section.settings.placeholder | default: 'Your email address' }}"
+                     autocomplete="email" required>
+              <button type="submit" class="cc-btn cc-btn--brass">{{ section.settings.cta | default: 'Send my samples' }}</button>
+            </div>
+            {%- if form.errors -%}
+              <p class="cc-news__error">{{ form.errors.messages['email'] | default: 'Please check that address and try again.' }}</p>
+            {%- endif -%}
+          {%- endif -%}
+          {%- if section.settings.note != blank -%}
+            <p class="cc-field__note">{{ section.settings.note }}</p>
+          {%- endif -%}
+        {%- endform -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% stylesheet %}
+  .cc-news {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+    gap: clamp(1.75rem, 1rem + 3vw, 4rem); align-items: center;
+  }
+  .cc-news--center { grid-template-columns: minmax(0, 1fr); text-align: center; justify-items: center; }
+  .cc-news--center .cc-eyebrow--rule { justify-content: center; }
+  .cc-news--center .cc-eyebrow--rule::after { content: ''; width: 28px; height: 1px; background: var(--cc-brass); }
+  .cc-news--center .cc-field { margin-inline: auto; }
+  .cc-news__form .cc-field { margin-top: 0.5rem; }
+  .cc-news__error { margin: 0.75rem 0 0; font-size: var(--cc-t-small); color: var(--cc-claret); }
+  .cc-ground--ink .cc-news__error { color: #E9A2A9; }
+  @media (max-width: 860px) {
+    .cc-news { grid-template-columns: minmax(0, 1fr); }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Email capture",
+  "class": "cc-section-newsletter",
+  "settings": [
+    {
+      "type": "select", "id": "ground", "label": "Background", "default": "ink",
+      "options": [
+        { "value": "ink", "label": "Ink" },
+        { "value": "paper", "label": "Alabaster" },
+        { "value": "linen", "label": "Linen" },
+        { "value": "cream", "label": "Cream" }
+      ]
+    },
+    {
+      "type": "select", "id": "align", "label": "Layout", "default": "split",
+      "options": [ { "value": "split", "label": "Copy beside the form" }, { "value": "center", "label": "Centred" } ]
+    },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Free, first class, no obligation" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Hold the fabric before you choose it" },
+    { "type": "richtext", "id": "body", "label": "Body", "default": "<p>We will post up to six swatches to your door. You will also be first to hear when a new design leaves the workshop — and we email rarely.</p>" },
+    { "type": "text", "id": "placeholder", "label": "Field placeholder", "default": "Your email address" },
+    { "type": "text", "id": "cta", "label": "Button", "default": "Send my samples" },
+    { "type": "text", "id": "tag", "label": "Customer tag", "default": "samples" },
+    { "type": "text", "id": "success", "label": "Success message", "default": "Thank you — we will be in touch to confirm your address." },
+    { "type": "text", "id": "note", "label": "Note", "default": "Unsubscribe in one click. We never share your details." }
+  ],
+  "presets": [ { "name": "CC Email capture" } ]
+}
+{% endschema %}

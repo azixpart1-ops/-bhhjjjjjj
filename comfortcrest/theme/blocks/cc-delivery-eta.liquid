@@ -1,0 +1,67 @@
+{%- comment -%}
+  Estimated delivery date.
+
+  A named date converts better than "14 working days" because the shopper does
+  not have to do the arithmetic. The date is computed from the lead time set
+  here, and the wording says "estimated" rather than promising a slot the
+  workshop has not booked yet.
+
+  Out-of-stock variants get the made-to-order line instead, so the block never
+  promises a date for something that cannot ship.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+{%- liquid
+  assign product = closest.product
+  assign variant = product.selected_or_first_available_variant
+  assign lead = block.settings.lead_days | default: 20
+  if lead < 1
+    assign lead = 20
+  endif
+  assign seconds = lead | times: 86400
+  assign eta = 'now' | date: '%s' | plus: seconds | date: '%A %-d %B'
+-%}
+
+<div class="cc cc-pdp-eta" {{ block.shopify_attributes }}>
+  <span class="cc-pdp-eta__icon">{%- render 'cc-icon', name: 'truck' -%}</span>
+  <div>
+    {%- if variant.available -%}
+      <p class="cc-pdp-eta__lead">{{ block.settings.label }} <strong>{{ eta }}</strong></p>
+    {%- else -%}
+      <p class="cc-pdp-eta__lead">{{ block.settings.unavailable_label }}</p>
+    {%- endif -%}
+    {%- if block.settings.note != blank -%}
+      <p class="cc-pdp-eta__note">{{ block.settings.note }}</p>
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .cc-pdp-eta {
+    display: grid; grid-template-columns: auto 1fr; gap: 0.85rem; align-items: start;
+    padding: 1rem 1.15rem; border: 1px solid var(--cc-stone);
+    border-left: 2px solid var(--cc-brass);
+    border-radius: var(--cc-radius); background: var(--cc-cream);
+  }
+  .cc-pdp-eta__icon { color: var(--cc-brass); }
+  .cc-pdp-eta__icon svg { width: 21px; height: 21px; }
+  .cc-pdp-eta__lead {
+    margin: 0; font-size: var(--cc-t-small); color: var(--cc-slate);
+    font-family: var(--cc-font-body); line-height: 1.5;
+  }
+  .cc-pdp-eta__lead strong { color: var(--cc-ink); font-weight: 500; }
+  .cc-pdp-eta__note { margin: 0.3rem 0 0; font-size: var(--cc-t-micro); color: var(--cc-slate-light); line-height: 1.5; }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Delivery estimate",
+  "tag": null,
+  "settings": [
+    { "type": "text", "id": "label", "label": "Label", "default": "Order today for estimated delivery from" },
+    { "type": "number", "id": "lead_days", "label": "Lead time in days", "default": 20 },
+    { "type": "text", "id": "unavailable_label", "label": "When unavailable", "default": "Currently made to order — contact us for the next available slot" },
+    { "type": "text", "id": "note", "label": "Note", "default": "We call to agree a day and give you a two-hour window the night before." }
+  ],
+  "presets": [ { "name": "CC Delivery estimate", "category": "Product" } ]
+}
+{% endschema %}

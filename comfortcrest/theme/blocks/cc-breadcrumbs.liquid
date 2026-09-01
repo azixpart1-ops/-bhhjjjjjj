@@ -1,0 +1,92 @@
+{%- comment -%}
+  Breadcrumbs for the product page, with BreadcrumbList structured data.
+
+  Two jobs. A shopper who arrived from an advert has no idea what else this
+  shop sells, and the trail gives them a way up into the range instead of
+  straight back out. Google uses the same trail to replace the raw URL under
+  the search result.
+
+  The middle step is the collection the shopper actually came through when
+  Shopify knows it, falling back to the product's own first collection so the
+  trail is never a dead link.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+{%- liquid
+  assign product = closest.product
+  assign crumb = collection
+  if crumb == blank or crumb.handle == 'all'
+    for c in product.collections
+      unless c.handle == 'all' or c.handle == 'frontpage'
+        assign crumb = c
+        break
+      endunless
+    endfor
+  endif
+-%}
+
+<nav class="cc cc-pdp-crumbs" aria-label="Breadcrumb" {{ block.shopify_attributes }}>
+  <ol>
+    <li><a href="{{ routes.root_url }}">{{ block.settings.home_label }}</a></li>
+    {%- if crumb != blank -%}
+      <li><a href="{{ crumb.url }}">{{ crumb.title }}</a></li>
+    {%- endif -%}
+    <li aria-current="page">{{ product.title }}</li>
+  </ol>
+</nav>
+
+{%- capture crumb_ld -%}
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": {{ block.settings.home_label | json }},
+      "item": {{ shop.url | append: routes.root_url | json }}
+    }{% if crumb != blank %},
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": {{ crumb.title | json }},
+      "item": {{ shop.url | append: crumb.url | json }}
+    }{% endif %},
+    {
+      "@type": "ListItem",
+      "position": {% if crumb != blank %}3{% else %}2{% endif %},
+      "name": {{ product.title | json }},
+      "item": {{ shop.url | append: product.url | json }}
+    }
+  ]
+}
+{%- endcapture -%}
+<script type="application/ld+json">{{ crumb_ld }}</script>
+
+{% stylesheet %}
+  .cc-pdp-crumbs ol {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 0.3rem 0.6rem;
+    font-family: var(--cc-font-label); font-size: var(--cc-t-micro);
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--cc-slate-light);
+  }
+  .cc-pdp-crumbs li { display: inline-flex; align-items: center; }
+  .cc-pdp-crumbs li + li::before { content: '/'; margin-right: 0.6rem; color: var(--cc-stone); }
+  .cc-pdp-crumbs a { color: var(--cc-slate-light); text-decoration: none; }
+  .cc-pdp-crumbs a:hover { color: var(--cc-brass); }
+  /* The current page is the longest crumb; keep it from wrapping to three lines. */
+  .cc-pdp-crumbs li[aria-current] {
+    max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--cc-ink);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Breadcrumbs",
+  "tag": null,
+  "settings": [
+    { "type": "text", "id": "home_label", "label": "Home label", "default": "Home" }
+  ],
+  "presets": [ { "name": "CC Breadcrumbs", "category": "Product" } ]
+}
+{% endschema %}

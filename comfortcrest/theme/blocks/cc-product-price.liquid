@@ -1,0 +1,84 @@
+{%- comment -%}
+  Product price, ComfortCrest treatment.
+
+  Replaces Horizon's price block on the product page so the RRP, the saving
+  and the monthly finance figure all sit in one typographic unit. Reads the
+  selected variant, so it updates with the size and fabric the shopper picks.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+{%- liquid
+  assign product = closest.product
+  assign variant = product.selected_or_first_available_variant
+  assign price = variant.price
+  assign compare = variant.compare_at_price
+  assign on_sale = false
+  if compare > price
+    assign on_sale = true
+    assign saved = compare | minus: price
+    assign pct = saved | times: 100.0 | divided_by: compare | round
+  endif
+  assign months = block.settings.months | default: 12
+  if months < 1
+    assign months = 12
+  endif
+  assign monthly = price | divided_by: months
+-%}
+
+<div class="cc cc-pdp-price" {{ block.shopify_attributes }}>
+  <div class="cc-pdp-price__row">
+    <span class="cc-pdp-price__now">{{ price | money }}</span>
+    {%- if on_sale -%}
+      <s class="cc-pdp-price__was">{{ compare | money }}</s>
+      <span class="cc-badge cc-badge--save">Save {{ pct }}%</span>
+    {%- endif -%}
+  </div>
+
+  {%- if on_sale and block.settings.show_saving -%}
+    <p class="cc-pdp-price__saved">You save {{ saved | money }} on this size</p>
+  {%- endif -%}
+
+  {%- if block.settings.show_finance and price > 0 -%}
+    <p class="cc-pdp-price__finance">
+      {%- render 'cc-icon', name: 'card' -%}
+      <span>or <strong>{{ monthly | money }}/month</strong> over {{ months }} months, interest free</span>
+    </p>
+  {%- endif -%}
+
+  {%- if block.settings.tax_note != blank -%}
+    <p class="cc-pdp-price__tax">{{ block.settings.tax_note }}</p>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .cc-pdp-price__row { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+  .cc-pdp-price__now {
+    font-family: var(--cc-font-display); font-size: clamp(1.75rem, 1.4rem + 1.4vw, 2.5rem);
+    font-weight: 500; color: var(--cc-ink); line-height: 1; letter-spacing: -0.02em;
+  }
+  .cc-pdp-price__was {
+    font-size: 1.0625rem; color: var(--cc-slate-light);
+    text-decoration: line-through; text-decoration-thickness: 1px;
+  }
+  .cc-pdp-price__saved { margin: 0.6rem 0 0; font-size: var(--cc-t-small); color: var(--cc-claret); }
+  .cc-pdp-price__finance {
+    margin: 0.75rem 0 0; display: flex; align-items: center; gap: 0.5rem;
+    font-size: var(--cc-t-small); color: var(--cc-slate);
+  }
+  .cc-pdp-price__finance svg { width: 17px; height: 17px; color: var(--cc-brass); flex: none; }
+  .cc-pdp-price__finance strong { color: var(--cc-ink); font-weight: 500; }
+  .cc-pdp-price__tax { margin: 0.5rem 0 0; font-size: var(--cc-t-micro); color: var(--cc-slate-light); }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Product price",
+  "tag": null,
+  "settings": [
+    { "type": "checkbox", "id": "show_finance", "label": "Show monthly finance", "default": true },
+    { "type": "number", "id": "months", "label": "Finance term in months", "default": 12 },
+    { "type": "checkbox", "id": "show_saving", "label": "Show the cash saving", "default": true },
+    { "type": "text", "id": "tax_note", "label": "Note under the price", "default": "Includes VAT. Delivery calculated at checkout." }
+  ],
+  "presets": [ { "name": "CC Product price", "category": "Product" } ]
+}
+{% endschema %}

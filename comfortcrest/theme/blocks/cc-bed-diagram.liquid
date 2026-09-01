@@ -1,0 +1,240 @@
+{%- comment -%}
+  Bed footprint diagram.
+
+  "Will it actually fit?" is the question that stops a bed sale and causes the
+  returns that follow one. A plan view drawn to scale answers it faster than a
+  table: the mattress inside the frame, the frame's real outside measurements,
+  and a dashed outline for the walking space the bed needs around it.
+
+  Dimensions come from the selected variant's Size option where it matches a
+  standard UK size, so the drawing changes when the shopper changes size. When
+  there is no Size option — a single-size bed — the merchant's own numbers are
+  used instead. If neither is available nothing renders, because a diagram
+  drawn to invented measurements is worse than no diagram.
+
+  Everything is CSS. No image to shoot, and it stays sharp at any width.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+{%- liquid
+  assign product = closest.product
+  assign variant = product.selected_or_first_available_variant
+
+  comment
+    UK mattress sizes in cm. The longest key that matches wins, so
+    "super king" is not swallowed by "king".
+  endcomment
+  assign size_keys = 'single,small double,double,king,super king' | split: ','
+  assign size_w = '90,120,135,150,180' | split: ','
+  assign size_l = '190,190,190,200,200' | split: ','
+
+  assign mat_w = 0
+  assign mat_l = 0
+  assign size_label = ''
+
+  for opt in product.options_with_values
+    assign oname = opt.name | downcase
+    if oname contains 'size'
+      assign chosen = variant.options[forloop.index0] | downcase | strip
+      assign best = 0
+      for key in size_keys
+        if chosen contains key
+          assign klen = key | size
+          if klen > best
+            assign best = klen
+            assign mat_w = size_w[forloop.index0] | plus: 0
+            assign mat_l = size_l[forloop.index0] | plus: 0
+            assign size_label = variant.options[forloop.index0]
+          endif
+        endif
+      endfor
+    endif
+  endfor
+
+  comment
+    Fall back to the merchant's own figures for a single-size bed.
+
+  endcomment
+  if mat_w == 0
+    assign mat_w = block.settings.mattress_width | plus: 0
+    assign mat_l = block.settings.mattress_length | plus: 0
+    assign size_label = block.settings.size_label
+  endif
+
+  assign surround = block.settings.surround | plus: 0
+  assign frame_w = mat_w | plus: surround | plus: surround
+  assign frame_l = mat_l | plus: surround | plus: surround
+
+  assign clear = block.settings.clearance | plus: 0
+  assign room_w = frame_w | plus: clear | plus: clear
+  assign room_l = frame_l | plus: clear
+
+  comment
+    Percentages of the room box, so the drawing is genuinely to scale.
+
+  endcomment
+  if room_w > 0 and room_l > 0
+    assign frame_pw = frame_w | times: 100.0 | divided_by: room_w
+    assign frame_ph = frame_l | times: 100.0 | divided_by: room_l
+    assign mat_pw = mat_w | times: 100.0 | divided_by: frame_w
+    assign mat_ph = mat_l | times: 100.0 | divided_by: frame_l
+  endif
+-%}
+
+{%- if mat_w > 0 and mat_l > 0 -%}
+  <div class="cc cc-bd" {{ block.shopify_attributes }}>
+    {%- if block.settings.title != blank -%}
+      <h3 class="cc-bd__title">{{ block.settings.title }}</h3>
+    {%- endif -%}
+
+    <div class="cc-bd__stage" style="--cc-bd-ar:{{ room_w }} / {{ room_l }}">
+      <div class="cc-bd__room">
+        <div class="cc-bd__frame"
+             style="width:{{ frame_pw }}%;height:{{ frame_ph }}%">
+          <span class="cc-bd__head">{{ block.settings.headboard_label }}</span>
+          <div class="cc-bd__mattress" style="width:{{ mat_pw }}%;height:{{ mat_ph }}%">
+            <span class="cc-bd__mattress-label">
+              {%- if size_label != blank -%}{{ size_label }}<br>{%- endif -%}
+              {{ mat_w }} × {{ mat_l }} cm
+            </span>
+          </div>
+
+          {%- comment -%}
+            The rules measure the frame, so they hang off the frame element
+            rather than the stage — otherwise a "166 cm wide" label ends up
+            spanning the width of the room.
+          {%- endcomment -%}
+          <span class="cc-bd__dim cc-bd__dim--w"><i></i><b>{{ frame_w }} cm</b><i></i></span>
+          <span class="cc-bd__dim cc-bd__dim--l"><i></i><b>{{ frame_l }} cm</b><i></i></span>
+        </div>
+        <span class="cc-bd__room-label">{{ block.settings.clearance_label }}</span>
+      </div>
+    </div>
+
+    <dl class="cc-bd__key">
+      <div><dt>Mattress</dt><dd>{{ mat_w }} × {{ mat_l }} cm</dd></div>
+      <div><dt>Frame outside</dt><dd>{{ frame_w }} × {{ frame_l }} cm</dd></div>
+      {%- if clear > 0 -%}
+        <div><dt>Room needed</dt><dd>{{ room_w }} × {{ room_l }} cm</dd></div>
+      {%- endif -%}
+      {%- if block.settings.headboard_height != blank -%}
+        <div><dt>Headboard height</dt><dd>{{ block.settings.headboard_height }}</dd></div>
+      {%- endif -%}
+    </dl>
+
+    {%- if block.settings.note != blank -%}
+      <p class="cc-bd__note">{%- render 'cc-icon', name: 'ruler' -%}<span>{{ block.settings.note }}</span></p>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  .cc-bd { font-family: var(--cc-font-body); }
+  .cc-bd__title {
+    font-family: var(--cc-font-label); font-size: var(--cc-t-micro); font-weight: 500;
+    letter-spacing: 0.13em; text-transform: uppercase; color: var(--cc-brass);
+    margin: 0 0 1rem;
+  }
+
+  /* The stage holds the scale drawing plus its two dimension rules. */
+  /* The stage leaves room above and to the right for the dimension rules. */
+  .cc-bd__stage {
+    position: relative; width: 100%; max-width: 320px;
+    aspect-ratio: var(--cc-bd-ar, 3 / 4);
+    margin: 1.75rem 4rem 0 0;
+  }
+
+  /* Dashed outline = the walking space the bed needs around it. */
+  .cc-bd__room {
+    position: relative; width: 100%; height: 100%;
+    border: 1px dashed var(--cc-brass); border-radius: 2px;
+    background: var(--cc-alabaster);
+    display: flex; align-items: flex-start; justify-content: center;
+  }
+  .cc-bd__room-label {
+    position: absolute; bottom: 5px; left: 0; right: 0; text-align: center;
+    font-family: var(--cc-font-label); font-size: 0.5625rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--cc-brass); opacity: 0.9;
+  }
+
+  /* Solid = the frame's real footprint, headboard flush to the wall. */
+  .cc-bd__frame {
+    position: relative; border: 1.5px solid var(--cc-ink); border-radius: 2px;
+    background: var(--cc-linen);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .cc-bd__head {
+    position: absolute; top: 0; left: 0; right: 0; height: 10%;
+    min-height: 9px; background: var(--cc-ink);
+    display: grid; place-items: center; overflow: hidden;
+    font-family: var(--cc-font-label); font-size: 0.5rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--cc-cream); white-space: nowrap;
+  }
+  .cc-bd__mattress {
+    background: var(--cc-cream); border: 1px solid var(--cc-stone); border-radius: 1px;
+    display: grid; place-items: center; margin-bottom: 5%;
+  }
+  .cc-bd__mattress-label {
+    font-family: var(--cc-font-label); font-size: 0.625rem; line-height: 1.5;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--cc-ink);
+    text-align: center;
+  }
+
+  /* Dimension rules: a hairline either side of the figure, hung off the
+     frame so each one spans exactly what it claims to measure. */
+  .cc-bd__dim {
+    position: absolute; display: flex; align-items: center; gap: 0.35rem;
+    font-family: var(--cc-font-label); font-size: 0.5625rem; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--cc-slate-light); white-space: nowrap;
+  }
+  .cc-bd__dim b { font-weight: 400; }
+  .cc-bd__dim i { display: block; background: var(--cc-stone); }
+  .cc-bd__dim--w { bottom: calc(100% + 7px); left: 0; right: 0; }
+  .cc-bd__dim--w i { height: 1px; flex: 1; }
+  .cc-bd__dim--l {
+    left: calc(100% + 7px); top: 0; bottom: 0; width: 3rem;
+    flex-direction: column; align-items: center;
+  }
+  .cc-bd__dim--l i { width: 1px; flex: 1; }
+
+  .cc-bd__key {
+    margin: 1.5rem 0 0; display: grid; gap: 0;
+    border-top: 1px solid var(--cc-stone);
+  }
+  .cc-bd__key > div {
+    display: grid; grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1fr);
+    gap: 1rem; padding: 0.65rem 0; border-bottom: 1px solid var(--cc-stone);
+    font-size: var(--cc-t-small);
+  }
+  .cc-bd__key dt { margin: 0; color: var(--cc-slate-light); }
+  .cc-bd__key dd { margin: 0; color: var(--cc-ink); font-variant-numeric: tabular-nums; }
+
+  .cc-bd__note {
+    margin: 1rem 0 0; display: flex; gap: 0.55rem; align-items: flex-start;
+    font-size: var(--cc-t-micro); color: var(--cc-slate-light); line-height: 1.6;
+  }
+  .cc-bd__note svg { width: 15px; height: 15px; color: var(--cc-brass); flex: none; margin-top: 0.1rem; }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Bed diagram",
+  "tag": null,
+  "settings": [
+    { "type": "text", "id": "title", "label": "Title", "default": "Will it fit?" },
+    {
+      "type": "paragraph",
+      "content": "Sizes come from the product's Size option when it matches a standard UK size. The figures below are used for beds sold in one size only."
+    },
+    { "type": "number", "id": "mattress_width", "label": "Mattress width (cm)", "default": 150 },
+    { "type": "number", "id": "mattress_length", "label": "Mattress length (cm)", "default": 200 },
+    { "type": "text", "id": "size_label", "label": "Size name", "default": "King" },
+    { "type": "number", "id": "surround", "label": "Frame surround each side (cm)", "default": 8, "info": "How far the frame extends beyond the mattress." },
+    { "type": "number", "id": "clearance", "label": "Walking space to allow (cm)", "default": 70 },
+    { "type": "text", "id": "clearance_label", "label": "Clearance label", "default": "Space to allow" },
+    { "type": "text", "id": "headboard_label", "label": "Headboard label", "default": "Headboard" },
+    { "type": "text", "id": "headboard_height", "label": "Headboard height", "default": "120 cm from the floor" },
+    { "type": "text", "id": "note", "label": "Note", "default": "Measure the room and the route into it — doorways, and the turn at the top of the stairs." }
+  ],
+  "presets": [ { "name": "CC Bed diagram", "category": "Product" } ]
+}
+{% endschema %}

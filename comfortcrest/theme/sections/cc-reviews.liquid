@@ -1,0 +1,127 @@
+{%- comment -%}
+  Customer reviews.
+
+  The score panel and the quotes are both editor content: this theme will not
+  invent a rating or a testimonial. Leave the score fields empty and the panel
+  simply does not render, which is the correct state for a shop that has not
+  collected reviews yet.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+{%- liquid
+  assign score = section.settings.score
+  assign show_score = false
+  if score != blank and score != '0'
+    assign show_score = true
+  endif
+-%}
+
+<section class="cc cc-section cc-ground--{{ section.settings.ground }}">
+  <div class="cc-wrap cc-wrap--wide">
+    <div class="cc-head cc-head--center cc-reviews__head cc-reveal">
+      {%- if section.settings.eyebrow != blank -%}
+        <p class="cc-eyebrow cc-eyebrow--rule">{{ section.settings.eyebrow }}</p>
+      {%- endif -%}
+      <h2 class="cc-h2">{{ section.settings.heading }}</h2>
+    </div>
+
+    <div class="cc-reviews__layout{% unless show_score %} cc-reviews__layout--noscore{% endunless %}">
+      {%- if show_score -%}
+        <div class="cc-score cc-reveal">
+          <div class="cc-score__num">{{ score }}<span class="cc-score__of">/5</span></div>
+          {%- render 'cc-stars', rating: score -%}
+          {%- if section.settings.score_note != blank -%}
+            <p class="cc-p cc-score__note">{{ section.settings.score_note }}</p>
+          {%- endif -%}
+          {%- if section.settings.score_link != blank -%}
+            <a class="cc-link cc-score__link" href="{{ section.settings.score_link }}">
+              {{ section.settings.score_link_text | default: 'Read all reviews' }}{%- render 'cc-icon', name: 'arrow-right' -%}
+            </a>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      <div class="cc-rail cc-rail--desk-grid cc-reviews__grid" style="--cc-cols:{{ section.settings.columns }}">
+        {%- for block in section.blocks -%}
+          <figure class="cc-quote cc-reveal" style="--cc-delay:{{ forloop.index0 | times: 80 }}ms" {{ block.shopify_attributes }}>
+            {%- if block.settings.rating != blank -%}
+              {%- render 'cc-stars', rating: block.settings.rating -%}
+            {%- endif -%}
+            <blockquote class="cc-quote__text">{{ block.settings.quote }}</blockquote>
+            <figcaption class="cc-quote__foot">
+              <span class="cc-quote__who">{{ block.settings.name }}{% if block.settings.place != blank %}, {{ block.settings.place }}{% endif %}</span>
+              {%- if block.settings.bought != blank -%}
+                <span class="cc-quote__what">{{ block.settings.bought }}</span>
+              {%- endif -%}
+              {%- if block.settings.verified -%}
+                <span class="cc-quote__verified">{%- render 'cc-icon', name: 'check-circle' -%}Verified purchase</span>
+              {%- endif -%}
+            </figcaption>
+          </figure>
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% stylesheet %}
+  .cc-reviews__head { margin-bottom: clamp(2rem, 1.4rem + 1.6vw, 3rem); }
+  .cc-reviews__layout {
+    display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: clamp(1.5rem, 1rem + 2.4vw, 3.5rem); align-items: start;
+  }
+  .cc-reviews__layout--noscore { grid-template-columns: minmax(0, 1fr); }
+  .cc-score {
+    border: 1px solid var(--cc-stone); border-radius: var(--cc-radius-lg);
+    background: var(--cc-cream);
+  }
+  .cc-score__note { margin: 0.5rem auto 0; font-size: var(--cc-t-small); color: var(--cc-slate-light); max-width: 26ch; }
+  .cc-score__link { margin-top: 1.25rem; }
+  @media (max-width: 900px) {
+    .cc-reviews__layout { grid-template-columns: minmax(0, 1fr); }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Reviews",
+  "class": "cc-section-reviews",
+  "max_blocks": 9,
+  "settings": [
+    {
+      "type": "select", "id": "ground", "label": "Background", "default": "linen",
+      "options": [
+        { "value": "paper", "label": "Alabaster" },
+        { "value": "linen", "label": "Linen" },
+        { "value": "cream", "label": "Cream" },
+        { "value": "ink", "label": "Ink" }
+      ]
+    },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "What customers say" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Beds people are glad they bought" },
+    {
+      "type": "select", "id": "columns", "label": "Quotes per row", "default": "3",
+      "options": [ { "value": "2", "label": "Two" }, { "value": "3", "label": "Three" } ]
+    },
+    { "type": "header", "content": "Score panel", "info": "Use your own verified figures. Leave the score empty to hide this panel entirely." },
+    { "type": "text", "id": "score", "label": "Average score out of 5" },
+    { "type": "text", "id": "score_note", "label": "Note under the score" },
+    { "type": "text", "id": "score_link_text", "label": "Link text", "default": "Read all reviews" },
+    { "type": "url", "id": "score_link", "label": "Link URL" }
+  ],
+  "blocks": [
+    {
+      "type": "quote",
+      "name": "Review",
+      "settings": [
+        { "type": "textarea", "id": "quote", "label": "Quote", "info": "Use a genuine customer review." },
+        { "type": "text", "id": "name", "label": "Name", "default": "Sarah H." },
+        { "type": "text", "id": "place", "label": "Town or city", "default": "Leeds" },
+        { "type": "text", "id": "bought", "label": "What they bought" },
+        { "type": "text", "id": "rating", "label": "Rating out of 5", "default": "5" },
+        { "type": "checkbox", "id": "verified", "label": "Verified purchase", "default": true }
+      ]
+    }
+  ],
+  "presets": [ { "name": "CC Reviews" } ]
+}
+{% endschema %}

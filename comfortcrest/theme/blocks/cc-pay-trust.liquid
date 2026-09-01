@@ -1,0 +1,49 @@
+{%- comment -%}
+  Payment methods and the security line, directly under the buy button.
+
+  The last hesitation before a four-figure click is "is it safe to give these
+  people my card". Showing the methods actually enabled on the store — read
+  from shop.enabled_payment_types, so it can never advertise one that is not —
+  answers it where the doubt occurs rather than in the footer.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+
+<div class="cc cc-pay" {{ block.shopify_attributes }}>
+  {%- if block.settings.text != blank -%}
+    <p class="cc-pay__line">
+      {%- render 'cc-icon', name: 'lock' -%}
+      <span>{{ block.settings.text }}</span>
+    </p>
+  {%- endif -%}
+  {%- if shop.enabled_payment_types.size > 0 -%}
+    <div class="cc-pay__icons">
+      <span class="cc-sr">Accepted payment methods</span>
+      {%- for type in shop.enabled_payment_types -%}
+        {{ type | payment_type_svg_tag: class: 'cc-pay__icon' }}
+      {%- endfor -%}
+    </div>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .cc-pay { display: grid; gap: 0.75rem; }
+  .cc-pay__line {
+    margin: 0; display: flex; align-items: center; gap: 0.5rem;
+    font-size: var(--cc-t-micro); color: var(--cc-slate-light);
+    font-family: var(--cc-font-body); line-height: 1.5;
+  }
+  .cc-pay__line svg { width: 15px; height: 15px; color: var(--cc-verde); flex: none; }
+  .cc-pay__icons { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+  .cc-pay__icons svg { height: 22px; width: auto; border-radius: 2px; opacity: 0.85; }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Payment trust",
+  "tag": null,
+  "settings": [
+    { "type": "text", "id": "text", "label": "Text", "default": "Secure checkout. We never see or store your card details." }
+  ],
+  "presets": [ { "name": "CC Payment trust", "category": "Product" } ]
+}
+{% endschema %}

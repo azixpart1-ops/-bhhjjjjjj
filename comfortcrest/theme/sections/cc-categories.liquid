@@ -1,0 +1,143 @@
+{%- comment -%}
+  Shop by bed type.
+
+  The highest-intent section on the page: most bed shoppers arrive knowing the
+  format they want (ottoman, divan, TV bed) before they know a brand. Each
+  tile is a collection, so the count and image come from the catalogue rather
+  than being typed in twice.
+
+  The first tile can span two columns to give the range a lead item.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+
+<section class="cc cc-section cc-ground--{{ section.settings.ground }}">
+  <div class="cc-wrap cc-wrap--wide">
+    <div class="cc-head-row">
+      <div class="cc-head">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="cc-eyebrow cc-eyebrow--rule">{{ section.settings.eyebrow }}</p>
+        {%- endif -%}
+        <h2 class="cc-h2">{{ section.settings.heading }}</h2>
+        {%- if section.settings.body != blank -%}
+          <div class="cc-lede">{{ section.settings.body }}</div>
+        {%- endif -%}
+      </div>
+      {%- if section.settings.link_text != blank -%}
+        <a class="cc-link" href="{{ section.settings.link_url | default: '/collections' }}">
+          {{ section.settings.link_text }}{%- render 'cc-icon', name: 'arrow-right' -%}
+        </a>
+      {%- endif -%}
+    </div>
+
+    <div class="cc-cats cc-cats--{{ section.settings.columns }}{% if section.settings.feature_first %} cc-cats--lead{% endif %}">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign col = block.settings.collection
+          assign title = block.settings.title | default: col.title
+          assign url = block.settings.link | default: col.url | default: '/collections/all'
+          assign img = block.settings.image | default: col.featured_image
+        -%}
+        <a class="cc-tile{% unless img %} cc-tile--empty{% endunless %} cc-reveal"
+           href="{{ url }}"
+           style="--cc-delay:{{ forloop.index0 | times: 70 }}ms"
+           {{ block.shopify_attributes }}>
+          {%- if img -%}
+            {{ img | image_url: width: 1000 | image_tag:
+                 loading: 'lazy',
+                 widths: '300,500,700,1000',
+                 sizes: '(min-width: 861px) 33vw, 80vw',
+                 alt: title | escape }}
+          {%- endif -%}
+          <span class="cc-tile__veil"></span>
+          <span class="cc-tile__inner">
+            <span>
+              <span class="cc-tile__name">{{ title }}</span>
+              {%- if block.settings.caption != blank -%}
+                <span class="cc-tile__count">{{ block.settings.caption }}</span>
+              {%- elsif col != blank and col.all_products_count > 0 -%}
+                <span class="cc-tile__count">{{ col.all_products_count }} {{ col.all_products_count | pluralize: 'design', 'designs' }}</span>
+              {%- endif -%}
+            </span>
+            <span class="cc-tile__go">{%- render 'cc-icon', name: 'arrow-right' -%}</span>
+          </span>
+        </a>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+
+{% stylesheet %}
+  .cc-cats { display: grid; gap: clamp(0.85rem, 0.5rem + 1vw, 1.5rem); }
+  .cc-cats--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cc-cats--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* Lead tile: first item takes two columns and a landscape crop, so the row
+     has a focal point instead of reading as an undifferentiated grid. */
+  .cc-cats--lead > .cc-tile:first-child { grid-column: span 2; aspect-ratio: 16 / 11; }
+  @media (max-width: 1000px) {
+    .cc-cats--4 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 780px) {
+    .cc-cats--3, .cc-cats--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cc-cats--lead > .cc-tile:first-child { grid-column: span 2; aspect-ratio: 16 / 10; }
+  }
+  @media (max-width: 460px) {
+    .cc-cats--3, .cc-cats--4 { grid-template-columns: minmax(0, 1fr); }
+    .cc-cats--lead > .cc-tile:first-child { grid-column: span 1; }
+    .cc-tile { aspect-ratio: 4 / 3; }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Category tiles",
+  "class": "cc-section-categories",
+  "max_blocks": 8,
+  "settings": [
+    {
+      "type": "select", "id": "ground", "label": "Background", "default": "paper",
+      "options": [
+        { "value": "paper", "label": "Alabaster" },
+        { "value": "linen", "label": "Linen" },
+        { "value": "cream", "label": "Cream" },
+        { "value": "ink", "label": "Ink" }
+      ]
+    },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Browse the range" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Shop by bed type" },
+    { "type": "richtext", "id": "body", "label": "Body", "default": "<p>Most people know the shape of the bed they want before anything else. Start there.</p>" },
+    { "type": "text", "id": "link_text", "label": "Link text", "default": "All collections" },
+    { "type": "url", "id": "link_url", "label": "Link URL" },
+    {
+      "type": "select", "id": "columns", "label": "Columns", "default": "3",
+      "options": [ { "value": "3", "label": "Three" }, { "value": "4", "label": "Four" } ]
+    },
+    { "type": "checkbox", "id": "feature_first", "label": "Make the first tile wide", "default": true }
+  ],
+  "blocks": [
+    {
+      "type": "category",
+      "name": "Category",
+      "settings": [
+        { "type": "collection", "id": "collection", "label": "Collection" },
+        { "type": "text", "id": "title", "label": "Title override" },
+        { "type": "text", "id": "caption", "label": "Caption override", "info": "Defaults to the number of products in the collection." },
+        { "type": "image_picker", "id": "image", "label": "Image override" },
+        { "type": "url", "id": "link", "label": "Link override" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "CC Category tiles",
+      "blocks": [
+        { "type": "category", "settings": { "title": "Ottoman storage beds" } },
+        { "type": "category", "settings": { "title": "Upholstered bed frames" } },
+        { "type": "category", "settings": { "title": "Divan beds" } },
+        { "type": "category", "settings": { "title": "TV beds" } },
+        { "type": "category", "settings": { "title": "Headboards" } },
+        { "type": "category", "settings": { "title": "Mattresses" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

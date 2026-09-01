@@ -1,0 +1,106 @@
+{%- comment -%}
+  Specification list for the product page.
+
+  The size row is derived from whichever Size option the shopper has selected
+  and looked up against the standard UK bed sizes, so the dimensions on screen
+  always match the variant in the basket. Everything else is merchant copy.
+
+  A variant whose size name is not one of the UK standards simply gets no
+  derived row rather than a wrong one.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+{%- liquid
+  assign product = closest.product
+  assign variant = product.selected_or_first_available_variant
+
+  assign size_keys = 'single,small double,double,king,super king' | split: ','
+  assign size_dims = '90 × 190 cm (3ft),120 × 190 cm (4ft),135 × 190 cm (4ft 6in),150 × 200 cm (5ft),180 × 200 cm (6ft)' | split: ','
+  assign matched_dim = ''
+  assign matched_name = ''
+
+  for opt in product.options_with_values
+    assign oname = opt.name | downcase
+    if oname contains 'size'
+      assign chosen = variant.options[forloop.index0] | downcase | strip
+      comment
+        Longest match wins: "super king" must beat "king", which it would not
+        if the first containing entry were taken.
+      endcomment
+      assign best_len = 0
+      for key in size_keys
+        if chosen contains key
+          assign klen = key | size
+          if klen > best_len
+            assign best_len = klen
+            assign matched_dim = size_dims[forloop.index0]
+            assign matched_name = variant.options[0]
+          endif
+        endif
+      endfor
+    endif
+  endfor
+-%}
+
+<div class="cc cc-specs" {{ block.shopify_attributes }}>
+  {%- if block.settings.title != blank -%}
+    <h3 class="cc-specs__title">{{ block.settings.title }}</h3>
+  {%- endif -%}
+  <dl class="cc-specs__list">
+    {%- if matched_dim != blank -%}
+      <div class="cc-specs__row">
+        <dt>Mattress size</dt>
+        <dd>{{ matched_dim | strip }}</dd>
+      </div>
+    {%- endif -%}
+    {%- assign rows = block.settings.rows | newline_to_br | split: '<br />' -%}
+    {%- for row in rows -%}
+      {%- assign clean = row | strip_newlines | strip -%}
+      {%- if clean contains '|' -%}
+        {%- assign pair = clean | split: '|' -%}
+        <div class="cc-specs__row">
+          <dt>{{ pair[0] | strip }}</dt>
+          <dd>{{ pair[1] | strip }}</dd>
+        </div>
+      {%- endif -%}
+    {%- endfor -%}
+    {%- if block.settings.show_sku and variant.sku != blank -%}
+      <div class="cc-specs__row">
+        <dt>Reference</dt>
+        <dd>{{ variant.sku }}</dd>
+      </div>
+    {%- endif -%}
+  </dl>
+</div>
+
+{% stylesheet %}
+  .cc-specs__title {
+    font-family: var(--cc-font-label); font-size: var(--cc-t-micro); font-weight: 500;
+    letter-spacing: 0.13em; text-transform: uppercase; color: var(--cc-brass);
+    margin: 0 0 0.85rem;
+  }
+  .cc-specs__list { margin: 0; display: grid; }
+  .cc-specs__row {
+    display: grid; grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1fr);
+    gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid var(--cc-stone);
+    font-size: var(--cc-t-small); line-height: 1.5;
+  }
+  .cc-specs__row:first-child { border-top: 1px solid var(--cc-stone); }
+  .cc-specs__row dt { color: var(--cc-slate-light); margin: 0; }
+  .cc-specs__row dd { color: var(--cc-ink); margin: 0; }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Specification",
+  "tag": null,
+  "settings": [
+    { "type": "text", "id": "title", "label": "Title", "default": "Specification" },
+    {
+      "type": "textarea", "id": "rows", "label": "Rows — Label | Value, one per line",
+      "default": "Frame|Kiln-dried hardwood, corner-blocked\nBase|Sprung beech slats\nHeadboard height|120 cm from floor\nAssembly|Included, by our delivery team\nGuarantee|10 years on the frame"
+    },
+    { "type": "checkbox", "id": "show_sku", "label": "Show the variant reference", "default": false }
+  ],
+  "presets": [ { "name": "CC Specification", "category": "Product" } ]
+}
+{% endschema %}

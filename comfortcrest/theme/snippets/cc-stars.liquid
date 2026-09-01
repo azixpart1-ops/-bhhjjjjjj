@@ -1,0 +1,50 @@
+{%- comment -%}
+  Star rating.
+
+  Params:
+    rating - decimal 0-5 (required; nothing renders without one)
+    count  - optional number of reviews
+    label  - optional override for the accessible text
+
+  Renders nothing at all when there is no rating. That is deliberate: a bed
+  with no reviews must not show five hollow stars, and a placeholder score is
+  a claim the shop cannot back. Feed it a real review metafield and it
+  appears on its own.
+{%- endcomment -%}
+{%- liquid
+  assign r = rating | plus: 0.0
+  if r <= 0
+    break
+  endif
+  assign full = r | floor
+  assign has_half = false
+  assign remainder = r | minus: full
+  if remainder >= 0.25 and remainder < 0.75
+    assign has_half = true
+  elsif remainder >= 0.75
+    assign full = full | plus: 1
+  endif
+-%}
+{%- if r > 0 -%}
+  <span class="cc-stars">
+    <span class="cc-stars__glyphs" role="img" aria-label="{{ label | default: r | append: ' out of 5' }}">
+      {%- for i in (1..5) -%}
+        {%- if i <= full -%}
+          {%- render 'cc-icon', name: 'star' -%}
+        {%- elsif has_half and i == full | plus: 1 -%}
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <defs><linearGradient id="cc-half-{{ i }}-{{ count | default: 0 }}"><stop offset="50%" stop-color="currentColor"/><stop offset="50%" stop-color="transparent"/></linearGradient></defs>
+            <path d="m12 3 2.75 5.75 6.25.85-4.5 4.4 1.05 6.25L12 17.3 6.45 20.25 7.5 14 3 9.6l6.25-.85z" fill="url(#cc-half-{{ i }}-{{ count | default: 0 }})" stroke="currentColor" stroke-width="1"/>
+          </svg>
+        {%- else -%}
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="fill:none;stroke:currentColor;stroke-width:1.2">
+            <path d="m12 3 2.75 5.75 6.25.85-4.5 4.4 1.05 6.25L12 17.3 6.45 20.25 7.5 14 3 9.6l6.25-.85z"/>
+          </svg>
+        {%- endif -%}
+      {%- endfor -%}
+    </span>
+    {%- if count and count != blank and count > 0 -%}
+      <span class="cc-stars__count">{{ r }} ({{ count }})</span>
+    {%- endif -%}
+  </span>
+{%- endif -%}

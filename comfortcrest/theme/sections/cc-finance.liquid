@@ -1,0 +1,126 @@
+{%- comment -%}
+  Spread-the-cost panel.
+
+  A bed is the one piece of furniture most households buy on finance, and the
+  monthly figure moves more orders than any discount. The example is computed
+  from a price and a term the merchant sets, so the number on the page always
+  matches the terms actually offered.
+
+  Provider marks are blocks, not hard-coded: list only what is really live at
+  your checkout.
+{%- endcomment -%}
+{%- render 'cc-assets' -%}
+{%- liquid
+  assign example = section.settings.example_price | default: 899
+  assign months = section.settings.months | default: 12
+  if months < 1
+    assign months = 12
+  endif
+  assign per_month = example | times: 100 | divided_by: months
+-%}
+
+<section class="cc cc-section cc-ground--{{ section.settings.ground }}">
+  <div class="cc-wrap cc-wrap--wide">
+    <div class="cc-finance-panel cc-reveal">
+      <div>
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="cc-eyebrow cc-eyebrow--rule">{{ section.settings.eyebrow }}</p>
+        {%- endif -%}
+        <h2 class="cc-h2">{{ section.settings.heading }}</h2>
+        {%- if section.settings.body != blank -%}
+          <div class="cc-lede">{{ section.settings.body }}</div>
+        {%- endif -%}
+
+        {%- if section.blocks.size > 0 -%}
+          <div class="cc-paylogos">
+            {%- for block in section.blocks -%}
+              <span class="cc-paylogo"
+                    style="background:{{ block.settings.bg }};color:{{ block.settings.fg }}"
+                    {{ block.shopify_attributes }}>{{ block.settings.name }}</span>
+            {%- endfor -%}
+          </div>
+        {%- endif -%}
+
+        {%- if section.settings.cta_text != blank -%}
+          <div class="cc-actions cc-finance-panel__cta">
+            <a class="cc-btn cc-btn--solid-light" href="{{ section.settings.cta_link | default: '/pages/finance' }}">{{ section.settings.cta_text }}</a>
+          </div>
+        {%- endif -%}
+      </div>
+
+      <div class="cc-finance-panel__figure">
+        <span class="cc-finance-panel__amount">{{ per_month | money }}</span>
+        <span class="cc-finance-panel__per">per month</span>
+        <p class="cc-finance-panel__basis">
+          {{ section.settings.basis
+             | replace: '[price]', example | times: 100 | money
+             | replace: '[months]', months }}
+        </p>
+      </div>
+    </div>
+
+    {%- if section.settings.legal != blank -%}
+      <p class="cc-finance-panel__legal">{{ section.settings.legal }}</p>
+    {%- endif -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  .cc-finance-panel__cta { margin-top: 1.75rem; }
+  .cc-finance-panel__basis {
+    margin: 0.85rem 0 0; font-size: var(--cc-t-micro); color: #8A939C; line-height: 1.6;
+  }
+  .cc-finance-panel__legal {
+    margin: 1.25rem auto 0; max-width: 70ch; text-align: center;
+    font-size: var(--cc-t-micro); color: var(--cc-slate-light); line-height: 1.6;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "CC Finance",
+  "class": "cc-section-finance",
+  "max_blocks": 5,
+  "settings": [
+    {
+      "type": "select", "id": "ground", "label": "Background", "default": "paper",
+      "options": [
+        { "value": "paper", "label": "Alabaster" },
+        { "value": "linen", "label": "Linen" },
+        { "value": "cream", "label": "Cream" }
+      ]
+    },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Spread the cost" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Interest-free finance, decided in seconds" },
+    { "type": "richtext", "id": "body", "label": "Body", "default": "<p>Split the cost of your bed over monthly payments with no interest and no fees. A soft check at checkout that leaves no mark on your credit file.</p>" },
+    { "type": "header", "content": "Worked example" },
+    { "type": "number", "id": "example_price", "label": "Example bed price (£)", "default": 899 },
+    { "type": "number", "id": "months", "label": "Months", "default": 12 },
+    { "type": "text", "id": "basis", "label": "Basis line", "default": "on a [price] bed over [months] months at 0% APR" },
+    { "type": "text", "id": "cta_text", "label": "Button", "default": "How finance works" },
+    { "type": "url", "id": "cta_link", "label": "Button link" },
+    { "type": "textarea", "id": "legal", "label": "Small print", "default": "Finance is subject to status and affordability checks. Terms and providers shown are those available at checkout; the options offered to you may differ." }
+  ],
+  "blocks": [
+    {
+      "type": "provider",
+      "name": "Provider mark",
+      "settings": [
+        { "type": "text", "id": "name", "label": "Name", "default": "Klarna", "info": "Only list providers that are actually live at your checkout." },
+        { "type": "color", "id": "bg", "label": "Background", "default": "#FFB3C7" },
+        { "type": "color", "id": "fg", "label": "Text", "default": "#17120F" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "CC Finance",
+      "blocks": [
+        { "type": "provider", "settings": { "name": "Klarna", "bg": "#FFB3C7", "fg": "#17120F" } },
+        { "type": "provider", "settings": { "name": "Clearpay", "bg": "#B2FCE4", "fg": "#10241E" } },
+        { "type": "provider", "settings": { "name": "PayPal", "bg": "#003087", "fg": "#FFFFFF" } }
+      ]
+    }
+  ]
+}
+{% endschema %}
