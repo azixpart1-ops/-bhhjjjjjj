@@ -61,6 +61,21 @@
     endif
   endfor
 
+  comment
+    Shopify's product type is often a full taxonomy path such as
+    "Furniture > Bedroom > Beds & Bed Frames". That is machine data, not a
+    line for a product card, so keep only the leaf and drop it if that still
+    reads like a category string rather than a label.
+  endcomment
+  assign clean_type = ''
+  if p.type != blank
+    assign type_parts = p.type | split: '>'
+    assign leaf = type_parts | last | strip
+    if leaf.size <= 28
+      assign clean_type = leaf
+    endif
+  endif
+
   assign rating = p.metafields.reviews.rating.value.rating | default: p.metafields.reviews.rating.value
   assign rating_count = p.metafields.reviews.rating_count.value
 
@@ -113,8 +128,8 @@
           {{ size_names[lo] }} to {{ size_names[hi] }}
         {%- endif -%}
       </p>
-    {%- elsif p.type != blank -%}
-      <p class="cc-pcard__meta">{{ p.type }}</p>
+    {%- elsif clean_type != blank -%}
+      <p class="cc-pcard__meta">{{ clean_type }}</p>
     {%- endif -%}
 
     <div class="cc-pcard__price">
