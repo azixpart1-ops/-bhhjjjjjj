@@ -7,7 +7,7 @@
 #
 # Usage: scripts/preview.sh [path] [outfile]
 set -euo pipefail
-THEME_ID="${CC_THEME_ID:-206992048459}"
+THEME_ID="${CC_THEME_ID:-207020949835}"
 SHOP="${CC_SHOP:-https://comfortcrest.co.uk}"
 PATH_="${1:-/}"
 OUT="${2:-/tmp/cc-preview.html}"

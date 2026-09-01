@@ -175,6 +175,22 @@ def load_store_only(root):
     return names
 
 
+def check_liquid_tag_comments(path, src):
+    """Inside `{% liquid %}`, every line is its own tag.
+
+    So `comment Some note. endcomment` on one line never closes — the rest of
+    the block is swallowed and Shopify drops the file on upload with no error.
+    Same silent failure mode as a filter in a render argument. Put `comment`,
+    the note, and `endcomment` on separate lines.
+    """
+    for m in re.finditer(r'{%-?\s*liquid\b(.*?)-?%}', src, re.S):
+        for line in m.group(1).split('\n'):
+            stripped = line.strip()
+            if stripped.startswith('comment') and stripped.endswith('endcomment'):
+                err(path, 'single-line `comment ... endcomment` inside '
+                          '{%% liquid %%} never closes: %s' % stripped[:60])
+
+
 def check_render_filters(path, src):
     """`{% render 'x', arg: value | filter %}` is not valid Liquid.
 
@@ -224,6 +240,7 @@ def main():
         check_tag_balance(p, src)
         check_render_targets(p, src, snippets, store_only)
         check_render_filters(p, src)
+        check_liquid_tag_comments(p, src)
         s = check_schema(p, src)
         if s is None:
             err(p, 'no {% schema %} block')
@@ -237,6 +254,7 @@ def main():
             check_tag_balance(p, src)
             check_render_targets(p, src, snippets, store_only)
         check_render_filters(p, src)
+        check_liquid_tag_comments(p, src)
 
     for f in sorted(os.listdir(tpl_dir)):
         if not f.endswith('.json'):

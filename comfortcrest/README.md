@@ -7,9 +7,14 @@ theme** so nothing here can break the live storefront:
 
 | | |
 |---|---|
-| Draft theme | `ComfortCrest — Premium (draft)` |
-| Theme ID | `206992048459` |
-| Preview | `https://comfortcrest.co.uk/?preview_theme_id=206992048459` |
+| **Live theme** | `ComfortCrest — Premium (draft)` — ID `206992048459` |
+| **Working draft** | `ComfortCrest — PDP update (draft)` — ID `207020949835` |
+| Preview the draft | `https://comfortcrest.co.uk/?preview_theme_id=207020949835` |
+
+> The first theme was published by the merchant, so it is now MAIN despite its
+> name. **Writes to it are blocked** — and should be. Duplicate it, change the
+> duplicate, and let the merchant publish. `themePublish` is blocked here too,
+> which is correct: going live is a person's decision, not this session's.
 
 > The preview link only works once Shopify has set a session cookie. Use
 > `scripts/preview.sh` — an anonymous request silently returns the **live**
