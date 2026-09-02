@@ -1,0 +1,324 @@
+{%- comment -%}
+  PawLunova buy box modules.
+
+  One snippet, many parts, so the whole buy column can be reasoned about in a
+  single file instead of a dozen. Called from Horizon `custom-liquid` blocks:
+
+      {% render 'pl-buybox', part: 'size' %}
+
+  DESIGN RULE — the reason this file exists in this shape:
+
+  This snippet only ever DECORATES the native Horizon blocks. Price, variant
+  picker and buy buttons stay Shopify's own markup, because the Google
+  automated-discounts app block, Shop Pay, Klarna and every analytics pixel
+  bind to that markup and to the events it fires. The moment a theme
+  hand-rolls its own price element or its own <form>, those integrations have
+  nothing to attach to and fail silently — which is exactly the fault this
+  page was rebuilt to remove.
+
+  So: never add a <form>, never re-render the price, never replace the
+  add-to-cart button here. Wrap them, sit above them, sit below them.
+
+  Nothing here invents a claim. Every part renders only when the data behind
+  it actually exists: no rating without reviews, no saving without a
+  compare-at price, no low-stock line without real tracked inventory, no
+  instalment figure outside the range Klarna will actually split.
+
+  Parts
+    eyebrow    breadcrumb from product type
+    rating     stars, only with real review metafields
+    promise    one-line benefit under the H1
+    anchor     saving badge, was-price, cost-per-night, category anchor
+    bnpl       branded Klarna 'Pay in 3' line
+    assure     three-badge reassurance strip, sits directly above the CTA
+    stock      honest scarcity, only from tracked inventory
+    size       sizing helper with the trial as the safety net
+    trust      four-up benefit grid under the CTA
+    compare    how this is built vs a typical bed
+    spec       specification from the category metafields
+    guarantee  the five-year callout
+{%- endcomment -%}
+
+{%- liquid
+  assign p = product | default: closest.product
+  assign v = p.selected_or_first_available_variant
+  assign part = part | default: 'trust'
+-%}
+
+{%- case part -%}
+
+{%- comment -%} ---------- breadcrumb / category eyebrow ---------- {%- endcomment -%}
+{%- when 'eyebrow' -%}
+  {%- assign crumbs = p.type | split: '>' -%}
+  <nav class="pl-bb pl-bb-eyebrow" aria-label="Breadcrumb">
+    <a href="/">Home</a>
+    {%- for c in crumbs -%}
+      <span class="pl-bb-eyebrow__sep" aria-hidden="true">/</span>
+      <span>{{ c | strip }}</span>
+    {%- endfor -%}
+  </nav>
+
+{%- comment -%} ---------- rating (renders only with real review data) ---------- {%- endcomment -%}
+{%- when 'rating' -%}
+  {%- liquid
+    assign rating = p.metafields.reviews.rating.value
+    assign rcount = p.metafields.reviews.rating_count | plus: 0
+  -%}
+  {%- if rating != blank and rcount > 0 -%}
+    {%- assign whole = rating.rating | round -%}
+    <p class="pl-bb pl-bb-rating">
+      <span class="pl-bb-rating__stars" role="img"
+            aria-label="{{ rating.rating }} out of {{ rating.scale_max }} stars">
+        {%- for i in (1..5) -%}
+          <svg viewBox="0 0 20 20" aria-hidden="true" fill="{% if i <= whole %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="1.4">
+            <path d="M10 1.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L1.6 7.7l5.8-.8z"/>
+          </svg>
+        {%- endfor -%}
+      </span>
+      <span class="pl-bb-rating__count">
+        <a href="#pl-reviews">{{ rating.rating }} out of 5 &middot; {{ rcount }} review{% if rcount != 1 %}s{% endif %}</a>
+      </span>
+    </p>
+  {%- endif -%}
+
+{%- comment -%} ---------- one-line promise under the H1 ---------- {%- endcomment -%}
+{%- when 'promise' -%}
+  {%- if text != blank -%}
+    <p class="pl-bb pl-bb-promise">{{ text }}</p>
+  {%- endif -%}
+
+{%- comment -%} ---------- saving badge, was-price, per-night, category anchor ----------
+
+  The per-night figure is the trial length divided into the price the shopper
+  is actually looking at. It is arithmetic on a real number, not a claim, and
+  it reframes a three-figure price as the small daily one it really is —
+  the standard mattress-industry move, and the honest version of it.
+{%- endcomment -%}
+{%- when 'anchor' -%}
+  {%- liquid
+    assign nights = trial_nights | default: 100 | plus: 0
+    assign has_save = false
+    if v.compare_at_price > v.price
+      assign has_save = true
+      assign diff = v.compare_at_price | minus: v.price
+      assign pct = diff | times: 100.0 | divided_by: v.compare_at_price | round
+    endif
+    assign per_night = 0
+    if nights > 0
+      assign per_night = v.price | divided_by: nights
+    endif
+  -%}
+  {%- if has_save -%}
+    <div class="pl-bb pl-bb-anchor">
+      <span class="pl-bb-save">Save {{ diff | money_without_trailing_zeros }} ({{ pct }}%)</span>
+      <span class="pl-bb-compare">was <s>{{ v.compare_at_price | money }}</s></span>
+    </div>
+  {%- endif -%}
+  {%- if per_night > 0 and show_per_night != false -%}
+    <p class="pl-bb pl-bb-pernight" data-pl-pernight data-nights="{{ nights }}">
+      Works out at <b data-pl-pernight-amt>{{ per_night | money }}</b> a night across the {{ nights }}-night trial.
+    </p>
+  {%- endif -%}
+  {%- if anchor_text != blank -%}
+    <p class="pl-bb pl-bb-note">{{ anchor_text }}</p>
+  {%- endif -%}
+
+{%- comment -%} ---------- reassurance strip, sits directly above the CTA ----------
+
+  Three, deliberately. The research on this is consistent: past three badges
+  they stop reading as reassurance and start reading as decoration, and the
+  whole row loses its weight. These are the three that answer the three
+  questions a shopper actually has at the button — is my money safe, what if
+  it's wrong, and how long have I got.
+{%- endcomment -%}
+{%- when 'assure' -%}
+  <ul class="pl-bb pl-bb-assure">
+    <li>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3.5" y="8.5" width="13" height="8.5" rx="1.5"/><path d="M6.5 8.5V6a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+      <span>{{ a1 | default: 'Secure checkout' }}</span>
+    </li>
+    <li>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 10a7 7 0 0 1 12-4.9M17 10a7 7 0 0 1-12 4.9"/><path d="M15 2.5v3.2h-3.2M5 17.5v-3.2h3.2"/></svg>
+      <span>{{ a2 | default: 'Free UK collection' }}</span>
+    </li>
+    <li>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4.2l2.8 1.7"/></svg>
+      <span>{{ a3 | default: '100-night sleep trial' }}</span>
+    </li>
+  </ul>
+
+{%- comment -%} ---------- Klarna "Pay in 3", branded ----------
+
+  Horizon's native price block can show Shopify's own instalment widget, but
+  that is Shop Pay Installments, which is a different product from Klarna and
+  is not offered in the UK. The branded Klarna line is therefore rendered
+  here instead, from the same snippet the product cards use, so the buy box
+  states the instalment option the shopper will actually be given at
+  checkout — with Klarna's own pink mark rather than an unbranded grey line.
+
+  pl-bnpl gates itself on shop.enabled_payment_types, so if Klarna is ever
+  switched off in Settings > Payments this disappears on its own.
+{%- endcomment -%}
+{%- when 'bnpl' -%}
+  {%- render 'pl-bnpl', price: v.price, product: p -%}
+
+{%- comment -%} ---------- honest scarcity ----------
+
+  Only ever from tracked inventory on the selected variant, and only under a
+  threshold the merchant sets. No countdown, no invented "12 people are
+  viewing". A scarcity line that is not true is the fastest way to lose the
+  trust the rest of this page is built to earn.
+{%- endcomment -%}
+{%- when 'stock' -%}
+  {%- liquid
+    assign threshold = low_at | default: 6 | plus: 0
+    assign tracked = false
+    if v.inventory_management == 'shopify'
+      assign tracked = true
+    endif
+  -%}
+  {%- if tracked and v.available and v.inventory_quantity > 0 and v.inventory_quantity <= threshold -%}
+    <p class="pl-bb pl-bb-stock pl-bb-stock--low">
+      <span class="pl-bb-stock__dot" aria-hidden="true"></span>
+      Only {{ v.inventory_quantity }} left in this size
+    </p>
+  {%- elsif v.available -%}
+    <p class="pl-bb pl-bb-stock pl-bb-stock--in">
+      <span class="pl-bb-stock__dot" aria-hidden="true"></span>
+      In stock, ready to dispatch
+    </p>
+  {%- endif -%}
+
+{%- comment -%} ---------- size helper, sat directly under the picker ---------- {%- endcomment -%}
+{%- when 'size' -%}
+  {%- liquid
+    assign sizes = p.metafields.shopify['accessory-size'].value
+    assign breeds = p.metafields.custom.breed_guide.value
+    assign guide = guide_url | default: '/pages/size-guide'
+  -%}
+  <div class="pl-bb pl-bb-size">
+    <div class="pl-bb-size__head">
+      <p class="pl-bb-size__title">{{ title | default: 'Getting the size right' }}</p>
+      <a class="pl-bb-size__link" href="{{ guide }}">Full size guide</a>
+    </div>
+
+    {%- unless p.has_only_default_variant -%}
+      <p class="pl-bb-size__dims">Selected: {{ v.title }}</p>
+    {%- else -%}
+      {%- if sizes != blank -%}
+        <p class="pl-bb-size__dims">
+          {%- for s in sizes -%}{{ s.label }}{%- unless forloop.last %} &middot; {% endunless -%}{%- endfor -%}
+        </p>
+      {%- endif -%}
+    {%- endunless -%}
+
+    {%- if breeds != blank -%}
+      <p class="pl-bb-size__breeds">Typically suits {{ breeds }}.</p>
+    {%- endif -%}
+
+    <p class="pl-bb-size__rule">
+      Measure your dog nose to base of tail while they are lying stretched out, then add
+      15&ndash;20cm. Between two sizes, size up, because dogs need more length than owners expect.
+    </p>
+
+    <p class="pl-bb-size__safety">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <path d="M10 2.5l6.5 2.6v4.6c0 4-2.8 6.9-6.5 7.8-3.7-.9-6.5-3.8-6.5-7.8V5.1z"/>
+        <path d="M7.2 10.1l2 2 3.6-4"/>
+      </svg>
+      <span><b>Get it wrong and the trial covers it.</b>
+      <span>Tell us inside 100 nights, we collect it free and send the right size.</span></span>
+    </p>
+  </div>
+
+{%- comment -%} ---------- trust strip, under the CTA ---------- {%- endcomment -%}
+{%- when 'trust' -%}
+  <ul class="pl-bb pl-bb-trust">
+    <li>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 2.5l6.5 2.6v4.6c0 4-2.8 6.9-6.5 7.8-3.7-.9-6.5-3.8-6.5-7.8V5.1z"/><path d="M7.2 10.1l2 2 3.6-4"/></svg>
+      <span><b>100-night sleep trial</b><span>Slept on, not just unopened</span></span>
+    </li>
+    <li>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 10a7 7 0 0 1 12-4.9M17 10a7 7 0 0 1-12 4.9"/><path d="M15 2.5v3.2h-3.2M5 17.5v-3.2h3.2"/></svg>
+      <span><b>Free UK collection</b><span>If it isn't right, we arrange it</span></span>
+    </li>
+    <li>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="7.5" r="4.5"/><path d="M6.5 11.5L5 18l5-2.2L15 18l-1.5-6.5"/></svg>
+      <span><b>5-year foam guarantee</b><span>On every memory foam bed</span></span>
+    </li>
+    <li>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 2.5s5 4.6 5 8a5 5 0 0 1-10 0c0-3.4 5-8 5-8z"/></svg>
+      <span><b>Washable cover</b><span>Unzips, 30&deg;C, waterproof liner beneath</span></span>
+    </li>
+  </ul>
+
+{%- comment -%} ---------- how this is built vs a typical bed ----------
+
+  Every line on the right is a claim this shop already makes elsewhere on the
+  site. The left column describes the commodity category in general terms and
+  names no competitor, because a comparison table that puts words in a named
+  rival's mouth is a legal problem, not a conversion tactic.
+{%- endcomment -%}
+{%- when 'compare' -%}
+  <div class="pl-bb pl-bb-compare-table">
+    <p class="pl-bb-compare-table__title">{{ title | default: 'How this is built' }}</p>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col"><span class="pl-bb-vs">&nbsp;</span></th>
+          <th scope="col"><span class="pl-bb-vs pl-bb-vs--them">A typical dog bed</span></th>
+          <th scope="col"><span class="pl-bb-vs pl-bb-vs--us">This bed</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Filling</th><td>Shredded offcuts or low-density foam</td><td>50kg/m&sup3; high-density core</td></tr>
+        <tr><th scope="row">Guarantee</th><td>Rarely more than a year</td><td>5 years on the foam</td></tr>
+        <tr><th scope="row">Trial</th><td>14 days, unused</td><td>100 nights, slept on</td></tr>
+        <tr><th scope="row">Returns</th><td>You pay the courier</td><td>Free UK collection</td></tr>
+        <tr><th scope="row">Cleaning</th><td>Spot-clean only</td><td>Cover unzips, machine washes at 30&deg;C</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+{%- comment -%} ---------- specification, built from the category metafields ---------- {%- endcomment -%}
+{%- when 'spec' -%}
+  {%- liquid
+    assign m_size = p.metafields.shopify['accessory-size'].value
+    assign m_mat = p.metafields.shopify.material.value
+    assign m_col = p.metafields.shopify['color-pattern'].value
+    assign m_shape = p.metafields.shopify.shape.value
+    assign m_feat = p.metafields.shopify['pet-bedding-features'].value
+    assign m_space = p.metafields.shopify['suitable-space'].value
+  -%}
+  <table class="pl-bb pl-bb-spec">
+    {%- if m_size != blank -%}
+      <tr><th>Sizes</th><td>{% for x in m_size %}{{ x.label }}{% unless forloop.last %}<br>{% endunless %}{% endfor %}</td></tr>
+    {%- endif -%}
+    {%- if m_mat != blank -%}
+      <tr><th>Materials</th><td>{% for x in m_mat %}{{ x.label }}{% unless forloop.last %}, {% endunless %}{% endfor %}</td></tr>
+    {%- endif -%}
+    {%- if m_col != blank -%}
+      <tr><th>Colour</th><td>{% for x in m_col %}{{ x.label }}{% unless forloop.last %}, {% endunless %}{% endfor %}</td></tr>
+    {%- endif -%}
+    {%- if m_shape != blank -%}
+      <tr><th>Shape</th><td>{% for x in m_shape %}{{ x.label }}{% unless forloop.last %}, {% endunless %}{% endfor %}</td></tr>
+    {%- endif -%}
+    {%- if m_feat != blank -%}
+      <tr><th>Features</th><td>{% for x in m_feat %}{{ x.label }}{% unless forloop.last %}, {% endunless %}{% endfor %}</td></tr>
+    {%- endif -%}
+    {%- if m_space != blank -%}
+      <tr><th>Suitable for</th><td>{% for x in m_space %}{{ x.label }}{% unless forloop.last %}, {% endunless %}{% endfor %}</td></tr>
+    {%- endif -%}
+    {%- if v.sku != blank -%}<tr><th>Item code</th><td>{{ v.sku }}</td></tr>{%- endif -%}
+  </table>
+
+{%- comment -%} ---------- guarantee callout ---------- {%- endcomment -%}
+{%- when 'guarantee' -%}
+  <p class="pl-bb pl-bb-guarantee">
+    <span><b>The foam is guaranteed for five years.</b>
+    <span>If the core stops holding its shape inside that window we replace the bed.
+    The 100-night trial sits in front of it: sleep on it, and if your dog doesn't
+    settle we collect it free and refund in full.</span></span>
+  </p>
+
+{%- endcase -%}

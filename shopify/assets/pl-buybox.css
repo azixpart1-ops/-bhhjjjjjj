@@ -1,0 +1,240 @@
+/* ============================================================
+   PawLunova buy box — enhancements layered on Horizon defaults.
+
+   Everything here decorates the native Horizon product blocks
+   rather than replacing them. The price, variant picker and buy
+   buttons stay Shopify's own markup so app blocks (Google
+   automated discounts, Shop Pay, Klarna) can bind to them.
+
+   Colour is derived from Horizon's own scheme tokens
+   (--color-foreground / --color-background) wherever a value has
+   to sit against theme-controlled paper, so switching the colour
+   scheme in the editor carries this file with it instead of
+   leaving stranded hard-coded greys. The brand accents are the
+   only fixed values, and each one has a token fallback.
+
+   Scoped under .pl-bb so nothing leaks into other templates.
+   ============================================================ */
+
+:root {
+  --pl-forest: #2c4a3e;
+  --pl-gold: #c9943a;
+  --pl-cream: #faf8f4;
+  --pl-char: #2d2d2d;
+}
+
+.pl-bb {
+  --pl-ink: var(--color-foreground, var(--pl-char));
+  --pl-paper: var(--color-background, #fff);
+  --pl-line: color-mix(in srgb, var(--pl-ink) 14%, transparent);
+  --pl-line-soft: color-mix(in srgb, var(--pl-ink) 8%, transparent);
+  --pl-muted: color-mix(in srgb, var(--pl-ink) 60%, transparent);
+  --pl-wash: color-mix(in srgb, var(--pl-ink) 3.5%, transparent);
+
+  font-family: var(--font-body--family);
+  color: var(--pl-ink);
+}
+.pl-bb * { box-sizing: border-box; }
+
+/* ---------- eyebrow / breadcrumb ---------- */
+.pl-bb-eyebrow {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  font-size: .6875rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--pl-muted); margin: 0 0 2px; font-weight: 500;
+}
+.pl-bb-eyebrow a { color: inherit; text-decoration: none; transition: color .18s ease; }
+.pl-bb-eyebrow a:hover { color: var(--pl-forest); text-decoration: underline; text-underline-offset: 3px; }
+.pl-bb-eyebrow__sep { opacity: .4; }
+
+/* ---------- rating row ---------- */
+.pl-bb-rating { display: flex; align-items: center; gap: 9px; margin: 0; font-size: .875rem; }
+.pl-bb-rating__stars { display: inline-flex; gap: 2px; color: var(--pl-gold); line-height: 1; }
+.pl-bb-rating__stars svg { width: 15px; height: 15px; display: block; }
+.pl-bb-rating__count { color: var(--pl-muted); }
+.pl-bb-rating__count a { color: inherit; text-underline-offset: 3px; }
+
+/* ---------- promise line under the title ---------- */
+.pl-bb-promise {
+  margin: 0; font-size: 1.0625rem; line-height: 1.55;
+  color: color-mix(in srgb, var(--pl-ink) 84%, transparent);
+  text-wrap: pretty;
+}
+
+/* ---------- price anchor, saving, per-night ---------- */
+.pl-bb-anchor { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 6px 0 0; }
+.pl-bb-save {
+  display: inline-flex; align-items: center;
+  background: color-mix(in srgb, var(--pl-forest) 12%, transparent);
+  color: var(--pl-forest);
+  border-radius: 999px; padding: 4px 11px;
+  font-size: .8125rem; font-weight: 650; letter-spacing: .01em;
+}
+.pl-bb-compare { font-size: .875rem; color: var(--pl-muted); }
+.pl-bb-compare s { text-decoration-thickness: 1px; }
+
+.pl-bb-pernight {
+  margin: 7px 0 0; font-size: .875rem; line-height: 1.5;
+  color: var(--pl-muted);
+}
+.pl-bb-pernight b { color: var(--pl-ink); font-weight: 650; }
+
+.pl-bb-note { margin: 6px 0 0; font-size: .8125rem; color: var(--pl-muted); line-height: 1.55; }
+
+/* ---------- reassurance strip, directly above the CTA ---------- */
+.pl-bb-assure {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px; margin: 0; padding: 0; list-style: none;
+  border: 1px solid var(--pl-line); border-radius: 10px;
+  background: var(--pl-line-soft); overflow: hidden;
+}
+.pl-bb-assure li {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 11px 8px; text-align: center;
+  background: var(--pl-paper);
+  font-size: .75rem; font-weight: 550; line-height: 1.3;
+  letter-spacing: .005em;
+}
+.pl-bb-assure svg { width: 17px; height: 17px; color: var(--pl-forest); }
+@media (max-width: 380px) {
+  .pl-bb-assure li { font-size: .6875rem; padding: 10px 5px; }
+}
+
+/* ---------- stock line ---------- */
+.pl-bb-stock {
+  display: flex; align-items: center; gap: 7px; margin: 0;
+  font-size: .8125rem; font-weight: 550;
+}
+.pl-bb-stock__dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.pl-bb-stock--in { color: var(--pl-forest); }
+.pl-bb-stock--in .pl-bb-stock__dot { background: var(--pl-forest); }
+.pl-bb-stock--low { color: #a4601b; }
+.pl-bb-stock--low .pl-bb-stock__dot {
+  background: #c9781f;
+  box-shadow: 0 0 0 0 color-mix(in srgb, #c9781f 60%, transparent);
+  animation: pl-pulse 2.4s ease-out infinite;
+}
+@keyframes pl-pulse {
+  70% { box-shadow: 0 0 0 6px color-mix(in srgb, #c9781f 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, #c9781f 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pl-bb-stock--low .pl-bb-stock__dot { animation: none; }
+}
+
+/* ---------- size helper ---------- */
+.pl-bb-size {
+  border: 1px solid var(--pl-line); border-radius: 12px;
+  padding: 15px 16px; margin: 0;
+  background: var(--pl-wash);
+}
+.pl-bb-size__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; margin: 0 0 7px;
+}
+.pl-bb-size__title { font-size: .75rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+.pl-bb-size__link { font-size: .8125rem; color: var(--pl-forest); text-underline-offset: 3px; white-space: nowrap; }
+.pl-bb-size__dims { margin: 0 0 4px; font-size: .9375rem; font-weight: 650; }
+.pl-bb-size__breeds { margin: 0 0 8px; font-size: .875rem; color: var(--pl-muted); line-height: 1.5; }
+.pl-bb-size__rule { margin: 0; font-size: .8125rem; color: var(--pl-muted); line-height: 1.6; }
+.pl-bb-size__safety {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin: 11px 0 0; padding-top: 11px; border-top: 1px dashed var(--pl-line);
+  font-size: .8125rem; line-height: 1.5;
+}
+.pl-bb-size__safety svg { flex: 0 0 auto; width: 15px; height: 15px; margin-top: 2px; color: var(--pl-forest); }
+.pl-bb-size__safety b { font-weight: 650; }
+.pl-bb-size__safety > span > span { color: var(--pl-muted); }
+
+/* ---------- trust strip under the CTA ---------- */
+.pl-bb-trust {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px; margin: 0; padding: 0; list-style: none;
+}
+.pl-bb-trust li { display: flex; gap: 8px; align-items: flex-start; font-size: .8125rem; line-height: 1.45; }
+.pl-bb-trust svg { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px; color: var(--pl-forest); }
+.pl-bb-trust b { display: block; font-weight: 650; }
+.pl-bb-trust span span { color: var(--pl-muted); }
+@media (max-width: 480px) { .pl-bb-trust { grid-template-columns: 1fr; gap: 10px; } }
+
+/* ---------- how this is built ---------- */
+.pl-bb-compare-table {
+  border: 1px solid var(--pl-line); border-radius: 12px; overflow: hidden;
+}
+.pl-bb-compare-table__title {
+  margin: 0; padding: 12px 14px;
+  font-size: .75rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase;
+  border-bottom: 1px solid var(--pl-line);
+  background: var(--pl-wash);
+}
+.pl-bb-compare-table table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
+.pl-bb-compare-table th, .pl-bb-compare-table td {
+  text-align: left; padding: 10px 12px; vertical-align: top;
+  border-bottom: 1px solid var(--pl-line-soft);
+}
+.pl-bb-compare-table tbody tr:last-child th,
+.pl-bb-compare-table tbody tr:last-child td { border-bottom: 0; }
+.pl-bb-compare-table tbody th { font-weight: 650; width: 26%; }
+.pl-bb-compare-table tbody td:first-of-type { color: var(--pl-muted); width: 37%; }
+.pl-bb-compare-table tbody td:last-child { font-weight: 550; width: 37%; }
+.pl-bb-vs { font-size: .6875rem; letter-spacing: .07em; text-transform: uppercase; font-weight: 650; }
+.pl-bb-vs--them { color: var(--pl-muted); }
+.pl-bb-vs--us { color: var(--pl-forest); }
+@media (max-width: 480px) {
+  .pl-bb-compare-table th, .pl-bb-compare-table td { padding: 9px 10px; font-size: .78125rem; }
+  .pl-bb-compare-table tbody th { width: 30%; }
+}
+
+/* ---------- specification table ---------- */
+.pl-bb-spec { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.pl-bb-spec th, .pl-bb-spec td { text-align: left; padding: 10px 0; vertical-align: top; border-bottom: 1px solid var(--pl-line-soft); }
+.pl-bb-spec th { font-weight: 650; width: 42%; padding-right: 14px; }
+.pl-bb-spec td { color: var(--pl-muted); }
+.pl-bb-spec tr:last-child th, .pl-bb-spec tr:last-child td { border-bottom: 0; }
+
+/* ---------- guarantee callout ---------- */
+.pl-bb-guarantee {
+  display: flex; gap: 12px; align-items: flex-start;
+  border-left: 3px solid var(--pl-gold); padding: 3px 0 3px 14px; margin: 0;
+  font-size: .875rem; line-height: 1.6;
+}
+.pl-bb-guarantee b { display: block; font-weight: 650; margin-bottom: 3px; }
+.pl-bb-guarantee > span > span { color: var(--pl-muted); }
+
+/* ============================================================
+   Native Horizon blocks — restrained lifts only.
+
+   These re-style Shopify's own elements without replacing them,
+   which is the whole point: the markup and its events stay
+   intact for the apps that bind to them.
+   ============================================================ */
+
+/* Price sits larger and tighter in the buy column */
+.product-details product-price {
+  font-size: 1.75rem; font-weight: 650; letter-spacing: -.015em;
+}
+.product-details product-price .installments {
+  font-size: .8125rem; font-weight: 400; margin-top: 6px;
+}
+
+/* A primary CTA with some presence. Horizon's own height and radius
+   tokens are respected, so the editor's button settings still win. */
+.product-details .add-to-cart-button {
+  font-weight: 650;
+  letter-spacing: .01em;
+  transition: transform .12s ease, box-shadow .18s ease, filter .18s ease;
+}
+.product-details .add-to-cart-button:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-foreground, #000) 16%, transparent);
+}
+.product-details .add-to-cart-button:active { transform: translateY(1px); }
+@media (prefers-reduced-motion: reduce) {
+  .product-details .add-to-cart-button { transition: none; }
+  .product-details .add-to-cart-button:active { transform: none; }
+}
+
+/* Variant buttons: clearer selected state than the stock outline */
+.product-details .variant-option__button-label--button[aria-checked='true'],
+.product-details .variant-option__button-label--button.selected {
+  box-shadow: inset 0 0 0 2px currentColor;
+}
