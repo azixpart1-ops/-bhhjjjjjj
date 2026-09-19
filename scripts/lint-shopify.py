@@ -239,6 +239,27 @@ def main():
 
         secs = tpl.get('sections', {})
         order = tpl.get('order', [])
+
+        # A market or context override carries "parent": "product.json" and only
+        # the sections it adds or overrides; everything else in its order comes
+        # from the parent template. Reading it on its own makes every inherited
+        # section look undefined, which is how this check reported nine errors on
+        # product.context.gb.json while Shopify itself accepted the file. Merge
+        # the parent's sections in before deciding anything is missing.
+        parent = tpl.get('parent')
+        if parent:
+            pp = os.path.join(tpl_dir, parent)
+            if os.path.exists(pp):
+                praw = open(pp, encoding='utf-8').read()
+                pbody = re.sub(r'\A\s*/\*.*?\*/\s*', '', praw, flags=re.S)
+                try:
+                    secs = dict(json.loads(pbody).get('sections', {}), **secs)
+                except ValueError:
+                    warn(p, 'parent template %r is not valid JSON, so inherited '
+                            'sections could not be checked' % parent)
+            else:
+                err(p, 'parent template %r does not exist' % parent)
+
         for key in order:
             if key not in secs:
                 err(p, 'order lists %r which has no section entry' % key)
