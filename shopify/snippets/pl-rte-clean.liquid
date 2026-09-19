@@ -6,9 +6,23 @@
   live on the page as all-caps H2s: THE MOMENT, THE PROMISE, FEATURE TO
   BENEFIT, THE CLOSE. Those are notes to the writer, not to the customer.
 
-  This removes them and leaves the prose to flow, then relabels the genuine
-  content headings into sentence case and demotes them to H3 so the page keeps
-  one H1 and a clean outline.
+  This removes them and leaves the prose to flow. Genuine content headings are
+  emitted as written.
+
+  It used to relabel them with `key | capitalize`, but `key` has already been
+  through `downcase` for the drop comparison, and Liquid's capitalize lower-cases
+  everything after the first character. A heading of more than one sentence came
+  out as "24cm deep. gel memory foam. for the dog who has earned it.", and any
+  brand or place name in a heading was lower-cased with it. It now prints `head`
+  instead, so the copy renders exactly as written; `key` is still computed and
+  still drives the drop match, so that behaviour is unchanged.
+
+  The heading also stays an H2 rather than being demoted to H3. The product title
+  is the page's H1 and the subheads inside a description are already H3s, so
+  demoting the lead left the outline H1 -> H3 with nothing between, and the lead
+  heading rendered at the same size as the subheads under it. `.pl-rte h2` is
+  styled at 1.5rem against h3's 1.28rem in pl-styles.css, which is the size step
+  this was always meant to have.
 
   Doing it here rather than by editing the descriptions means the product copy
   is never touched, every new product is handled automatically, and the whole
@@ -29,6 +43,6 @@
     assign key = head | strip_html | downcase | strip
     assign body = chunk | remove_first: head | remove_first: '</h2>'
   -%}
-  {%- unless drops contains key -%}<h3>{{ key | capitalize }}</h3>{%- endunless -%}
+  {%- unless drops contains key -%}<h2>{{ head | strip_html | strip }}</h2>{%- endunless -%}
   {{ body }}
 {%- endfor -%}
