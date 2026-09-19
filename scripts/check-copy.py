@@ -33,7 +33,7 @@ LIMITS = {
     "key_benefit_title": (8, 42),
     "key_benefit_description": (40, 170),
 }
-WORDS = (330, 780)
+WORDS = (380, 820)  # a 7-question FAQ costs ~200 words on top of the body
 
 ALLOWED_TAGS = {
     "div", "h2", "h3", "h4", "p", "ul", "ol", "li", "strong", "em", "br",
@@ -94,6 +94,18 @@ REQUIRED_PATTERNS = [
 # by then. Anything NOT on this list that turns up on three or more products is
 # accidental, and accidental duplication across near-identical beds is the one
 # thing most likely to get this catalogue treated as thin content.
+# The seven-question spine from the brief. Matched loosely, because the wording
+# of a question is allowed to suit its product; what is not allowed is dropping one.
+FAQ_SPINE = [
+    ("sizing", r"which size|what size|size to get|size do I"),
+    ("delivery", r"delivery|how quickly|how long.{0,20}(arrive|take)|when.{0,15}arrive"),
+    ("instalments", r"instalment|installment|klarna|pay in 3|spread the cost"),
+    ("product-specific", r"<h3>[^<]{10,}\?</h3>"),
+    ("older dog", r"older dog|ageing dog|aging dog|stiff|finds it hard to get up|senior"),
+    ("washing", r"wash"),
+    ("won't use it", r"(won.t|will not|does not|doesn.t) (use|settle|take to)"),
+]
+
 BOILERPLATE_STEMS = (
     # trial, guarantee and returns
     "read the full returns and guarantee terms",
@@ -124,6 +136,19 @@ BOILERPLATE_STEMS = (
     "outside measurement",
     "take up part of the outside footprint",
     "the bolsters take up",
+    # outdoor, kennel and travel safety terms. These are the ones that most need
+    # to read the same on every product that carries them: a supervision warning
+    # or a returns window rewritten for freshness is a worse warning.
+    "supervise your dog",
+    "does not prevent overheating",
+    "shade and water still matter",
+    "enter, stand, turn and lie",
+    "internal resting area",
+    "30-day change-of-mind",
+    "not covered by the 100-night sleep trial",
+    "not a vehicle restraint",
+    "contact us for the exact dimensions",
+    "wipe the shell with a damp cloth",
     # the FAQ spine, which the brief keeps identical on all 64 for the schema
     "how do i know which size to get",
     "how much is delivery",
@@ -176,10 +201,23 @@ def check_html(h: str, err, warn):
         err(f"unclosed HTML tag(s): {', '.join(stack)}")
     if not re.match(r"\s*<div class=\"pawlunova-product-copy\">", h):
         err('description must open with <div class="pawlunova-product-copy">')
-    if len(re.findall(r"<h2", h)) != 1:
-        err("description needs exactly one <h2>")
+    # pl-rte-clean splits the description on the literal string "<h2>", so an
+    # <h2 class="..."> is invisible to it: not dropped, not re-emitted, just
+    # passed through raw. Every h2 here has to be a bare one.
+    bare = len(re.findall(r"<h2>", h))
+    anyh2 = len(re.findall(r"<h2\b", h))
+    if anyh2 != bare:
+        err("an <h2> carries an attribute; the theme only recognises a bare <h2>")
+    if not (1 <= bare <= 3):
+        err(f"description has {bare} <h2> headings, outside the 1-3 the brief's spine allows")
     if re.search(r"<h1", h):
         err("description must not contain an <h1> — the theme renders the product title as the H1")
+
+    # The FAQPage schema is the one structural advantage this catalogue has over
+    # every competitor in the teardown, and it only pays if the questions are there.
+    missing_q = [label for label, pattern in FAQ_SPINE if not re.search(pattern, h, re.I)]
+    if missing_q:
+        err(f"FAQ is missing {len(missing_q)} of the 7 questions: {', '.join(missing_q)}")
 
 
 def band(name, value, err, key=None):
@@ -248,6 +286,35 @@ def main() -> int:
             band(f"vitals.{k}", v[k], err, key=key)
         if v.get("tagline"):
             taglines[v["tagline"].lower()] += 1
+
+        # A price inside a metafield goes stale silently, because it is edited
+        # somewhere other than the price. That is exactly how Melbreak ended up
+        # advertising £195 on a £155 bed. Prices belong in the body, where the
+        # per-night reframe needs them and where this check can see them.
+        for field, value in list(v.items()) + [(f"product_highlights[{i}]", x)
+                                               for i, x in enumerate(rec["product_highlights"])]:
+            if re.search(r"£\s?\d", value or ""):
+                err(f"{field} contains a price, which will go stale: {value[:60]}…")
+
+        hl = rec.get("product_highlights") or []
+        if len(hl) != 4:
+            err(f"{len(hl)} product highlights; the theme shows at most 4 and hides the block below 2")
+        for i, x in enumerate(hl):
+            if "," in x:
+                err(f'highlight {i+1} contains a comma, which splits it into two bullets: "{x}"')
+            if "~~" in x:
+                err(f"highlight {i+1} contains the theme's internal separator '~~'")
+            if re.search(r"[<>&]", x):
+                err(f"highlight {i+1} contains markup or an entity, which renders literally: {x[:50]}")
+            if not (25 <= len(x) <= 100):
+                err(f"highlight {i+1} is {len(x)} chars, outside 25-100: {x[:50]}")
+
+        bg = rec.get("breed_guide") or ""
+        if bg:
+            if bg[0].isupper():
+                err(f'breed_guide must be a lower-case fragment — the theme writes "Typically suits {bg[:40]}…"')
+            if bg.rstrip().endswith("."):
+                err("breed_guide must not end with a full stop; the theme adds one")
 
         body = rec["descriptionHtml"]
         check_html(body, err, warn)
