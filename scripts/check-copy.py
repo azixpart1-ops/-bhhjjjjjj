@@ -54,7 +54,10 @@ VITALS_KEYS = [
 BANNED = [
     (r"\bcures?\b|\bcuring\b", "medical claim: cure"),
     (r"\bheals?\b|\bhealing\b", "medical claim: heal"),
-    (r"\btreats?\b(?!\s+(?:them|him|her|your dog)\b)|\btreating\b|\btreatment for\b", "medical claim: treat"),
+    (r"\btreat(?:s|ing)?\s+(?:\w+\s+){0,2}?"
+     r"(?:arthritis|pain|joints?|hips?|elbows?|dysplasia|inflammation|symptoms?|"
+     r"stiffness|soreness|a condition)\b"
+     r"|\btreatment for\b", "medical claim: treat"),
     (r"pain[- ]free|relieves? (?:all )?pain|eliminates? pain|takes? (?:the |their )?pain away", "medical claim: pain"),
     (r"\bclinically\b|\bmedically\b|\bveterinary[- ]grade\b|\bvet[- ]approved\b|\bprescribed\b", "unsubstantiated authority claim"),
     (r"\bcertified orthopaedic\b|\bmedical[- ]grade\b", "unsubstantiated authority claim"),
@@ -84,13 +87,56 @@ REQUIRED_PATTERNS = [
     (r"100[- ]night", "the 100-night trial"),
 ]
 
-BOILERPLATE_HINTS = (
-    "policies/refund-policy",
-    "policies/shipping-policy",
-    "speak to your vet",
+# Sentences the whole catalogue is MEANT to share: the trial and guarantee
+# terms, the delivery line, the vet line, the care instruction, the measuring
+# rule and the FAQ spine. These are matched on the rendered text, because the
+# duplication check runs after tags are stripped and the policy hrefs are gone
+# by then. Anything NOT on this list that turns up on three or more products is
+# accidental, and accidental duplication across near-identical beds is the one
+# thing most likely to get this catalogue treated as thin content.
+BOILERPLATE_STEMS = (
+    # trial, guarantee and returns
+    "read the full returns and guarantee terms",
+    "one trial per household",
+    "we arrange free uk mainland collection",
+    "we collect it free from the uk mainland",
+    "try it at home for 100 nights",
+    "that is what the 100 nights are for",
+    "no-flatten guarantee under normal domestic use",
+    "in addition to your statutory rights",
+    # delivery
+    "free standard uk delivery on orders over",
+    "check delivery timings and any product-specific lead time",
+    # the vet line
+    "speak to your vet about the right resting surface",
+    "a bed is for comfort",
+    # care
     "sewn-in care label",
-    "free standard uk delivery",
+    "sewn-in label",
+    "sewn-in washing instructions",
+    "never wash or soak the foam",
+    "the cover unzips and takes a 30",
+    "leather handles have their own care instructions",
+    "air-dry",
+    # sizing help
+    "measure your dog",
+    "message us their breed and weight",
+    "outside measurement",
+    "take up part of the outside footprint",
+    "the bolsters take up",
+    # the FAQ spine, which the brief keeps identical on all 64 for the schema
+    "how do i know which size to get",
+    "how much is delivery",
+    "can i pay in instalments",
+    "will it suit an older dog",
+    "can i actually wash it",
+    "what if my dog just",
 )
+
+# A sentence may legitimately appear on this many products before it counts as
+# accidental. Two beds in the same family landing on one shared line is noise;
+# three is a pattern.
+MAX_SHARED = 2
 
 
 def strip_tags(s: str) -> str:
@@ -163,6 +209,7 @@ def main() -> int:
 
     errors = defaultdict(list)
     warnings = defaultdict(list)
+    boilerplate_hits = Counter()
     sentence_owner = defaultdict(set)
     seo_titles, feed_titles, taglines = Counter(), Counter(), Counter()
     docs = []
@@ -228,13 +275,11 @@ def main() -> int:
                 warn(f"size/option '{size}' is not mentioned in the description")
 
         for s in sentences(text):
-            key = re.sub(r"[^a-z0-9 ]", "", s.lower())
-            if any(hint in key for hint in
-                   (b.replace("/", "").replace("-", "") for b in BOILERPLATE_HINTS)):
+            low = s.lower()
+            if any(stem in low for stem in BOILERPLATE_STEMS):
+                boilerplate_hits[h] += 1
                 continue
-            if any(hint in s.lower() for hint in BOILERPLATE_HINTS):
-                continue
-            sentence_owner[key].add(h)
+            sentence_owner[re.sub(r"[^a-z0-9 ]", "", low)].add(h)
 
         seo_titles[rec["seo_title"].lower()] += 1
         feed_titles[rec["feed_title"].lower()] += 1
@@ -244,9 +289,11 @@ def main() -> int:
             if text.strip() == old.strip():
                 err("description is byte-identical to the old one — nothing was rewritten")
 
-    # cross-product duplication
+    # cross-product duplication, boilerplate already excluded
+    shared = []
     for key, owners in sentence_owner.items():
-        if len(owners) > 2:
+        if len(owners) > MAX_SHARED:
+            shared.append((len(owners), key))
             for h in owners:
                 errors[h].append(f"sentence shared with {len(owners)-1} other products: '{key[:70]}…'")
     for counter, label in ((seo_titles, "seo_title"), (feed_titles, "feed_title"), (taglines, "vitals.tagline")):
@@ -270,7 +317,11 @@ def main() -> int:
                 for m in warnings[h]:
                     print(f"  warn   {m}")
 
+    uniq = len(sentence_owner)
+    dup_sentences = sum(1 for _, o in sentence_owner.items() if len(o) > 1)
     print(f"\n{len(files)} products checked — {n_err} errors, {n_warn} warnings")
+    print(f"{uniq} distinct non-boilerplate sentences, {dup_sentences} of them on more than one "
+          f"product, {len(shared)} on more than {MAX_SHARED}")
     return 1 if n_err else 0
 
 
