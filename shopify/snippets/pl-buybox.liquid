@@ -37,6 +37,10 @@
     compare    how this is built vs a typical bed
     spec       specification from the category metafields
     guarantee  the five-year callout
+    ladder     every size, priced, co-present, linking to its variant
+    whyprice   the reason-why that sits on the price
+    signs      cited self-identification block for orthopaedic beds
+    proof      checkable credibility for a shop with no reviews yet
 {%- endcomment -%}
 
 {%- liquid
@@ -89,23 +93,59 @@
 
 {%- comment -%} ---------- saving badge, was-price, per-night, category anchor ----------
 
-  The per-night figure is the trial length divided into the price the shopper
-  is actually looking at. It is arithmetic on a real number, not a claim, and
-  it reframes a three-figure price as the small daily one it really is —
-  the standard mattress-industry move, and the honest version of it.
+  The divisor is the guarantee, not the trial. Dividing by the 100-night trial
+  gave "£1.45 a night", and £1.45 retrieves a real comparison standard — a
+  coffee, a pint — which is exactly the comparison you do not want a shopper
+  making. Dividing by the 1,825 nights the foam core is actually guaranteed for
+  gives single pence, which retrieves nothing to argue with, and it states its
+  own basis, so it reads as arithmetic rather than as a claim.
+
+  Only memory-foam beds carry that guarantee, so only they get the line. A mesh,
+  crate or kennel SKU shows nothing rather than borrowing a guarantee it has not
+  got. Per Gourville (1999) the figure is left to work alone: no "less than a
+  dog biscuit", no "cheaper than a coffee". Explicit comparisons reversed the
+  effect in his data.
 {%- endcomment -%}
 {%- when 'anchor' -%}
   {%- liquid
-    assign nights = trial_nights | default: 100 | plus: 0
     assign has_save = false
     if v.compare_at_price > v.price
       assign has_save = true
       assign diff = v.compare_at_price | minus: v.price
       assign pct = diff | times: 100.0 | divided_by: v.compare_at_price | round
     endif
-    assign per_night = 0
-    if nights > 0
-      assign per_night = v.price | divided_by: nights
+
+    assign nights = guarantee_nights | default: 1825 | plus: 0
+
+    capture mats
+      for m in p.metafields.shopify.material.value
+        echo m.label
+        echo ' '
+      endfor
+    endcapture
+    assign tagstr = p.tags | join: ' '
+    assign hay = mats | append: ' ' | append: tagstr | append: ' ' | append: p.type | downcase
+
+    assign is_foam = false
+    if hay contains 'memory foam'
+      assign is_foam = true
+    endif
+    if foam == false
+      assign is_foam = false
+    elsif foam == true
+      assign is_foam = true
+    endif
+
+    assign pn = 0
+    assign pn_word = ''
+    if is_foam and nights > 0 and v.price > 0
+      assign rem = v.price | modulo: nights
+      if rem == 0
+        assign pn = v.price | divided_by: nights
+      else
+        assign pn = v.price | divided_by: nights | plus: 1
+        assign pn_word = 'Under '
+      endif
     endif
   -%}
   {%- if has_save -%}
@@ -114,9 +154,10 @@
       <span class="pl-bb-compare">was <s>{{ v.compare_at_price | money }}</s></span>
     </div>
   {%- endif -%}
-  {%- if per_night > 0 and show_per_night != false -%}
+  {%- if pn > 0 and show_per_night != false -%}
     <p class="pl-bb pl-bb-pernight" data-pl-pernight data-nights="{{ nights }}">
-      Works out at <b data-pl-pernight-amt>{{ per_night | money }}</b> a night across the {{ nights }}-night trial.
+      {{ pn_word }}<b data-pl-pernight-amt>{{ pn }}p</b> a night across the five years the foam
+      core is guaranteed for. <span class="pl-bb-pernight__gift">The first 100 of those nights are on us.</span>
     </p>
   {%- endif -%}
   {%- if anchor_text != blank -%}
@@ -202,8 +243,25 @@
       <a class="pl-bb-size__link" href="{{ guide }}">Full size guide</a>
     </div>
 
+    {%- comment -%}
+      The restatement, not a label. "Selected: Large" tells the shopper what
+      they clicked, which they already know. Naming the dog that fits in it
+      does the work: it converts a measurement they cannot picture into a
+      scene they can, which is the step between choosing a size and being
+      confident enough in the choice to spend three figures on it.
+
+      The sentence comes from a per-variant metafield (custom.fit_note) and is
+      simply absent until someone writes one. It is never generated from the
+      size letter: "Large" means nothing across two different shells, and a
+      breed mapped to a letter rather than to a measured internal length is
+      how a bed arrives too small and comes back.
+    {%- endcomment -%}
     {%- unless p.has_only_default_variant -%}
-      <p class="pl-bb-size__dims">Selected: {{ v.title }}</p>
+      {%- assign fit_now = v.metafields.custom.fit_note -%}
+      <p class="pl-bb-size__dims">
+        <b>Selected: {{ v.title }}</b>
+        {%- if fit_now != blank -%}<span class="pl-bb-size__fit"> &mdash; {{ fit_now }}</span>{%- endif -%}
+      </p>
     {%- else -%}
       {%- if sizes != blank -%}
         <p class="pl-bb-size__dims">
@@ -320,5 +378,160 @@
     The 100-night trial sits in front of it: sleep on it, and if your dog doesn't
     settle we collect it free and refund in full.</span></span>
   </p>
+
+{%- comment -%} ---------- the size ladder, all rungs priced and co-present ----------
+
+  The prices on this shop are already right; they are just never seen together.
+  A dropdown reveals one price at a time, so Large reads as "£30 more than the
+  one I was looking at". Rendered as a list, the same three numbers read as a
+  range with a top and a bottom, and the middle rung inherits the compromise
+  effect (Simonson & Tversky) for free.
+
+  Each rung is a real link to that variant, so it works with JavaScript off and
+  Shopify's own ?variant= handling does the selecting. It decorates the native
+  picker, it does not replace it — the picker above is still what submits.
+
+  The fit line comes from a per-variant metafield and is simply absent until
+  someone fills it in. It is never generated from the size letter: "Large" is
+  decorative, the centimetre is load-bearing.
+{%- endcomment -%}
+{%- when 'ladder' -%}
+  {%- unless p.has_only_default_variant -%}
+    {%- if p.variants.size > 1 -%}
+      <div class="pl-bb pl-bb-ladder">
+        {%- if title != blank -%}<p class="pl-bb-ladder__title">{{ title }}</p>{%- endif -%}
+        <ul class="pl-bb-ladder__list">
+          {%- for var in p.variants -%}
+            {%- assign fit = var.metafields.custom.fit_note -%}
+            <li class="pl-bb-ladder__row{% if var.id == v.id %} is-on{% endif %}{% unless var.available %} is-out{% endunless %}">
+              <a href="{{ p.url }}?variant={{ var.id }}"{% if var.id == v.id %} aria-current="true"{% endif %}>
+                <span class="pl-bb-ladder__name">{{ var.title }}</span>
+                {%- if fit != blank -%}<span class="pl-bb-ladder__fit">{{ fit }}</span>{%- endif -%}
+                <span class="pl-bb-ladder__price">
+                  {{ var.price | money }}{% unless var.available %} <em>sold out</em>{% endunless %}
+                </span>
+              </a>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </div>
+    {%- endif -%}
+  {%- endunless -%}
+
+{%- comment -%} ---------- the reason-why, sitting on the price ----------
+
+  A price with a stated reason is accepted where a bare price is argued with.
+
+  Note what this does NOT do: it makes no claim about what a cheap bed is made
+  of or how fast it fails, because this shop cannot evidence that and a
+  regulator would ask it to. It states only its own two numbers and then hands
+  the shopper the question to ask of anything they are comparing against. The
+  comparison still happens; we simply do not make an unprovable assertion on a
+  competitor's behalf.
+{%- endcomment -%}
+{%- when 'whyprice' -%}
+  {%- liquid
+    capture mats2
+      for m in p.metafields.shopify.material.value
+        echo m.label
+        echo ' '
+      endfor
+    endcapture
+    assign tagstr2 = p.tags | join: ' '
+    assign hay2 = mats2 | append: ' ' | append: tagstr2 | append: ' ' | append: p.type | downcase
+    assign foam2 = false
+    if hay2 contains 'memory foam'
+      assign foam2 = true
+    endif
+  -%}
+  {%- if foam2 -%}
+    <details class="pl-bb pl-bb-why"{% if open_by_default %} open{% endif %}>
+      <summary>Why {{ v.price | money_without_trailing_zeros }}, and not forty-five?</summary>
+      <div class="pl-bb-why__body">
+        <p>
+          Because two numbers decide whether a dog bed is still a dog bed in year three,
+          and this one publishes both: a <b>50kg/m&sup3; high-density core</b>, and a
+          <b>five-year guarantee</b> against that core losing its shape. If it flattens
+          inside those five years we replace the bed.
+        </p>
+        <p>
+          Density is not firmness. A low-density foam can feel firm in the shop and be
+          a flat mat by month six, because there was never much material in it to start
+          with. That is the whole difference, and it is the only part worth paying for.
+        </p>
+        <p class="pl-bb-why__ask">
+          So ask it of any bed you are weighing this against:
+          <b>what is the foam density, and how long is it guaranteed for?</b>
+          Whatever you are comparing, those two numbers are the bed.
+        </p>
+      </div>
+    </details>
+  {%- endif -%}
+
+{%- comment -%} ---------- what your dog is telling you ----------
+
+  The emotionally loaded block, and the one with the most rules attached.
+
+  It opens on a real, cited, counter-intuitive finding rather than on guilt.
+  That ordering is deliberate: the statistic alarms and absolves in the same
+  breath ("nobody is looking at that age"), which is what makes an owner read
+  on instead of closing the tab. Guilt alone makes people leave.
+
+  Every sign listed is one a vet would recognise. Nothing here diagnoses, and
+  the vet line is not a disclaimer bolted on the end — under CAP 12.1 a bed may
+  not be presented as a treatment, and ASA has already upheld against a dog-bed
+  advertiser (A&T International, Bella&Toby) for efficacy claims, holding that a
+  customer testimonial is not evidence for an objective health claim. So this
+  block claims one thing only, which is true and sufficient: it changes the
+  surface they lie on.
+{%- endcomment -%}
+{%- when 'signs' -%}
+  <section class="pl-bb pl-bb-signs" aria-labelledby="pl-signs-h">
+    <h2 class="pl-bb-signs__h" id="pl-signs-h">{{ heading | default: 'What your dog is telling you' }}</h2>
+    <p class="pl-bb-signs__lede">{{ lede | default: 'Most owners spot it years after it starts.' }}</p>
+    <p>
+      In 2024 researchers at North Carolina State University X-rayed 123 dogs aged between
+      eight months and four years. Almost <b>40%</b> already had osteoarthritis in at least
+      one joint. Of the twenty-nine showing clinical signs of it, <b>two</b> were receiving
+      anything at all for the pain. Not because their owners did not care &mdash; because at
+      that age nobody is looking, and dogs adapt rather than complain.
+    </p>
+    <p class="pl-bb-signs__cite">
+      Enomoto et al., <cite>Scientific Reports</cite> 14, 2827 (2024).
+      <a href="https://doi.org/10.1038/s41598-024-52324-9" target="_blank" rel="noopener nofollow">Read the study</a>
+    </p>
+    <p class="pl-bb-signs__ask">Six things a vet would ask about. Tick the ones you have seen this month.</p>
+    <ul class="pl-bb-signs__list">
+      <li><label><input type="checkbox"><span>Stiff or slow to get up after a long rest</span></label></li>
+      <li><label><input type="checkbox"><span>Lagging on walks where they used to lead</span></label></li>
+      <li><label><input type="checkbox"><span>Hesitating at stairs, or no longer jumping onto the sofa or into the car</span></label></li>
+      <li><label><input type="checkbox"><span>Restless at night &mdash; changing position again and again, or moving between spots</span></label></li>
+      <li><label><input type="checkbox"><span>Licking repeatedly at one joint</span></label></li>
+      <li><label><input type="checkbox"><span>Sitting or lying in a lopsided, propped-up way</span></label></li>
+    </ul>
+    <p class="pl-bb-signs__out">
+      Any two of these is worth a conversation with your vet. It is also worth getting them
+      off a hard floor tonight.
+    </p>
+    <p class="pl-bb-signs__vet">
+      A bed is not a treatment and does not replace veterinary care. What it can change is the
+      surface they spend half their life lying on.
+    </p>
+  </section>
+
+{%- comment -%} ---------- proof that does not depend on reviews ----------
+
+  This shop has no reviews yet, and the honest answer to that is not a borrowed
+  star rating — it is to lead with the things that ARE checkable. Every line
+  here is either a published policy or a number stated elsewhere on the site,
+  and each one is a setting, so nothing renders that the merchant has not
+  affirmatively stood behind.
+{%- endcomment -%}
+{%- when 'proof' -%}
+  <ul class="pl-bb pl-bb-proof">
+    {%- if p1 != blank -%}<li><b>{{ p1 }}</b>{% if p1s != blank %}<span>{{ p1s }}</span>{% endif %}</li>{%- endif -%}
+    {%- if p2 != blank -%}<li><b>{{ p2 }}</b>{% if p2s != blank %}<span>{{ p2s }}</span>{% endif %}</li>{%- endif -%}
+    {%- if p3 != blank -%}<li><b>{{ p3 }}</b>{% if p3s != blank %}<span>{{ p3s }}</span>{% endif %}</li>{%- endif -%}
+  </ul>
 
 {%- endcase -%}

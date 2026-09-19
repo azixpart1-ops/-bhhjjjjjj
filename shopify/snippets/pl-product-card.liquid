@@ -154,28 +154,40 @@
       the product has none. `stars` is the older row a caller can hard-set,
       still used by the homepage lineup for the site-wide score.
     {%- endcomment -%}
+    {%- comment -%}
+      Only a product's own verified score renders here, and only where it has
+      one. The two fallbacks that used to live in this block are gone:
+
+        - `fallback_rating`, which painted the shop-wide figure onto every card
+          belonging to a bed that had never been reviewed, and
+        - `star`, a score a caller could hard-set on the card.
+
+      Both drew a five-star row for products with no reviews behind them.
+      Displaying an aggregate rating a merchant cannot evidence is a banned
+      practice under Schedule 20 of the DMCC Act 2024, and the CMA does not
+      have to show that any shopper was actually misled — the display is the
+      breach.
+
+      The code is removed rather than the settings blanked, deliberately. A
+      default only governs a theme that has not been configured yet; the values
+      already saved in the live theme would have kept rendering. Deleting the
+      read is what makes them go quiet on deploy, with nobody having to
+      remember to clear anything.
+
+      A bed with no reviews shows no stars. That is the correct output, and on
+      a considered purchase it costs less than the alternative: a star row a
+      shopper cannot click through to anything is read as a lie about
+      everything else on the page.
+    {%- endcomment -%}
     {%- if show_rating -%}
-      {%- comment -%}
-        A product with its own verified score shows it. A product without one
-        falls back to the shop-wide figure, clearly labelled as the shop's
-        rating rather than this bed's, so every card carries stars without any
-        card claiming reviews it has not had.
-      {%- endcomment -%}
       {%- liquid
         assign own_r = p.metafields.reviews.rating.value.rating | default: 0 | plus: 0.0
         assign own_n = p.metafields.reviews.rating_count.value | default: 0 | plus: 0
         assign floor = rating_min | default: 1 | plus: 0
-        assign fb = fallback_rating | default: '' | strip
       -%}
       {%- if own_r > 0 and own_n >= floor -%}
         {% render 'pl-rating', product: p, min_count: rating_min, show_count: rating_show_count %}
-      {%- elsif fb != '' -%}
-        {% render 'pl-rating', product: p, rating: fb, count: 1, min_count: 1, label: fallback_label %}
       {%- endif -%}
-    {%- elsif star != '' -%}
-      <span class="pl-stars" aria-label="Rated {{ star }} out of 5">
-        {% for i in (1..5) %}{% render 'pl-icon', icon: 'star' %}{% endfor %}
-      </span>
     {%- endif -%}
     {%- if show_material and material != '' -%}
       <p class="pl-card__material">{{ material }}</p>
