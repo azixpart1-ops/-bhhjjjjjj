@@ -1,20 +1,21 @@
 # Snoozly — premium pet-bed theme for snoozly.co.uk
 
 A complete, custom Shopify Online Store 2.0 theme, built from scratch for
-**Snoozly** and installed on the store as an **unpublished draft**. The live
-store (theme "Helio") has not been touched.
+**Snoozly**, plus the 64-bed Snoozly catalogue rebuilt from the PawLunova
+product export ([`catalogue/README.md`](catalogue/README.md)).
 
 | | |
 |---|---|
-| Theme on the store | **Snoozly — Premium (draft)** · ID `201469821263` |
-| Preview | `https://snoozly.co.uk/?preview_theme_id=201469821263` |
-| Edit | Shopify admin → Online Store → Themes → *Snoozly — Premium (draft)* → Customize |
-| Publish | Same menu → **Publish** (Shopify only lets the owner do this) |
+| Live theme | **Snoozly — Premium (draft)** · ID `201469821263` (published by you) |
+| Ready to publish | **Snoozly — Premium v2 (catalogue update)** · ID `201473458511`: the live theme plus the name box for personalised beds, extra colour swatches and full-frame product cards |
+| Preview v2 | `https://snoozly.co.uk/?preview_theme_id=201473458511` |
+| Publish | Online Store → Themes → *Snoozly — Premium v2* → **Publish** (Shopify only lets the owner do this) |
 
 ```
 snoozly/
 ├── theme/          the Shopify theme exactly as installed (93 files)
 ├── src/css, src/js source for assets/snoozly.css and assets/snoozly.js
+├── catalogue/      the 64 beds: names, copy, prices, Shopify import files
 ├── scripts/        build, validation and live-verification tools
 └── dist/           built zip (ignored by git; `python3 scripts/build.py --zip`)
 ```
@@ -184,10 +185,10 @@ announcement links focusable while hidden.
 6. **Re-enable app embeds** on the new theme after publishing (Customize → App embeds).
 
 **Biggest sales levers in the catalogue** (not theme problems)
-7. **13 of your 16 products are sold out** — the North East Pets / Collective
-   items show 0 stock. The theme handles this gracefully (in-stock first,
-   "Back soon", back-in-stock requests, the quiz prefers in-stock beds), but
-   the store only has 3 buyable beds right now.
+7. **13 of the 16 older products are sold out** — the North East Pets /
+   Collective items show 0 stock. The theme handles this gracefully (in-stock
+   first, "Back soon", back-in-stock requests, the quiz prefers in-stock beds).
+   The 64 Snoozly beds from the catalogue are all buyable.
 8. **Supplier copy leaks through.** "Dream Paws Teddy Boucle Bed" is described
    as "animal bedding/forage material"; several have filler bullets ("Choice of
    Variant", "Designed for dogs"). The theme already strips the other shop's
@@ -202,8 +203,7 @@ announcement links focusable while hidden.
 11. **Reviews**: install a reviews app (Judge.me, Shopify Product Reviews…). Stars
     then appear automatically on cards and product pages. The homepage reviews
     section is switched off until you add real quotes — it never shows empty or invented reviews.
-12. **No cooling beds yet** — the Cool need is fully built and hides itself
-    until products tagged `need:cool` exist.
+12. **Three cooling beds** (Harbour, Brook, Breeze) now fill the Cool need.
 
 ---
 

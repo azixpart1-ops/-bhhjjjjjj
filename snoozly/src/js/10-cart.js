@@ -134,14 +134,38 @@
     } catch (e) { /* suggestions are optional */ }
   };
 
+  /* Typing into a flagged required field clears the flag and its message */
+  document.addEventListener('input', (e) => {
+    const f = e.target.closest('[data-required-field][aria-invalid]');
+    if (!f || !f.value.trim()) return;
+    f.removeAttribute('aria-invalid');
+    const form = f.closest('form');
+    const errorBox = form && $('[data-form-error]', form.closest('[data-product]') || form);
+    if (errorBox && errorBox.textContent === f.dataset.requiredMessage) errorBox.hidden = true;
+  });
+
   /* Any product form (PDP, quick add, upsell) goes through here */
   document.addEventListener('submit', async (e) => {
     const form = e.target.closest('form[data-product-form]');
-    if (!form || SZ.cartType !== 'drawer' || !$('[data-cart-drawer]')) return;
+    if (!form) return;
+    const errorBox = $('[data-form-error]', form.closest('[data-product]') || form);
+    /* Fields the form needs before it can be added (e.g. a name to embroider).
+       The form is novalidate so the check and the message are ours, in both
+       drawer and page mode. */
+    const missing = $$('[data-required-field]', form).find((f) => !f.value.trim());
+    $$('[data-required-field]', form).forEach((f) => f.removeAttribute('aria-invalid'));
+    if (missing) {
+      e.preventDefault();
+      missing.setAttribute('aria-invalid', 'true');
+      if (errorBox) { errorBox.textContent = missing.dataset.requiredMessage; errorBox.hidden = false; }
+      missing.focus();
+      missing.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    if (SZ.cartType !== 'drawer' || !$('[data-cart-drawer]')) return;
     e.preventDefault();
     const btn = e.submitter || $('[type="submit"]', form);
     if (btn) { btn.classList.add('is-loading'); btn.setAttribute('aria-busy', 'true'); }
-    const errorBox = $('[data-form-error]', form.closest('[data-product]') || form);
     if (errorBox) errorBox.hidden = true;
     try {
       await SZ.cart.add(new FormData(form));

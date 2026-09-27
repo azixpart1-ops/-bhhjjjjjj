@@ -169,7 +169,35 @@
                           <input class="opt__input" type="radio" id="{{ vid }}" name="{{ option.name | escape }}-{{ section.id }}" value="{{ value | escape }}" {% if option.selected_value == value %}checked{% endif %}>
                           <label class="opt__pill{% if is_colour %} opt__pill--swatch{% endif %}{% unless value.available %} is-unavailable{% endunless %}" for="{{ vid }}">
                             {%- if is_colour -%}
-                              {%- assign sw = value.swatch.color | default: value | downcase | replace: ' ', '' -%}
+                              {%- liquid
+                                assign sw = value.swatch.color | default: value | downcase | replace: ' ', ''
+                                case sw
+                                  when 'grey', 'gray'
+                                    assign sw = '#9a9ca1'
+                                  when 'green'
+                                    assign sw = '#56694f'
+                                  when 'beige'
+                                    assign sw = '#d9c8ab'
+                                  when 'blue'
+                                    assign sw = '#5b7896'
+                                  when 'brown'
+                                    assign sw = '#7a5a43'
+                                  when 'navy'
+                                    assign sw = '#2c3a55'
+                                  when 'bronze'
+                                    assign sw = '#8a6a3b'
+                                  when 'darkgrey', 'darkgray', 'charcoal'
+                                    assign sw = '#45464d'
+                                  when 'stone', 'oatmeal', 'natural'
+                                    assign sw = '#d8cbb5'
+                                  when 'cream'
+                                    assign sw = '#f3ecdc'
+                                  when 'sage'
+                                    assign sw = '#9fae8f'
+                                  when 'slate'
+                                    assign sw = '#5d6875'
+                                endcase
+                              -%}
                               <span class="opt__swatch" style="--sw: {{ sw }};"></span>
                             {%- endif -%}
                             {{ value | escape }}
@@ -234,6 +262,16 @@
                       </select>
                     </noscript>
                   {%- endif -%}
+                  {%- comment -%} Name to embroider: products tagged personalise:name {%- endcomment -%}
+                  {%- if product.tags contains 'personalise:name' -%}
+                    {%- assign pz_max = block.settings.personalise_max | default: 12 -%}
+                    {%- assign pz_prop = 'products.personalise.property' | t -%}
+                    <div class="field pdp__personalise">
+                      <label class="field__label" for="pz-{{ section.id }}">{{ 'products.personalise.label' | t }}</label>
+                      <input class="input" type="text" id="pz-{{ section.id }}" name="properties[{{ pz_prop }}]" maxlength="{{ pz_max }}" required autocomplete="off" autocapitalize="words" spellcheck="false" aria-describedby="pz-help-{{ section.id }}" data-required-field data-required-message="{{ 'products.personalise.required' | t }}">
+                      <p class="field__help" id="pz-help-{{ section.id }}">{{ 'products.personalise.help' | t: max: pz_max }}</p>
+                    </div>
+                  {%- endif -%}
                   <div class="pdp__buy-row">
                     {%- if block.settings.show_qty -%}
                       <quantity-input class="qty">
@@ -248,7 +286,14 @@
                     </button>
                   </div>
                   <p class="form-message form-message--error" data-form-error role="alert" hidden></p>
-                  {%- if block.settings.show_dynamic -%}
+                  {%- liquid
+                    # Express checkout skips the form, so it would skip the name a personalised bed needs
+                    assign show_dynamic = block.settings.show_dynamic
+                    if product.tags contains 'personalise:name'
+                      assign show_dynamic = false
+                    endif
+                  -%}
+                  {%- if show_dynamic -%}
                     <div class="pdp__dynamic{% unless current.available %} is-hidden{% endunless %}" data-dynamic>{{ form | payment_button }}</div>
                   {%- endif -%}
                 {%- endform -%}
@@ -410,7 +455,8 @@
       "type": "buy_buttons", "name": "Buy buttons", "limit": 1,
       "settings": [
         { "type": "checkbox", "id": "show_qty", "label": "Quantity selector", "default": true },
-        { "type": "checkbox", "id": "show_dynamic", "label": "Express checkout buttons (Apple Pay, Shop Pay…)", "default": true }
+        { "type": "checkbox", "id": "show_dynamic", "label": "Express checkout buttons (Apple Pay, Shop Pay…)", "default": true },
+        { "type": "range", "id": "personalise_max", "label": "Longest name for personalised beds", "info": "Shown on products tagged personalise:name. Match your embroiderer's limit.", "min": 6, "max": 30, "step": 1, "unit": "ch", "default": 12 }
       ]
     },
     { "type": "delivery", "name": "Delivery estimate", "limit": 1, "settings": [ { "type": "paragraph", "content": "Uses the delivery window in Theme settings. Override per product with a tag such as delivery:14-21, or the custom.delivery_min_days / custom.delivery_max_days metafields." } ] },
