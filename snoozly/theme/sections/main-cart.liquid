@@ -1,0 +1,80 @@
+{%- comment -%}
+  BASKET PAGE. Same line items as the drawer (shared snippet), with the
+  summary kept beside them on desktop so the checkout button never scrolls
+  out of reach.
+{%- endcomment -%}
+<section {% render 'section-attrs', section: section, class: 'cartpage' %}>
+  <div class="container" data-cart-page data-section="{{ section.id }}" data-count="{{ cart.item_count }}">
+    <div class="cartpage__head">
+      <h1 class="h1">{{ 'cart.title' | t }}</h1>
+      {%- if cart.item_count > 0 -%}<a class="link-arrow" href="{{ routes.all_products_collection_url }}">{{ 'cart.continue' | t }}{% render 'icon', name: 'arrow-right', size: 16 %}</a>{%- endif -%}
+    </div>
+
+    {%- if cart.item_count > 0 -%}
+      <div class="cartpage__grid">
+        <form action="{{ routes.cart_url }}" method="post" id="cart-page-form" class="cartpage__lines" novalidate>
+          <div class="cartpage__ship">{% render 'free-shipping' %}</div>
+          {% render 'cart-lines', context: 'page' %}
+          <noscript><button type="submit" name="update" class="btn btn--secondary">{{ 'cart.update' | t }}</button></noscript>
+        </form>
+
+        <aside class="cartpage__summary" aria-label="{{ 'cart.summary' | t }}">
+          <div class="cartpage__card">
+            <p class="h4">{{ 'cart.summary' | t }}</p>
+            {%- for d in cart.cart_level_discount_applications -%}
+              <p class="cart-sum__row cart-sum__row--disc"><span>{% render 'icon', name: 'gift', size: 14 %}{{ d.title | escape }}</span><span>−{{ d.total_allocated_amount | money }}</span></p>
+            {%- endfor -%}
+            <p class="cart-sum__row cart-sum__row--total"><span>{{ 'cart.subtotal' | t }}</span><span class="tnum">{{ cart.total_price | money_with_currency }}</span></p>
+            <p class="cart-sum__note">
+              {%- if cart.taxes_included -%}{{ 'cart.taxes_included_shipping_at_checkout' | t }}{%- else -%}{{ 'cart.taxes_and_shipping_at_checkout' | t }}{%- endif -%}
+            </p>
+            {%- if settings.cart_note -%}
+              <details class="cart-note">
+                <summary>{% render 'icon', name: 'gift', size: 16 %}{{ 'cart.note_label' | t }}{% render 'icon', name: 'chevron-down', size: 16 %}</summary>
+                <label class="visually-hidden" for="cart-page-note">{{ 'cart.note_label' | t }}</label>
+                <textarea id="cart-page-note" class="textarea" name="note" form="cart-page-form" rows="3" data-cart-note placeholder="{{ 'cart.note_placeholder' | t }}">{{ cart.note }}</textarea>
+              </details>
+            {%- endif -%}
+            <button type="submit" name="checkout" form="cart-page-form" class="btn btn--block btn--lg">{% render 'icon', name: 'lock', size: 18 %}{{ 'cart.checkout' | t }}</button>
+            {%- if additional_checkout_buttons -%}
+              <div class="cart-drawer__dynamic">{{ content_for_additional_checkout_buttons }}</div>
+            {%- endif -%}
+            <ul class="cartpage__trust" role="list">
+              <li>{% render 'icon', name: 'truck', size: 18 %}<span>{{ 'sections.trust.free_delivery' | t: amount: settings.free_shipping_threshold }}</span></li>
+              <li>{% render 'icon', name: 'return', size: 18 %}<span>{{ 'sections.trust.returns' | t: days: settings.returns_days }}</span></li>
+              <li>{% render 'icon', name: 'shield', size: 18 %}<span>{{ 'sections.trust.secure' | t }}</span></li>
+            </ul>
+            {%- if shop.enabled_payment_types.size > 0 -%}
+              <ul class="footer__pay cartpage__pay" role="list">
+                {%- for type in shop.enabled_payment_types -%}<li>{{ type | payment_type_svg_tag: class: 'footer__pay-icon' }}</li>{%- endfor -%}
+              </ul>
+            {%- endif -%}
+          </div>
+        </aside>
+      </div>
+    {%- else -%}
+      <div class="cart-empty cartpage__empty">
+        <div class="cart-empty__moon">{% render 'icon', name: 'moon', size: 36 %}</div>
+        <p class="h2">{{ 'cart.empty_title' | t }}</p>
+        <p class="muted">{{ 'cart.empty_text' | t }}</p>
+        <div class="btn-row cart-empty__ctas">
+          <a class="btn btn--lg" href="/pages/sleep-match">{% render 'icon', name: 'moon', size: 18 %}{{ 'cart.empty_quiz' | t }}</a>
+          <a class="btn btn--lg btn--secondary" href="{{ routes.all_products_collection_url }}">{{ 'cart.empty_shop' | t }}</a>
+        </div>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Basket",
+  "tag": "div",
+  "class": "section-main-cart",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 120, "step": 8, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ]
+}
+{% endschema %}

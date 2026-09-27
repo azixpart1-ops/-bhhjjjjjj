@@ -1,0 +1,233 @@
+{%- comment -%}
+  COLLECTION PAGE
+  - Hero recolours itself when the collection is one of the five sleep needs
+  - Real storefront filters and sort (Search & Discovery), updated in place
+  - In-stock beds first within each page; a Sleep Match tile in the grid
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign need_keys = 'calm,support,cool,cosy,stretch' | split: ','
+  assign coll_need = ''
+  for k in need_keys
+    assign ck = 'need_' | append: k | append: '_collection'
+    assign c = settings[ck]
+    if c != blank and c.handle == collection.handle
+      assign coll_need = k
+      break
+    endif
+  endfor
+  if coll_need != blank
+    assign scheme_id = coll_need
+  else
+    assign scheme_id = s.color_scheme.id
+  endif
+  assign title = collection.title | split: '|' | first | strip
+  if collection.handle == 'all' and title == blank
+    assign title = 'collections.all_title' | t
+  endif
+  assign sort_by = collection.sort_by | default: collection.default_sort_by
+-%}
+
+{%- paginate collection.products by s.per_page -%}
+<div id="s-{{ section.id }}" class="plp" data-facets-section="{{ section.id }}">
+  {%- comment -%} Hero {%- endcomment -%}
+  {%- if s.show_hero -%}
+    <header class="plp-hero color-{{ scheme_id }}{% if coll_need != blank %} need--{{ coll_need }}{% endif %}">
+      <div class="container plp-hero__inner{% if collection.image %} has-image{% endif %}">
+        <div class="plp-hero__copy">
+          <nav class="crumbs" aria-label="{{ 'general.breadcrumbs' | t }}">
+            <ol role="list">
+              <li><a href="{{ routes.root_url }}">{{ 'general.home' | t }}</a></li>
+              <li aria-current="page">{{ title | escape }}</li>
+            </ol>
+          </nav>
+          {%- if coll_need != blank -%}
+            {%- assign fk = 'need_' | append: coll_need | append: '_for' -%}
+            {%- assign ni = 'need-' | append: coll_need -%}
+            <p class="eyebrow">{% render 'icon', name: ni, size: 16 %}{{ settings[fk] | escape }}</p>
+          {%- endif -%}
+          <h1 class="h1 plp-hero__title">{{ title | escape }}</h1>
+          {%- if collection.description != blank -%}
+            <div class="plp-hero__desc rte">{{ collection.description | strip_html | truncatewords: s.intro_words }}</div>
+          {%- elsif coll_need != blank -%}
+            {%- assign wk = 'need_' | append: coll_need | append: '_why' -%}
+            <p class="plp-hero__desc">{{ settings[wk] | escape }}</p>
+          {%- endif -%}
+          <p class="plp-hero__count">{{ 'collections.count' | t: count: collection.products_count }}</p>
+        </div>
+        {%- if collection.image -%}
+          <div class="plp-hero__media">{% render 'media', image: collection.image, ratio: '4 / 3', sizes: '(min-width: 990px) 40vw, 100vw' %}</div>
+        {%- endif -%}
+      </div>
+      {%- if s.show_need_nav -%}
+        <div class="container">
+          <ul class="plp-needs" role="list" aria-label="{{ 'sections.header.by_need' | t }}">
+            {%- for k in need_keys -%}
+              {%- liquid
+                assign ck = 'need_' | append: k | append: '_collection'
+                assign c = settings[ck]
+                assign lk = 'need_' | append: k | append: '_label'
+                assign ni = 'need-' | append: k
+              -%}
+              {%- if c != blank and c.products_count > 0 -%}
+                <li><a class="chip need-chip need--{{ k }}" href="{{ c.url }}"{% if k == coll_need %} aria-current="page"{% endif %}>{% render 'icon', name: ni, size: 16 %}{{ settings[lk] | escape }}</a></li>
+              {%- endif -%}
+            {%- endfor -%}
+            <li><a class="chip" href="{{ routes.all_products_collection_url }}"{% if collection.handle == 'all' %} aria-current="page"{% endif %}>{{ 'collections.all_beds' | t }}</a></li>
+          </ul>
+        </div>
+      {%- endif -%}
+    </header>
+  {%- endif -%}
+
+  <section class="sz-section color-{{ s.color_scheme.id }} plp-body" style="--pt: {{ s.padding_top }}; --pb: {{ s.padding_bottom }};" data-dark="false">
+    <div class="container">
+      {%- comment -%} Toolbar {%- endcomment -%}
+      <div class="plp-toolbar" data-facets-toolbar>
+        <button type="button" class="btn btn--secondary btn--sm plp-toolbar__filter" data-drawer-open="facets-drawer" aria-controls="facets-drawer">
+          {% render 'icon', name: 'menu', size: 18 %}{{ 'collections.filters.title' | t }}
+        </button>
+        <p class="plp-toolbar__count" role="status">{{ 'collections.showing' | t: count: collection.products_count }}</p>
+        <div class="plp-toolbar__sort">
+          <label for="sort-{{ section.id }}" class="plp-toolbar__sort-label">{{ 'collections.sort_by' | t }}</label>
+          <select class="select select--sm" id="sort-{{ section.id }}" data-sort>
+            {%- for option in collection.sort_options -%}
+              <option value="{{ option.value }}"{% if option.value == sort_by %} selected{% endif %}>{{ option.name }}</option>
+            {%- endfor -%}
+          </select>
+        </div>
+      </div>
+
+      {%- comment -%} Active filter pills {%- endcomment -%}
+      <ul class="plp-active" role="list" data-facets-active>
+        {%- for f in collection.filters -%}
+          {%- for v in f.active_values -%}
+            <li><a class="chip chip--remove" href="{{ v.url_to_remove }}" data-facet-link>{{ f.label | escape }}: {{ v.label | escape }}{% render 'icon', name: 'close', size: 14 %}</a></li>
+          {%- endfor -%}
+          {%- if f.type == 'price_range' -%}
+            {%- if f.min_value.value != nil or f.max_value.value != nil -%}
+              <li><a class="chip chip--remove" href="{{ f.url_to_remove }}" data-facet-link>{{ f.label | escape }}: {{ f.min_value.value | default: 0 | money }}–{{ f.max_value.value | default: f.range_max | money }}{% render 'icon', name: 'close', size: 14 %}</a></li>
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+      </ul>
+
+      <div class="plp-layout">
+        <aside class="plp-sidebar" aria-label="{{ 'collections.filters.title' | t }}">
+          <sz-drawer id="facets-drawer" class="drawer drawer--left drawer--facets color-{{ s.color_scheme.id }}" aria-hidden="true">
+            <div class="drawer__scrim" data-drawer-close></div>
+            <div class="drawer__panel" role="dialog" aria-modal="true" aria-label="{{ 'collections.filters.title' | t }}" tabindex="-1">
+              <div class="drawer__head">
+                <p class="h4">{{ 'collections.filters.title' | t }}</p>
+                <button class="drawer__close" type="button" data-drawer-close>{% render 'icon', name: 'close', size: 22 %}<span class="visually-hidden">{{ 'general.close' | t }}</span></button>
+              </div>
+              <div class="drawer__body" data-facets-filters>
+                {% render 'facets', results: collection %}
+              </div>
+              <div class="drawer__foot plp-drawer-foot">
+                <button type="button" class="btn btn--block" data-drawer-close>{{ 'collections.filters.show' | t: count: collection.products_count }}</button>
+              </div>
+            </div>
+          </sz-drawer>
+        </aside>
+
+        <div class="plp-results" data-facets-results>
+          {%- if collection.products.size > 0 -%}
+            <ul class="product-grid plp-grid" role="list" style="--cols-d: {{ s.columns }}; --cols-t: 3; --cols-m: 2;">
+              {%- assign n = 0 -%}
+              {%- for pass in (1..2) -%}
+                {%- for p in collection.products -%}
+                  {%- if settings.available_first -%}
+                    {%- if pass == 1 and p.available == false -%}{%- continue -%}{%- endif -%}
+                    {%- if pass == 2 and p.available -%}{%- continue -%}{%- endif -%}
+                  {%- elsif pass == 2 -%}
+                    {%- break -%}
+                  {%- endif -%}
+                  {%- assign n = n | plus: 1 -%}
+                  {%- if n <= 4 -%}{%- assign pri = true -%}{%- else -%}{%- assign pri = false -%}{%- endif -%}
+                  <li class="featured__item">{% render 'product-card', product: p, priority: pri, sizes: '(min-width: 1100px) 22vw, (min-width: 750px) 30vw, 50vw' %}</li>
+                  {%- if s.show_promo and n == s.promo_position and paginate.current_page == 1 -%}
+                    <li class="plp-promo color-midnight night-sky" data-dark="true">
+                      <a class="plp-promo__link" href="{{ s.promo_link | default: '/pages/sleep-match' }}">
+                        <span class="plp-promo__moon">{% render 'icon', name: 'moon', size: 26 %}</span>
+                        <span class="eyebrow">{{ s.promo_eyebrow | escape }}</span>
+                        {% render 'heading', text: s.promo_heading, tag: 'span', class: 'h3 plp-promo__title' %}
+                        <span class="plp-promo__text">{{ s.promo_text | escape }}</span>
+                        <span class="btn btn--moon btn--sm">{{ s.promo_cta | escape }}{% render 'icon', name: 'arrow-right', size: 16 %}</span>
+                      </a>
+                    </li>
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- endfor -%}
+            </ul>
+
+            {%- if paginate.pages > 1 -%}
+              <nav class="pagination" aria-label="{{ 'general.pagination' | t }}">
+                {%- if paginate.previous -%}<a class="pagination__btn" href="{{ paginate.previous.url }}" data-facet-link>{% render 'icon', name: 'arrow-left', size: 18 %}<span class="visually-hidden">{{ 'general.previous' | t }}</span></a>{%- endif -%}
+                <ol role="list">
+                  {%- for part in paginate.parts -%}
+                    <li>
+                      {%- if part.is_link -%}<a href="{{ part.url }}" data-facet-link>{{ part.title }}</a>
+                      {%- elsif part.title == paginate.current_page -%}<span aria-current="page">{{ part.title }}</span>
+                      {%- else -%}<span>{{ part.title }}</span>{%- endif -%}
+                    </li>
+                  {%- endfor -%}
+                </ol>
+                {%- if paginate.next -%}<a class="pagination__btn" href="{{ paginate.next.url }}" data-facet-link>{% render 'icon', name: 'arrow-right', size: 18 %}<span class="visually-hidden">{{ 'general.next' | t }}</span></a>{%- endif -%}
+              </nav>
+            {%- endif -%}
+          {%- else -%}
+            <div class="plp-empty">
+              <div class="cart-empty__moon">{% render 'icon', name: 'moon', size: 34 %}</div>
+              <p class="h3">{{ 'collections.empty.title' | t }}</p>
+              <p class="muted">{{ 'collections.empty.text' | t }}</p>
+              <div class="btn-row">
+                <a class="btn" href="{{ collection.url }}" data-facet-link>{{ 'collections.filters.clear_all' | t }}</a>
+                <a class="btn btn--secondary" href="/pages/sleep-match">{{ 'cart.empty_quiz' | t }}</a>
+              </div>
+            </div>
+          {%- endif -%}
+        </div>
+      </div>
+
+      {%- if s.show_seo_copy and collection.description != blank -%}
+        {%- assign desc_words = collection.description | strip_html | split: ' ' -%}
+        {%- if desc_words.size > s.intro_words -%}
+          <details class="plp-seo">
+            <summary>{{ 'collections.read_more' | t: title: title }}{% render 'icon', name: 'chevron-down', size: 18 %}</summary>
+            <div class="rte">{{ collection.description }}</div>
+          </details>
+        {%- endif -%}
+      {%- endif -%}
+    </div>
+  </section>
+</div>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Collection",
+  "tag": "div",
+  "class": "section-main-collection",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme (grid)", "default": "moonlight" },
+    { "type": "paragraph", "content": "The hero takes the colour of its sleep need automatically when this collection is one of the five in Theme settings → Sleep needs." },
+    { "type": "range", "id": "per_page", "label": "Beds per page", "min": 8, "max": 48, "step": 4, "default": 24 },
+    { "type": "range", "id": "columns", "label": "Columns on desktop", "min": 2, "max": 4, "step": 1, "default": 3 },
+    { "type": "checkbox", "id": "show_hero", "label": "Show collection header", "default": true },
+    { "type": "checkbox", "id": "show_need_nav", "label": "Sleep-need shortcuts in header", "default": true },
+    { "type": "range", "id": "intro_words", "label": "Words of description in the header", "min": 10, "max": 80, "step": 5, "default": 35 },
+    { "type": "checkbox", "id": "show_seo_copy", "label": "Full description below the grid", "default": true, "info": "Long SEO copy goes here, out of the way of shopping." },
+    { "type": "header", "content": "Sleep Match tile" },
+    { "type": "checkbox", "id": "show_promo", "label": "Show in grid", "default": true },
+    { "type": "range", "id": "promo_position", "label": "After bed number", "min": 1, "max": 12, "step": 1, "default": 5 },
+    { "type": "text", "id": "promo_eyebrow", "label": "Eyebrow", "default": "60-second Sleep Match" },
+    { "type": "text", "id": "promo_heading", "label": "Heading", "default": "Not sure which? *Let's match them.*" },
+    { "type": "text", "id": "promo_text", "label": "Text", "default": "Four questions about how they sleep, and we'll show you the beds made for it." },
+    { "type": "text", "id": "promo_cta", "label": "Button", "default": "Start" },
+    { "type": "url", "id": "promo_link", "label": "Link" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 120, "step": 8, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ]
+}
+{% endschema %}

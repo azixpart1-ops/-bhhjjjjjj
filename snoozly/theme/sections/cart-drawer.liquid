@@ -1,0 +1,90 @@
+{%- comment -%}
+  Slide-out basket. Rendered once in the layout and re-rendered through the
+  Section Rendering API after every change, so every figure comes from Shopify.
+{%- endcomment -%}
+<sz-drawer id="cart-drawer" class="drawer drawer--right color-moonlight" aria-hidden="true" data-cart-drawer data-section="{{ section.id }}" data-count="{{ cart.item_count }}">
+  <div class="drawer__scrim" data-drawer-close></div>
+  <div class="drawer__panel cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title" tabindex="-1">
+    <div class="drawer__head">
+      <p class="h4 cart-drawer__title" id="cart-drawer-title">
+        {{ 'cart.title' | t }} <span class="cart-drawer__count">{{ 'cart.item_count' | t: count: cart.item_count }}</span>
+      </p>
+      <button class="drawer__close" type="button" data-drawer-close>{% render 'icon', name: 'close', size: 22 %}<span class="visually-hidden">{{ 'general.close' | t }}</span></button>
+    </div>
+
+    <div class="cart-drawer__ship">{% render 'free-shipping' %}</div>
+
+    {%- if cart.item_count > 0 -%}
+      <form action="{{ routes.cart_url }}" method="post" id="cart-drawer-form" class="drawer__body cart-drawer__body" novalidate data-cart-form>
+        <div class="cart-drawer__added" data-cart-added hidden>
+          {% render 'icon', name: 'sparkle', size: 18 %}<span>{{ 'cart.added_message' | t }}</span>
+        </div>
+        {% render 'cart-lines', context: 'drawer' %}
+
+        {%- if settings.cart_upsell -%}
+          {%- assign first_item = cart.items.first -%}
+          <div class="upsell" data-upsell data-url="{{ routes.product_recommendations_url }}?product_id={{ first_item.product_id }}&limit=6&section_id=cart-upsell" data-exclude="{{ cart.items | map: 'product_id' | join: ',' }}"></div>
+        {%- endif -%}
+
+        {%- if settings.cart_note -%}
+          <details class="cart-note">
+            <summary>{% render 'icon', name: 'gift', size: 16 %}{{ 'cart.note_label' | t }}{% render 'icon', name: 'chevron-down', size: 16 %}</summary>
+            <label class="visually-hidden" for="cart-drawer-note">{{ 'cart.note_label' | t }}</label>
+            <textarea id="cart-drawer-note" class="textarea" name="note" rows="3" data-cart-note placeholder="{{ 'cart.note_placeholder' | t }}">{{ cart.note }}</textarea>
+          </details>
+        {%- endif -%}
+      </form>
+
+      <div class="drawer__foot cart-drawer__foot">
+        {%- for d in cart.cart_level_discount_applications -%}
+          <p class="cart-sum__row cart-sum__row--disc"><span>{% render 'icon', name: 'gift', size: 14 %}{{ d.title | escape }}</span><span>−{{ d.total_allocated_amount | money }}</span></p>
+        {%- endfor -%}
+        <p class="cart-sum__row cart-sum__row--total"><span>{{ 'cart.subtotal' | t }}</span><span class="tnum">{{ cart.total_price | money_with_currency }}</span></p>
+        <p class="cart-sum__note">
+          {%- if cart.taxes_included -%}{{ 'cart.taxes_included_shipping_at_checkout' | t }}{%- else -%}{{ 'cart.taxes_and_shipping_at_checkout' | t }}{%- endif -%}
+        </p>
+        <button type="submit" name="checkout" form="cart-drawer-form" class="btn btn--block btn--lg cart-drawer__checkout">
+          {% render 'icon', name: 'lock', size: 18 %}{{ 'cart.checkout' | t }}
+        </button>
+        {%- if additional_checkout_buttons -%}
+          <div class="cart-drawer__dynamic">{{ content_for_additional_checkout_buttons }}</div>
+        {%- endif -%}
+        <ul class="cart-drawer__trust" role="list">
+          <li>{% render 'icon', name: 'return', size: 15 %}{{ 'sections.trust.returns' | t: days: settings.returns_days }}</li>
+          <li>{% render 'icon', name: 'shield', size: 15 %}{{ 'sections.trust.secure' | t }}</li>
+        </ul>
+      </div>
+    {%- else -%}
+      <div class="drawer__body cart-empty">
+        <div class="cart-empty__moon">{% render 'icon', name: 'moon', size: 36 %}</div>
+        <p class="h3">{{ 'cart.empty_title' | t }}</p>
+        <p class="muted">{{ 'cart.empty_text' | t }}</p>
+        <div class="btn-row cart-empty__ctas">
+          <a class="btn" href="/pages/sleep-match">{% render 'icon', name: 'moon', size: 18 %}{{ 'cart.empty_quiz' | t }}</a>
+          <a class="btn btn--secondary" href="{{ routes.all_products_collection_url }}">{{ 'cart.empty_shop' | t }}</a>
+        </div>
+        {%- assign need_keys = 'calm,support,cool,cosy,stretch' | split: ',' -%}
+        <ul class="cart-empty__needs" role="list">
+          {%- for k in need_keys -%}
+            {%- liquid
+              assign ck = 'need_' | append: k | append: '_collection'
+              assign c = settings[ck]
+              assign lk = 'need_' | append: k | append: '_label'
+              assign ni = 'need-' | append: k
+            -%}
+            {%- if c != blank and c.products_count > 0 -%}
+              <li><a class="chip need-chip need--{{ k }}" href="{{ c.url }}">{% render 'icon', name: ni, size: 16 %}{{ settings[lk] | escape }}</a></li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </div>
+    {%- endif -%}
+  </div>
+</sz-drawer>
+
+{% schema %}
+{
+  "name": "Basket drawer",
+  "settings": []
+}
+{% endschema %}

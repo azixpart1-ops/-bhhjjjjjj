@@ -1,0 +1,104 @@
+{%- assign s = section.settings -%}
+<section {% render 'section-attrs', section: section, class: 'contact' %}>
+  <div class="container contact__grid">
+    <div class="contact__intro" data-reveal>
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{% render 'icon', name: 'chat', size: 14 %}{{ s.eyebrow | escape }}</p>{%- endif -%}
+      {% render 'heading', text: s.heading, tag: 'h1', class: 'h1' %}
+      {%- if s.text != blank -%}<div class="lead">{{ s.text }}</div>{%- endif -%}
+      <ul class="contact__cards" role="list">
+        {%- if settings.support_email != blank -%}
+          <li class="contact__card">
+            <span class="contact__icon">{% render 'icon', name: 'mail', size: 22 %}</span>
+            <span><strong>{{ 'sections.contact.email' | t }}</strong><a href="mailto:{{ settings.support_email }}">{{ settings.support_email }}</a></span>
+          </li>
+        {%- endif -%}
+        <li class="contact__card">
+          <span class="contact__icon">{% render 'icon', name: 'clock', size: 22 %}</span>
+          <span><strong>{{ 'sections.contact.hours' | t }}</strong>{{ settings.support_hours | escape }}</span>
+        </li>
+        {%- if s.phone != blank -%}
+          <li class="contact__card">
+            <span class="contact__icon">{% render 'icon', name: 'phone', size: 22 %}</span>
+            <span><strong>{{ 'sections.contact.phone' | t }}</strong><a href="tel:{{ s.phone | remove: ' ' }}">{{ s.phone | escape }}</a></span>
+          </li>
+        {%- endif -%}
+        <li class="contact__card contact__card--quiz">
+          <span class="contact__icon">{% render 'icon', name: 'moon', size: 22 %}</span>
+          <span><strong>{{ 'sections.contact.quiz_title' | t }}</strong><a href="/pages/sleep-match">{{ 'sections.contact.quiz_link' | t }}</a></span>
+        </li>
+      </ul>
+      {%- if page.content != blank -%}<div class="rte contact__page">{{ page.content }}</div>{%- endif -%}
+    </div>
+
+    <div class="contact__form-wrap" data-reveal style="--i: 2;">
+      {%- form 'contact', id: 'contact-form', class: 'contact__form' -%}
+        {%- if form.posted_successfully? -%}
+          <div class="contact__done" tabindex="-1" autofocus>
+            <span class="cart-empty__moon">{% render 'icon', name: 'check', size: 32 %}</span>
+            <p class="h3">{{ 'sections.contact.thanks_title' | t }}</p>
+            <p class="muted">{{ 'sections.contact.thanks_text' | t: hours: settings.support_hours }}</p>
+          </div>
+        {%- else -%}
+          <p class="h3 contact__form-title">{{ s.form_heading | escape }}</p>
+          {%- if form.errors -%}
+            <div class="form-message form-message--error" role="alert">{% render 'icon', name: 'info', size: 18 %}<div>{{ 'sections.contact.error' | t }}{{ form.errors | default_errors }}</div></div>
+          {%- endif -%}
+          <div class="contact__row">
+            <div class="field">
+              <label class="field__label" for="c-name">{{ 'sections.contact.name' | t }}</label>
+              <input class="input" id="c-name" type="text" name="contact[name]" autocomplete="name" value="{{ form.name }}" required>
+            </div>
+            <div class="field">
+              <label class="field__label" for="c-email">{{ 'sections.contact.email_label' | t }}</label>
+              <input class="input" id="c-email" type="email" name="contact[email]" autocomplete="email" value="{% if form.email != blank %}{{ form.email }}{% elsif customer %}{{ customer.email }}{% endif %}" required>
+            </div>
+          </div>
+          <div class="contact__row">
+            <div class="field">
+              <label class="field__label" for="c-pet">{{ 'sections.contact.pet' | t }} <span class="muted">({{ 'general.optional' | t }})</span></label>
+              <input class="input" id="c-pet" type="text" name="contact[Pet and breed]" placeholder="{{ 'sections.contact.pet_placeholder' | t }}">
+            </div>
+            <div class="field">
+              <label class="field__label" for="c-order">{{ 'sections.contact.order' | t }} <span class="muted">({{ 'general.optional' | t }})</span></label>
+              <input class="input" id="c-order" type="text" name="contact[Order number]" placeholder="#1001">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field__label" for="c-topic">{{ 'sections.contact.topic' | t }}</label>
+            <select class="select" id="c-topic" name="contact[Topic]">
+              <option>{{ 'sections.contact.topic_choose' | t }}</option>
+              <option>{{ 'sections.contact.topic_order' | t }}</option>
+              <option>{{ 'sections.contact.topic_delivery' | t }}</option>
+              <option>{{ 'sections.contact.topic_return' | t }}</option>
+              <option>{{ 'sections.contact.topic_other' | t }}</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="c-body">{{ 'sections.contact.message' | t }}</label>
+            <textarea class="textarea" id="c-body" name="contact[body]" rows="6" required>{{ form.body }}</textarea>
+          </div>
+          <button type="submit" class="btn btn--lg btn--block">{{ 'sections.contact.send' | t }}{% render 'icon', name: 'arrow-right', size: 18 %}</button>
+          <p class="contact__promise">{% render 'icon', name: 'clock', size: 15 %}{{ 'sections.contact.promise' | t: hours: settings.support_hours }}</p>
+        {%- endif -%}
+      {%- endform -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Contact",
+  "tag": "div",
+  "class": "section-contact",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Talk to a human" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Stuck between two beds? *Ask us.*" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Sizing questions, delivery questions, 'will my Labrador fit in this' questions — send them over. A real person reads every message.</p>" },
+    { "type": "text", "id": "phone", "label": "Phone number (optional)" },
+    { "type": "text", "id": "form_heading", "label": "Form heading", "default": "Send us a message" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ]
+}
+{% endschema %}

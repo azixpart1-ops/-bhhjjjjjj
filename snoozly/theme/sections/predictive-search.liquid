@@ -1,0 +1,68 @@
+{%- comment -%}
+  Results-as-you-type, rendered by Shopify's predictive search endpoint.
+{%- endcomment -%}
+{%- if predictive_search.performed -%}
+  {%- assign res = predictive_search.resources -%}
+  {%- assign total = res.products.size | plus: res.collections.size | plus: res.pages.size | plus: res.articles.size -%}
+  <div class="psr" data-psr-count="{{ total }}">
+    {%- if total == 0 -%}
+      <p class="psr__empty">{{ 'sections.search.no_results' | t: terms: predictive_search.terms }}</p>
+    {%- else -%}
+      {%- if res.queries.size > 0 -%}
+        <ul class="psearch__chips psr__queries" role="list">
+          {%- for q in res.queries -%}
+            <li><a class="chip" href="{{ q.url }}">{{ q.styled_text }}</a></li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+      {%- if res.collections.size > 0 -%}
+        <ul class="psearch__chips" role="list">
+          {%- for c in res.collections -%}<li><a class="chip" href="{{ c.url }}">{{ c.title | escape }}</a></li>{%- endfor -%}
+        </ul>
+      {%- endif -%}
+      {%- if res.products.size > 0 -%}
+        <p class="drawer__label">{{ 'sections.search.products' | t }}</p>
+        <ul class="psr__products" role="list">
+          {%- for p in res.products -%}
+            {%- capture need -%}{% render 'need-key', product: p %}{%- endcapture -%}
+            {%- assign need = need | strip -%}
+            <li>
+              <a class="psr__product{% if need != blank %} need--{{ need }}{% endif %}" href="{{ p.url }}">
+                <span class="psr__thumb">
+                  {%- if p.featured_media -%}
+                    {{ p.featured_media.preview_image | image_url: width: 160 | image_tag: widths: '80, 120, 160', sizes: '64px', loading: 'lazy', alt: '' }}
+                  {%- endif -%}
+                </span>
+                <span class="psr__meta">
+                  <span class="psr__name">{% render 'product-title', product: p %}</span>
+                  <span class="psr__sub">
+                    {% render 'price', product: p, show_from: true, size: 'sm' %}
+                    {%- if need != blank -%}{% render 'need-badge', need: need, style: 'dot' %}{%- endif -%}
+                    {%- unless p.available -%}<span class="muted xs">{{ 'products.back_soon' | t }}</span>{%- endunless -%}
+                  </span>
+                </span>
+              </a>
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+      {%- if res.pages.size > 0 or res.articles.size > 0 -%}
+        <p class="drawer__label">{{ 'sections.search.pages' | t }}</p>
+        <ul class="psr__pages" role="list">
+          {%- for pg in res.pages -%}<li><a href="{{ pg.url }}">{{ pg.title | escape }}</a></li>{%- endfor -%}
+          {%- for a in res.articles -%}<li><a href="{{ a.url }}">{{ a.title | escape }}</a></li>{%- endfor -%}
+        </ul>
+      {%- endif -%}
+      <a class="btn btn--secondary btn--block psr__all" href="{{ routes.search_url }}?q={{ predictive_search.terms | url_encode }}&options%5Bprefix%5D=last">
+        {{ 'sections.search.view_all' | t: terms: predictive_search.terms }}{% render 'icon', name: 'arrow-right', size: 18 %}
+      </a>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Predictive search",
+  "settings": []
+}
+{% endschema %}

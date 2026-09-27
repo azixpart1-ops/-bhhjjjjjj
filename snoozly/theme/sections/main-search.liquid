@@ -1,0 +1,153 @@
+{%- comment -%}
+  SEARCH RESULTS — products with the same filters as collections, then pages
+  and articles. Sold-out beds sink to the end.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign need_keys = 'calm,support,cool,cosy,stretch' | split: ','
+-%}
+{%- paginate search.results by s.per_page -%}
+<div id="s-{{ section.id }}" class="plp" data-facets-section="{{ section.id }}">
+  <header class="plp-hero color-{{ s.color_scheme.id }}">
+    <div class="container plp-hero__inner plp-hero__inner--search">
+      <div class="plp-hero__copy">
+        <h1 class="h1 plp-hero__title">{%- if search.performed -%}{{ 'sections.search.results_for' | t: terms: search.terms }}{%- else -%}{{ 'sections.search.title' | t }}{%- endif -%}</h1>
+        <form action="{{ routes.search_url }}" method="get" role="search" class="searchbar">
+          <label class="visually-hidden" for="search-page-input">{{ 'sections.header.search' | t }}</label>
+          {% render 'icon', name: 'search', size: 20 %}
+          <input class="searchbar__input" id="search-page-input" type="search" name="q" value="{{ search.terms | escape }}" placeholder="{{ 'sections.search.placeholder' | t }}">
+          <input type="hidden" name="options[prefix]" value="last">
+          <button type="submit" class="btn btn--sm">{{ 'sections.search.submit' | t }}</button>
+        </form>
+        {%- if search.performed -%}<p class="plp-hero__count">{{ 'sections.search.count' | t: count: search.results_count }}</p>{%- endif -%}
+      </div>
+    </div>
+    <div class="container">
+      <ul class="plp-needs" role="list">
+        {%- for k in need_keys -%}
+          {%- liquid
+            assign ck = 'need_' | append: k | append: '_collection'
+            assign c = settings[ck]
+            assign lk = 'need_' | append: k | append: '_label'
+            assign ni = 'need-' | append: k
+          -%}
+          {%- if c != blank and c.products_count > 0 -%}
+            <li><a class="chip need-chip need--{{ k }}" href="{{ c.url }}">{% render 'icon', name: ni, size: 16 %}{{ settings[lk] | escape }}</a></li>
+          {%- endif -%}
+        {%- endfor -%}
+      </ul>
+    </div>
+  </header>
+
+  <section class="sz-section color-{{ s.color_scheme.id }} plp-body" style="--pt: 40; --pb: 96;" data-dark="false">
+    <div class="container">
+      {%- if search.performed -%}
+        <div class="plp-toolbar" data-facets-toolbar>
+          {%- if search.filters.size > 0 -%}
+            <button type="button" class="btn btn--secondary btn--sm plp-toolbar__filter" data-drawer-open="facets-drawer" aria-controls="facets-drawer">{% render 'icon', name: 'menu', size: 18 %}{{ 'collections.filters.title' | t }}</button>
+          {%- endif -%}
+          <p class="plp-toolbar__count" role="status">{{ 'sections.search.count' | t: count: search.results_count }}</p>
+          <div class="plp-toolbar__sort">
+            <label for="sort-{{ section.id }}" class="plp-toolbar__sort-label">{{ 'collections.sort_by' | t }}</label>
+            <select class="select select--sm" id="sort-{{ section.id }}" data-sort>
+              {%- assign sort_by = search.sort_by | default: search.default_sort_by -%}
+              {%- for option in search.sort_options -%}<option value="{{ option.value }}"{% if option.value == sort_by %} selected{% endif %}>{{ option.name }}</option>{%- endfor -%}
+            </select>
+          </div>
+        </div>
+        <ul class="plp-active" role="list" data-facets-active>
+          {%- for f in search.filters -%}
+            {%- for v in f.active_values -%}
+              <li><a class="chip chip--remove" href="{{ v.url_to_remove }}" data-facet-link>{{ f.label | escape }}: {{ v.label | escape }}{% render 'icon', name: 'close', size: 14 %}</a></li>
+            {%- endfor -%}
+          {%- endfor -%}
+        </ul>
+
+        <div class="plp-layout{% if search.filters.size == 0 %} plp-layout--full{% endif %}">
+          {%- if search.filters.size > 0 -%}
+            <aside class="plp-sidebar">
+              <sz-drawer id="facets-drawer" class="drawer drawer--left drawer--facets color-{{ s.color_scheme.id }}" aria-hidden="true">
+                <div class="drawer__scrim" data-drawer-close></div>
+                <div class="drawer__panel" role="dialog" aria-modal="true" aria-label="{{ 'collections.filters.title' | t }}" tabindex="-1">
+                  <div class="drawer__head">
+                    <p class="h4">{{ 'collections.filters.title' | t }}</p>
+                    <button class="drawer__close" type="button" data-drawer-close>{% render 'icon', name: 'close', size: 22 %}<span class="visually-hidden">{{ 'general.close' | t }}</span></button>
+                  </div>
+                  <div class="drawer__body" data-facets-filters>{% render 'facets', results: search, terms: search.terms %}</div>
+                  <div class="drawer__foot plp-drawer-foot"><button type="button" class="btn btn--block" data-drawer-close>{{ 'collections.filters.show' | t: count: search.results_count }}</button></div>
+                </div>
+              </sz-drawer>
+            </aside>
+          {%- endif -%}
+
+          <div class="plp-results" data-facets-results>
+            {%- if search.results_count > 0 -%}
+              {%- assign products_found = search.results | where: 'object_type', 'product' -%}
+              {%- assign others = search.results | where: 'object_type', 'page' -%}
+              {%- assign articles = search.results | where: 'object_type', 'article' -%}
+              {%- if products_found.size > 0 -%}
+                <ul class="product-grid plp-grid" role="list" style="--cols-d: 3; --cols-t: 3; --cols-m: 2;">
+                  {%- for pass in (1..2) -%}
+                    {%- for p in products_found -%}
+                      {%- if pass == 1 and p.available == false -%}{%- continue -%}{%- endif -%}
+                      {%- if pass == 2 and p.available -%}{%- continue -%}{%- endif -%}
+                      <li class="featured__item">{% render 'product-card', product: p %}</li>
+                    {%- endfor -%}
+                  {%- endfor -%}
+                </ul>
+              {%- endif -%}
+              {%- if others.size > 0 or articles.size > 0 -%}
+                <div class="search-pages">
+                  <p class="drawer__label">{{ 'sections.search.pages' | t }}</p>
+                  <ul class="search-pages__list" role="list">
+                    {%- for r in others -%}<li><a href="{{ r.url }}"><strong>{{ r.title | escape }}</strong><span>{{ r.content | strip_html | truncatewords: 22 }}</span></a></li>{%- endfor -%}
+                    {%- for r in articles -%}<li><a href="{{ r.url }}"><strong>{{ r.title | escape }}</strong><span>{{ r.excerpt_or_content | strip_html | truncatewords: 22 }}</span></a></li>{%- endfor -%}
+                  </ul>
+                </div>
+              {%- endif -%}
+              {%- if paginate.pages > 1 -%}
+                <nav class="pagination" aria-label="{{ 'general.pagination' | t }}">
+                  {%- if paginate.previous -%}<a class="pagination__btn" href="{{ paginate.previous.url }}" data-facet-link>{% render 'icon', name: 'arrow-left', size: 18 %}<span class="visually-hidden">{{ 'general.previous' | t }}</span></a>{%- endif -%}
+                  <ol role="list">
+                    {%- for part in paginate.parts -%}
+                      <li>{%- if part.is_link -%}<a href="{{ part.url }}" data-facet-link>{{ part.title }}</a>{%- elsif part.title == paginate.current_page -%}<span aria-current="page">{{ part.title }}</span>{%- else -%}<span>{{ part.title }}</span>{%- endif -%}</li>
+                    {%- endfor -%}
+                  </ol>
+                  {%- if paginate.next -%}<a class="pagination__btn" href="{{ paginate.next.url }}" data-facet-link>{% render 'icon', name: 'arrow-right', size: 18 %}<span class="visually-hidden">{{ 'general.next' | t }}</span></a>{%- endif -%}
+                </nav>
+              {%- endif -%}
+            {%- else -%}
+              <div class="plp-empty">
+                <div class="cart-empty__moon">{% render 'icon', name: 'search', size: 30 %}</div>
+                <p class="h3">{{ 'sections.search.no_results' | t: terms: search.terms }}</p>
+                <p class="muted">{{ 'sections.search.no_results_help' | t }}</p>
+                <div class="btn-row"><a class="btn" href="/pages/sleep-match">{% render 'icon', name: 'moon', size: 18 %}{{ 'cart.empty_quiz' | t }}</a><a class="btn btn--secondary" href="{{ routes.all_products_collection_url }}">{{ 'cart.empty_shop' | t }}</a></div>
+              </div>
+            {%- endif -%}
+          </div>
+        </div>
+      {%- else -%}
+        <div class="plp-empty">
+          <p class="muted">{{ 'sections.search.start' | t }}</p>
+          {%- assign suggestions = settings.search_suggestions | split: ',' -%}
+          <ul class="psearch__chips" role="list">
+            {%- for sg in suggestions -%}{%- assign term = sg | strip -%}{%- if term != blank -%}<li><a class="chip" href="{{ routes.search_url }}?q={{ term | url_encode }}&options%5Bprefix%5D=last">{{ term | escape }}</a></li>{%- endif -%}{%- endfor -%}
+          </ul>
+        </div>
+      {%- endif -%}
+    </div>
+  </section>
+</div>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Search results",
+  "tag": "div",
+  "class": "section-main-search",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "range", "id": "per_page", "label": "Results per page", "min": 12, "max": 48, "step": 4, "default": 24 }
+  ]
+}
+{% endschema %}

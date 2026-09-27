@@ -1,0 +1,153 @@
+{%- liquid
+  assign scheme = section.settings.color_scheme
+  assign brand = settings.brand_name | default: shop.name
+  assign need_keys = 'calm,support,cool,cosy,stretch' | split: ','
+  assign lum = scheme.settings.background | color_brightness
+  if lum < 110
+    assign dark = 'true'
+  else
+    assign dark = 'false'
+  endif
+-%}
+<footer class="footer sz-section color-{{ scheme.id }}" data-dark="{{ dark }}" style="--pt: 0; --pb: 0;">
+  {%- if section.settings.show_newsletter -%}
+    <div class="container footer__club">
+      <div class="footer__club-copy">
+        <p class="eyebrow">{% render 'icon', name: 'moon', size: 14 %}{{ section.settings.club_eyebrow | escape }}</p>
+        {% render 'heading', text: section.settings.club_heading, tag: 'h2', class: 'h2' %}
+        {%- if section.settings.club_text != blank -%}<p class="lead">{{ section.settings.club_text | escape }}</p>{%- endif -%}
+      </div>
+      {%- form 'customer', id: 'footer-club', class: 'club-form' -%}
+        <input type="hidden" name="contact[tags]" value="newsletter,snooze-club">
+        {%- if form.posted_successfully? -%}
+          <p class="form-message form-message--success" tabindex="-1" autofocus>{% render 'icon', name: 'check', size: 18 %}{{ section.settings.club_success | escape }}</p>
+        {%- else -%}
+          <div class="club-form__row">
+            <label class="visually-hidden" for="club-email">{{ 'sections.newsletter.email' | t }}</label>
+            <input id="club-email" class="input club-form__input" type="email" name="contact[email]" required autocomplete="email" placeholder="{{ 'sections.newsletter.email' | t }}" {% if form.errors %}aria-invalid="true" aria-describedby="club-error"{% endif %}>
+            <button class="btn club-form__btn" type="submit">{{ section.settings.club_button | escape }}{% render 'icon', name: 'arrow-right', size: 18 %}</button>
+          </div>
+          {%- if form.errors -%}<p class="form-message form-message--error" id="club-error">{{ form.errors.translated_fields.email | capitalize }} {{ form.errors.messages.email }}</p>{%- endif -%}
+          <p class="club-form__fine">{{ section.settings.club_fine | escape }}</p>
+        {%- endif -%}
+      {%- endform -%}
+    </div>
+  {%- endif -%}
+
+  <div class="container footer__trust" role="list">
+    <div class="footer__trust-item" role="listitem">{% render 'icon', name: 'truck', size: 22 %}<span><strong>{{ 'sections.trust.free_delivery' | t: amount: settings.free_shipping_threshold }}</strong>{{ 'sections.trust.free_delivery_sub' | t: price: settings.shipping_standard_price }}</span></div>
+    <div class="footer__trust-item" role="listitem">{% render 'icon', name: 'return', size: 22 %}<span><strong>{{ 'sections.trust.returns' | t: days: settings.returns_days }}</strong>{{ 'sections.trust.returns_sub' | t }}</span></div>
+    <div class="footer__trust-item" role="listitem">{% render 'icon', name: 'lock', size: 22 %}<span><strong>{{ 'sections.trust.secure' | t }}</strong>{{ 'sections.trust.secure_sub' | t }}</span></div>
+    <div class="footer__trust-item" role="listitem">{% render 'icon', name: 'chat', size: 22 %}<span><strong>{{ 'sections.trust.care' | t }}</strong>{{ settings.support_hours | escape }}</span></div>
+  </div>
+
+  <div class="container footer__main">
+    <div class="footer__brand">
+      <a href="{{ routes.root_url }}" class="footer__logo">{% render 'wordmark' %}</a>
+      {%- if section.settings.about != blank -%}<div class="footer__about">{{ section.settings.about }}</div>{%- endif -%}
+      <ul class="footer__social" role="list">
+        {%- assign socials = 'instagram,tiktok,facebook,pinterest,youtube' | split: ',' -%}
+        {%- for s in socials -%}
+          {%- assign key = 'social_' | append: s -%}
+          {%- if settings[key] != blank -%}
+            <li><a href="{{ settings[key] }}" target="_blank" rel="noopener" class="footer__social-link">{% render 'icon', name: s, size: 20 %}<span class="visually-hidden">{{ s | capitalize }}</span></a></li>
+          {%- endif -%}
+        {%- endfor -%}
+      </ul>
+    </div>
+
+    <div class="footer__col">
+      <p class="footer__title">{{ 'sections.header.by_need' | t }}</p>
+      <ul class="footer__links" role="list">
+        {%- for k in need_keys -%}
+          {%- liquid
+            assign ck = 'need_' | append: k | append: '_collection'
+            assign c = settings[ck]
+            assign lk = 'need_' | append: k | append: '_label'
+            assign fk = 'need_' | append: k | append: '_for'
+          -%}
+          {%- if c != blank and c.products_count > 0 -%}
+            <li><a href="{{ c.url }}" class="footer__need need--{{ k }}"><span class="need-badge__dot" aria-hidden="true"></span>{{ settings[lk] | escape }} <span class="footer__need-for">{{ settings[fk] | remove_first: 'For ' | remove_first: 'for ' | escape }}</span></a></li>
+          {%- endif -%}
+        {%- endfor -%}
+      </ul>
+    </div>
+
+    {%- for block in section.blocks -%}
+      {%- case block.type -%}
+        {%- when 'menu' -%}
+          {%- assign m = linklists[block.settings.menu] -%}
+          <div class="footer__col" {{ block.shopify_attributes }}>
+            <p class="footer__title">{{ block.settings.title | default: m.title | escape }}</p>
+            <ul class="footer__links" role="list">
+              {%- for link in m.links -%}<li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>{%- endfor -%}
+            </ul>
+          </div>
+        {%- when 'text' -%}
+          <div class="footer__col" {{ block.shopify_attributes }}>
+            <p class="footer__title">{{ block.settings.title | escape }}</p>
+            <div class="footer__text">{{ block.settings.text }}</div>
+          </div>
+      {%- endcase -%}
+    {%- endfor -%}
+  </div>
+
+  {%- if section.settings.show_giant_wordmark -%}
+    <div class="footer__giant" aria-hidden="true">{{ brand | escape }}</div>
+  {%- endif -%}
+
+  <div class="container footer__bottom">
+    <p class="footer__copy">© {{ 'now' | date: '%Y' }} {{ brand | escape }}. {{ settings.brand_tagline | escape }}</p>
+    <ul class="footer__policies" role="list">
+      {%- for policy in shop.policies -%}
+        {%- if policy != blank -%}<li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>{%- endif -%}
+      {%- endfor -%}
+    </ul>
+    {%- if section.settings.show_payment and shop.enabled_payment_types.size > 0 -%}
+      <ul class="footer__pay" role="list" aria-label="{{ 'sections.footer.payment' | t }}">
+        {%- for type in shop.enabled_payment_types -%}<li>{{ type | payment_type_svg_tag: class: 'footer__pay-icon' }}</li>{%- endfor -%}
+      </ul>
+    {%- endif -%}
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Footer",
+  "tag": "div",
+  "class": "section-footer",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "midnight" },
+    { "type": "richtext", "id": "about", "label": "About text", "default": "<p>Beds chosen for how your pet actually sleeps. Curled, sprawled or leaning on something — there's a Snoozly bed for that.</p>" },
+    { "type": "checkbox", "id": "show_giant_wordmark", "label": "Large wordmark", "default": true },
+    { "type": "checkbox", "id": "show_payment", "label": "Payment icons", "default": true },
+    { "type": "header", "content": "Snooze Club sign-up" },
+    { "type": "checkbox", "id": "show_newsletter", "label": "Show sign-up", "default": true },
+    { "type": "text", "id": "club_eyebrow", "label": "Eyebrow", "default": "The Snooze Club" },
+    { "type": "text", "id": "club_heading", "label": "Heading", "default": "Sleep tips, new beds, *first dibs.*" },
+    { "type": "text", "id": "club_text", "label": "Text", "default": "One friendly email a fortnight: sleep advice from people obsessed with it, and early access when new beds land." },
+    { "type": "text", "id": "club_button", "label": "Button", "default": "Join the club" },
+    { "type": "text", "id": "club_fine", "label": "Small print", "default": "No spam, ever. Unsubscribe in one click." },
+    { "type": "text", "id": "club_success", "label": "Thank-you message", "default": "You're in. Welcome to the Snooze Club." }
+  ],
+  "blocks": [
+    {
+      "type": "menu",
+      "name": "Menu column",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Heading" },
+        { "type": "link_list", "id": "menu", "label": "Menu", "default": "footer" }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Text column",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Heading", "default": "Talk to us" },
+        { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Real people, happy to help you choose.</p>" }
+      ]
+    }
+  ]
+}
+{% endschema %}

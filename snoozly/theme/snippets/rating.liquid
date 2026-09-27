@@ -1,0 +1,26 @@
+{%- comment -%}
+  Star rating from the standard reviews metafields that review apps
+  (Judge.me, Shopify Product Reviews, Okendo, Loox…) write to. Renders nothing
+  until a product has real reviews — no invented social proof.
+  product   product object
+  compact   true for card size
+{%- endcomment -%}
+{%- assign rating = product.metafields.reviews.rating.value -%}
+{%- assign count = product.metafields.reviews.rating_count.value | default: 0 -%}
+{%- if rating != blank and count > 0 -%}
+  {%- liquid
+    assign r = rating.rating | times: 1.0
+    assign max = rating.scale_max | default: 5 | times: 1.0
+    assign pct = r | divided_by: max | times: 100 | round: 1
+  -%}
+  <div class="rating{% if compact %} rating--compact{% endif %}">
+    <span class="rating__stars" style="--pct: {{ pct }}%;" aria-hidden="true">
+      <span class="rating__track">★★★★★</span><span class="rating__fill">★★★★★</span>
+    </span>
+    <span class="rating__text">
+      <span class="visually-hidden">{{ 'products.rating' | t: rating: r, max: max }}</span>
+      <span aria-hidden="true">{{ r | round: 1 }}</span>
+      <span class="rating__count">({{ count }})</span>
+    </span>
+  </div>
+{%- endif -%}

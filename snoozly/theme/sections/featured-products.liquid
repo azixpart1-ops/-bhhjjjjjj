@@ -1,0 +1,97 @@
+{%- comment -%}
+  Product row/grid from a collection, with colour-coded need filters that
+  work instantly on the cards already on the page. In-stock beds lead.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign c = s.collection
+  if c == blank
+    assign c = collections['all']
+  endif
+  assign need_keys = 'calm,support,cool,cosy,stretch' | split: ','
+  assign present = ''
+-%}
+<section {% render 'section-attrs', section: section, class: 'featured' %}>
+  <div class="container">
+    <div class="section-head section-head--split" data-reveal>
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{% render 'icon', name: 'sparkle', size: 14 %}{{ s.eyebrow | escape }}</p>{%- endif -%}
+      {% render 'heading', text: s.heading, class: 'h2' %}
+      {%- if s.text != blank -%}<div class="lead">{{ s.text }}</div>{%- endif -%}
+      <div class="section-head__action">
+        <a class="link-arrow" href="{{ c.url }}">{{ s.link_label | escape }}{% render 'icon', name: 'arrow-right', size: 18 %}</a>
+      </div>
+    </div>
+
+    {%- capture cards -%}
+      {%- assign shown = 0 -%}
+      {%- for pass in (1..2) -%}
+        {%- for p in c.products limit: 50 -%}
+          {%- if shown >= s.limit -%}{%- break -%}{%- endif -%}
+          {%- if settings.available_first -%}
+            {%- if pass == 1 and p.available == false -%}{%- continue -%}{%- endif -%}
+            {%- if pass == 2 and p.available -%}{%- continue -%}{%- endif -%}
+          {%- elsif pass == 2 -%}
+            {%- break -%}
+          {%- endif -%}
+          {%- capture k -%}{% render 'need-key', product: p %}{%- endcapture -%}
+          {%- assign k = k | strip -%}
+          {%- if k != blank -%}{%- assign present = present | append: k | append: ',' -%}{%- endif -%}
+          {%- assign shown = shown | plus: 1 -%}
+          <li class="featured__item" data-need="{{ k }}" data-reveal style="--i: {{ shown | modulo: 6 }};">
+            {% render 'product-card', product: p, sizes: '(min-width: 1100px) 25vw, (min-width: 750px) 33vw, 72vw' %}
+          </li>
+        {%- endfor -%}
+      {%- endfor -%}
+    {%- endcapture -%}
+
+    {%- if s.show_filters -%}
+      <need-filter class="featured__filters" data-target="#fp-{{ section.id }}">
+        <div class="chips" role="group" aria-label="{{ 'sections.featured.filter_label' | t }}">
+          <button type="button" class="chip" aria-pressed="true" data-need-filter="">{{ 'sections.featured.all' | t }}</button>
+          {%- for k in need_keys -%}
+            {%- if present contains k -%}
+              {%- assign lk = 'need_' | append: k | append: '_label' -%}
+              {%- assign ni = 'need-' | append: k -%}
+              <button type="button" class="chip need-chip need--{{ k }}" aria-pressed="false" data-need-filter="{{ k }}">{% render 'icon', name: ni, size: 16 %}{{ settings[lk] | escape }}</button>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      </need-filter>
+    {%- endif -%}
+
+    {%- if cards != blank -%}
+      <ul id="fp-{{ section.id }}" class="product-grid{% if s.mobile_scroll %} product-grid--scroll-m{% endif %}" role="list" style="--cols-d: {{ s.columns }}; --cols-t: 3; --cols-m: 2;">
+        {{ cards }}
+      </ul>
+    {%- else -%}
+      <ul class="product-grid" role="list" style="--cols-d: 4; --cols-t: 3; --cols-m: 2;">
+        {%- for i in (1..4) -%}
+          <li><div class="card"><div class="card__frame">{% render 'placeholder', ratio: '1 / 1' %}</div><div class="card__body"><p class="card__title">{{ 'sections.featured.placeholder' | t }}</p></div></div></li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Featured beds",
+  "tag": "div",
+  "class": "section-featured",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "collection", "id": "collection", "label": "Collection" },
+    { "type": "range", "id": "limit", "label": "Number of beds", "min": 2, "max": 16, "step": 1, "default": 8 },
+    { "type": "range", "id": "columns", "label": "Columns on desktop", "min": 2, "max": 5, "step": 1, "default": 4 },
+    { "type": "checkbox", "id": "mobile_scroll", "label": "Swipe row on phones", "default": true },
+    { "type": "checkbox", "id": "show_filters", "label": "Colour-coded need filters", "default": true },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The Snoozly edit" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Beds they'll *actually* sleep in." },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Hand-picked from makers we trust, and sorted by the sleep need each one solves.</p>" },
+    { "type": "text", "id": "link_label", "label": "Link label", "default": "Shop all beds" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "presets": [ { "name": "Featured beds" } ]
+}
+{% endschema %}

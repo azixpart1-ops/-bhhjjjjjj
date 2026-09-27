@@ -1,0 +1,94 @@
+{%- comment -%}
+  Icon + heading + text grid. Used for "what makes a bed good for sleep"
+  (colour-coded by need) and for brand values on the About page.
+{%- endcomment -%}
+{%- assign s = section.settings -%}
+<section {% render 'section-attrs', section: section, class: 'features' %}>
+  <div class="container">
+    <div class="features__layout features__layout--{{ s.layout }}">
+      <div class="section-head{% if s.layout == 'center' %} section-head--center{% endif %}" data-reveal>
+        {%- if s.eyebrow != blank -%}<p class="eyebrow">{% render 'icon', name: 'sparkle', size: 14 %}{{ s.eyebrow | escape }}</p>{%- endif -%}
+        {% render 'heading', text: s.heading, class: 'h2' %}
+        {%- if s.text != blank -%}<div class="lead">{{ s.text }}</div>{%- endif -%}
+        {%- if s.layout == 'side' and s.image != blank -%}
+          <div class="features__media">{% render 'media', image: s.image, ratio: '4 / 5', sizes: '(min-width: 990px) 35vw, 100vw' %}</div>
+        {%- endif -%}
+        {%- if s.cta_label != blank -%}
+          <div><a class="btn" href="{{ s.cta_link | default: routes.all_products_collection_url }}">{{ s.cta_label | escape }}{% render 'icon', name: 'arrow-right', size: 18 %}</a></div>
+        {%- endif -%}
+      </div>
+      <ul class="features__grid" role="list" style="--cols: {{ s.columns }};">
+        {%- for block in section.blocks -%}
+          {%- assign k = block.settings.need -%}
+          <li class="feature{% if k != 'none' %} need--{{ k }} feature--need{% endif %}" {{ block.shopify_attributes }} data-reveal style="--i: {{ forloop.index }};">
+            <span class="feature__icon">{% render 'icon', name: block.settings.icon, size: 26 %}</span>
+            <h3 class="h4 feature__title">{{ block.settings.title | escape }}</h3>
+            <div class="feature__text">{{ block.settings.text }}</div>
+            {%- if k != 'none' -%}
+              {%- assign ck = 'need_' | append: k | append: '_collection' -%}
+              {%- assign c = settings[ck] -%}
+              {%- if c != blank and c.products_count > 0 -%}
+                {%- assign lk = 'need_' | append: k | append: '_label' -%}
+                <a class="feature__link" href="{{ c.url }}">{{ 'sections.features.shop_need' | t: need: settings[lk] }}{% render 'icon', name: 'arrow-right', size: 16 %}</a>
+              {%- endif -%}
+            {%- endif -%}
+          </li>
+        {%- endfor -%}
+      </ul>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Feature grid",
+  "tag": "div",
+  "class": "section-features",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "select", "id": "layout", "label": "Layout", "options": [ { "value": "side", "label": "Heading beside grid" }, { "value": "center", "label": "Heading above, centred" } ], "default": "side" },
+    { "type": "range", "id": "columns", "label": "Columns", "min": 2, "max": 4, "step": 1, "default": 2 },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "What makes a good bed" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Four things every good night *depends on.*" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>A bed carries more of your pet's life than anything else they own. These are the four things we check before one earns a place here.</p>" },
+    { "type": "image_picker", "id": "image", "label": "Image (side layout)" },
+    { "type": "text", "id": "cta_label", "label": "Button" },
+    { "type": "url", "id": "cta_link", "label": "Button link" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "blocks": [
+    {
+      "type": "feature",
+      "name": "Feature",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "options": [
+          { "value": "need-support", "label": "Support (foam layers)" }, { "value": "need-calm", "label": "Calm (bolster)" },
+          { "value": "need-cool", "label": "Cool (snowflake)" }, { "value": "need-cosy", "label": "Cosy (moon)" },
+          { "value": "need-stretch", "label": "Stretch (arrows)" }, { "value": "wash", "label": "Washable" },
+          { "value": "shield", "label": "Guarantee" }, { "value": "heart", "label": "Heart" }, { "value": "leaf", "label": "Leaf" },
+          { "value": "paw", "label": "Paw" }, { "value": "truck", "label": "Delivery" }, { "value": "chat", "label": "Support chat" },
+          { "value": "ruler", "label": "Ruler" }, { "value": "sparkle", "label": "Sparkle" }, { "value": "moon", "label": "Moon" }
+        ], "default": "need-support" },
+        { "type": "select", "id": "need", "label": "Colour-code as", "options": [
+          { "value": "none", "label": "No colour" }, { "value": "calm", "label": "Calm" }, { "value": "support", "label": "Support" },
+          { "value": "cool", "label": "Cool" }, { "value": "cosy", "label": "Cosy" }, { "value": "stretch", "label": "Stretch" }
+        ], "default": "none" },
+        { "type": "text", "id": "title", "label": "Heading", "default": "Support that holds its shape" },
+        { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Filling that springs back night after night, instead of flattening into a pancake by spring.</p>" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Feature grid",
+      "blocks": [
+        { "type": "feature", "settings": { "icon": "need-support", "need": "support", "title": "Support that holds its shape" } },
+        { "type": "feature", "settings": { "icon": "need-calm", "need": "calm", "title": "Somewhere to rest their head" } },
+        { "type": "feature", "settings": { "icon": "need-cool", "need": "cool", "title": "The right temperature" } },
+        { "type": "feature", "settings": { "icon": "wash", "need": "none", "title": "Easy to keep fresh" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

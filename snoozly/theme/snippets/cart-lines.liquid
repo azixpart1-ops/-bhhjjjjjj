@@ -1,0 +1,48 @@
+{%- comment -%}
+  Cart line items, shared by the drawer and the cart page so they can never
+  disagree. Prices, discounts and money formatting all come from Shopify.
+  context  'drawer' | 'page'
+{%- endcomment -%}
+<ul class="lines lines--{{ context }}" role="list">
+  {%- for item in cart.items -%}
+    <li class="line" data-line="{{ forloop.index }}" data-key="{{ item.key }}">
+      <a class="line__media" href="{{ item.url }}" tabindex="-1" aria-hidden="true">
+        {%- if item.image -%}
+          {{ item.image | image_url: width: 240 | image_tag: widths: '120, 180, 240', sizes: '96px', loading: 'lazy', alt: '', class: 'line__img' }}
+        {%- else -%}
+          {% render 'placeholder', ratio: '1 / 1' %}
+        {%- endif -%}
+      </a>
+      <div class="line__body">
+        <div class="line__top">
+          <a class="line__title" href="{{ item.url }}">{% render 'product-title', product: item.product %}</a>
+          <div class="line__price">
+            {%- if item.original_line_price > item.final_line_price -%}
+              <s class="muted xs">{{ item.original_line_price | money }}</s>
+            {%- endif -%}
+            <span class="tnum">{{ item.final_line_price | money }}</span>
+          </div>
+        </div>
+        {%- unless item.product.has_only_default_variant -%}
+          <p class="line__variant">{{ item.variant.title | escape }}</p>
+        {%- endunless -%}
+        {%- for p in item.properties -%}
+          {%- assign first = p.first | slice: 0 -%}
+          {%- if p.last != blank and first != '_' -%}<p class="line__variant">{{ p.first }}: {{ p.last }}</p>{%- endif -%}
+        {%- endfor -%}
+        {%- if item.selling_plan_allocation -%}<p class="line__variant">{{ item.selling_plan_allocation.selling_plan.name }}</p>{%- endif -%}
+        {%- for d in item.line_level_discount_allocations -%}
+          <p class="line__disc">{% render 'icon', name: 'gift', size: 14 %}{{ d.discount_application.title | escape }} (−{{ d.amount | money }})</p>
+        {%- endfor -%}
+        <div class="line__controls">
+          <quantity-input class="qty qty--sm">
+            <button type="button" class="qty__btn" data-qty-step="-1" aria-label="{{ 'cart.decrease' | t: title: item.product.title | escape }}">{% render 'icon', name: 'minus', size: 16 %}</button>
+            <input class="qty__input" type="number" inputmode="numeric" min="0" {% if item.variant.inventory_management == 'shopify' and item.variant.inventory_policy == 'deny' %}max="{{ item.variant.inventory_quantity }}"{% endif %} value="{{ item.quantity }}" aria-label="{{ 'cart.quantity_for' | t: title: item.product.title | escape }}" data-line-qty="{{ forloop.index }}">
+            <button type="button" class="qty__btn" data-qty-step="1" aria-label="{{ 'cart.increase' | t: title: item.product.title | escape }}">{% render 'icon', name: 'plus', size: 16 %}</button>
+          </quantity-input>
+          <button type="button" class="line__remove" data-line-remove="{{ forloop.index }}">{% render 'icon', name: 'trash', size: 16 %}<span>{{ 'cart.remove' | t }}</span></button>
+        </div>
+      </div>
+    </li>
+  {%- endfor -%}
+</ul>

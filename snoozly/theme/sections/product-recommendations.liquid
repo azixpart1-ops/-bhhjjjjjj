@@ -1,0 +1,47 @@
+{%- comment -%}
+  "You might also like" — Shopify's own recommendations, loaded after the
+  page so the buy box is never slowed down by it.
+{%- endcomment -%}
+{%- assign s = section.settings -%}
+<section {% render 'section-attrs', section: section, class: 'recs' %}>
+  <div class="container">
+    <product-recs data-url="{{ routes.product_recommendations_url }}?section_id={{ section.id }}&product_id={{ product.id }}&limit={{ s.limit | plus: 2 }}&intent={{ s.intent }}">
+      {%- if recommendations.performed and recommendations.products_count > 0 -%}
+        <div class="section-head section-head--split">
+          {%- if s.eyebrow != blank -%}<p class="eyebrow">{% render 'icon', name: 'sparkle', size: 14 %}{{ s.eyebrow | escape }}</p>{%- endif -%}
+          {% render 'heading', text: s.heading, class: 'h2' %}
+        </div>
+        <ul class="product-grid product-grid--scroll-m" role="list" style="--cols-d: {{ s.limit }}; --cols-t: 3; --cols-m: 2;">
+          {%- assign shown = 0 -%}
+          {%- for pass in (1..2) -%}
+            {%- for p in recommendations.products -%}
+              {%- if shown >= s.limit -%}{%- break -%}{%- endif -%}
+              {%- if pass == 1 and p.available == false -%}{%- continue -%}{%- endif -%}
+              {%- if pass == 2 and p.available -%}{%- continue -%}{%- endif -%}
+              {%- assign shown = shown | plus: 1 -%}
+              <li class="featured__item" data-reveal style="--i: {{ shown }};">{% render 'product-card', product: p %}</li>
+            {%- endfor -%}
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </product-recs>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Product recommendations",
+  "tag": "div",
+  "class": "section-recs",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "linen" },
+    { "type": "select", "id": "intent", "label": "Type", "options": [ { "value": "related", "label": "Similar beds" }, { "value": "complementary", "label": "Goes well with (set in Search & Discovery)" } ], "default": "related" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Still deciding?" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Other beds *they might love.*" },
+    { "type": "range", "id": "limit", "label": "Number of beds", "min": 2, "max": 5, "step": 1, "default": 4 },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "presets": [ { "name": "Product recommendations" } ]
+}
+{% endschema %}

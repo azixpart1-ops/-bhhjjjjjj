@@ -1,0 +1,45 @@
+{%- comment -%}
+  Price block.
+  product    product object (required)
+  variant    optional variant; defaults to selected-or-first-available
+  size       'sm' | 'md' | 'lg'
+  show_from  true to prefix "From" when prices vary (cards)
+{%- endcomment -%}
+{%- liquid
+  assign v = variant | default: product.selected_or_first_available_variant
+  assign target = v
+  assign varies = false
+  if show_from and product.price_varies
+    assign varies = true
+    assign target = product
+  endif
+  assign price = target.price
+  if varies
+    assign price = product.price_min
+  endif
+  assign compare = v.compare_at_price
+  if varies
+    assign compare = product.compare_at_price_min
+  endif
+  assign on_sale = false
+  if compare > price
+    assign on_sale = true
+    assign saving = compare | minus: price | times: 100.0 | divided_by: compare | round
+  endif
+-%}
+<div class="price price--{{ size | default: 'md' }}{% if on_sale %} price--sale{% endif %}{% unless product.available %} price--soldout{% endunless %}" data-price>
+  {%- if varies -%}<span class="price__from">{{ 'products.from' | t }}</span>{%- endif -%}
+  <span class="price__now">
+    <span class="visually-hidden">{% if on_sale %}{{ 'products.sale_price' | t }}{% else %}{{ 'products.price' | t }}{% endif %}</span>
+    {{- price | money -}}
+  </span>
+  {%- if on_sale -%}
+    <s class="price__was"><span class="visually-hidden">{{ 'products.regular_price' | t }}</span>{{ compare | money }}</s>
+    {%- if saving > 0 and saving >= settings.sale_badge_min -%}<span class="price__save">{{ 'products.save_percent' | t: percent: saving }}</span>{%- endif -%}
+  {%- endif -%}
+  {%- if v.unit_price_measurement -%}
+    <span class="price__unit">
+      {{- v.unit_price | money }}/{% if v.unit_price_measurement.reference_value != 1 %}{{ v.unit_price_measurement.reference_value }}{% endif %}{{ v.unit_price_measurement.reference_unit -}}
+    </span>
+  {%- endif -%}
+</div>

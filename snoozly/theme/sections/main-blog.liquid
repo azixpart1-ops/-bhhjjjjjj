@@ -1,0 +1,65 @@
+{%- assign s = section.settings -%}
+{%- paginate blog.articles by 9 -%}
+<section {% render 'section-attrs', section: section, class: 'blog' %}>
+  <div class="container">
+    <header class="section-head" data-reveal>
+      <p class="eyebrow">{% render 'icon', name: 'moon', size: 14 %}{{ s.eyebrow | escape }}</p>
+      <h1 class="h1">{{ blog.title | escape }}</h1>
+      {%- if s.intro != blank -%}<p class="lead">{{ s.intro | escape }}</p>{%- endif -%}
+    </header>
+    {%- if blog.all_tags.size > 0 -%}
+      <ul class="blog__tags" role="list">
+        <li><a class="chip" href="{{ blog.url }}"{% unless current_tags %} aria-current="page"{% endunless %}>{{ 'blogs.all' | t }}</a></li>
+        {%- for tag in blog.all_tags -%}
+          <li><a class="chip" href="{{ blog.url }}/tagged/{{ tag | handle }}"{% if current_tags contains tag %} aria-current="page"{% endif %}>{{ tag | escape }}</a></li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+    {%- if blog.articles.size > 0 -%}
+      <ul class="blog__grid" role="list">
+        {%- for article in blog.articles -%}
+          <li class="{% if forloop.first and paginate.current_page == 1 %}blog__lead{% endif %}" data-reveal style="--i: {{ forloop.index | modulo: 6 }};">
+            <a class="post" href="{{ article.url }}">
+              <span class="post__media">{% render 'media', image: article.image, ratio: '16 / 10', sizes: '(min-width: 990px) 33vw, 100vw', label: 'Article image' %}</span>
+              <span class="post__body">
+                <span class="post__meta">{{ article.published_at | date: '%-d %B %Y' }}{% if article.tags.size > 0 %} · {{ article.tags.first | escape }}{% endif %}</span>
+                <span class="h3 post__title">{{ article.title | escape }}</span>
+                <span class="post__excerpt">{{ article.excerpt_or_content | strip_html | truncatewords: 26 }}</span>
+                <span class="link-arrow">{{ 'blogs.read' | t }}{% render 'icon', name: 'arrow-right', size: 16 %}</span>
+              </span>
+            </a>
+          </li>
+        {%- endfor -%}
+      </ul>
+      {%- if paginate.pages > 1 -%}
+        <nav class="pagination" aria-label="{{ 'general.pagination' | t }}">
+          {%- if paginate.previous -%}<a class="pagination__btn" href="{{ paginate.previous.url }}">{% render 'icon', name: 'arrow-left', size: 18 %}<span class="visually-hidden">{{ 'general.previous' | t }}</span></a>{%- endif -%}
+          <ol role="list">
+            {%- for part in paginate.parts -%}
+              <li>{%- if part.is_link -%}<a href="{{ part.url }}">{{ part.title }}</a>{%- elsif part.title == paginate.current_page -%}<span aria-current="page">{{ part.title }}</span>{%- else -%}<span>{{ part.title }}</span>{%- endif -%}</li>
+            {%- endfor -%}
+          </ol>
+          {%- if paginate.next -%}<a class="pagination__btn" href="{{ paginate.next.url }}">{% render 'icon', name: 'arrow-right', size: 18 %}<span class="visually-hidden">{{ 'general.next' | t }}</span></a>{%- endif -%}
+        </nav>
+      {%- endif -%}
+    {%- else -%}
+      <div class="plp-empty"><div class="cart-empty__moon">{% render 'icon', name: 'moon', size: 34 %}</div><p class="h3">{{ 'blogs.empty' | t }}</p></div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Blog",
+  "tag": "div",
+  "class": "section-main-blog",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The Snooze Journal" },
+    { "type": "text", "id": "intro", "label": "Intro", "default": "Sleep advice for dogs and cats, from people who think about it far too much." },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ]
+}
+{% endschema %}

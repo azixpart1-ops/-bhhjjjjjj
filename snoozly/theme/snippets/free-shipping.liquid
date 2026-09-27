@@ -1,0 +1,32 @@
+{%- comment -%}
+  Free-delivery progress. Goal-gradient: the closer they are, the more the
+  last few pounds feel worth adding. Driven by the real threshold setting.
+{%- endcomment -%}
+{%- liquid
+  assign threshold = settings.free_shipping_threshold | times: 100 | round
+-%}
+{%- if threshold > 0 -%}
+  {%- liquid
+    assign total = cart.total_price
+    assign remaining = threshold | minus: total
+    assign pct = total | times: 100.0 | divided_by: threshold
+    if pct > 100
+      assign pct = 100
+    endif
+  -%}
+  <div class="ship-bar{% if remaining <= 0 %} is-done{% endif %}">
+    <p class="ship-bar__text">
+      {%- if cart.item_count == 0 -%}
+        {% render 'icon', name: 'truck', size: 18 %}<span>{{ 'cart.free_shipping_from' | t: amount: settings.free_shipping_threshold }}</span>
+      {%- elsif remaining > 0 -%}
+        {%- assign remaining_money = remaining | money -%}
+        {% render 'icon', name: 'truck', size: 18 %}<span>{{ 'cart.free_shipping_remaining_html' | t: amount: remaining_money }}</span>
+      {%- else -%}
+        {% render 'icon', name: 'moon', size: 18 %}<span>{{ 'cart.free_shipping_done_html' | t }}</span>
+      {%- endif -%}
+    </p>
+    <div class="ship-bar__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pct | round }}" aria-label="{{ 'cart.free_shipping_progress' | t }}">
+      <span class="ship-bar__fill" style="--pct: {{ pct | round: 1 }}%;"></span>
+    </div>
+  </div>
+{%- endif -%}

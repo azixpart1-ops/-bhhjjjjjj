@@ -1,0 +1,72 @@
+{%- liquid
+  assign scheme = section.settings.color_scheme
+-%}
+{%- if section.blocks.size > 0 -%}
+  <div class="announce color-{{ scheme.id }}" {{ section.shopify_attributes }}>
+    <div class="container announce__inner">
+      <announcement-rotator class="announce__track" data-interval="{{ section.settings.interval | times: 1000 }}" aria-roledescription="carousel" aria-label="{{ 'sections.announcement.label' | t }}">
+        {%- for block in section.blocks -%}
+          <p class="announce__msg{% if forloop.first %} is-active{% endif %}" {{ block.shopify_attributes }} {% unless forloop.first %}aria-hidden="true" inert{% endunless %}>
+            {%- if block.settings.icon != 'none' -%}{% render 'icon', name: block.settings.icon, size: 16 %}{%- endif -%}
+            {%- if block.settings.link != blank -%}
+              <a href="{{ block.settings.link }}">{{ block.settings.text }}{% if block.settings.link_label != blank %} <span class="announce__cta">{{ block.settings.link_label }}</span>{% endif %}</a>
+            {%- else -%}
+              <span>{{ block.settings.text }}</span>
+            {%- endif -%}
+          </p>
+        {%- endfor -%}
+      </announcement-rotator>
+      {%- if section.settings.show_contact and settings.support_email != blank -%}
+        <a class="announce__side" href="mailto:{{ settings.support_email }}">{% render 'icon', name: 'chat', size: 15 %}<span>{{ 'sections.announcement.help' | t }}</span></a>
+      {%- endif -%}
+    </div>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Announcement bar",
+  "tag": "aside",
+  "class": "section-announce",
+  "max_blocks": 6,
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "midnight" },
+    { "type": "range", "id": "interval", "label": "Seconds per message", "min": 3, "max": 12, "step": 1, "default": 5 },
+    { "type": "checkbox", "id": "show_contact", "label": "Show 'Need help?' link on desktop", "default": true }
+  ],
+  "blocks": [
+    {
+      "type": "message",
+      "name": "Message",
+      "settings": [
+        {
+          "type": "select", "id": "icon", "label": "Icon",
+          "options": [
+            { "value": "none", "label": "None" },
+            { "value": "truck", "label": "Delivery" },
+            { "value": "return", "label": "Returns" },
+            { "value": "lock", "label": "Secure" },
+            { "value": "moon", "label": "Moon" },
+            { "value": "sparkle", "label": "Sparkle" },
+            { "value": "gift", "label": "Gift" },
+            { "value": "paw", "label": "Paw" }
+          ],
+          "default": "truck"
+        },
+        { "type": "text", "id": "text", "label": "Text", "default": "Free UK delivery on orders over £50" },
+        { "type": "url", "id": "link", "label": "Link" },
+        { "type": "text", "id": "link_label", "label": "Link label" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Announcement bar",
+      "blocks": [
+        { "type": "message", "settings": { "icon": "truck", "text": "Free UK delivery on orders over £50" } },
+        { "type": "message", "settings": { "icon": "moon", "text": "Not sure which bed? Take the 60-second Sleep Match", "link": "/pages/sleep-match", "link_label": "Start →" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,126 @@
+{%- comment -%}
+  Global design tokens. Everything the stylesheet reads that a merchant can
+  change in the editor is emitted here, once, in the <head>.
+{%- endcomment -%}
+{%- if settings.use_brand_fonts -%}
+  <style>
+    @font-face {
+      font-family: 'Snoozly Display';
+      src: url('{{ 'snoozly-display.woff2' | asset_url }}') format('woff2');
+      font-weight: 400 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Snoozly Display';
+      src: url('{{ 'snoozly-display-italic.woff2' | asset_url }}') format('woff2');
+      font-weight: 300 500;
+      font-style: italic;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Snoozly Sans';
+      src: url('{{ 'snoozly-body.woff2' | asset_url }}') format('woff2');
+      font-weight: 400 700;
+      font-style: normal;
+      font-display: swap;
+    }
+  </style>
+{%- else -%}
+  {%- assign body_bold = settings.type_body_font | font_modify: 'weight', 'bold' -%}
+  {%- assign body_600 = settings.type_body_font | font_modify: 'weight', '600' -%}
+  <style>
+    {{ settings.type_header_font | font_face: font_display: 'swap' }}
+    {{ settings.type_body_font | font_face: font_display: 'swap' }}
+    {%- if body_bold %}{{ body_bold | font_face: font_display: 'swap' }}{% endif -%}
+    {%- if body_600 %}{{ body_600 | font_face: font_display: 'swap' }}{% endif -%}
+  </style>
+{%- endif -%}
+
+<style>
+  :root {
+    {%- if settings.use_brand_fonts %}
+    --font-display: 'Snoozly Display', 'Iowan Old Style', Georgia, serif;
+    --font-body: 'Snoozly Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --display-weight: 560;
+    --display-variation: 'SOFT' 100, 'WONK' 0;
+    {%- else %}
+    --font-display: {{ settings.type_header_font.family }}, {{ settings.type_header_font.fallback_families }};
+    --font-body: {{ settings.type_body_font.family }}, {{ settings.type_body_font.fallback_families }};
+    --display-weight: {{ settings.type_header_font.weight }};
+    --display-variation: normal;
+    {%- endif %}
+    --heading-scale: {{ settings.heading_scale | divided_by: 100.0 }};
+    --page-width: {{ settings.page_width }}px;
+
+    {%- case settings.corner_style -%}
+      {%- when 'square' %}
+    --r-xs: 2px; --r-sm: 2px; --r-md: 2px; --r-lg: 2px; --r-xl: 2px;
+      {%- when 'soft' %}
+    --r-xs: 6px; --r-sm: 10px; --r-md: 14px; --r-lg: 18px; --r-xl: 24px;
+      {%- else %}
+    --r-xs: 8px; --r-sm: 14px; --r-md: 22px; --r-lg: 30px; --r-xl: 44px;
+    {%- endcase -%}
+
+    {%- case settings.button_shape -%}
+      {%- when 'square' %}
+    --r-btn: 2px;
+      {%- when 'rounded' %}
+    --r-btn: 12px;
+      {%- else %}
+    --r-btn: 999px;
+    {%- endcase %}
+
+    --c-sale: {{ settings.color_sale }};
+    --c-star: {{ settings.color_star }};
+    --c-success: {{ settings.color_success }};
+    --c-moon: {{ settings.color_moon }};
+    --c-night: #1A1838;
+
+    --need-cool-tint: {{ settings.need_cool_tint }};
+    --need-cool-deep: {{ settings.need_cool_deep }};
+    --need-support-tint: {{ settings.need_support_tint }};
+    --need-support-deep: {{ settings.need_support_deep }};
+    --need-calm-tint: {{ settings.need_calm_tint }};
+    --need-calm-deep: {{ settings.need_calm_deep }};
+    --need-cosy-tint: {{ settings.need_cosy_tint }};
+    --need-cosy-deep: {{ settings.need_cosy_deep }};
+    --need-stretch-tint: {{ settings.need_stretch_tint }};
+    --need-stretch-deep: {{ settings.need_stretch_deep }};
+  }
+
+  {% for scheme in settings.color_schemes -%}
+  .color-{{ scheme.id }} {
+    --bg: {{ scheme.settings.background }};
+    --bg-rgb: {{ scheme.settings.background.red }}, {{ scheme.settings.background.green }}, {{ scheme.settings.background.blue }};
+    {%- if scheme.settings.background_gradient != blank %}
+    --bg-gradient: {{ scheme.settings.background_gradient }};
+    {%- else %}
+    --bg-gradient: none;
+    {%- endif %}
+    --surface: {{ scheme.settings.surface }};
+    --text: {{ scheme.settings.text }};
+    --text-rgb: {{ scheme.settings.text.red }}, {{ scheme.settings.text.green }}, {{ scheme.settings.text.blue }};
+    --muted: {{ scheme.settings.muted }};
+    --accent: {{ scheme.settings.accent }};
+    --accent-rgb: {{ scheme.settings.accent.red }}, {{ scheme.settings.accent.green }}, {{ scheme.settings.accent.blue }};
+    --btn: {{ scheme.settings.button }};
+    --btn-rgb: {{ scheme.settings.button.red }}, {{ scheme.settings.button.green }}, {{ scheme.settings.button.blue }};
+    --btn-label: {{ scheme.settings.button_label }};
+    --link: {{ scheme.settings.secondary_button_label }};
+    --line: rgba({{ scheme.settings.text.red }}, {{ scheme.settings.text.green }}, {{ scheme.settings.text.blue }}, 0.13);
+    --line-strong: rgba({{ scheme.settings.text.red }}, {{ scheme.settings.text.green }}, {{ scheme.settings.text.blue }}, 0.3);
+    {%- assign bg_lum = scheme.settings.background | color_brightness -%}
+    {%- if bg_lum < 110 %}
+    --is-dark: 1;
+    --shadow-rgb: 0, 0, 0;
+    --wash: rgba(255, 255, 255, 0.06);
+    {%- else %}
+    --is-dark: 0;
+    --shadow-rgb: 26, 24, 56;
+    --wash: rgba({{ scheme.settings.text.red }}, {{ scheme.settings.text.green }}, {{ scheme.settings.text.blue }}, 0.045);
+    {%- endif %}
+    color: var(--text);
+  }
+  {% endfor %}
+</style>

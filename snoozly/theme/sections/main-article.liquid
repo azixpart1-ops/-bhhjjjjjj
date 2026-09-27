@@ -1,0 +1,70 @@
+{%- assign s = section.settings -%}
+<article {% render 'section-attrs', section: section, class: 'article' %}>
+  <div class="container container--narrow">
+    <header class="article__head" data-reveal>
+      <nav class="crumbs" aria-label="{{ 'general.breadcrumbs' | t }}">
+        <ol role="list"><li><a href="{{ routes.root_url }}">{{ 'general.home' | t }}</a></li><li><a href="{{ blog.url }}">{{ blog.title | escape }}</a></li></ol>
+      </nav>
+      <p class="post__meta">{{ article.published_at | date: '%-d %B %Y' }}{% if article.author != blank %} · {{ article.author | escape }}{% endif %}</p>
+      <h1 class="h1 article__title">{{ article.title | escape }}</h1>
+      {%- if article.excerpt != blank -%}<div class="lead">{{ article.excerpt | strip_html }}</div>{%- endif -%}
+    </header>
+  </div>
+  {%- if article.image -%}
+    <div class="container container--medium article__hero">{% render 'media', image: article.image, ratio: '16 / 9', sizes: '(min-width: 1100px) 1080px, 100vw', priority: true %}</div>
+  {%- endif -%}
+  <div class="container container--narrow">
+    <div class="rte article__body">{{ article.content }}</div>
+
+    <aside class="article__cta color-midnight night-sky" data-dark="true">
+      <span class="plp-promo__moon">{% render 'icon', name: 'moon', size: 24 %}</span>
+      <div>
+        <p class="h3">{{ s.cta_heading | escape }}</p>
+        <p class="muted">{{ s.cta_text | escape }}</p>
+      </div>
+      <a class="btn btn--moon" href="/pages/sleep-match">{{ s.cta_label | escape }}{% render 'icon', name: 'arrow-right', size: 18 %}</a>
+    </aside>
+
+    <footer class="article__foot">
+      {%- if article.tags.size > 0 -%}
+        <ul class="blog__tags" role="list">{%- for tag in article.tags -%}<li><a class="chip" href="{{ blog.url }}/tagged/{{ tag | handle }}">{{ tag | escape }}</a></li>{%- endfor -%}</ul>
+      {%- endif -%}
+      <div class="article__share">
+        <span class="muted small">{{ 'blogs.share' | t }}</span>
+        <a class="footer__social-link" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u={{ request.origin | append: article.url | url_encode }}">{% render 'icon', name: 'facebook', size: 18 %}<span class="visually-hidden">Facebook</span></a>
+        <a class="footer__social-link" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/button/?url={{ request.origin | append: article.url | url_encode }}&description={{ article.title | url_encode }}">{% render 'icon', name: 'pinterest', size: 18 %}<span class="visually-hidden">Pinterest</span></a>
+        <a class="footer__social-link" href="mailto:?subject={{ article.title | url_encode }}&body={{ request.origin | append: article.url | url_encode }}">{% render 'icon', name: 'mail', size: 18 %}<span class="visually-hidden">Email</span></a>
+      </div>
+      <a class="link-arrow" href="{{ blog.url }}">{% render 'icon', name: 'arrow-left', size: 16 %}{{ 'blogs.back' | t: blog: blog.title }}</a>
+    </footer>
+  </div>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": {{ article.title | json }},
+      "datePublished": {{ article.published_at | date: '%Y-%m-%dT%H:%M:%S%z' | json }},
+      "dateModified": {{ article.updated_at | date: '%Y-%m-%dT%H:%M:%S%z' | json }},
+      "author": { "@type": "Person", "name": {{ article.author | json }} },
+      "publisher": { "@type": "Organization", "name": {{ settings.brand_name | default: shop.name | json }} },
+      {%- if article.image -%}"image": {{ article.image | image_url: width: 1200 | prepend: 'https:' | json }},{%- endif -%}
+      "mainEntityOfPage": {{ request.origin | append: article.url | json }}
+    }
+  </script>
+</article>
+
+{% schema %}
+{
+  "name": "Article",
+  "tag": "div",
+  "class": "section-main-article",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "text", "id": "cta_heading", "label": "Call-to-action heading", "default": "Wondering which bed suits yours?" },
+    { "type": "text", "id": "cta_text", "label": "Call-to-action text", "default": "Four questions, sixty seconds, one match." },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Take the Sleep Match" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,116 @@
+{%- comment -%}
+  The one product card, used everywhere a product is listed.
+  product   product object
+  sizes     sizes attribute for the image (optional)
+  priority  true for above-the-fold cards
+  heading   heading level for the title (default h3)
+{%- endcomment -%}
+{%- liquid
+  capture need
+    render 'need-key', product: product
+  endcapture
+  assign need = need | strip
+  if settings.show_need_badges == false
+    assign show_badge = false
+  else
+    assign show_badge = true
+  endif
+
+  case settings.card_image_ratio
+    when 'portrait'
+      assign ratio = '4 / 5'
+    when 'natural'
+      assign ratio = product.featured_media.preview_image.aspect_ratio | default: 1
+    else
+      assign ratio = '1 / 1'
+  endcase
+
+  assign img = product.featured_media.preview_image
+  assign img2 = product.media[1].preview_image
+  assign sz = sizes | default: '(min-width: 1200px) 300px, (min-width: 750px) 33vw, 50vw'
+  assign h = heading | default: 'h3'
+
+  assign size_option = nil
+  for option in product.options_with_values
+    assign oname = option.name | downcase
+    if oname contains 'size' or oname == 'variant'
+      assign size_option = option
+      break
+    endif
+  endfor
+
+  assign compare = product.compare_at_price_min
+  assign on_sale = false
+  if compare > product.price_min
+    assign on_sale = true
+    assign saving = compare | minus: product.price_min | times: 100.0 | divided_by: compare | round
+  endif
+
+  if product.available
+    assign low = false
+    assign v = product.selected_or_first_available_variant
+    if product.has_only_default_variant and v.inventory_management == 'shopify' and v.inventory_policy == 'deny' and settings.low_stock_threshold > 0
+      if v.inventory_quantity <= settings.low_stock_threshold and v.inventory_quantity > 0
+        assign low = true
+      endif
+    endif
+  endif
+-%}
+<article class="card{% unless product.available %} card--soldout{% endunless %}{% if need != blank %} need--{{ need }}{% endif %}" data-need="{{ need }}">
+  <a class="card__media" href="{{ product.url }}" tabindex="-1" aria-hidden="true">
+    <div class="card__frame card__frame--{{ settings.card_image_fit }}" style="--ratio: {{ ratio }};">
+      {%- if img -%}
+        {%- if priority -%}{%- assign load = 'eager' -%}{%- else -%}{%- assign load = 'lazy' -%}{%- endif -%}
+        {{ img | image_url: width: 900 | image_tag: widths: '240, 360, 480, 640, 800', sizes: sz, loading: load, alt: '', class: 'card__img' }}
+        {%- if settings.card_second_image and img2 -%}
+          {{ img2 | image_url: width: 900 | image_tag: widths: '240, 360, 480, 640, 800', sizes: sz, loading: 'lazy', alt: '', class: 'card__img card__img--alt' }}
+        {%- endif -%}
+      {%- else -%}
+        {% render 'placeholder', ratio: ratio, tone: need %}
+      {%- endif -%}
+    </div>
+    <div class="card__badges">
+      {%- if show_badge and need != blank -%}{% render 'need-badge', need: need %}{%- endif -%}
+      {%- unless product.available -%}
+        <span class="badge badge--soldout">{{ 'products.back_soon' | t }}</span>
+      {%- else -%}
+        {%- if on_sale and saving > 0 and saving >= settings.sale_badge_min -%}<span class="badge badge--sale">{{ 'products.save_percent' | t: percent: saving }}</span>{%- endif -%}
+      {%- endunless -%}
+    </div>
+  </a>
+
+  <div class="card__body">
+    {%- if settings.card_show_vendor -%}<p class="card__vendor">{{ product.vendor | escape }}</p>{%- endif -%}
+    <{{ h }} class="card__title">
+      <a href="{{ product.url }}" class="card__link">{% render 'product-title', product: product %}</a>
+    </{{ h }}>
+    {% render 'rating', product: product, compact: true %}
+    {%- if settings.card_show_sizes and size_option and size_option.values.size > 1 -%}
+      <ul class="card__sizes" aria-label="{{ 'products.sizes_available' | t }}">
+        {%- for val in size_option.values limit: 5 -%}
+          <li class="{% unless val.available %}is-out{% endunless %}">{{ val | escape }}</li>
+        {%- endfor -%}
+        {%- if size_option.values.size > 5 -%}<li>+{{ size_option.values.size | minus: 5 }}</li>{%- endif -%}
+      </ul>
+    {%- endif -%}
+    <div class="card__foot">
+      {% render 'price', product: product, show_from: true, size: 'sm' %}
+      {%- if low -%}<p class="card__stock">{{ 'products.low_stock' | t: quantity: v.inventory_quantity }}</p>{%- endif -%}
+    </div>
+  </div>
+
+  {%- if settings.card_quick_add and product.available -%}
+    {%- if product.has_only_default_variant -%}
+      {%- form 'product', product, class: 'card__quick', data-product-form: '', novalidate: 'novalidate' -%}
+        <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+        <button type="submit" class="card__add" aria-label="{{ 'products.quick_add' | t: title: product.title | escape }}">
+          {% render 'icon', name: 'plus', size: 18 %}<span>{{ 'products.add' | t }}</span>
+        </button>
+      {%- endform -%}
+    {%- else -%}
+      <a class="card__add card__add--choose" href="{{ product.url }}" tabindex="-1" aria-hidden="true">
+        <span>{% if size_option %}{{ 'products.choose_size' | t }}{% else %}{{ 'products.choose_options' | t }}{% endif %}</span>{% render 'icon', name: 'arrow-right', size: 16 %}
+      </a>
+    {%- endif -%}
+  {%- endif -%}
+</article>

@@ -1,0 +1,128 @@
+{%- liquid
+  assign s = section.settings
+  if s.heading_tag == 'h1'
+    assign htag = 'h1'
+  else
+    assign htag = 'h2'
+  endif
+-%}
+<section {% render 'section-attrs', section: section, class: 'hero' %}>
+  <div class="container hero__grid hero--{{ s.layout }} hero--media-{{ s.media_side }}">
+    <div class="hero__copy" data-reveal>
+      {%- if s.eyebrow != blank -%}
+        <p class="eyebrow hero__eyebrow">{% render 'icon', name: 'moon', size: 16 %}{{ s.eyebrow | escape }}</p>
+      {%- endif -%}
+      {% render 'heading', text: s.heading, tag: htag, class: 'h-hero hero__title' %}
+      {%- if s.text != blank -%}<div class="lead hero__text">{{ s.text }}</div>{%- endif -%}
+
+      <div class="btn-row hero__ctas">
+        {%- if s.cta1_label != blank -%}
+          <a class="btn btn--lg{% if s.cta1_style == 'moon' %} btn--moon{% endif %}" href="{{ s.cta1_link | default: '/pages/sleep-match' }}">
+            {%- if s.cta1_style == 'moon' -%}{% render 'icon', name: 'sparkle', size: 18 %}{%- endif -%}
+            {{ s.cta1_label | escape }}{% render 'icon', name: 'arrow-right', size: 18 %}
+          </a>
+        {%- endif -%}
+        {%- if s.cta2_label != blank -%}
+          <a class="btn btn--lg btn--secondary" href="{{ s.cta2_link | default: routes.all_products_collection_url }}">{{ s.cta2_label | escape }}</a>
+        {%- endif -%}
+      </div>
+      {%- if s.cta_note != blank -%}<p class="hero__note">{% render 'icon', name: 'clock', size: 15 %}{{ s.cta_note | escape }}</p>{%- endif -%}
+
+      {%- assign trust = section.blocks | where: 'type', 'trust' -%}
+      {%- if trust.size > 0 -%}
+        <ul class="hero__trust" role="list">
+          {%- for block in trust -%}
+            <li {{ block.shopify_attributes }}>
+              <span class="hero__trust-icon">{% render 'icon', name: block.settings.icon, size: 18 %}</span>
+              <span>{{ block.settings.text | escape }}</span>
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </div>
+
+    <div class="hero__media hero__media--{{ s.shape }}" data-reveal style="--i: 2;">
+      <div class="hero__frame">
+        {%- if s.image_mobile != blank -%}
+          <div class="hero__img hero__img--desktop">{% render 'media', image: s.image, ratio: '4 / 5', sizes: '(min-width: 990px) 45vw, 100vw', priority: true, label: 'Hero photo — your happiest sleeper, 4:5', tone: s.placeholder_tone %}</div>
+          <div class="hero__img hero__img--mobile">{% render 'media', image: s.image_mobile, ratio: '4 / 5', sizes: '100vw', priority: true %}</div>
+        {%- else -%}
+          {% render 'media', image: s.image, ratio: '4 / 5', sizes: '(min-width: 990px) 45vw, 100vw', priority: true, label: 'Hero photo — your happiest sleeper, 4:5', tone: s.placeholder_tone %}
+        {%- endif -%}
+      </div>
+      {%- if s.stat_value != blank -%}
+        <div class="hero__chip hero__chip--stat">
+          <span class="hero__chip-value">{{ s.stat_value | escape }}</span>
+          <span class="hero__chip-label">{{ s.stat_label | escape }}</span>
+        </div>
+      {%- endif -%}
+      {%- if s.chip_text != blank -%}
+        <div class="hero__chip hero__chip--note">
+          <span class="pill-note__icon">{% render 'icon', name: 'zzz', size: 16 %}</span>{{ s.chip_text | escape }}
+        </div>
+      {%- endif -%}
+      <svg class="hero__orbit" viewBox="0 0 200 200" aria-hidden="true" focusable="false"><circle cx="100" cy="100" r="98" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 7"/></svg>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Hero",
+  "tag": "div",
+  "class": "section-hero",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "midnight" },
+    { "type": "select", "id": "layout", "label": "Layout", "options": [ { "value": "split", "label": "Split" }, { "value": "stack", "label": "Stacked, centred" } ], "default": "split" },
+    { "type": "select", "id": "media_side", "label": "Image side", "options": [ { "value": "right", "label": "Right" }, { "value": "left", "label": "Left" } ], "default": "right" },
+    { "type": "select", "id": "heading_tag", "label": "Heading level", "options": [ { "value": "h1", "label": "H1 — main heading of the page" }, { "value": "h2", "label": "H2" } ], "default": "h1" },
+    { "type": "header", "content": "Text" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Premium beds for dogs & cats" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "They sleep half their life. Make it *the good half.*", "info": "Wrap words in *asterisks* for the italic accent." },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Dogs sleep 12–14 hours a day, cats up to 16. Every Snoozly bed is chosen for <strong>how</strong> your pet sleeps — curled, sprawled or leaning on something — so every one of those hours is spent properly comfortable.</p>" },
+    { "type": "header", "content": "Buttons" },
+    { "type": "text", "id": "cta1_label", "label": "First button", "default": "Find their perfect bed" },
+    { "type": "url", "id": "cta1_link", "label": "First button link" },
+    { "type": "select", "id": "cta1_style", "label": "First button style", "options": [ { "value": "moon", "label": "Moon gold" }, { "value": "scheme", "label": "Scheme button colour" } ], "default": "moon" },
+    { "type": "text", "id": "cta2_label", "label": "Second button", "default": "Shop all beds" },
+    { "type": "url", "id": "cta2_link", "label": "Second button link" },
+    { "type": "text", "id": "cta_note", "label": "Note under buttons", "default": "The Sleep Match takes 60 seconds. No email needed." },
+    { "type": "header", "content": "Image" },
+    { "type": "image_picker", "id": "image", "label": "Image", "info": "Portrait 4:5, at least 1600px tall. Leave empty until your photo is ready — a designed placeholder shows instead." },
+    { "type": "image_picker", "id": "image_mobile", "label": "Mobile image (optional)" },
+    { "type": "select", "id": "shape", "label": "Image shape", "options": [ { "value": "pillow", "label": "Pillow" }, { "value": "arch", "label": "Arch" }, { "value": "moon", "label": "Round-top moon" } ], "default": "arch" },
+    { "type": "select", "id": "placeholder_tone", "label": "Placeholder tone", "options": [ { "value": "", "label": "Scheme" }, { "value": "calm", "label": "Calm" }, { "value": "support", "label": "Support" }, { "value": "cosy", "label": "Cosy" } ], "default": "" },
+    { "type": "text", "id": "stat_value", "label": "Floating stat — value", "default": "12–14 hrs" },
+    { "type": "text", "id": "stat_label", "label": "Floating stat — label", "default": "how long the average dog sleeps, every day" },
+    { "type": "text", "id": "chip_text", "label": "Floating note", "default": "Chosen for how they sleep" },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "blocks": [
+    {
+      "type": "trust",
+      "name": "Trust point",
+      "limit": 4,
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "options": [
+          { "value": "truck", "label": "Delivery" }, { "value": "return", "label": "Returns" }, { "value": "lock", "label": "Secure" },
+          { "value": "shield", "label": "Guarantee" }, { "value": "chat", "label": "Support" }, { "value": "wash", "label": "Washable" },
+          { "value": "heart", "label": "Heart" }, { "value": "paw", "label": "Paw" }, { "value": "moon", "label": "Moon" }
+        ], "default": "truck" },
+        { "type": "text", "id": "text", "label": "Text", "default": "Free UK delivery over £50" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Hero",
+      "blocks": [
+        { "type": "trust", "settings": { "icon": "truck", "text": "Free UK delivery over £50" } },
+        { "type": "trust", "settings": { "icon": "lock", "text": "Secure checkout" } },
+        { "type": "trust", "settings": { "icon": "chat", "text": "UK customer care" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

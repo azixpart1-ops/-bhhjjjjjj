@@ -1,0 +1,94 @@
+{%- comment -%}
+  Problem awareness. Each sign is something an owner can check tonight, and
+  each one is colour-coded to the need that fixes it — so recognising the
+  sign is one click from the answer.
+{%- endcomment -%}
+{%- assign s = section.settings -%}
+<section {% render 'section-attrs', section: section, class: 'signs' %}>
+  <div class="container signs__grid">
+    <div class="signs__intro" data-reveal>
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{% render 'icon', name: 'info', size: 14 %}{{ s.eyebrow | escape }}</p>{%- endif -%}
+      {% render 'heading', text: s.heading, class: 'h2' %}
+      {%- if s.text != blank -%}<div class="lead">{{ s.text }}</div>{%- endif -%}
+      <div class="signs__media">{% render 'media', image: s.image, ratio: '5 / 4', sizes: '(min-width: 990px) 40vw, 100vw', label: 'A dog curled awkwardly on a flat old bed', tone: 'calm' %}</div>
+      {%- if s.cta_label != blank -%}
+        <div class="signs__cta">
+          <p class="muted small">{{ s.cta_intro | escape }}</p>
+          <a class="btn" href="{{ s.cta_link | default: '/pages/sleep-match' }}">{% render 'icon', name: 'moon', size: 18 %}{{ s.cta_label | escape }}</a>
+        </div>
+      {%- endif -%}
+    </div>
+
+    <ol class="signs__list" role="list">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign k = block.settings.need
+          assign ck = 'need_' | append: k | append: '_collection'
+          assign c = settings[ck]
+          assign lk = 'need_' | append: k | append: '_label'
+          assign live = false
+          if c != blank and c.products_count > 0
+            assign live = true
+          endif
+        -%}
+        <li class="sign need--{{ k }}" {{ block.shopify_attributes }} data-reveal style="--i: {{ forloop.index }};">
+          <span class="sign__num" aria-hidden="true">{{ forloop.index | prepend: '0' | slice: -2, 2 }}</span>
+          <div class="sign__body">
+            <h3 class="h4 sign__title">{{ block.settings.title | escape }}</h3>
+            <p class="sign__text">{{ block.settings.text | escape }}</p>
+            {%- if live -%}
+              <a class="sign__link" href="{{ c.url }}"><span class="need-badge__dot" aria-hidden="true"></span>{{ 'sections.signs.fix' | t: need: settings[lk] }}{% render 'icon', name: 'arrow-right', size: 16 %}</a>
+            {%- endif -%}
+          </div>
+        </li>
+      {%- endfor -%}
+    </ol>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Signs it's time",
+  "tag": "div",
+  "class": "section-signs",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "linen" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Worth checking tonight" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Five signs their bed has *stopped working.*" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Pets don't complain about a bad bed. They just quietly stop using it — or keep using it, and pay for it in the morning.</p>" },
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "text", "id": "cta_intro", "label": "Button intro", "default": "Recognise one of these? Find the fix in 60 seconds." },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Take the Sleep Match" },
+    { "type": "url", "id": "cta_link", "label": "Button link" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "blocks": [
+    {
+      "type": "sign",
+      "name": "Sign",
+      "limit": 7,
+      "settings": [
+        { "type": "text", "id": "title", "label": "Sign", "default": "They circle and circle before lying down" },
+        { "type": "textarea", "id": "text", "label": "What it means", "default": "Circling is how dogs make a nest. Endless circling usually means the bed isn't giving them the shape they're looking for." },
+        { "type": "select", "id": "need", "label": "The need that fixes it", "options": [
+          { "value": "calm", "label": "Calm" }, { "value": "support", "label": "Support" }, { "value": "cool", "label": "Cool" },
+          { "value": "cosy", "label": "Cosy" }, { "value": "stretch", "label": "Stretch" }
+        ], "default": "calm" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Signs it's time",
+      "blocks": [
+        { "type": "sign", "settings": { "title": "They circle and circle before lying down", "text": "Circling is how dogs build a nest. Endless circling usually means the bed isn't giving them the shape or the sides they're looking for.", "need": "calm" } },
+        { "type": "sign", "settings": { "title": "They're slower to get up in the morning", "text": "Stiffness after a night's sleep is often a sign they've been lying on a surface that lets hips and elbows press through to the floor.", "need": "support" } },
+        { "type": "sign", "settings": { "title": "You can feel the floor through the middle", "text": "Press your hand into where they lie. If it sinks straight through, the filling has flattened and it's no longer doing its job.", "need": "support" } },
+        { "type": "sign", "settings": { "title": "They choose the sofa, the rug — anywhere else", "text": "Pets vote with their paws. If they stretch out everywhere but their bed, it's usually too small, too enclosed, or too soft to stretch on.", "need": "stretch" } },
+        { "type": "sign", "settings": { "title": "They move to the cold kitchen tiles at night", "text": "Heavy panting and a sudden love of hard floors on warm nights usually mean their bed holds too much heat.", "need": "cool" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

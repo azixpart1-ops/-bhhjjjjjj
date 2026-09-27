@@ -1,0 +1,78 @@
+{%- comment -%}
+  Outputs the sleep-need key for a product: cool | support | calm | cosy | stretch
+  or nothing. Use with capture:
+    {% capture need %}{% render 'need-key', product: p %}{% endcapture %}
+    {% assign need = need | strip %}
+
+  Order of precedence
+  1. A tag need:<key> (the merchant's word is final)
+  2. Words in the title, type and tags, checked in the order below
+  3. Support words in the description (orthopaedic lines often only say it there)
+{%- endcomment -%}
+{%- liquid
+  assign key = ''
+  assign order = 'cool,support,calm,cosy,stretch' | split: ','
+  for k in order
+    assign tag = 'need:' | append: k
+    if product.tags contains tag
+      assign key = k
+      break
+    endif
+  endfor
+
+  if key == ''
+    assign tag_words = product.tags | join: ' '
+    assign hay = product.title | append: ' ' | append: product.type | append: ' ' | append: tag_words | downcase
+    assign w_cool = 'cooling,cool ,gel ,elevated,raised bed,mesh,trampoline' | split: ','
+    assign w_support = 'orthopaedic,orthopedic,ortho ,memory foam,memory-foam,joint,senior,viscoelastic' | split: ','
+    assign w_calm = 'calming,donut,doughnut,anxiety,anxious,bolster,slumber,high-sided,high sided,high wall' | split: ','
+    assign w_cosy = 'cat bed,cat ,cave,igloo,nest,teddy,boucle,bouclé,fleece,snuggle,burrow,cuddle,hooded' | split: ','
+    assign w_stretch = 'mattress,cushion,box bed,square bed,sofa,lounger,crate,mat ,rattan,duvet,flat bed' | split: ','
+    assign hay = ' ' | append: hay | append: ' '
+    for w in w_cool
+      if hay contains w
+        assign key = 'cool'
+        break
+      endif
+    endfor
+    if key == ''
+      for w in w_support
+        if hay contains w
+          assign key = 'support'
+          break
+        endif
+      endfor
+    endif
+    if key == ''
+      assign desc = product.description | strip_html | downcase
+      if desc contains 'orthopaedic' or desc contains 'orthopedic' or desc contains 'viscoelastic'
+        assign key = 'support'
+      endif
+    endif
+    if key == ''
+      for w in w_calm
+        if hay contains w
+          assign key = 'calm'
+          break
+        endif
+      endfor
+    endif
+    if key == ''
+      for w in w_cosy
+        if hay contains w
+          assign key = 'cosy'
+          break
+        endif
+      endfor
+    endif
+    if key == ''
+      for w in w_stretch
+        if hay contains w
+          assign key = 'stretch'
+          break
+        endif
+      endfor
+    endif
+  endif
+-%}
+{{- key -}}

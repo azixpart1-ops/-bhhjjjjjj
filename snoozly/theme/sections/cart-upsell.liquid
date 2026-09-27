@@ -1,0 +1,42 @@
+{%- comment -%}
+  "Complete their setup" row inside the basket. Rendered on demand through the
+  product recommendations endpoint; the script drops anything already in the
+  basket and anything sold out.
+{%- endcomment -%}
+{%- if recommendations.performed and recommendations.products_count > 0 -%}
+  <div class="upsell__inner">
+    <p class="upsell__title">{% render 'icon', name: 'sparkle', size: 16 %}{{ 'cart.upsell_title' | t }}</p>
+    <ul class="upsell__list" role="list">
+      {%- for p in recommendations.products -%}
+        {%- if p.available -%}
+          <li class="upsell__item" data-product-id="{{ p.id }}">
+            <a class="upsell__media" href="{{ p.url }}" tabindex="-1" aria-hidden="true">
+              {%- if p.featured_media -%}
+                {{ p.featured_media.preview_image | image_url: width: 200 | image_tag: widths: '100, 150, 200', sizes: '72px', loading: 'lazy', alt: '' }}
+              {%- endif -%}
+            </a>
+            <div class="upsell__body">
+              <a class="upsell__name" href="{{ p.url }}">{% render 'product-title', product: p %}</a>
+              {% render 'price', product: p, show_from: true, size: 'sm' %}
+            </div>
+            {%- if p.has_only_default_variant -%}
+              {%- form 'product', p, class: 'upsell__form', data-product-form: '' -%}
+                <input type="hidden" name="id" value="{{ p.selected_or_first_available_variant.id }}">
+                <button class="upsell__add" type="submit" aria-label="{{ 'products.quick_add' | t: title: p.title | escape }}">{% render 'icon', name: 'plus', size: 18 %}</button>
+              {%- endform -%}
+            {%- else -%}
+              <a class="upsell__add" href="{{ p.url }}" aria-label="{{ 'products.choose_options' | t }}: {{ p.title | escape }}">{% render 'icon', name: 'arrow-right', size: 18 %}</a>
+            {%- endif -%}
+          </li>
+        {%- endif -%}
+      {%- endfor -%}
+    </ul>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Basket suggestions",
+  "settings": []
+}
+{% endschema %}

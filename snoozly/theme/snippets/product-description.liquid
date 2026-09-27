@@ -1,0 +1,35 @@
+{%- comment -%}
+  Product description with supplier boilerplate removed. Collective and
+  dropship listings arrive carrying another shop's notes ("Check in-store
+  availability… WhatsApp us"); each phrase in Theme settings → Delivery,
+  returns and trust → "Remove supplier notes" cuts the description at the
+  block that contains it. Everything before that block is kept untouched.
+{%- endcomment -%}
+{%- liquid
+  assign html = product.description
+  assign markers = settings.description_cut_markers | newline_to_br | split: '<br />'
+  for m in markers
+    assign marker = m | strip
+    if marker != blank and html contains marker
+      assign before = html | split: marker | first
+      assign parts = before | split: '<div'
+      if parts.size > 1
+        assign kept = ''
+        for p in parts
+          if forloop.last
+            break
+          endif
+          if forloop.first
+            assign kept = kept | append: p
+          else
+            assign kept = kept | append: '<div' | append: p
+          endif
+        endfor
+        assign html = kept
+      else
+        assign html = before
+      endif
+    endif
+  endfor
+-%}
+{{- html -}}

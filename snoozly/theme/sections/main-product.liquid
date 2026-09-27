@@ -1,0 +1,434 @@
+{%- comment -%}
+  PRODUCT PAGE — buy box and gallery.
+  Every block in the buy column can be reordered or removed in the editor.
+  Every number shown (price, stock, delivery, thresholds) is read from
+  Shopify or from Theme settings; nothing is invented on the page.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign current = product.selected_or_first_available_variant
+  capture need
+    render 'need-key', product: product
+  endcapture
+  assign need = need | strip
+
+  assign d_min = settings.delivery_min_days
+  assign d_max = settings.delivery_max_days
+  for tag in product.tags
+    assign t = tag | downcase
+    if t contains 'delivery:'
+      assign range = t | remove: 'delivery:' | strip | split: '-'
+      if range.size == 2
+        assign d_min = range[0] | plus: 0
+        assign d_max = range[1] | plus: 0
+      endif
+    endif
+  endfor
+  if product.metafields.custom.delivery_min_days != blank
+    assign d_min = product.metafields.custom.delivery_min_days.value
+  endif
+  if product.metafields.custom.delivery_max_days != blank
+    assign d_max = product.metafields.custom.delivery_max_days.value
+  endif
+
+  assign form_id = 'product-form-' | append: section.id
+  assign inst_id = 'installments-' | append: section.id
+  assign restock_id = 'restock-' | append: section.id
+  assign media_count = product.media.size
+-%}
+
+<section {% render 'section-attrs', section: section, class: 'pdp' %} data-product data-section="{{ section.id }}" data-product-id="{{ product.id }}" data-need="{{ need }}">
+  <div class="container pdp__grid">
+
+    {%- comment -%} ============ GALLERY ============ {%- endcomment -%}
+    <media-gallery class="pdp__gallery{% if need != blank %} need--{{ need }}{% endif %}" data-media-count="{{ media_count }}">
+      <div class="pdp__viewer" data-viewer tabindex="0" aria-label="{{ 'products.gallery' | t }}">
+        {%- if media_count > 0 -%}
+          {%- for media in product.media -%}
+            <figure class="pdp__slide{% if media.id == current.featured_media.id or forloop.first and current.featured_media == blank %} is-current{% endif %}" data-media-id="{{ media.id }}" id="m-{{ section.id }}-{{ media.id }}">
+              {%- case media.media_type -%}
+                {%- when 'image' -%}
+                  {%- if forloop.first -%}{%- assign load = 'eager' -%}{%- assign fp = 'high' -%}{%- else -%}{%- assign load = 'lazy' -%}{%- assign fp = 'auto' -%}{%- endif -%}
+                  <button type="button" class="pdp__zoom" data-zoom="{{ media.preview_image | image_url: width: 2200 }}" aria-label="{{ 'products.zoom' | t }}">
+                    {{ media | image_url: width: 1600 | image_tag: widths: '480, 720, 960, 1200, 1600', sizes: '(min-width: 990px) 55vw, 100vw', loading: load, fetchpriority: fp, alt: media.alt | default: product.title, class: 'pdp__img' }}
+                    <span class="pdp__zoom-icon" aria-hidden="true">{% render 'icon', name: 'zoom', size: 20 %}</span>
+                  </button>
+                {%- when 'video' -%}
+                  <div class="pdp__video">{{ media | video_tag: controls: true, playsinline: true, preload: 'metadata', image_size: '1200x' }}</div>
+                {%- when 'external_video' -%}
+                  <div class="pdp__video">{{ media | external_video_tag }}</div>
+                {%- else -%}
+                  <div class="pdp__video">{{ media | media_tag }}</div>
+              {%- endcase -%}
+            </figure>
+          {%- endfor -%}
+        {%- else -%}
+          <figure class="pdp__slide is-current">{% render 'placeholder', ratio: '1 / 1', tone: need, label: 'Product photos' %}</figure>
+        {%- endif -%}
+      </div>
+      {%- if media_count > 1 -%}
+        <div class="pdp__gallery-nav">
+          <button type="button" class="pdp__arrow" data-gallery-prev aria-label="{{ 'products.prev_image' | t }}">{% render 'icon', name: 'chevron-left', size: 20 %}</button>
+          <span class="pdp__counter" aria-live="polite"><span data-gallery-index>1</span> / {{ media_count }}</span>
+          <button type="button" class="pdp__arrow" data-gallery-next aria-label="{{ 'products.next_image' | t }}">{% render 'icon', name: 'chevron-right', size: 20 %}</button>
+        </div>
+        <ul class="pdp__thumbs" role="list">
+          {%- for media in product.media -%}
+            <li>
+              <button type="button" class="pdp__thumb{% if forloop.first %} is-active{% endif %}" data-thumb="{{ media.id }}" aria-label="{{ 'products.show_image' | t: n: forloop.index }}">
+                {{ media.preview_image | image_url: width: 180 | image_tag: loading: 'lazy', alt: '', widths: '90, 135, 180', sizes: '80px' }}
+                {%- if media.media_type == 'video' or media.media_type == 'external_video' -%}<span class="pdp__thumb-play">{% render 'icon', name: 'play', size: 18 %}</span>{%- endif -%}
+              </button>
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </media-gallery>
+
+    {%- comment -%} ============ BUY COLUMN ============ {%- endcomment -%}
+    <div class="pdp__info">
+      <div class="pdp__info-inner">
+        {%- for block in section.blocks -%}
+          {%- case block.type -%}
+
+            {%- when '@app' -%}
+              <div class="pdp__block pdp__app">{% render block %}</div>
+
+            {%- when 'breadcrumbs' -%}
+              <nav class="crumbs" aria-label="{{ 'general.breadcrumbs' | t }}" {{ block.shopify_attributes }}>
+                <ol role="list">
+                  <li><a href="{{ routes.root_url }}">{{ 'general.home' | t }}</a></li>
+                  {%- if collection -%}
+                    <li><a href="{{ collection.url }}">{{ collection.title | split: '|' | first | strip | escape }}</a></li>
+                  {%- elsif need != blank -%}
+                    {%- assign ck = 'need_' | append: need | append: '_collection' -%}
+                    {%- assign nc = settings[ck] -%}
+                    {%- if nc != blank -%}<li><a href="{{ nc.url }}">{{ nc.title | escape }}</a></li>{%- endif -%}
+                  {%- endif -%}
+                  <li aria-current="page">{% render 'product-title', product: product %}</li>
+                </ol>
+              </nav>
+
+            {%- when 'need' -%}
+              {%- if need != blank -%}
+                <div class="pdp__need" {{ block.shopify_attributes }}>
+                  {% render 'need-badge', need: need, long: true %}
+                  <p class="pdp__match" data-sleep-match hidden>{% render 'icon', name: 'sparkle', size: 14 %}{{ 'products.matches_quiz' | t }}</p>
+                </div>
+              {%- endif -%}
+
+            {%- when 'title' -%}
+              <h1 class="h2 pdp__title" {{ block.shopify_attributes }}>{% render 'product-title', product: product %}</h1>
+              {%- if block.settings.show_vendor -%}<p class="pdp__vendor">{{ product.vendor | escape }}</p>{%- endif -%}
+
+            {%- when 'rating' -%}
+              <div class="pdp__rating" {{ block.shopify_attributes }}>{% render 'rating', product: product %}</div>
+
+            {%- when 'price' -%}
+              <div class="pdp__price" {{ block.shopify_attributes }}>
+                <div data-price-slot>{% render 'price', product: product, variant: current, size: 'lg' %}</div>
+                {%- if cart.taxes_included -%}<p class="pdp__tax">{{ 'products.tax_included' | t }}</p>{%- endif -%}
+                {%- form 'product', product, id: inst_id, class: 'pdp__installments' -%}
+                  <input type="hidden" name="id" value="{{ current.id }}">
+                  {{ form | payment_terms }}
+                {%- endform -%}
+              </div>
+
+            {%- when 'pitch' -%}
+              {%- liquid
+                assign pitch = product.metafields.custom.tagline.value
+                if pitch == blank and need != blank
+                  assign wk = 'need_' | append: need | append: '_why'
+                  assign pitch = settings[wk]
+                endif
+              -%}
+              {%- if pitch != blank -%}
+                <p class="pdp__pitch" {{ block.shopify_attributes }}>{{ pitch | escape }}</p>
+              {%- endif -%}
+
+            {%- when 'variant_picker' -%}
+              {%- unless product.has_only_default_variant -%}
+                <variant-picker class="pdp__variants" data-section="{{ section.id }}" data-url="{{ product.url }}" {{ block.shopify_attributes }}>
+                  {%- for option in product.options_with_values -%}
+                    {%- assign oname = option.name | downcase -%}
+                    {%- assign is_size = false -%}
+                    {%- if oname contains 'size' or oname == 'variant' -%}{%- assign is_size = true -%}{%- endif -%}
+                    {%- assign is_colour = false -%}
+                    {%- if oname contains 'colour' or oname contains 'color' -%}{%- assign is_colour = true -%}{%- endif -%}
+                    <fieldset class="opt" data-option-index="{{ forloop.index0 }}">
+                      <legend class="opt__legend">
+                        <span>{{ option.name | escape }}: <strong data-option-selected>{{ option.selected_value | escape }}</strong></span>
+                        {%- if is_size and block.settings.size_guide -%}
+                          <button type="button" class="opt__guide" data-drawer-open="size-guide-{{ section.id }}" aria-controls="size-guide-{{ section.id }}">{% render 'icon', name: 'ruler', size: 16 %}{{ 'products.size_guide.link' | t }}</button>
+                        {%- endif -%}
+                      </legend>
+                      <div class="opt__values">
+                        {%- for value in option.values -%}
+                          {%- assign vid = section.id | append: '-' | append: forloop.parentloop.index0 | append: '-' | append: forloop.index0 -%}
+                          <input class="opt__input" type="radio" id="{{ vid }}" name="{{ option.name | escape }}-{{ section.id }}" value="{{ value | escape }}" {% if option.selected_value == value %}checked{% endif %}>
+                          <label class="opt__pill{% if is_colour %} opt__pill--swatch{% endif %}{% unless value.available %} is-unavailable{% endunless %}" for="{{ vid }}">
+                            {%- if is_colour -%}
+                              {%- assign sw = value.swatch.color | default: value | downcase | replace: ' ', '' -%}
+                              <span class="opt__swatch" style="--sw: {{ sw }};"></span>
+                            {%- endif -%}
+                            {{ value | escape }}
+                          </label>
+                        {%- endfor -%}
+                      </div>
+                    </fieldset>
+                  {%- endfor -%}
+                  <script type="application/json" data-variants>
+                    [
+                      {%- for v in product.variants -%}
+                        {%- capture v_price -%}{% render 'price', product: product, variant: v, size: 'lg' %}{%- endcapture -%}
+                        {
+                          "id": {{ v.id }},
+                          "options": {{ v.options | json }},
+                          "available": {{ v.available | json }},
+                          "media": {% if v.featured_media %}{{ v.featured_media.id }}{% else %}null{% endif %},
+                          "qty": {% if v.inventory_management == 'shopify' and v.inventory_policy == 'deny' %}{{ v.inventory_quantity }}{% else %}null{% endif %},
+                          "price": {{ v.price | money | json }},
+                          "priceHtml": {{ v_price | strip | json }}
+                        }{% unless forloop.last %},{% endunless %}
+                      {%- endfor -%}
+                    ]
+                  </script>
+                </variant-picker>
+              {%- endunless -%}
+
+            {%- when 'stock' -%}
+              {%- liquid
+                assign low_t = settings.low_stock_threshold
+                assign st = 'in'
+                if current.available == false
+                  assign st = 'out'
+                elsif current.inventory_management == 'shopify' and current.inventory_policy == 'deny' and low_t > 0 and current.inventory_quantity <= low_t
+                  assign st = 'low'
+                endif
+              -%}
+              <p class="stock stock--{{ st }}" data-stock data-low="{{ low_t }}" data-out-text="{{ 'products.sold_out_note' | t | escape }}" {{ block.shopify_attributes }}>
+                <span class="stock__dot" aria-hidden="true"></span>
+                <span data-stock-text>
+                  {%- case st -%}
+                    {%- when 'out' -%}{{ 'products.sold_out_note' | t }}
+                    {%- when 'low' -%}{{ 'products.low_stock' | t: quantity: current.inventory_quantity }}
+                    {%- else -%}{{ 'products.in_stock' | t }}
+                  {%- endcase -%}
+                </span>
+              </p>
+
+            {%- when 'buy_buttons' -%}
+              <div class="pdp__buy" {{ block.shopify_attributes }}>
+                {%- form 'product', product, id: form_id, class: 'pdp__form', data-product-form: '', novalidate: 'novalidate' -%}
+                  {%- if product.has_only_default_variant -%}
+                    <input type="hidden" name="id" value="{{ current.id }}" data-variant-id>
+                  {%- else -%}
+                    <input type="hidden" name="id" value="{{ current.id }}" data-variant-id disabled>
+                    <noscript>
+                      <label class="field__label" for="nojs-variant-{{ section.id }}">{{ 'products.choose_options' | t }}</label>
+                      <select class="select" id="nojs-variant-{{ section.id }}" name="id">
+                        {%- for v in product.variants -%}
+                          <option value="{{ v.id }}"{% if v.id == current.id %} selected{% endif %}{% unless v.available %} disabled{% endunless %}>{{ v.title | escape }} — {{ v.price | money }}</option>
+                        {%- endfor -%}
+                      </select>
+                    </noscript>
+                  {%- endif -%}
+                  <div class="pdp__buy-row">
+                    {%- if block.settings.show_qty -%}
+                      <quantity-input class="qty">
+                        <button type="button" class="qty__btn" data-qty-step="-1" aria-label="{{ 'products.qty_down' | t }}">{% render 'icon', name: 'minus', size: 18 %}</button>
+                        <input class="qty__input" type="number" name="quantity" id="qty-{{ section.id }}" min="1" value="1" inputmode="numeric" aria-label="{{ 'products.quantity' | t }}">
+                        <button type="button" class="qty__btn" data-qty-step="1" aria-label="{{ 'products.qty_up' | t }}">{% render 'icon', name: 'plus', size: 18 %}</button>
+                      </quantity-input>
+                    {%- endif -%}
+                    <button type="submit" name="add" class="btn btn--lg pdp__atc" data-atc {% unless current.available %}disabled{% endunless %}>
+                      <span data-atc-text>{%- if current.available -%}{{ 'products.add_to_cart' | t }}{%- else -%}{{ 'products.sold_out' | t }}{%- endif -%}</span>
+                      <span class="pdp__atc-price" data-atc-price>{%- if current.available -%}· {{ current.price | money }}{%- endif -%}</span>
+                    </button>
+                  </div>
+                  <p class="form-message form-message--error" data-form-error role="alert" hidden></p>
+                  {%- if block.settings.show_dynamic -%}
+                    <div class="pdp__dynamic{% unless current.available %} is-hidden{% endunless %}" data-dynamic>{{ form | payment_button }}</div>
+                  {%- endif -%}
+                {%- endform -%}
+
+                {%- comment -%} Back-in-stock request: emails the shop, tagged for follow-up {%- endcomment -%}
+                <div class="restock" data-restock {% if current.available %}hidden{% endif %}>
+                  {%- form 'contact', class: 'restock__form', id: restock_id -%}
+                    {%- if form.posted_successfully? -%}
+                      <p class="form-message form-message--success">{% render 'icon', name: 'check', size: 18 %}{{ 'products.restock.thanks' | t }}</p>
+                    {%- else -%}
+                      <p class="restock__title">{% render 'icon', name: 'mail', size: 18 %}{{ 'products.restock.title' | t }}</p>
+                      <input type="hidden" name="contact[tags]" value="back-in-stock">
+                      <input type="hidden" name="contact[body]" value="Back-in-stock request: {{ product.title | escape }}" data-restock-body>
+                      <div class="restock__row">
+                        <label class="visually-hidden" for="restock-email-{{ section.id }}">{{ 'sections.newsletter.email' | t }}</label>
+                        <input class="input" id="restock-email-{{ section.id }}" type="email" name="contact[email]" required placeholder="{{ 'sections.newsletter.email' | t }}" autocomplete="email">
+                        <button class="btn" type="submit">{{ 'products.restock.button' | t }}</button>
+                      </div>
+                    {%- endif -%}
+                  {%- endform -%}
+                </div>
+              </div>
+
+            {%- when 'delivery' -%}
+              <delivery-estimate class="pdp__delivery" data-min="{{ d_min }}" data-max="{{ d_max }}" {{ block.shopify_attributes }}>
+                <span class="pdp__delivery-icon">{% render 'icon', name: 'truck', size: 20 %}</span>
+                <span>
+                  <strong data-delivery-text>{{ 'products.delivery.days' | t: min: d_min, max: d_max }}</strong>
+                  <span class="muted">
+                    {%- if settings.free_shipping_threshold > 0 -%}
+                      {%- assign thr_cents = settings.free_shipping_threshold | times: 100 -%}
+                      {%- if current.price >= thr_cents -%}{{ 'products.delivery.free' | t }}{%- else -%}{{ 'products.delivery.free_over' | t: amount: settings.free_shipping_threshold }}{%- endif -%}
+                    {%- endif -%}
+                  </span>
+                </span>
+              </delivery-estimate>
+
+            {%- when 'trust' -%}
+              <ul class="pdp__trust" role="list" {{ block.shopify_attributes }}>
+                <li>{% render 'icon', name: 'return', size: 20 %}<span>{{ 'sections.trust.returns' | t: days: settings.returns_days }}</span></li>
+                <li>{% render 'icon', name: 'lock', size: 20 %}<span>{{ 'sections.trust.secure' | t }}</span></li>
+                <li>{% render 'icon', name: 'chat', size: 20 %}<span>{{ 'sections.trust.care' | t }}</span></li>
+              </ul>
+
+            {%- when 'description' -%}
+              {%- capture desc -%}{% render 'product-description', product: product %}{%- endcapture -%}
+              {%- if desc != blank -%}
+                <details class="acc" {{ block.shopify_attributes }}{% if block.settings.open %} open{% endif %}>
+                  <summary class="acc__head">{% render 'icon', name: 'info', size: 20 %}<span>{{ block.settings.title | escape }}</span><span class="faq__toggle" aria-hidden="true"></span></summary>
+                  <div class="acc__body rte pdp__desc">{{ desc }}</div>
+                </details>
+              {%- endif -%}
+
+            {%- when 'need_explainer' -%}
+              {%- if need != blank -%}
+                {%- liquid
+                  assign lk = 'need_' | append: need | append: '_label'
+                  assign fk = 'need_' | append: need | append: '_for'
+                  assign wk = 'need_' | append: need | append: '_why'
+                  assign ni = 'need-' | append: need
+                -%}
+                <details class="acc need--{{ need }} acc--need" {{ block.shopify_attributes }}>
+                  <summary class="acc__head">{% render 'icon', name: ni, size: 20 %}<span>{{ 'products.why_need' | t: need: settings[lk] }}</span><span class="faq__toggle" aria-hidden="true"></span></summary>
+                  <div class="acc__body">
+                    <p><strong>{{ settings[fk] | escape }}.</strong> {{ settings[wk] | escape }}</p>
+                    <a class="link-arrow" href="/pages/sleep-match">{{ 'products.check_match' | t }}{% render 'icon', name: 'arrow-right', size: 16 %}</a>
+                  </div>
+                </details>
+              {%- endif -%}
+
+            {%- when 'accordion' -%}
+              {%- liquid
+                assign body = block.settings.content
+                if block.settings.page != blank
+                  assign body = block.settings.page.content
+                endif
+                assign body = body | replace: '[free_threshold]', settings.free_shipping_threshold | replace: '[returns_days]', settings.returns_days | replace: '[standard_price]', settings.shipping_standard_price | replace: '[express_price]', settings.shipping_express_price | replace: '[min_days]', d_min | replace: '[max_days]', d_max | replace: '[support_email]', settings.support_email | replace: '[support_hours]', settings.support_hours
+              -%}
+              <details class="acc" {{ block.shopify_attributes }}>
+                <summary class="acc__head">{% render 'icon', name: block.settings.icon, size: 20 %}<span>{{ block.settings.title | escape }}</span><span class="faq__toggle" aria-hidden="true"></span></summary>
+                <div class="acc__body rte">{{ body }}</div>
+              </details>
+
+            {%- when 'text' -%}
+              <div class="pdp__text rte" {{ block.shopify_attributes }}>{{ block.settings.text }}</div>
+
+          {%- endcase -%}
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+
+  {%- comment -%} Sticky add-to-basket bar {%- endcomment -%}
+  {%- if s.sticky_atc -%}
+    <sticky-atc class="satc color-{{ s.color_scheme.id }}" data-form="{{ form_id }}" hidden>
+      <div class="container satc__inner">
+        <div class="satc__product">
+          {%- if product.featured_media -%}
+            {{ product.featured_media.preview_image | image_url: width: 120 | image_tag: loading: 'lazy', alt: '', class: 'satc__img' }}
+          {%- endif -%}
+          <div class="satc__meta">
+            <p class="satc__title">{% render 'product-title', product: product %}</p>
+            <p class="satc__variant" data-satc-variant>{% unless product.has_only_default_variant %}{{ current.title | escape }}{% endunless %}</p>
+          </div>
+        </div>
+        <div class="satc__buy">
+          <span class="satc__price" data-satc-price>{{ current.price | money }}</span>
+          <button type="button" class="btn satc__btn" data-satc-btn {% unless current.available %}disabled{% endunless %}>{%- if current.available -%}{{ 'products.add_to_cart' | t }}{%- else -%}{{ 'products.sold_out' | t }}{%- endif -%}</button>
+        </div>
+      </div>
+    </sticky-atc>
+  {%- endif -%}
+
+  {%- comment -%} Size guide drawer {%- endcomment -%}
+  <sz-drawer id="size-guide-{{ section.id }}" class="drawer drawer--right color-moonlight" aria-hidden="true">
+    <div class="drawer__scrim" data-drawer-close></div>
+    <div class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="sg-title-{{ section.id }}" tabindex="-1">
+      <div class="drawer__head">
+        <p class="h4" id="sg-title-{{ section.id }}">{{ 'products.size_guide.title' | t }}</p>
+        <button class="drawer__close" type="button" data-drawer-close>{% render 'icon', name: 'close', size: 22 %}<span class="visually-hidden">{{ 'general.close' | t }}</span></button>
+      </div>
+      <div class="drawer__body">{% render 'size-guide', page_override: s.size_guide_page %}</div>
+      <div class="drawer__foot"><a class="btn btn--block" href="/pages/sleep-match">{% render 'icon', name: 'moon', size: 18 %}{{ 'products.size_guide.quiz' | t }}</a></div>
+    </div>
+  </sz-drawer>
+
+  {%- comment -%} Zoom dialog {%- endcomment -%}
+  <dialog class="zoom" data-zoom-dialog aria-label="{{ 'products.zoom' | t }}">
+    <button type="button" class="zoom__close drawer__close" data-zoom-close>{% render 'icon', name: 'close', size: 22 %}<span class="visually-hidden">{{ 'general.close' | t }}</span></button>
+    <img class="zoom__img" alt="" width="1600" height="1600" data-zoom-img>
+  </dialog>
+
+  {{ product | structured_data }}
+</section>
+
+{% schema %}
+{
+  "name": "Product",
+  "tag": "div",
+  "class": "section-main-product",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "checkbox", "id": "sticky_atc", "label": "Sticky add-to-basket bar", "default": true },
+    { "type": "page", "id": "size_guide_page", "label": "Size guide page (optional)", "info": "Without one, the breed-by-breed guide built into the theme is shown." },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 120, "step": 8, "unit": "px", "default": 24 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 80 }
+  ],
+  "blocks": [
+    { "type": "@app" },
+    { "type": "breadcrumbs", "name": "Breadcrumbs", "limit": 1, "settings": [] },
+    { "type": "need", "name": "Sleep-need badge", "limit": 1, "settings": [] },
+    { "type": "title", "name": "Title", "limit": 1, "settings": [ { "type": "checkbox", "id": "show_vendor", "label": "Show brand", "default": false } ] },
+    { "type": "rating", "name": "Star rating", "limit": 1, "settings": [ { "type": "paragraph", "content": "Shows once a reviews app writes ratings to the product. Nothing shows until then." } ] },
+    { "type": "price", "name": "Price", "limit": 1, "settings": [] },
+    { "type": "pitch", "name": "Why it suits them", "limit": 1, "settings": [ { "type": "paragraph", "content": "Uses the product's custom.tagline metafield, or the 'why it helps' line of its sleep need." } ] },
+    { "type": "variant_picker", "name": "Size and options", "limit": 1, "settings": [ { "type": "checkbox", "id": "size_guide", "label": "Size guide link", "default": true } ] },
+    { "type": "stock", "name": "Stock status", "limit": 1, "settings": [] },
+    {
+      "type": "buy_buttons", "name": "Buy buttons", "limit": 1,
+      "settings": [
+        { "type": "checkbox", "id": "show_qty", "label": "Quantity selector", "default": true },
+        { "type": "checkbox", "id": "show_dynamic", "label": "Express checkout buttons (Apple Pay, Shop Pay…)", "default": true }
+      ]
+    },
+    { "type": "delivery", "name": "Delivery estimate", "limit": 1, "settings": [ { "type": "paragraph", "content": "Uses the delivery window in Theme settings. Override per product with a tag such as delivery:14-21, or the custom.delivery_min_days / custom.delivery_max_days metafields." } ] },
+    { "type": "trust", "name": "Trust row", "limit": 1, "settings": [] },
+    { "type": "description", "name": "Description", "limit": 1, "settings": [ { "type": "text", "id": "title", "label": "Heading", "default": "About this bed" }, { "type": "checkbox", "id": "open", "label": "Open by default", "default": true } ] },
+    { "type": "need_explainer", "name": "Sleep-need explainer", "limit": 1, "settings": [] },
+    {
+      "type": "accordion", "name": "Accordion",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "options": [
+          { "value": "truck", "label": "Delivery" }, { "value": "return", "label": "Returns" }, { "value": "wash", "label": "Care" },
+          { "value": "ruler", "label": "Sizing" }, { "value": "info", "label": "Info" }, { "value": "shield", "label": "Guarantee" }, { "value": "leaf", "label": "Materials" }
+        ], "default": "truck" },
+        { "type": "text", "id": "title", "label": "Heading", "default": "Delivery & returns" },
+        { "type": "richtext", "id": "content", "label": "Content", "default": "<p>Free UK delivery over £[free_threshold]; otherwise [standard_price], or [express_price] express.</p>" },
+        { "type": "page", "id": "page", "label": "Or use a page's content" }
+      ]
+    },
+    { "type": "text", "name": "Text", "settings": [ { "type": "richtext", "id": "text", "label": "Text" } ] }
+  ]
+}
+{% endschema %}

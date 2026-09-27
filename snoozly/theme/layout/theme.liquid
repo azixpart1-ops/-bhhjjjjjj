@@ -1,0 +1,141 @@
+<!doctype html>
+{%- liquid
+  assign brand = settings.brand_name | default: shop.name
+  assign title = page_title
+  if template.name == 'index' and page_title == shop.name
+    assign title = settings.home_title | default: brand
+  endif
+  assign description = page_description
+  if template.name == 'index' and description == blank
+    assign description = settings.home_description
+  endif
+-%}
+<html
+  lang="{{ request.locale.iso_code }}"
+  class="no-js corners-{{ settings.corner_style }}{% if settings.reveal_on_scroll %} has-reveal{% endif %}{% if settings.night_sky %} has-night-sky{% endif %}"
+>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1A1838">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <link rel="preconnect" href="https://cdn.shopify.com" crossorigin>
+
+    {%- if settings.favicon != blank -%}
+      <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 64, height: 64 }}">
+    {%- else -%}
+      <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231A1838'/%3E%3Cpath d='M40 14a19 19 0 1 0 12 32A16 16 0 1 1 40 14z' fill='%23F5C35C'/%3E%3C/svg%3E">
+    {%- endif -%}
+
+    <title>
+      {{- title -}}
+      {%- if current_tags %} – {{ current_tags | join: ', ' }}{% endif -%}
+      {%- if current_page != 1 %} – Page {{ current_page }}{% endif -%}
+      {%- unless title contains brand %} | {{ brand }}{% endunless -%}
+    </title>
+    {%- if description != blank %}
+      <meta name="description" content="{{ description | escape }}">
+    {%- endif %}
+
+    {% render 'meta-tags' %}
+
+    {%- if settings.use_brand_fonts -%}
+      {{ 'snoozly-display.woff2' | asset_url | preload_tag: as: 'font', type: 'font/woff2', crossorigin: 'anonymous' }}
+      {{ 'snoozly-body.woff2' | asset_url | preload_tag: as: 'font', type: 'font/woff2', crossorigin: 'anonymous' }}
+    {%- endif -%}
+
+    {% render 'css-variables' %}
+    {{ 'snoozly.css' | asset_url | stylesheet_tag }}
+
+    <script>
+      document.documentElement.classList.remove('no-js');
+      document.documentElement.classList.add('js');
+      window.Snoozly = {
+        routes: {
+          root: {{ routes.root_url | json }},
+          cart: {{ routes.cart_url | json }},
+          cartAdd: {{ routes.cart_add_url | json }},
+          cartChange: {{ routes.cart_change_url | json }},
+          cartUpdate: {{ routes.cart_update_url | json }},
+          search: {{ routes.search_url | json }},
+          predictiveSearch: {{ routes.predictive_search_url | json }},
+          recommendations: {{ routes.product_recommendations_url | json }}
+        },
+        cartType: {{ settings.cart_type | json }},
+        freeShippingCents: {{ settings.free_shipping_threshold | times: 100 | round }},
+        deliveryDays: [{{ settings.delivery_min_days }}, {{ settings.delivery_max_days }}],
+        strings: {
+          addToCart: {{ 'products.add_to_cart' | t | json }},
+          soldOut: {{ 'products.sold_out' | t | json }},
+          unavailable: {{ 'products.unavailable' | t | json }},
+          adding: {{ 'products.adding' | t | json }},
+          added: {{ 'products.added' | t | json }},
+          cartError: {{ 'cart.error' | t | json }},
+          lowStock: {{ 'products.low_stock' | t: quantity: '[count]' | json }},
+          inStock: {{ 'products.in_stock' | t | json }}
+        }
+      };
+    </script>
+    <script src="{{ 'snoozly.js' | asset_url }}" defer></script>
+
+    {{ content_for_header }}
+
+    {%- if template.name == 'index' -%}
+      {%- capture search_target -%}{{ request.origin }}{{ routes.search_url }}?q={search_term_string}{%- endcapture -%}
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": {{ request.origin | append: '/#organization' | json }},
+              "name": {{ brand | json }},
+              "url": {{ request.origin | json }}
+              {%- if settings.logo != blank -%},
+              "logo": {{ settings.logo | image_url: width: 600 | prepend: 'https:' | json }}
+              {%- endif -%}
+              {%- assign socials = '' -%}
+              {%- assign social_keys = 'social_instagram,social_tiktok,social_facebook,social_pinterest,social_youtube' | split: ',' -%}
+              {%- for key in social_keys -%}
+                {%- if settings[key] != blank -%}{%- assign socials = socials | append: settings[key] | append: '|' -%}{%- endif -%}
+              {%- endfor -%}
+              {%- if socials != '' -%},
+              "sameAs": {{ socials | split: '|' | json }}
+              {%- endif %}
+            },
+            {
+              "@type": "WebSite",
+              "@id": {{ request.origin | append: '/#website' | json }},
+              "name": {{ brand | json }},
+              "url": {{ request.origin | json }},
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": {{ search_target | json }},
+                "query-input": "required name=search_term_string"
+              }
+            }
+          ]
+        }
+      </script>
+    {%- endif -%}
+  </head>
+
+  <body class="template-{{ template.name | handle }}{% if template.suffix %} template-{{ template.name | handle }}--{{ template.suffix | handle }}{% endif %}">
+    <a class="skip-link btn" href="#MainContent">{{ 'accessibility.skip_to_content' | t }}</a>
+
+    {% sections 'header-group' %}
+
+    <main id="MainContent" class="main" role="main" tabindex="-1">
+      {{ content_for_layout }}
+    </main>
+
+    {% sections 'footer-group' %}
+
+    {%- if settings.cart_type == 'drawer' and template.name != 'cart' -%}
+      {% section 'cart-drawer' %}
+    {%- endif -%}
+
+    <div class="toast" role="status" aria-live="polite" data-toast hidden></div>
+  </body>
+</html>

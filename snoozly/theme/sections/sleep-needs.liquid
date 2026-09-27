@@ -1,0 +1,120 @@
+{%- comment -%}
+  The colour-coded entry point: one tile per sleep need. Tiles whose
+  collection is empty hide themselves on the live site, so a need with no
+  beds yet never leads to an empty page.
+{%- endcomment -%}
+{%- assign s = section.settings -%}
+<section {% render 'section-attrs', section: section, class: 'needs' %}>
+  <div class="container">
+    <div class="section-head{% if s.align == 'center' %} section-head--center{% endif %}" data-reveal>
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{% render 'icon', name: 'sparkle', size: 14 %}{{ s.eyebrow | escape }}</p>{%- endif -%}
+      {% render 'heading', text: s.heading, class: 'h2' %}
+      {%- if s.text != blank -%}<div class="lead">{{ s.text }}</div>{%- endif -%}
+    </div>
+
+    <ul class="needs__grid needs__grid--{{ s.style }}" role="list">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign k = block.settings.need
+          assign ck = 'need_' | append: k | append: '_collection'
+          assign c = block.settings.collection | default: settings[ck]
+          assign lk = 'need_' | append: k | append: '_label'
+          assign fk = 'need_' | append: k | append: '_for'
+          assign ni = 'need-' | append: k
+          assign count = 0
+          if c != blank
+            assign count = c.products_count
+          endif
+          assign show = true
+          if count == 0 and request.design_mode == false
+            assign show = false
+          endif
+        -%}
+        {%- if show -%}
+          <li class="needs__item need--{{ k }}" {{ block.shopify_attributes }} data-reveal style="--i: {{ forloop.index }};">
+            <a class="need-tile" href="{% if c != blank %}{{ c.url }}{% else %}{{ routes.all_products_collection_url }}{% endif %}">
+              {%- if s.style == 'image' -%}
+                <span class="need-tile__media">
+                  {%- assign img = block.settings.image | default: c.featured_image -%}
+                  {% render 'media', image: img, ratio: '1 / 1', sizes: '(min-width: 990px) 20vw, 50vw', tone: k, label: 'Photo for this sleep need' %}
+                </span>
+              {%- endif -%}
+              <span class="need-tile__icon">{% render 'icon', name: ni, size: 26 %}</span>
+              <span class="need-tile__name">{{ block.settings.title | default: settings[lk] | escape }}</span>
+              <span class="need-tile__for">{{ block.settings.subtitle | default: settings[fk] | escape }}</span>
+              <span class="need-tile__foot">
+                <span class="need-tile__count">
+                  {%- if count > 0 -%}{{ 'sections.needs.count' | t: count: count }}{%- else -%}{{ 'sections.needs.empty' | t }}{%- endif -%}
+                </span>
+                <span class="need-tile__arrow">{% render 'icon', name: 'arrow-right', size: 18 %}</span>
+              </span>
+            </a>
+          </li>
+        {%- endif -%}
+      {%- endfor -%}
+      {%- if s.show_quiz_tile -%}
+        <li class="needs__item needs__item--quiz" data-reveal style="--i: 6;">
+          <a class="need-tile need-tile--quiz" href="{{ s.quiz_link | default: '/pages/sleep-match' }}">
+            <span class="need-tile__icon">{% render 'icon', name: 'moon', size: 26 %}</span>
+            <span class="need-tile__name">{{ s.quiz_title | escape }}</span>
+            <span class="need-tile__for">{{ s.quiz_text | escape }}</span>
+            <span class="need-tile__foot"><span class="need-tile__count">{{ s.quiz_cta | escape }}</span><span class="need-tile__arrow">{% render 'icon', name: 'arrow-right', size: 18 %}</span></span>
+          </a>
+        </li>
+      {%- endif -%}
+    </ul>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Shop by sleep need",
+  "tag": "div",
+  "class": "section-needs",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "select", "id": "style", "label": "Tile style", "options": [ { "value": "tile", "label": "Colour tiles" }, { "value": "image", "label": "Photo tiles" } ], "default": "tile" },
+    { "type": "select", "id": "align", "label": "Heading alignment", "options": [ { "value": "left", "label": "Left" }, { "value": "center", "label": "Centre" } ], "default": "left" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Shop by sleep need" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "What does *your* pet need from a bed?" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Every bed we sell is sorted by the one thing that matters most: how your pet sleeps. Pick the colour that sounds like them.</p>" },
+    { "type": "header", "content": "Sleep Match tile" },
+    { "type": "checkbox", "id": "show_quiz_tile", "label": "Show the 'not sure?' tile", "default": true },
+    { "type": "text", "id": "quiz_title", "label": "Title", "default": "Not sure?" },
+    { "type": "text", "id": "quiz_text", "label": "Text", "default": "Answer four questions and we'll match them." },
+    { "type": "text", "id": "quiz_cta", "label": "Link label", "default": "Take the Sleep Match" },
+    { "type": "url", "id": "quiz_link", "label": "Link" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "blocks": [
+    {
+      "type": "need",
+      "name": "Sleep need",
+      "limit": 5,
+      "settings": [
+        { "type": "select", "id": "need", "label": "Need", "options": [
+          { "value": "calm", "label": "Calm" }, { "value": "support", "label": "Support" }, { "value": "cool", "label": "Cool" },
+          { "value": "cosy", "label": "Cosy" }, { "value": "stretch", "label": "Stretch" }
+        ], "default": "calm" },
+        { "type": "collection", "id": "collection", "label": "Collection", "info": "Leave empty to use the one set in Theme settings → Sleep needs." },
+        { "type": "text", "id": "title", "label": "Title override" },
+        { "type": "text", "id": "subtitle", "label": "Subtitle override" },
+        { "type": "image_picker", "id": "image", "label": "Photo (photo tiles only)" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Shop by sleep need",
+      "blocks": [
+        { "type": "need", "settings": { "need": "calm" } },
+        { "type": "need", "settings": { "need": "support" } },
+        { "type": "need", "settings": { "need": "cosy" } },
+        { "type": "need", "settings": { "need": "stretch" } },
+        { "type": "need", "settings": { "need": "cool" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

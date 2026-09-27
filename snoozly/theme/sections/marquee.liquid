@@ -1,0 +1,53 @@
+{%- liquid
+  assign s = section.settings
+  assign lum = s.color_scheme.settings.background | color_brightness
+-%}
+<section id="s-{{ section.id }}" class="marquee color-{{ s.color_scheme.id }}" data-dark="{% if lum < 110 %}true{% else %}false{% endif %}" style="--speed: {{ s.speed }}s;" aria-label="{{ section.blocks.first.settings.text | escape }}">
+  <div class="marquee__track{% if s.pause_on_hover %} marquee__track--pause{% endif %}">
+    {%- for i in (1..2) -%}
+      <ul class="marquee__list" role="list" {% if i == 2 %}aria-hidden="true"{% endif %}>
+        {%- for block in section.blocks -%}
+          <li class="marquee__item" {% if i == 1 %}{{ block.shopify_attributes }}{% endif %}>
+            <span class="marquee__sep">{% render 'icon', name: s.separator, size: 18 %}</span>
+            <span>{{ block.settings.text | escape }}</span>
+          </li>
+        {%- endfor -%}
+        {%- comment -%} Repeat short lists so the loop never shows a gap {%- endcomment -%}
+        {%- if section.blocks.size < 5 -%}
+          {%- for block in section.blocks -%}
+            <li class="marquee__item" aria-hidden="true"><span class="marquee__sep">{% render 'icon', name: s.separator, size: 18 %}</span><span>{{ block.settings.text | escape }}</span></li>
+          {%- endfor -%}
+        {%- endif -%}
+      </ul>
+    {%- endfor -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Scrolling proof band",
+  "tag": "div",
+  "class": "section-marquee",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moon" },
+    { "type": "select", "id": "separator", "label": "Separator", "options": [ { "value": "moon", "label": "Moon" }, { "value": "sparkle", "label": "Sparkle" }, { "value": "paw", "label": "Paw" }, { "value": "zzz", "label": "Zzz" } ], "default": "moon" },
+    { "type": "range", "id": "speed", "label": "Seconds per loop", "min": 20, "max": 120, "step": 2, "default": 48 },
+    { "type": "checkbox", "id": "pause_on_hover", "label": "Pause on hover", "default": true }
+  ],
+  "blocks": [
+    { "type": "item", "name": "Item", "settings": [ { "type": "text", "id": "text", "label": "Text", "default": "Free UK delivery over £50" } ] }
+  ],
+  "presets": [
+    {
+      "name": "Scrolling proof band",
+      "blocks": [
+        { "type": "item", "settings": { "text": "Sleep, beautifully" } },
+        { "type": "item", "settings": { "text": "Free UK delivery over £50" } },
+        { "type": "item", "settings": { "text": "Chosen for how they sleep" } },
+        { "type": "item", "settings": { "text": "Beds for dogs and cats" } },
+        { "type": "item", "settings": { "text": "Secure checkout" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,3 +1,7 @@
+> **Snoozly (snoozly.co.uk)** — a separate, complete premium theme for the Snoozly
+> store lives in [`snoozly/`](snoozly/README.md). Everything below this note is
+> the PawLunova project.
+
 # PawLunova — Homepage Redesign
 
 A conversion-focused rebuild of the [pawlunova.co.uk](https://pawlunova.co.uk) homepage.

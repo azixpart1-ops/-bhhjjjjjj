@@ -1,0 +1,263 @@
+{%- liquid
+  assign scheme = section.settings.color_scheme
+  assign menu = linklists[section.settings.menu]
+  assign mega_title = section.settings.mega_item | strip | downcase
+  assign brand = settings.brand_name | default: shop.name
+  assign need_keys = 'calm,support,cool,cosy,stretch' | split: ','
+-%}
+<sticky-header class="header-wrap{% if section.settings.sticky %} is-sticky{% endif %}" data-sticky="{{ section.settings.sticky }}">
+  <header class="header color-{{ scheme.id }}" data-header>
+    <div class="container header__inner">
+      <button class="header__icon header__burger" type="button" data-drawer-open="menu-drawer" aria-controls="menu-drawer" aria-expanded="false">
+        {% render 'icon', name: 'menu', size: 24 %}<span class="visually-hidden">{{ 'sections.header.menu' | t }}</span>
+      </button>
+
+      <div class="header__brand">
+        <a href="{{ routes.root_url }}" class="header__logo" style="--logo-w: {{ settings.logo_width }}px;" aria-label="{{ brand | escape }} — {{ 'sections.header.home' | t }}">
+          {%- if settings.logo != blank -%}
+            {%- assign logo_h = settings.logo_width | divided_by: settings.logo.aspect_ratio | round -%}
+            {{ settings.logo | image_url: width: 600 | image_tag: width: settings.logo_width, height: logo_h, widths: '200, 300, 400, 600', sizes: '240px', alt: brand, loading: 'eager', class: 'header__logo-img' }}
+          {%- else -%}
+            {% render 'wordmark' %}
+          {%- endif -%}
+        </a>
+      </div>
+
+      <nav class="header__nav" aria-label="{{ 'sections.header.main_nav' | t }}">
+        <ul class="nav" role="list">
+          {%- for link in menu.links -%}
+            {%- assign lt = link.title | strip | downcase -%}
+            {%- if lt == mega_title and mega_title != blank -%}
+              <li class="nav__item nav__item--mega" data-nav-item>
+                <button class="nav__link" type="button" aria-expanded="false" aria-controls="mega-{{ section.id }}" data-nav-toggle>
+                  {{ link.title | escape }}{% render 'icon', name: 'chevron-down', size: 16 %}
+                </button>
+                <div class="mega" id="mega-{{ section.id }}" data-nav-panel>
+                  <div class="container mega__inner">
+                    <div class="mega__col mega__col--needs">
+                      <p class="mega__title">{{ 'sections.header.by_need' | t }}</p>
+                      <ul class="mega__needs" role="list">
+                        {%- for k in need_keys -%}
+                          {%- liquid
+                            assign ck = 'need_' | append: k | append: '_collection'
+                            assign c = settings[ck]
+                            assign lk = 'need_' | append: k | append: '_label'
+                            assign fk = 'need_' | append: k | append: '_for'
+                            assign show = false
+                            if c != blank
+                              if c.products_count > 0 or request.design_mode
+                                assign show = true
+                              endif
+                            endif
+                          -%}
+                          {%- if show -%}
+                            <li>
+                              <a class="mega__need need--{{ k }}" href="{{ c.url }}">
+                                <span class="mega__need-icon">{%- assign ni = 'need-' | append: k -%}{% render 'icon', name: ni, size: 20 %}</span>
+                                <span><strong>{{ settings[lk] | escape }}</strong><span>{{ settings[fk] | escape }}</span></span>
+                              </a>
+                            </li>
+                          {%- endif -%}
+                        {%- endfor -%}
+                      </ul>
+                    </div>
+                    {%- for child in link.links -%}
+                      <div class="mega__col">
+                        {%- if child.links.size > 0 -%}
+                          <p class="mega__title"><a href="{{ child.url }}">{{ child.title | escape }}</a></p>
+                          <ul class="mega__list" role="list">
+                            {%- for g in child.links -%}<li><a href="{{ g.url }}"{% if g.current %} aria-current="page"{% endif %}>{{ g.title | escape }}</a></li>{%- endfor -%}
+                          </ul>
+                        {%- else -%}
+                          {%- if forloop.first -%}<p class="mega__title">{{ 'sections.header.browse' | t }}</p>{%- endif -%}
+                          <ul class="mega__list" role="list"><li><a href="{{ child.url }}"{% if child.current %} aria-current="page"{% endif %}>{{ child.title | escape }}</a></li></ul>
+                        {%- endif -%}
+                      </div>
+                    {%- endfor -%}
+                    <a class="mega__promo color-{{ section.settings.promo_scheme.id }}" href="{{ section.settings.promo_link | default: routes.all_products_collection_url }}">
+                      {%- if section.settings.promo_image != blank -%}
+                        {% render 'media', image: section.settings.promo_image, ratio: '16 / 10', sizes: '320px', class: 'mega__promo-media' %}
+                      {%- endif -%}
+                      <span class="mega__promo-body">
+                        <span class="eyebrow">{% render 'icon', name: 'sparkle', size: 14 %}{{ section.settings.promo_eyebrow | escape }}</span>
+                        {% render 'heading', text: section.settings.promo_heading, tag: 'span', class: 'h4 mega__promo-heading' %}
+                        <span class="mega__promo-text">{{ section.settings.promo_text | escape }}</span>
+                        <span class="link-arrow">{{ section.settings.promo_cta | escape }}{% render 'icon', name: 'arrow-right', size: 16 %}</span>
+                      </span>
+                    </a>
+                  </div>
+                </div>
+              </li>
+            {%- elsif link.links.size > 0 -%}
+              <li class="nav__item nav__item--drop" data-nav-item>
+                <button class="nav__link" type="button" aria-expanded="false" aria-controls="drop-{{ section.id }}-{{ forloop.index }}" data-nav-toggle>
+                  {{ link.title | escape }}{% render 'icon', name: 'chevron-down', size: 16 %}
+                </button>
+                <div class="drop" id="drop-{{ section.id }}-{{ forloop.index }}" data-nav-panel>
+                  <ul role="list">
+                    {%- for child in link.links -%}<li><a href="{{ child.url }}"{% if child.current %} aria-current="page"{% endif %}>{{ child.title | escape }}</a></li>{%- endfor -%}
+                  </ul>
+                </div>
+              </li>
+            {%- else -%}
+              <li class="nav__item"><a class="nav__link" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title | escape }}</a></li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </nav>
+
+      <div class="header__actions">
+        {%- if section.settings.show_cta and section.settings.cta_label != blank -%}
+          <a class="btn btn--sm header__cta" href="{{ section.settings.cta_link | default: '/pages/sleep-match' }}">{% render 'icon', name: 'moon', size: 16 %}{{ section.settings.cta_label | escape }}</a>
+        {%- endif -%}
+        <button class="header__icon" type="button" data-drawer-open="search-drawer" aria-controls="search-drawer" aria-expanded="false">
+          {% render 'icon', name: 'search', size: 22 %}<span class="visually-hidden">{{ 'sections.header.search' | t }}</span>
+        </button>
+        {%- if shop.customer_accounts_enabled -%}
+          <a class="header__icon header__account" href="{{ routes.account_url }}">
+            {% render 'icon', name: 'user', size: 22 %}<span class="visually-hidden">{% if customer %}{{ 'sections.header.account' | t }}{% else %}{{ 'sections.header.log_in' | t }}{% endif %}</span>
+          </a>
+        {%- endif -%}
+        <a class="header__icon header__cart" href="{{ routes.cart_url }}" data-cart-open>
+          {% render 'icon', name: 'bag', size: 22 %}
+          <span class="visually-hidden">{{ 'sections.header.cart' | t }}</span>
+          <span class="header__count" data-cart-count {% if cart.item_count == 0 %}hidden{% endif %}>{{ cart.item_count }}</span>
+        </a>
+      </div>
+    </div>
+  </header>
+</sticky-header>
+
+{%- comment -%} Mobile menu drawer {%- endcomment -%}
+<sz-drawer id="menu-drawer" class="drawer drawer--left color-{{ scheme.id }}" aria-hidden="true">
+  <div class="drawer__scrim" data-drawer-close></div>
+  <div class="drawer__panel" role="dialog" aria-modal="true" aria-label="{{ 'sections.header.menu' | t }}" tabindex="-1">
+    <div class="drawer__head">
+      <a href="{{ routes.root_url }}" class="drawer__brand">{% render 'wordmark' %}</a>
+      <button class="drawer__close" type="button" data-drawer-close>{% render 'icon', name: 'close', size: 22 %}<span class="visually-hidden">{{ 'general.close' | t }}</span></button>
+    </div>
+    <div class="drawer__body">
+      <a class="quiz-callout" href="{{ section.settings.cta_link | default: '/pages/sleep-match' }}">
+        <span class="quiz-callout__moon">{% render 'icon', name: 'moon', size: 22 %}</span>
+        <span><strong>{{ section.settings.promo_heading | remove: '*' | escape }}</strong><span>{{ section.settings.promo_cta | escape }}</span></span>
+        {% render 'icon', name: 'arrow-right', size: 18 %}
+      </a>
+      <p class="drawer__label">{{ 'sections.header.by_need' | t }}</p>
+      <ul class="drawer__needs" role="list">
+        {%- for k in need_keys -%}
+          {%- liquid
+            assign ck = 'need_' | append: k | append: '_collection'
+            assign c = settings[ck]
+            assign lk = 'need_' | append: k | append: '_label'
+          -%}
+          {%- if c != blank and c.products_count > 0 -%}
+            <li><a class="chip need-chip need--{{ k }}" href="{{ c.url }}">{%- assign ni = 'need-' | append: k -%}{% render 'icon', name: ni, size: 16 %}{{ settings[lk] | escape }}</a></li>
+          {%- endif -%}
+        {%- endfor -%}
+      </ul>
+      <ul class="mnav" role="list">
+        {%- for link in menu.links -%}
+          <li class="mnav__item">
+            {%- if link.links.size > 0 -%}
+              <details class="mnav__details">
+                <summary class="mnav__link">{{ link.title | escape }}{% render 'icon', name: 'chevron-down', size: 18 %}</summary>
+                <ul class="mnav__sub" role="list">
+                  <li><a href="{{ link.url }}">{{ 'sections.header.view_all' | t: title: link.title }}</a></li>
+                  {%- for child in link.links -%}
+                    <li><a href="{{ child.url }}">{{ child.title | escape }}</a></li>
+                    {%- for g in child.links -%}<li class="mnav__g"><a href="{{ g.url }}">{{ g.title | escape }}</a></li>{%- endfor -%}
+                  {%- endfor -%}
+                </ul>
+              </details>
+            {%- else -%}
+              <a class="mnav__link" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title | escape }}</a>
+            {%- endif -%}
+          </li>
+        {%- endfor -%}
+      </ul>
+    </div>
+    <div class="drawer__foot">
+      {%- if shop.customer_accounts_enabled -%}
+        <a class="drawer__foot-link" href="{{ routes.account_url }}">{% render 'icon', name: 'user', size: 18 %}{% if customer %}{{ 'sections.header.account' | t }}{% else %}{{ 'sections.header.log_in' | t }}{% endif %}</a>
+      {%- endif -%}
+      {%- if settings.support_email != blank -%}
+        <a class="drawer__foot-link" href="mailto:{{ settings.support_email }}">{% render 'icon', name: 'mail', size: 18 %}{{ settings.support_email }}</a>
+      {%- endif -%}
+    </div>
+  </div>
+</sz-drawer>
+
+{%- comment -%} Search drawer (predictive) {%- endcomment -%}
+<sz-drawer id="search-drawer" class="drawer drawer--top color-{{ scheme.id }}" aria-hidden="true">
+  <div class="drawer__scrim" data-drawer-close></div>
+  <div class="drawer__panel search-panel" role="dialog" aria-modal="true" aria-label="{{ 'sections.header.search' | t }}" tabindex="-1">
+    <div class="container search-panel__inner">
+      <predictive-search class="psearch" data-enabled="{{ settings.predictive_search }}">
+        <form action="{{ routes.search_url }}" method="get" role="search" class="psearch__form">
+          <label class="visually-hidden" for="psearch-input">{{ 'sections.header.search' | t }}</label>
+          {% render 'icon', name: 'search', size: 22, class: 'psearch__icon' %}
+          <input id="psearch-input" class="psearch__input" type="search" name="q" autocomplete="off" placeholder="{{ 'sections.search.placeholder' | t }}" aria-controls="psearch-results" aria-autocomplete="list" data-psearch-input>
+          <input type="hidden" name="options[prefix]" value="last">
+          <button class="drawer__close" type="button" data-drawer-close>{% render 'icon', name: 'close', size: 22 %}<span class="visually-hidden">{{ 'general.close' | t }}</span></button>
+        </form>
+        <div class="psearch__idle" data-psearch-idle>
+          {%- assign suggestions = settings.search_suggestions | split: ',' -%}
+          {%- if suggestions.size > 0 -%}
+            <p class="drawer__label">{{ 'sections.search.popular' | t }}</p>
+            <ul class="psearch__chips" role="list">
+              {%- for s in suggestions -%}
+                {%- assign term = s | strip -%}
+                {%- if term != blank -%}<li><a class="chip" href="{{ routes.search_url }}?q={{ term | url_encode }}&options%5Bprefix%5D=last">{{ term | escape }}</a></li>{%- endif -%}
+              {%- endfor -%}
+            </ul>
+          {%- endif -%}
+          <p class="drawer__label">{{ 'sections.header.by_need' | t }}</p>
+          <ul class="psearch__chips" role="list">
+            {%- for k in need_keys -%}
+              {%- liquid
+                assign ck = 'need_' | append: k | append: '_collection'
+                assign c = settings[ck]
+                assign lk = 'need_' | append: k | append: '_label'
+                assign fk = 'need_' | append: k | append: '_for'
+              -%}
+              {%- if c != blank and c.products_count > 0 -%}
+                <li><a class="chip need-chip need--{{ k }}" href="{{ c.url }}">{%- assign ni = 'need-' | append: k -%}{% render 'icon', name: ni, size: 16 %}{{ settings[lk] | escape }} · <span class="chip__sub">{{ settings[fk] | escape }}</span></a></li>
+              {%- endif -%}
+            {%- endfor -%}
+          </ul>
+        </div>
+        <div id="psearch-results" class="psearch__results" data-psearch-results aria-live="polite"></div>
+      </predictive-search>
+    </div>
+  </div>
+</sz-drawer>
+
+{% schema %}
+{
+  "name": "Header",
+  "tag": "div",
+  "class": "section-header",
+  "enabled_on": { "groups": ["header"] },
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" },
+    {
+      "type": "text", "id": "mega_item", "label": "Menu item that opens the mega menu", "default": "Shop beds",
+      "info": "Type the exact title of a top-level menu item. Its panel adds the colour-coded sleep needs and the promo card."
+    },
+    { "type": "checkbox", "id": "sticky", "label": "Stick to the top on scroll", "default": true },
+    { "type": "header", "content": "Header button" },
+    { "type": "checkbox", "id": "show_cta", "label": "Show button", "default": true },
+    { "type": "text", "id": "cta_label", "label": "Label", "default": "Find their bed" },
+    { "type": "url", "id": "cta_link", "label": "Link" },
+    { "type": "header", "content": "Mega menu promo card" },
+    { "type": "color_scheme", "id": "promo_scheme", "label": "Colour scheme", "default": "midnight" },
+    { "type": "image_picker", "id": "promo_image", "label": "Image" },
+    { "type": "text", "id": "promo_eyebrow", "label": "Eyebrow", "default": "60-second Sleep Match" },
+    { "type": "text", "id": "promo_heading", "label": "Heading", "default": "Not sure which bed? *We'll match them.*" },
+    { "type": "text", "id": "promo_text", "label": "Text", "default": "Four quick questions about how they sleep, and we'll show you the beds made for it." },
+    { "type": "text", "id": "promo_cta", "label": "Link label", "default": "Start the Sleep Match" },
+    { "type": "url", "id": "promo_link", "label": "Link" }
+  ]
+}
+{% endschema %}

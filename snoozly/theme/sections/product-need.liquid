@@ -1,0 +1,76 @@
+{%- comment -%}
+  The colour-coded story under every product: which sleep need this bed
+  serves, why that matters, and the other needs one tap away. It reads the
+  product's need automatically, so every bed gets the right chapter.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture need
+    render 'need-key', product: product
+  endcapture
+  assign need = need | strip
+  assign need_keys = 'calm,support,cool,cosy,stretch' | split: ','
+-%}
+{%- if need != blank -%}
+  {%- liquid
+    assign lk = 'need_' | append: need | append: '_label'
+    assign fk = 'need_' | append: need | append: '_for'
+    assign wk = 'need_' | append: need | append: '_why'
+    assign ck = 'need_' | append: need | append: '_collection'
+    assign c = settings[ck]
+    assign ni = 'need-' | append: need
+  -%}
+  <section id="s-{{ section.id }}" class="sz-section pnneed need--{{ need }}" style="--pt: {{ s.padding_top }}; --pb: {{ s.padding_bottom }};" data-dark="false">
+    <div class="container pnneed__grid">
+      <div class="pnneed__card" data-reveal>
+        <span class="pnneed__icon">{% render 'icon', name: ni, size: 34 %}</span>
+        <p class="eyebrow pnneed__eyebrow">{{ 'products.need_story.kicker' | t }}</p>
+        <h2 class="h2 pnneed__title">{{ settings[lk] | escape }} <em>{{ settings[fk] | downcase | escape }}</em></h2>
+        <p class="pnneed__why">{{ settings[wk] | escape }}</p>
+        <div class="btn-row">
+          {%- if c != blank -%}<a class="btn pnneed__btn" href="{{ c.url }}">{{ 'products.need_story.shop' | t: need: settings[lk] }}{% render 'icon', name: 'arrow-right', size: 18 %}</a>{%- endif -%}
+          <a class="btn btn--secondary" href="/pages/sleep-match">{% render 'icon', name: 'moon', size: 18 %}{{ 'products.check_match' | t }}</a>
+        </div>
+      </div>
+      <div class="pnneed__others" data-reveal style="--i: 2;">
+        <p class="pnneed__others-title">{{ 'products.need_story.others' | t }}</p>
+        <ul class="pnneed__list" role="list">
+          {%- for k in need_keys -%}
+            {%- if k != need -%}
+              {%- liquid
+                assign ock = 'need_' | append: k | append: '_collection'
+                assign oc = settings[ock]
+                assign olk = 'need_' | append: k | append: '_label'
+                assign ofk = 'need_' | append: k | append: '_for'
+                assign oni = 'need-' | append: k
+              -%}
+              {%- if oc != blank and oc.products_count > 0 -%}
+                <li>
+                  <a class="pnneed__other need--{{ k }}" href="{{ oc.url }}">
+                    <span class="pnneed__other-icon">{% render 'icon', name: oni, size: 20 %}</span>
+                    <span><strong>{{ settings[olk] | escape }}</strong><span>{{ settings[ofk] | escape }}</span></span>
+                    {% render 'icon', name: 'arrow-right', size: 16 %}
+                  </a>
+                </li>
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </div>
+    </div>
+  </section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sleep-need story",
+  "tag": "div",
+  "class": "section-pnneed",
+  "settings": [
+    { "type": "paragraph", "content": "Coloured automatically by the product's sleep need. Hidden for products without one." },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "presets": [ { "name": "Sleep-need story" } ]
+}
+{% endschema %}

@@ -1,0 +1,110 @@
+{%- comment -%}
+  Objection handling, in buying order. Emits FAQPage structured data from the
+  same blocks, so what Google shows and what the page says never drift.
+{%- endcomment -%}
+{%- assign s = section.settings -%}
+<section {% render 'section-attrs', section: section, class: 'faq' %}>
+  <div class="container faq__grid faq--{{ s.layout }}">
+    <div class="faq__head" data-reveal>
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{% render 'icon', name: 'chat', size: 14 %}{{ s.eyebrow | escape }}</p>{%- endif -%}
+      {% render 'heading', text: s.heading, class: 'h2', tag: s.heading_tag %}
+      {%- if s.text != blank -%}<div class="lead">{{ s.text }}</div>{%- endif -%}
+      {%- if s.show_contact -%}
+        <div class="faq__contact">
+          <span class="faq__contact-icon">{% render 'icon', name: 'chat', size: 22 %}</span>
+          <div>
+            <p class="faq__contact-title">{{ 'sections.faq.still' | t }}</p>
+            <p class="muted small">{{ 'sections.faq.reply' | t: hours: settings.support_hours }}</p>
+            <a class="link-arrow" href="{{ s.contact_link | default: '/pages/contact' }}">{{ 'sections.faq.contact' | t }}{% render 'icon', name: 'arrow-right', size: 16 %}</a>
+          </div>
+        </div>
+      {%- endif -%}
+    </div>
+    <div class="faq__list" data-reveal style="--i: 2;">
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'group' -%}
+          <p class="faq__group" {{ block.shopify_attributes }}>{{ block.settings.title | escape }}</p>
+        {%- else -%}
+          {%- liquid
+            assign a = block.settings.answer
+            assign a = a | replace: '[free_threshold]', settings.free_shipping_threshold | replace: '[returns_days]', settings.returns_days | replace: '[standard_price]', settings.shipping_standard_price | replace: '[express_price]', settings.shipping_express_price | replace: '[support_hours]', settings.support_hours | replace: '[support_email]', settings.support_email | replace: '[min_days]', settings.delivery_min_days | replace: '[max_days]', settings.delivery_max_days
+          -%}
+          <details class="faq__item" {{ block.shopify_attributes }}{% if forloop.first and s.open_first %} open{% endif %}>
+            <summary class="faq__q"><span>{{ block.settings.question | escape }}</span><span class="faq__toggle" aria-hidden="true"></span></summary>
+            <div class="faq__a rte">{{ a }}</div>
+          </details>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </div>
+  {%- if s.schema_markup -%}
+    {%- assign qa = section.blocks | where: 'type', 'question' -%}
+    {%- if qa.size > 0 -%}
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {%- for block in qa -%}
+              {%- liquid
+                assign a = block.settings.answer
+                assign a = a | replace: '[free_threshold]', settings.free_shipping_threshold | replace: '[returns_days]', settings.returns_days | replace: '[standard_price]', settings.shipping_standard_price | replace: '[express_price]', settings.shipping_express_price | replace: '[support_hours]', settings.support_hours | replace: '[support_email]', settings.support_email | replace: '[min_days]', settings.delivery_min_days | replace: '[max_days]', settings.delivery_max_days
+              -%}
+              {
+                "@type": "Question",
+                "name": {{ block.settings.question | json }},
+                "acceptedAnswer": { "@type": "Answer", "text": {{ a | strip_html | strip | json }} }
+              }{% unless forloop.last %},{% endunless %}
+            {%- endfor -%}
+          ]
+        }
+      </script>
+    {%- endif -%}
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "FAQ",
+  "tag": "div",
+  "class": "section-faq",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moonlight" },
+    { "type": "select", "id": "layout", "label": "Layout", "options": [ { "value": "split", "label": "Heading beside questions" }, { "value": "stack", "label": "Heading above questions" } ], "default": "split" },
+    { "type": "select", "id": "heading_tag", "label": "Heading level", "options": [ { "value": "h1", "label": "H1 (when this is the page)" }, { "value": "h2", "label": "H2" } ], "default": "h2" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Good questions" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Everything you're *wondering.*" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "checkbox", "id": "open_first", "label": "Open the first answer", "default": true },
+    { "type": "checkbox", "id": "show_contact", "label": "Show 'still stuck?' contact card", "default": true },
+    { "type": "url", "id": "contact_link", "label": "Contact link" },
+    { "type": "checkbox", "id": "schema_markup", "label": "Add FAQ structured data for search", "default": true, "info": "Turn off if the same questions appear in another FAQ section on this page." },
+    { "type": "paragraph", "content": "In answers, [free_threshold], [returns_days], [standard_price], [express_price], [min_days], [max_days], [support_hours] and [support_email] are replaced from Theme settings." },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "blocks": [
+    {
+      "type": "question",
+      "name": "Question",
+      "settings": [
+        { "type": "text", "id": "question", "label": "Question", "default": "How do I choose the right size?" },
+        { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>Measure them nose to base of tail while they're stretched out asleep, then add 15–20cm. Our Sleep Match gives you a size to look for in 60 seconds.</p>" }
+      ]
+    },
+    {
+      "type": "group",
+      "name": "Group heading",
+      "settings": [ { "type": "text", "id": "title", "label": "Heading", "default": "Delivery" } ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "FAQ",
+      "blocks": [
+        { "type": "question" }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,99 @@
+{%- comment -%}
+  Reviews. Only blocks with a real quote render on the live site; with none
+  filled in the section hides itself, so no placeholder review ever reaches a
+  customer. In the theme editor, empty blocks show as prompts.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign filled = 0
+  for block in section.blocks
+    if block.settings.quote != blank
+      assign filled = filled | plus: 1
+    endif
+  endfor
+-%}
+{%- if filled > 0 or request.design_mode -%}
+<section {% render 'section-attrs', section: section, class: 'reviews' %}>
+  <div class="container">
+    <div class="section-head section-head--split" data-reveal>
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{% render 'icon', name: 'heart', size: 14 %}{{ s.eyebrow | escape }}</p>{%- endif -%}
+      {% render 'heading', text: s.heading, class: 'h2' %}
+      {%- if s.score != blank -%}
+        <div class="section-head__action reviews__score">
+          <span class="reviews__score-num">{{ s.score | escape }}</span>
+          <span><span class="stars-inline" aria-hidden="true">★★★★★</span><span class="reviews__score-text">{{ s.score_text | escape }}</span></span>
+        </div>
+      {%- endif -%}
+    </div>
+    <ul class="reviews__grid scroller-m" role="list">
+      {%- for block in section.blocks -%}
+        {%- if block.settings.quote != blank -%}
+          <li class="review" {{ block.shopify_attributes }} data-reveal style="--i: {{ forloop.index }};">
+            <figure>
+              {%- if block.settings.rating > 0 -%}
+                <p class="review__stars" aria-label="{{ 'products.rating' | t: rating: block.settings.rating, max: 5 }}">
+                  {%- for i in (1..5) -%}<span class="{% if i > block.settings.rating %}is-off{% endif %}" aria-hidden="true">★</span>{%- endfor -%}
+                </p>
+              {%- endif -%}
+              {%- if block.settings.title != blank -%}<p class="h4 review__title">{{ block.settings.title | escape }}</p>{%- endif -%}
+              <blockquote class="review__quote">{{ block.settings.quote }}</blockquote>
+              <figcaption class="review__by">
+                {%- if block.settings.photo != blank -%}
+                  <span class="review__avatar">{{ block.settings.photo | image_url: width: 120 | image_tag: loading: 'lazy', alt: block.settings.pet }}</span>
+                {%- else -%}
+                  <span class="review__avatar review__avatar--moon">{% render 'icon', name: 'paw', size: 18 %}</span>
+                {%- endif -%}
+                <span>
+                  <strong>{{ block.settings.name | escape }}</strong>
+                  {%- if block.settings.pet != blank -%}<span class="muted"> · {{ block.settings.pet | escape }}</span>{%- endif -%}
+                  {%- if block.settings.verified -%}<span class="review__verified">{% render 'icon', name: 'check', size: 13 %}{{ 'sections.reviews.verified' | t }}</span>{%- endif -%}
+                  {%- if block.settings.product != blank -%}<a class="review__product" href="{{ block.settings.product.url }}">{% render 'product-title', product: block.settings.product %}</a>{%- endif -%}
+                </span>
+              </figcaption>
+            </figure>
+          </li>
+        {%- elsif request.design_mode -%}
+          <li class="review review--empty" {{ block.shopify_attributes }}>
+            <p class="muted">{% render 'icon', name: 'info', size: 16 %} {{ 'sections.reviews.empty_block' | t }}</p>
+          </li>
+        {%- endif -%}
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Customer reviews",
+  "tag": "div",
+  "class": "section-reviews",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "linen" },
+    { "type": "paragraph", "content": "Add real reviews only. Blocks without a quote never show on the live site, and the section hides until at least one is filled in." },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Straight from the dog's mouth" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Better nights, *in their words.*" },
+    { "type": "text", "id": "score", "label": "Overall score", "info": "Only fill this in from a real review platform, e.g. 4.8" },
+    { "type": "text", "id": "score_text", "label": "Score caption", "info": "e.g. from 212 verified reviews" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "blocks": [
+    {
+      "type": "review",
+      "name": "Review",
+      "settings": [
+        { "type": "range", "id": "rating", "label": "Stars", "min": 0, "max": 5, "step": 1, "default": 5 },
+        { "type": "text", "id": "title", "label": "Headline" },
+        { "type": "richtext", "id": "quote", "label": "Review" },
+        { "type": "text", "id": "name", "label": "Customer name", "info": "First name and initial, e.g. Sarah K." },
+        { "type": "text", "id": "pet", "label": "Pet", "info": "e.g. Luna, 11-year-old Labrador" },
+        { "type": "image_picker", "id": "photo", "label": "Pet photo" },
+        { "type": "product", "id": "product", "label": "Bed reviewed" },
+        { "type": "checkbox", "id": "verified", "label": "Verified buyer", "default": false }
+      ]
+    }
+  ],
+  "presets": [ { "name": "Customer reviews", "blocks": [ { "type": "review" }, { "type": "review" }, { "type": "review" } ] } ]
+}
+{% endschema %}

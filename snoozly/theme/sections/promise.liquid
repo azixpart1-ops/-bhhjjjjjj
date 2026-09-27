@@ -1,0 +1,81 @@
+{%- comment -%}
+  Risk reversal. Sits where the price is still the thing in the shopper's
+  head. Figures come from Theme settings → Delivery, returns and trust, so the
+  promise can never disagree with the basket or the product page.
+{%- endcomment -%}
+{%- assign s = section.settings -%}
+<section {% render 'section-attrs', section: section, class: 'promise' %}>
+  <div class="container promise__grid promise--{{ s.layout }}">
+    <div class="promise__copy" data-reveal>
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{% render 'icon', name: 'shield', size: 14 %}{{ s.eyebrow | escape }}</p>{%- endif -%}
+      {% render 'heading', text: s.heading, class: 'h2' %}
+      {%- if s.text != blank -%}<div class="lead">{{ s.text }}</div>{%- endif -%}
+      {%- if s.cta_label != blank -%}
+        <div class="btn-row"><a class="btn" href="{{ s.cta_link | default: '/pages/delivery-returns' }}">{{ s.cta_label | escape }}{% render 'icon', name: 'arrow-right', size: 18 %}</a></div>
+      {%- endif -%}
+    </div>
+    <ul class="promise__list" role="list">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign title = block.settings.title
+          assign title = title | replace: '[free_threshold]', settings.free_shipping_threshold | replace: '[returns_days]', settings.returns_days | replace: '[standard_price]', settings.shipping_standard_price | replace: '[express_price]', settings.shipping_express_price
+          assign text = block.settings.text
+          assign text = text | replace: '[free_threshold]', settings.free_shipping_threshold | replace: '[returns_days]', settings.returns_days | replace: '[standard_price]', settings.shipping_standard_price | replace: '[express_price]', settings.shipping_express_price | replace: '[support_hours]', settings.support_hours | replace: '[support_email]', settings.support_email
+        -%}
+        <li class="promise__item" {{ block.shopify_attributes }} data-reveal style="--i: {{ forloop.index }};">
+          <span class="promise__icon">{% render 'icon', name: block.settings.icon, size: 26 %}</span>
+          <div>
+            <h3 class="h4 promise__title">{{ title | escape }}</h3>
+            <p class="promise__text">{{ text | escape }}</p>
+          </div>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Our promise",
+  "tag": "div",
+  "class": "section-promise",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "moon" },
+    { "type": "select", "id": "layout", "label": "Layout", "options": [ { "value": "split", "label": "Heading beside list" }, { "value": "stack", "label": "Heading above list" } ], "default": "split" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The Snoozly promise" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Sleep on it. *We've got you.*" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Buying a bed online shouldn't feel like a gamble. So we've taken the risk out of it.</p>" },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Delivery & returns" },
+    { "type": "url", "id": "cta_link", "label": "Button link" },
+    { "type": "paragraph", "content": "In block text, [free_threshold], [returns_days], [standard_price], [express_price], [support_hours] and [support_email] are replaced with the values in Theme settings." },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "blocks": [
+    {
+      "type": "item",
+      "name": "Promise",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "options": [
+          { "value": "truck", "label": "Delivery" }, { "value": "return", "label": "Returns" }, { "value": "lock", "label": "Secure" },
+          { "value": "shield", "label": "Guarantee" }, { "value": "chat", "label": "Support" }, { "value": "heart", "label": "Heart" },
+          { "value": "ruler", "label": "Sizing" }, { "value": "box", "label": "Box" }, { "value": "calendar", "label": "Calendar" }, { "value": "moon", "label": "Moon" }
+        ], "default": "truck" },
+        { "type": "text", "id": "title", "label": "Heading", "default": "Free UK delivery over £[free_threshold]" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "Standard delivery is [standard_price] under that, or [express_price] if they can't wait." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Our promise",
+      "blocks": [
+        { "type": "item", "settings": { "icon": "truck", "title": "Free UK delivery over £[free_threshold]", "text": "Standard delivery is [standard_price] under that, or [express_price] if they can't wait." } },
+        { "type": "item", "settings": { "icon": "return", "title": "[returns_days] days to change your mind", "text": "Not right? Tell us within [returns_days] days of delivery and send it back for a refund." } },
+        { "type": "item", "settings": { "icon": "lock", "title": "Secure, speedy checkout", "text": "Apple Pay, Google Pay, Shop Pay and every major card — your details are never stored by us." } },
+        { "type": "item", "settings": { "icon": "chat", "title": "Real people, here to help", "text": "Stuck between two sizes? Email [support_email] — we reply [support_hours]." } }
+      ]
+    }
+  ]
+}
+{% endschema %}
