@@ -6,10 +6,10 @@ product export ([`catalogue/README.md`](catalogue/README.md)).
 
 | | |
 |---|---|
-| Live theme | **Snoozly — Premium (draft)** · ID `201469821263` (published by you) |
-| Ready to publish | **Snoozly — Premium v2 (catalogue update)** · ID `201473458511`: the live theme plus the name box for personalised beds, extra colour swatches and full-frame product cards |
-| Preview v2 | `https://snoozly.co.uk/?preview_theme_id=201473458511` |
-| Publish | Online Store → Themes → *Snoozly — Premium v2* → **Publish** (Shopify only lets the owner do this) |
+| Live theme | **Snoozly — Premium v2 (catalogue update)** · ID `201473458511` (published by you on 29 Sept) |
+| Ready to publish | **Snoozly — v3 (polish)** · ID `201570484559`: v2 plus your editor changes, the fixes and the copy pass in section 8 |
+| Preview v3 | `https://snoozly.co.uk/?preview_theme_id=201570484559` |
+| Publish | Online Store → Themes → *Snoozly — v3 (polish)* → **Publish** (Shopify only lets the owner do this) |
 
 ```
 snoozly/
@@ -223,3 +223,44 @@ Edit CSS and JS in `src/`, never the built `theme/assets/snoozly.*` files.
 Theme-editor changes made on the store are stored in the theme's
 `config/settings_data.json` and template JSON — pull those back before
 redeploying templates from here, or they'll be overwritten.
+
+## 8. Polish pass (v3)
+
+**Bugs fixed**
+- Product pages printed their Google product data (JSON-LD) as text under the
+  gallery. It is now inside its `<script>` tag, where Google reads it and
+  shoppers don't see it.
+- The Delivery page showed `[min_days]–[max_days]` instead of the day range.
+- `/collections/all` was titled "Products"; it is now "All beds".
+- An empty "Similar beds" band (Shopify has no recommendations for new
+  products yet) no longer leaves a blank gap.
+- A personalised bed no longer shows "14-day returns" beside the buy button.
+  It says "Made to order with their name", and the express checkout buttons
+  stay off for it.
+
+**Looking less like a template**
+- The italic accent on every headline, the small uppercase label above every
+  section, the starfield on dark sections, the giant footer wordmark and the
+  floating stickers on the hero photo are all switched off (Theme settings, or
+  each section's settings).
+- Every heading and paragraph was rewritten in plain British English: no long
+  dashes, no "not just X, it's Y", no claims the shop can't back up
+  ("makers we trust", "real people", "one friendly email a fortnight").
+- The homepage went from 14 sections to 8. The ticker, comparison table,
+  stat trio, brand strip and closing banner are switched off, not deleted,
+  so any of them can come back from the theme editor. The promise block that
+  repeated the footer's delivery row is off on product, collection and Sleep
+  Match pages.
+- Copy is dog-first, since the catalogue is dog beds.
+
+**Store changes (live straight away)**
+- New collection **Our picks** (`/collections/our-picks`): eight beds, one or
+  more per sleep need, from £54 to £189. v3 uses it on the homepage and in the
+  basket instead of the first eight beds alphabetically.
+- Page text for Our story, FAQ, Delivery & returns, Sleep Match and Size guide
+  rewritten the same way. Delivery & returns now says personalised beds can't
+  be returned for a change of mind (UK law exempts made-to-order goods) but
+  are covered if faulty.
+- The footer's "Snoozly" menu now holds just "Our story": the Journal has no
+  posts yet and "Contact" was already under Help.
+
