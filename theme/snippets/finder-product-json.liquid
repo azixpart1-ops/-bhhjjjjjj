@@ -1,0 +1,62 @@
+{%- comment -%}
+  One bed as the Bed Finder reads it: `"handle":{…}` (no trailing comma).
+  Shared by sections/bed-finder.liquid (Match block beds, inline on every
+  page) and sections/finder-products.liquid (fallback candidates, fetched by
+  finder.js only when a shopper is heading for a result).
+
+  Usage: {% render 'finder-product-json', p: product %}
+
+  The reason line falls back to the product's own words: its tagline
+  metafield, else the first sentence of its description, so nothing has to
+  be written twice to add a bed to the finder. A dimensions line from
+  custom.specs ("Dimensions: 90 × 65cm") is shown for one-size beds.
+{%- endcomment -%}
+{%- liquid
+  assign blurb = p.metafields.custom.tagline.value | default: '' | strip
+  if blurb == ''
+    assign plain = p.description | default: '' | replace: '</p>', ' </p>' | replace: '<br', ' <br' | strip_html | strip_newlines | replace: '  ', ' ' | strip
+    assign blurb = plain | split: '. ' | first | default: '' | strip
+    if blurb != '' and blurb != plain
+      assign blurb = blurb | append: '.'
+    endif
+    assign blurb = blurb | truncate: 220
+  endif
+
+  assign dims = ''
+  assign specs = p.metafields.custom.specs.value | default: ''
+  if specs != ''
+    assign spec_lines = specs | newline_to_br | split: '<br />'
+    for sl in spec_lines
+      assign sll = sl | strip | downcase
+      if sll contains 'dimension' or sll contains 'measurement' or sll contains 'external' or sll contains 'size'
+        assign dims = sl | split: ':' | last | strip_html | strip
+        break
+      endif
+    endfor
+  endif
+
+  assign img = p.featured_image
+  assign rating = p.metafields.reviews.rating.value.rating
+  assign rating_count = p.metafields.reviews.rating_count.value
+-%}
+{{- p.handle | json }}:{"id":{{ p.id | json }},"handle":{{ p.handle | json }},"title":{{ p.title | json }},"url":{{ p.url | json }},"type":{{ p.type | default: '' | json }},
+"image":{% if img != blank %}{{ img | image_url: width: 600 | json }}{% else %}null{% endif %},"imageAlt":{{ img.alt | default: p.title | json }},"imageRatio":{% if img != blank and img.aspect_ratio %}{{ img.aspect_ratio | json }}{% else %}1{% endif %},
+"price":{{ p.price | default: 0 | json }},"compare_at_price":{% if p.compare_at_price > 0 %}{{ p.compare_at_price | json }}{% else %}null{% endif %},"available":{{ p.available | json }},
+"tags":{{ p.tags | json }},"options":{{ p.options | json }},
+"rating":{% if rating != blank %}{{ rating | json }}{% else %}null{% endif %},"ratingCount":{% if rating_count != blank %}{{ rating_count | json }}{% else %}null{% endif %},
+"blurb":{{ blurb | json }},"dims":{{ dims | json }},
+"variants":[
+{%- for v in p.variants limit: 60 -%}
+{"id":{{ v.id | json }},"title":{{ v.title | json }},"options":{{ v.options | json }},"price":{{ v.price | default: 0 | json }},"compare_at_price":{% if v.compare_at_price > 0 %}{{ v.compare_at_price | json }}{% else %}null{% endif %},"available":{{ v.available | json }}
+{%- if v.inventory_management == 'shopify' -%}
+  {%- if v.inventory_policy == 'deny' -%}
+    ,"inventory_quantity":{{ v.inventory_quantity | default: 0 | json }}
+  {%- elsif v.inventory_quantity <= 0 -%}
+    ,"backorder":true
+  {%- endif -%}
+{%- endif -%}
+{%- if v.metafields.custom.most_chosen.value == true -%},"mc":true{%- endif -%}
+{%- if v.featured_image != blank -%},"image":{{ v.featured_image | image_url: width: 600 | json }}{%- endif -%}
+}{%- unless forloop.last -%},{%- endunless -%}
+{%- endfor -%}
+]}

@@ -166,7 +166,9 @@ reports WCAG 2.2 A/AA violations as WARN, or as FAIL with `--strict-a11y`.
 - a collection filter checkbox applying `filter.*`;
 - predictive search (on mobile it is opened from the menu drawer);
 - the mobile menu closing on Escape with focus returned;
-- the sticky add-to-basket bar after scrolling past the button.
+- the sticky add-to-basket bar: shown at first paint while the main Add button is below the
+  fold, hidden while it is in view, shown again once scrolled past (and after a jump past it),
+  never shown below the fold for a sold-out product (390 and 1440).
 
 **Offline limits.** Shopify font files (`/fonts/*`) aren't available and are ignored.
 Third-party requests are blocked. Dynamic checkout and Shop Pay buttons are inert stand-ins.

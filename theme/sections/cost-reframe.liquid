@@ -10,8 +10,15 @@
       guarantee is on with a length (the guarantee IS the basis). Otherwise
       it hides on the live store and explains why in the editor.
 
-  Price source: the chosen product's lowest price ("from"), else the product
-  being viewed on a product page, else the example price setting.
+  Price source: a real bed, always. The chosen product's lowest price
+  ("from"), else the product being viewed on a product page, else the first
+  eligible bed in the store (an available one if there is one). The sum is
+  "price ÷ the foam guarantee", so only a bed that guarantee covers can be
+  used: snippets/foam-bed (title, type or tags mention orthopaedic / memory
+  foam; a guarantee:yes / guarantee:no tag overrides that), the same test as
+  the per-night line, mechanism and comparison sections. With no eligible bed (e.g. a store with no products yet,
+  or a nest bed chosen) the section hides on the live store; the editor
+  previews it with the example price setting and says why.
 
   Everyday comparisons (blocks) show how many nights on the bed the same
   money covers ("A takeaway coffee, about £3.50 ≈ 38 nights"). Keep them
@@ -22,9 +29,9 @@
 {%- liquid
   assign s = section.settings
   assign years = settings.guarantee_years | default: 0 | plus: 0
-  assign enabled = false
+  assign settings_ok = false
   if settings.show_per_night and settings.guarantee_enable and years > 0
-    assign enabled = true
+    assign settings_ok = true
   endif
 
   assign source_product = s.product
@@ -32,13 +39,62 @@
     assign source_product = product
   endif
 
+  assign source_ok = false
   if source_product != blank
-    assign cents = source_product.price_min | default: 0 | plus: 0
+    capture c_foam
+      render 'foam-bed', product: source_product
+    endcapture
+    if c_foam == 'true'
+      assign source_ok = true
+    endif
   else
-    assign cents = s.price | default: 0 | times: 100 | round | plus: 0
+    comment
+      Nothing chosen: the first eligible bed with a price, preferring one
+      that can be bought today.
+    endcomment
+    assign first_ok = nil
+    for p in collections.all.products limit: 50
+      if p.price_min > 0
+        capture c_foam
+          render 'foam-bed', product: p
+        endcapture
+        if c_foam == 'true'
+          if first_ok == nil
+            assign first_ok = p
+          endif
+          if p.available
+            assign first_ok = p
+            break
+          endif
+        endif
+      endif
+    endfor
+    if first_ok != nil
+      assign source_product = first_ok
+      assign source_ok = true
+    endif
   endif
-  if cents <= 0
-    assign enabled = false
+
+  assign cents = 0
+  if source_ok
+    assign cents = source_product.price_min | default: 0 | plus: 0
+  endif
+  assign enabled = false
+  if settings_ok and source_ok and cents > 0
+    assign enabled = true
+  endif
+
+  comment
+    Editor preview only: with no eligible bed, the example price stands in
+    so the section can be designed. It never reaches the live store.
+  endcomment
+  assign preview = false
+  if enabled == false and settings_ok and request.design_mode
+    assign example_cents = s.price | default: 0 | times: 100 | round | plus: 0
+    if example_cents > 0
+      assign cents = example_cents
+      assign preview = true
+    endif
   endif
 -%}
 {%- if enabled or request.design_mode -%}
@@ -46,7 +102,11 @@
 {%- render 'section-styles', section: section -%}
 {%- liquid
   assign heading_id = section.id | append: '-heading'
-  if enabled
+  assign show_sum = false
+  if enabled or preview
+    assign show_sum = true
+  endif
+  if show_sum
     assign nights = years | times: 365
     assign twice_nights = nights | times: 2
     assign rounded = cents | times: 2 | plus: nights | divided_by: twice_nights
@@ -77,7 +137,7 @@
   assign years_text = years | append: ''
   assign nights_text = nights | append: ''
 
-  if source_product != blank
+  if enabled
     assign product_name = source_product.title | escape
     if source_product.price_varies
       assign price_label = 'home.cost.product_from' | t: product: product_name
@@ -108,6 +168,7 @@
     endif
   endfor
 
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
   assign cta_label = s.cta_label | default: '' | strip | escape
   if cta_label == ''
     assign cta_label = settings.finder_cta_label | default: '' | strip | escape
@@ -122,9 +183,11 @@
   aria-labelledby="{{ heading_id }}"
 >
   <div class="page-width">
-    {%- unless enabled -%}
+    {%- if settings_ok == false -%}
       <p class="editor-note">{{ 'home.editor.cost_hidden' | t }}</p>
-    {%- endunless -%}
+    {%- elsif enabled == false -%}
+      <p class="editor-note">{{ 'home.editor.cost_example' | t }}</p>
+    {%- endif -%}
     <div class="cost-reframe__inner">
       <div class="cost-reframe__copy">
         {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
@@ -132,20 +195,20 @@
         {%- if body != blank -%}<div class="rte cost-reframe__body">{{ body }}</div>{%- endif -%}
         {%- if s.cta != 'none' -%}
           <div class="cost-reframe__actions">
-            {%- if s.cta == 'product' and source_product != blank -%}
+            {%- if s.cta == 'product' and enabled -%}
               <a class="btn btn--secondary" href="{{ source_product.url }}">
                 <span>{{ 'home.cost.see_product' | t: product: product_name }}</span>{%- render 'icon', name: 'arrow-right' -%}
               </a>
             {%- elsif settings.finder_enable -%}
-              <button type="button" class="btn btn--secondary" data-open-finder aria-haspopup="dialog">
+              <a href="{{ finder_url }}" class="btn btn--secondary" data-open-finder aria-haspopup="dialog">
                 <span>{{ cta_label }}</span>{%- render 'icon', name: 'arrow-right' -%}
-              </button>
+              </a>
             {%- endif -%}
           </div>
         {%- endif -%}
       </div>
 
-      {%- if enabled -%}
+      {%- if show_sum -%}
         <div class="cost-reframe__panel" data-reveal>
           <p class="visually-hidden">
             {{- 'home.cost.sr_sum' | t: price: price_short, years: years_text, nights: nights_text, amount: per_night -}}
@@ -239,14 +302,14 @@
       "type": "product",
       "id": "product",
       "label": "Bed to price",
-      "info": "Uses its lowest price. On a product page, leave blank to use that product."
+      "info": "Uses its lowest price. Leave blank to use the product being viewed on a product page, or else the first orthopaedic / memory foam bed in your store. A bed the foam guarantee doesn't cover (nothing in its title, type or tags says orthopaedic or memory foam, or it's tagged guarantee:no) hides the section."
     },
     {
       "type": "number",
       "id": "price",
       "label": "Example price (£)",
       "default": 169,
-      "info": "Used when no bed is chosen. Use a real price from your range."
+      "info": "Editor preview only: the live store always uses a real orthopaedic bed's price."
     },
     {
       "type": "text",

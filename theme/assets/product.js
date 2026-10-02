@@ -441,8 +441,9 @@
       var def = el.querySelector('[data-finder-prompt-default]');
       var res = el.querySelector('[data-finder-prompt-result]');
       var textEl = el.querySelector('[data-finder-result-text]');
-      var show = !!(rec && rec.value && textEl);
-      if (show) {
+      // The size row's finder link has no result text: it only swaps to "Retake".
+      var show = !!(rec && rec.value && (textEl || res));
+      if (show && textEl) {
         var name = L.finder && typeof L.finder.name === 'function' ? L.finder.name() : '';
         var tpl = name ? s.finderResult : s.finderResultDefault;
         var vars = { name: name, size: sizeLabelFor(rec.value) };
@@ -550,8 +551,10 @@
         qsa('[data-value-input]', fs).forEach(function (input) {
           input.checked = input.value === sel[idx];
         });
-        var label = fs.querySelector('[data-selected-value]');
-        if (label) label.textContent = sel[idx] || '';
+        // The legend, and the visible label row above the size option.
+        qsa('[data-selected-value]', fs.closest('.variant-picker__group') || fs).forEach(function (label) {
+          label.textContent = sel[idx] || '';
+        });
       });
 
       this.refreshValues();
@@ -658,7 +661,8 @@
       }, 80);
     }
   }
-  define('variant-picker', VariantPicker);
+  // Defined further down, after <sticky-atc> and <media-gallery>, so their
+  // listeners exist before the picker's first lunova:variant:change.
 
   /* ------------------------------------------------------------------------
      <product-form>
@@ -850,20 +854,43 @@
       this._wired = true;
       this.sectionId = this.getAttribute('data-section-id');
       this.past = false;
+      this.below = false;
       this.nearFooter = false;
       var self = this;
 
+      // The bar is there whenever the main Add button is out of view: below
+      // the fold at first paint (a cold mobile visitor would otherwise scroll
+      // ~800px before any Add button shows, with the size already chosen) and
+      // after it has scrolled up past the top. It steps aside while the main
+      // button is on screen, so there are never two Add buttons in view.
+      // Read from geometry on every scroll frame, not from intersection
+      // changes: a jump from below the viewport to above it (anchor link,
+      // scroll restore, a fast fling) never intersects, so an observer alone
+      // would miss it. A display:none button reads a 0×0 rect at 0, so it
+      // never counts as out of view.
+      this._check = function () {
+        if (self._raf) return;
+        self._raf = window.requestAnimationFrame(function () {
+          self._raf = 0;
+          if (!self.main) return;
+          var r = self.main.getBoundingClientRect();
+          var vh = window.innerHeight || doc.documentElement.clientHeight;
+          self.past = r.bottom < 0;
+          self.below = r.top > vh;
+          self.toggle();
+        });
+      };
+      window.addEventListener('scroll', this._check, { passive: true });
+      window.addEventListener('resize', this._check);
+      window.addEventListener('pageshow', this._check);
+
+      // The observer only tracks the footer, where the bar steps aside.
       this.io = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
-          if (entry.target === self.main) {
-            self.past = !entry.isIntersecting && entry.boundingClientRect.bottom < 0;
-          } else {
-            self.nearFooter = entry.isIntersecting;
-          }
+          self.nearFooter = entry.isIntersecting;
         });
         self.toggle();
       });
-      this.io.observe(this.main);
       var footer = doc.querySelector('.shopify-section-group-footer-group') || doc.querySelector('footer');
       if (footer) this.io.observe(footer);
 
@@ -894,10 +921,26 @@
         self.fromSticky = false;
       };
       this._offs.push(on('lunova:cart:open', this._onOpen));
+
+      // The picker may already have chosen a variant (Bed Finder size, a
+      // theme-editor reload) before this bar was upgraded: show that one,
+      // not the server-rendered default.
+      if (this.data) this.update(currentVariant(this.scope, this.data));
+      this._check();
     }
 
     disconnectedCallback() {
       if (this.io) this.io.disconnect();
+      if (this._check) {
+        window.removeEventListener('scroll', this._check);
+        window.removeEventListener('resize', this._check);
+        window.removeEventListener('pageshow', this._check);
+      }
+      if (this._raf) {
+        window.cancelAnimationFrame(this._raf);
+        this._raf = 0;
+      }
+      this._shown = undefined;
       (this._offs || []).forEach(function (off) {
         off();
       });
@@ -910,7 +953,11 @@
     }
 
     toggle() {
-      var show = this.past && !this.nearFooter;
+      // Below the fold the bar is an offer to buy now, so a disabled
+      // "Sold out" bar never greets a visitor; once they have scrolled past
+      // the main button it keeps them company whatever the variant's state.
+      var out = this.past || (this.below && !this.btn.disabled);
+      var show = out && !this.nearFooter;
       if (show === this._shown) return;
       this._shown = show;
       if (!show && this.contains(doc.activeElement)) focusEl(this.main);
@@ -918,6 +965,9 @@
       this.setAttribute('aria-hidden', String(!show));
       if (show) this.removeAttribute('inert');
       else this.setAttribute('inert', '');
+      // The bar's real height feeds scroll-padding-bottom (product.css), so
+      // focus scrolled into view never lands underneath it (WCAG 2.4.11).
+      if (show && this.offsetHeight) doc.documentElement.style.setProperty('--sticky-atc-h', this.offsetHeight + 'px');
       doc.documentElement.classList.toggle('has-sticky-atc', show);
     }
 
@@ -936,9 +986,12 @@
       if (!v) {
         this.btn.disabled = true;
         if (label) label.textContent = s.unavailable || '';
+        if (this._wired) this.toggle();
         return;
       }
       this.btn.disabled = !v.available;
+      // Availability decides whether the bar may show below the fold.
+      if (this._wired) this.toggle();
       if (label) {
         if (!v.available) label.textContent = s.soldOut || '';
         else if (v.stock && v.stock.state === 'backorder') label.textContent = s.preorder || '';
@@ -1022,6 +1075,13 @@
         })
       ];
       this.update(0);
+
+      // Follow a variant the picker chose before this gallery was upgraded
+      // (Bed Finder size). For the server-rendered variant this is a no-op:
+      // its photo is already first.
+      var sc = scopeOf(this);
+      var cv = sc && sc.__lunovaVariant;
+      if (cv && cv.featured_media) this.showMedia(cv.featured_media.id);
     }
 
     disconnectedCallback() {
@@ -1397,6 +1457,7 @@
     }
   }
   define('media-gallery', MediaGallery);
+  define('variant-picker', VariantPicker);
 
   /* ------------------------------------------------------------------------
      <product-recommendations>

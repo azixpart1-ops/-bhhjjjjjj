@@ -8,8 +8,14 @@
     - the exact working is one tap away: "£169.00 ÷ (5 years × 365 nights)
       = 9.26p a night", with a plain note that it is not a payment plan.
 
+    - only for a bed the foam guarantee covers, when `product` is passed
+      (snippets/foam-bed: orthopaedic / memory foam, or tag guarantee:yes;
+      guarantee:no never). A nest bed's price is not "over the guarantee".
+
   Parameters
     price     price in minor units (pence). Required.
+    product   the product the price belongs to. Pass it wherever there is
+              one: without it the guarantee-coverage test is skipped.
     compact   true → smaller, single line (cards, sticky bar)
     class     extra classes
 
@@ -22,6 +28,14 @@
   assign show = false
   if settings.show_per_night and settings.guarantee_enable and years > 0 and cents > 0
     assign show = true
+  endif
+  if show and product != blank
+    capture pn_foam
+      render 'foam-bed', product: product
+    endcapture
+    if pn_foam != 'true'
+      assign show = false
+    endif
   endif
 -%}
 {%- if show -%}
@@ -60,8 +74,10 @@
     <details class="per-night__details">
       <summary class="per-night__summary">
         {%- render 'icon', name: 'moon', class: 'per-night__icon' -%}
-        <span class="per-night__text">{{ 'core.per_night.label_html' | t: amount: amount, years: years }}</span>
-        {%- render 'icon', name: 'info', class: 'per-night__more' -%}
+        <span class="per-night__text">
+          {{- 'core.per_night.label_html' | t: amount: amount, years: years -}}
+          <span class="per-night__end">&nbsp;{%- render 'icon', name: 'info', class: 'per-night__more' -%}</span>
+        </span>
         <span class="visually-hidden">— {{ 'core.per_night.toggle_hint' | t }}</span>
       </summary>
       <p class="per-night__basis" data-per-night-basis>

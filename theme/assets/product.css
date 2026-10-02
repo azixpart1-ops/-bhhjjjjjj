@@ -13,6 +13,7 @@
     6. Price                    14. Sticky add-to-basket bar
     7. Variant picker           15. Compact (quick add)
     8. Helpers, finder, stock   16. Timeline / 17. Compare / 18. Rows / 19. No-JS
+                                20. Forced colours
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -470,6 +471,12 @@ media-gallery {
   display: none;
 }
 
+/* The track fills the dialog: keep its focus ring inside the edge. */
+.gallery-lightbox__track:focus-visible {
+  outline-offset: -4px;
+  box-shadow: none;
+}
+
 .gallery-lightbox.is-zoomed .gallery-lightbox__track {
   overflow-x: hidden;
   scroll-snap-type: none;
@@ -570,7 +577,7 @@ media-gallery {
 }
 
 .pblock--price + .pblock--variant_picker {
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
 }
 
 .pblock--variant_picker + .pblock--size_guide,
@@ -579,10 +586,15 @@ media-gallery {
   margin-top: 0.75rem;
 }
 
+.pblock--variant_picker + .pblock--stock,
 .pblock--stock + .pblock--delivery,
 .pblock--stock + .pblock--buy_buttons,
 .pblock--delivery + .pblock--buy_buttons {
   margin-top: 0.75rem;
+}
+
+.pblock--variant_picker + .pblock--stock-line {
+  margin-top: 1rem;
 }
 
 .pblock--buy_buttons + .pblock--risk_reversal {
@@ -699,7 +711,8 @@ variant-picker {
 .variant-picker {
   display: flex;
   flex-direction: column;
-  gap: 1.375rem;
+  gap: 1.25rem;
+  container-type: inline-size; /* for the size label row below */
 }
 
 .variant-picker__group {
@@ -726,13 +739,6 @@ variant-picker {
   line-height: 1.4;
 }
 
-.variant-picker__group--guide .variant-picker__legend {
-  min-height: 44px;
-  align-items: center;
-  margin-bottom: 0.375rem;
-  padding-right: 8.5rem;
-}
-
 .variant-picker__name::after {
   content: ":";
 }
@@ -742,22 +748,63 @@ variant-picker {
   color: var(--fg-muted);
 }
 
-.variant-picker__guide {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  min-height: 44px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: underline;
+/* Label row with its help links:
+   "Size: Medium · Size guide · Not sure? Take the 30-second finder".
+   Text links, not boxes. On a narrow column the finder link takes its own
+   line (no leading dot); where the row fits, it joins the line. */
+.variant-picker__head {
+  margin: 0 0 0.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--fg-muted);
 }
 
-.variant-picker__guide .icon {
-  font-size: 1.125rem;
+.variant-picker__head-label {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.variant-picker__help {
+  white-space: nowrap;
+}
+
+.variant-picker__finder {
+  display: block;
+}
+
+.variant-picker__finder .variant-picker__sep {
+  display: none;
+}
+
+@container (min-width: 31rem) {
+  .variant-picker__finder {
+    display: inline;
+  }
+
+  .variant-picker__finder .variant-picker__sep {
+    display: inline;
+  }
+}
+
+.variant-picker__sep {
+  margin-inline: 0.375em;
+}
+
+/* Inline links with a taller tap area that doesn't push the lines apart. */
+.variant-picker__guide,
+.variant-picker__finder-link {
+  position: relative;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.variant-picker__guide::after,
+.variant-picker__finder-link::after {
+  content: "";
+  position: absolute;
+  inset: -0.375rem -0.25rem;
 }
 
 .variant-picker__input:focus-visible + label {
@@ -777,8 +824,8 @@ variant-picker {
   display: flex;
   align-items: center;
   gap: 0.875rem;
-  min-height: 56px;
-  padding: 0.75rem 1rem;
+  min-height: 52px;
+  padding: 0.625rem 0.875rem;
   border: 1.5px solid var(--control-line);
   border-radius: var(--radius);
   background: var(--card-bg);
@@ -909,10 +956,50 @@ variant-picker {
   color: var(--fg-muted);
 }
 
-.size-option.is-unavailable .size-option__value,
-.size-option.is-unavailable .size-option__price {
+/* Strike the size name only: a struck price reads as a "was" price here. */
+.size-option.is-unavailable .size-option__value {
   text-decoration: line-through;
   text-decoration-thickness: 1px;
+}
+
+/* Desktop: the buy column is wide enough (~527px) for the ladder to sit in
+   two columns of tiles — still one size per tile with its fit and price, so
+   the price ladder reads the same, in less height. Phones keep the list. */
+@media (min-width: 990px) {
+  .main-product .variant-picker__values--rows {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Tile: radio, size name and price on the first line; the fit spans the
+     line below, so it rarely has to wrap. */
+  .main-product .variant-picker__values--rows .size-option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-content: start;
+    gap: 0.125rem 0.5rem;
+    padding-inline: 0.625rem;
+  }
+
+  .main-product .variant-picker__values--rows .size-option::before {
+    grid-area: 1 / 1;
+  }
+
+  .main-product .variant-picker__values--rows .size-option__main {
+    display: contents;
+  }
+
+  .main-product .variant-picker__values--rows .size-option__top {
+    grid-area: 1 / 2;
+  }
+
+  .main-product .variant-picker__values--rows .size-option__end {
+    grid-area: 1 / 3;
+  }
+
+  .main-product .variant-picker__values--rows .size-option__hint {
+    grid-area: 2 / 2 / 3 / 4;
+  }
 }
 
 /* Grid of size buttons */
@@ -1153,6 +1240,67 @@ variant-picker {
 
 .stock--out {
   color: var(--fg-muted);
+}
+
+/* Stock and delivery on one line, right above the button:
+   "● In stock · Order within 2h 14m for dispatch today — arrives Thu 8 Oct
+    · ✓ Qualifies for free UK delivery". The delivery-promise snippet's box
+   is flattened into running text. */
+.stock-line {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.stock-line .stock {
+  display: inline;
+}
+
+.stock-line .stock__dot {
+  display: inline-block;
+  margin: 0 0.5rem 0.125rem 0.25rem;
+  vertical-align: middle;
+}
+
+.stock-line__delivery,
+.stock-line__delivery .delivery-promise,
+.stock-line__delivery .delivery-promise__text {
+  display: inline;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.stock-line__delivery .delivery-promise__icon {
+  display: none;
+}
+
+.stock-line__delivery .delivery-promise::before,
+.stock-line__free::before {
+  content: "\00B7";
+  margin: 0 0.375em 0 0.25em;
+  color: var(--fg-muted);
+}
+
+/* Nothing before it on the line: no leading dot. */
+.stock-line .stock[hidden] + .stock-line__delivery > :first-child::before,
+.stock-line .stock[hidden] + .stock-line__delivery > .delivery-promise[hidden] + .stock-line__free::before {
+  content: none;
+}
+
+.stock-line__free {
+  color: var(--fg-muted);
+}
+
+.stock-line__free-icon {
+  margin-right: 0.25em;
+  color: var(--fg-muted);
+}
+
+.stock-line__free.is-qualified {
+  color: var(--fg);
+}
+
+.stock-line__free.is-qualified .stock-line__free-icon {
+  color: var(--success);
 }
 
 /* --------------------------------------------------------------------------
@@ -1820,6 +1968,12 @@ sticky-atc {
   display: block;
 }
 
+/* While the bar shows, focus scrolled into view stops above it (WCAG 2.4.11).
+   product.js sets --sticky-atc-h to the bar's real height. */
+.has-sticky-atc {
+  scroll-padding-bottom: calc(var(--sticky-atc-h, 88px) + 16px);
+}
+
 .sticky-atc {
   position: fixed;
   right: 0;
@@ -1953,8 +2107,28 @@ sticky-atc {
   margin-top: 1rem;
 }
 
-.buy-box--compact .pblock--buy_buttons + .buy-box__risk-line {
-  margin-top: 0.75rem;
+/* The Add button (with the trial line under it) sticks to the bottom of the
+   drawer's scroll area, so it is never cut off below the fold on a phone. */
+.buy-box--compact .pblock--buy_buttons {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding-block: 0.75rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  background: var(--bg);
+  /* Soft edge above; below, a solid copy of the bar fills the drawer body's
+     bottom padding (sticky stops at the padding edge), so nothing shows
+     through underneath it. */
+  box-shadow:
+    0 -12px 22px -18px rgba(23, 21, 15, 0.4),
+    0 2rem 0 var(--bg);
+}
+
+.buy-box--compact .pblock + .pblock--buy_buttons {
+  margin-top: 0.25rem;
+}
+
+.buy-box--compact .pblock--buy_buttons .buy-box__risk-line {
+  margin-top: 0.625rem;
 }
 
 .buy-box--compact .size-option {
@@ -2271,6 +2445,14 @@ recently-viewed {
   padding-block: 1.5rem;
 }
 
+/* Theme editor only: why the comparison is hidden on this product. */
+.product-compare__editor-note {
+  margin: 0 0 1.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--control-line);
+  border-radius: var(--radius-sm);
+}
+
 /* Placeholder (no product) */
 .main-product--placeholder .buy-box {
   gap: 0.75rem;
@@ -2289,6 +2471,47 @@ recently-viewed {
 .no-js .gallery__controls,
 .no-js .gallery__thumbs {
   display: none;
+}
+
+/* --------------------------------------------------------------------------
+   20. Forced colours (Windows High Contrast)
+   The checked option is otherwise drawn with box-shadow and background,
+   which forced colours removes. Selection uses fill and border here; the
+   focus outline is left alone so tabbing into a group still shows a ring.
+   -------------------------------------------------------------------------- */
+@media (forced-colors: active) {
+  .variant-picker__values--rows .variant-picker__input:checked + .size-option::before {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background: Highlight;
+    box-shadow: inset 0 0 0 4px Canvas;
+  }
+
+  .variant-picker__input:checked + .size-option {
+    border-color: Highlight;
+  }
+
+  .variant-picker__input:checked + .pill-option {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+  }
+
+  .swatch-option {
+    border-color: Canvas;
+  }
+
+  .variant-picker__input:checked + .swatch-option {
+    border-color: Highlight;
+    border-width: 3px;
+  }
+
+  .size-option.is-unavailable,
+  .pill-option.is-unavailable {
+    border-color: GrayText;
+    color: GrayText;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

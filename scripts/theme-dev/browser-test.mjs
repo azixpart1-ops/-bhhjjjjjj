@@ -418,30 +418,67 @@ async function menuFlow(page) {
 }
 
 async function stickyFlow(page) {
+  // Rule: the bar shows whenever the main Add button is out of view (below
+  // the fold at first paint, or scrolled up past the top), hides while the
+  // main button is on screen, and never greets a visitor below the fold
+  // with a disabled "Sold out" bar.
   const origin = new URL(page.url()).origin;
   await page.goto(`${origin}/products/coniston-orthopaedic-dog-bed`, { waitUntil: 'load' });
   const bar = page.locator('sticky-atc').first();
   if (!(await bar.count())) fail('no <sticky-atc> on the product page');
-  const isShown = () => bar.evaluate((el) => el.classList.contains('is-visible') && el.getBoundingClientRect().height > 0 && el.getBoundingClientRect().top < innerHeight);
-  const visibleAtTop = await isShown();
-  // 1. realistic scrolling (wheel steps) until the main Add button has left the viewport
+  const isShown = () => bar.evaluate((el) => el.classList.contains('is-visible') && !el.inert && el.getAttribute('aria-hidden') === 'false' && el.getBoundingClientRect().height > 0 && el.getBoundingClientRect().top < innerHeight);
+  const isHidden = () => bar.evaluate((el) => !el.classList.contains('is-visible') && el.inert && el.getAttribute('aria-hidden') === 'true');
+  const mainRect = () => page.evaluate(() => { const b = document.querySelector('product-form [data-add-button]'); if (!b) return null; const r = b.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, vh: innerHeight }; });
+  const notes = [];
+  // 1. first paint: main Add below the fold → bar visible; in view → bar hidden
+  const r0 = await mainRect();
+  if (!r0) fail('no main Add button (product-form [data-add-button])');
+  const belowFold = r0.top > r0.vh;
+  await sleep(300);
+  if (belowFold) {
+    if (!(await waitFor(isShown, 2000))) fail(`main Add starts below the fold (top ${Math.round(r0.top)} > ${r0.vh}) but the sticky bar is hidden at first paint`);
+    notes.push(`at top (Add at ${Math.round(r0.top)}px): bar shown`);
+  } else {
+    if (!(await waitFor(isHidden, 2000))) fail('main Add is in view at first paint but the sticky bar is showing too');
+    notes.push('at top (Add in view): bar hidden');
+  }
+  // 2. realistic scrolling (wheel steps) until the main Add button is fully in view → bar hides
   await page.mouse.move(195, 400);
+  let inView = false;
   for (let i = 0; i < 40; i++) {
-    const bottom = await page.evaluate(() => { const b = document.querySelector('product-form [data-add-button]'); return b ? b.getBoundingClientRect().bottom : -1; });
-    if (bottom < -150) break;
+    const r = await mainRect();
+    if (r.top >= 0 && r.bottom <= r.vh - 120) { inView = true; break; }
+    await page.mouse.wheel(0, Math.max(60, Math.min(300, r.top - r.vh / 2)));
+    await sleep(140);
+  }
+  if (!inView) fail('could not scroll the main Add button into view');
+  if (!(await waitFor(isHidden, 2000))) fail('sticky bar stayed visible while the main Add button was on screen (two Add buttons in view)');
+  notes.push('hides while main Add in view');
+  // 3. keep scrolling until the main Add has left the top → bar shows again
+  for (let i = 0; i < 40; i++) {
+    const r = await mainRect();
+    if (r.bottom < -150) break;
     await page.mouse.wheel(0, 350);
     await sleep(120);
   }
-  const shown = await waitFor(isShown, 3000);
-  if (!shown) fail('sticky add-to-basket did not appear after scrolling past the main Add button');
-  // 2. jump straight past the button (reload with restored scroll / anchor link)
+  if (!(await waitFor(isShown, 3000))) fail('sticky add-to-basket did not reappear after scrolling past the main Add button');
+  notes.push('shows again after scrolling past it');
+  // 4. jump straight past the button (reload with restored scroll / anchor link)
   await page.goto(`${origin}/products/coniston-orthopaedic-dog-bed`, { waitUntil: 'load' });
   await page.evaluate(() => { const b = document.querySelector('product-form [data-add-button]'); scrollTo(0, b.getBoundingClientRect().bottom + scrollY + 1200); });
   const jumpOk = await waitFor(isShown, 2000);
-  return {
-    status: !visibleAtTop ? (jumpOk ? 'PASS' : 'WARN') : 'FAIL',
-    detail: `hidden at top: ${!visibleAtTop} · shows after scrolling past Add: true · after a jump past it (reload/anchor): ${jumpOk}${jumpOk ? '' : ' — IntersectionObserver never sees the button cross when it starts below the fold'}`,
-  };
+  notes.push(`after a jump past it (reload/anchor): ${jumpOk}`);
+  // 5. a sold-out product never greets the visitor with a disabled bar
+  await page.goto(`${origin}/products/wensleydale-nesting-bed`, { waitUntil: 'load' });
+  await sleep(400);
+  const soldOutBelow = await page.evaluate(() => { const b = document.querySelector('product-form [data-add-button]'); return !!b && b.disabled && b.getBoundingClientRect().top > innerHeight; });
+  let soldOutOk = true;
+  if (soldOutBelow) {
+    soldOutOk = await waitFor(isHidden, 1000);
+    if (!soldOutOk) fail('sold-out product: a disabled sticky bar shows at first paint');
+    notes.push('sold out at top: bar hidden');
+  }
+  return { status: jumpOk ? 'PASS' : 'WARN', detail: notes.join(' · ') };
 }
 
 // ------------------------------------------------------------------ main
@@ -480,7 +517,8 @@ async function main() {
       await flow(browser, base, 'predictive search', desk, searchFlow);
       await flow(browser, base, 'predictive search', mob, searchFlow);
       await flow(browser, base, 'mobile menu + Escape', mob, menuFlow);
-      await flow(browser, base, 'sticky ATC after scroll', mob, stickyFlow);
+      await flow(browser, base, 'sticky ATC', mob, stickyFlow);
+      await flow(browser, base, 'sticky ATC', desk, stickyFlow);
     }
   } finally {
     await browser.close();

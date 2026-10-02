@@ -6,14 +6,24 @@
 
   Placeholders in any step title or text:
     [trial_nights] [guarantee_years] [threshold] [delivery_min] [delivery_max]
+    [trial_terms] (returns wording, Theme settings → Promises)
     [cutoff] ("3pm")  [dispatch_days] ("Mon–Fri")  [dispatch_from] (section setting)
     [dispatch_day] → live "today" / "tomorrow" / "on Mon 12 Oct"
     [arrival]      → live "Thu 8 Oct–Sat 10 Oct" (fallback "in 1–3 working days")
   A step can depend on a promise (trial, guarantee, delivery) and hides when
   that promise is switched off in Theme settings.
 {%- endcomment -%}
-{{ 'product.css' | asset_url | stylesheet_tag }}
-<script src="{{ 'product.js' | asset_url }}" defer="defer"></script>
+{%- comment -%}
+  On product templates main-product (first in product.json) already links
+  product.css and product.js, so they are not linked again here. Elsewhere
+  (basket page, other templates) this section brings its own. If a merchant
+  moves this section above main-product, its styles arrive with
+  main-product's link a moment later.
+{%- endcomment -%}
+{%- unless template.name == 'product' -%}
+  {{ 'product.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'product.js' | asset_url }}" defer="defer"></script>
+{%- endunless -%}
 {%- render 'section-styles', section: section -%}
 {%- capture cut_time -%}{%- render 'delivery-promise', mode: 'time' -%}{%- endcapture -%}
 {%- capture cut_days -%}{%- render 'delivery-promise', mode: 'days' -%}{%- endcapture -%}
@@ -26,6 +36,10 @@
   assign years_s = years | append: ''
   assign threshold_cents = settings.free_shipping_threshold | default: 0 | times: 100 | round
   assign threshold_money = threshold_cents | money_without_trailing_zeros
+  capture tl_terms
+    render 'trial-terms'
+  endcapture
+  assign ph_terms = tl_terms | escape
   assign d_min = settings.delivery_min_days | default: 0 | plus: 0
   assign d_max = settings.delivery_max_days | default: 0 | plus: 0
   if d_max < d_min
@@ -110,10 +124,10 @@
             assign t_text = block.settings.text | default: ''
           -%}
           {%- capture step_title -%}
-            {{- t_title | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[delivery_min]', d_min_s | replace: '[delivery_max]', d_max_s | replace: '[cutoff]', cut_time | replace: '[dispatch_days]', cut_days | replace: '[dispatch_from]', dispatch_from | replace: '[dispatch_day]', live_dispatch | replace: '[arrival]', live_arrival -}}
+            {{- t_title | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms]', ph_terms | replace: '[delivery_min]', d_min_s | replace: '[delivery_max]', d_max_s | replace: '[cutoff]', cut_time | replace: '[dispatch_days]', cut_days | replace: '[dispatch_from]', dispatch_from | replace: '[dispatch_day]', live_dispatch | replace: '[arrival]', live_arrival -}}
           {%- endcapture -%}
           {%- capture step_text -%}
-            {{- t_text | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[delivery_min]', d_min_s | replace: '[delivery_max]', d_max_s | replace: '[cutoff]', cut_time | replace: '[dispatch_days]', cut_days | replace: '[dispatch_from]', dispatch_from | replace: '[dispatch_day]', live_dispatch | replace: '[arrival]', live_arrival -}}
+            {{- t_text | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms]', ph_terms | replace: '[delivery_min]', d_min_s | replace: '[delivery_max]', d_max_s | replace: '[cutoff]', cut_time | replace: '[dispatch_days]', cut_days | replace: '[dispatch_from]', dispatch_from | replace: '[dispatch_day]', live_dispatch | replace: '[arrival]', live_arrival -}}
           {%- endcapture -%}
           <li class="timeline__step{% if n == 1 %} timeline__step--now{% endif %}" {{ block.shopify_attributes }}>
             <div class="timeline__marker" aria-hidden="true">
@@ -311,7 +325,7 @@
           "settings": {
             "icon": "moon",
             "title": "[trial_nights] nights to decide",
-            "text": "<p>Most dogs claim a new bed within the first evening. Some take a fortnight. Both are normal. If it isn't right, we collect it free and refund every penny.</p>",
+            "text": "<p>Most dogs claim a new bed within the first evening. Some take a fortnight. Both are normal. [trial_terms]</p>",
             "requires": "trial"
           }
         }

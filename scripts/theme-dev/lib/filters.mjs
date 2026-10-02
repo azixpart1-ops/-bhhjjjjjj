@@ -399,6 +399,8 @@ export function createShopifyFilters(env) {
     const { named } = splitArgs(args);
     if (!named.as) issue('error', 'liquid-error', 'preload_tag requires an `as` attribute');
     const rest = { ...named }; delete rest.as;
+    // Shopify adds crossorigin="anonymous" itself when `as` is font.
+    if (str(named.as) === 'font' && rest.crossorigin == null) rest.crossorigin = 'anonymous';
     return `<link href="${str(v)}" rel="preload" as="${escapeHtml(named.as || '')}"${attrs(rest)}>`;
   };
   F.link_to = (text, url, title) => `<a href="${escapeHtml(str(url))}"${title != null ? ` title="${escapeHtml(str(title))}"` : ''}>${str(text)}</a>`;

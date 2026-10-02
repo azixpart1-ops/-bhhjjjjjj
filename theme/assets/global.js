@@ -154,9 +154,18 @@
 
   /* ------------------------------------------------------------------------
      fetchJSON — throws {status, description} on !ok
+
+     opts.timeout (ms): abort a request that hasn't finished in time and throw
+     {status: 408, timeout: true, description}. The status is non-zero on
+     purpose: a timed-out POST may still have reached Shopify, so callers must
+     show the error rather than silently re-posting the form.
+     A failure before any response arrived (offline, DNS, CORS) is tagged
+     err.stage = 'request'.
      ---------------------------------------------------------------------- */
   L.fetchJSON = function (url, opts) {
-    opts = opts || {};
+    opts = Object.assign({}, opts || {});
+    var timeoutMs = Number(opts.timeout) || 0;
+    delete opts.timeout;
     var headers = Object.assign(
       { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       opts.headers || {}
@@ -178,31 +187,84 @@
     var init = Object.assign({ credentials: 'same-origin' }, opts, { headers: headers });
     if (body !== undefined) init.body = body;
 
-    return fetch(url, init).then(function (res) {
-      return res.text().then(function (text) {
-        var data = null;
-        if (text) {
+    var timer = null;
+    var timedOut = false;
+    if (timeoutMs > 0 && typeof AbortController !== 'undefined') {
+      var controller = new AbortController();
+      var outer = opts.signal;
+      if (outer) {
+        if (outer.aborted) controller.abort();
+        else outer.addEventListener('abort', function () { controller.abort(); }, { once: true });
+      }
+      init.signal = controller.signal;
+      timer = setTimeout(function () {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+    }
+    function settle() {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    }
+    function timeoutError() {
+      var description = str('timeout', str('error', 'Something went wrong. Please try again.'));
+      var err = new Error(description);
+      err.status = 408;
+      err.timeout = true;
+      err.description = description;
+      return err;
+    }
+
+    return fetch(url, init)
+      .catch(function (err) {
+        if (timedOut) throw timeoutError();
+        if (err && typeof err === 'object' && err.name !== 'AbortError') {
           try {
-            data = JSON.parse(text);
+            err.stage = 'request';
           } catch (e) {
-            data = text;
+            /* frozen error object */
           }
         }
-        if (!res.ok) {
-          var description =
-            (data && typeof data === 'object' && (data.description || data.message || data.errors)) ||
-            res.statusText ||
-            str('error', 'Something went wrong. Please try again.');
-          if (typeof description === 'object') description = JSON.stringify(description);
-          var err = new Error(description);
-          err.status = res.status;
-          err.description = description;
-          err.data = data;
+        throw err;
+      })
+      .then(function (res) {
+        return res.text().then(function (text) {
+          var data = null;
+          if (text) {
+            try {
+              data = JSON.parse(text);
+            } catch (e) {
+              data = text;
+            }
+          }
+          if (!res.ok) {
+            var description =
+              (data && typeof data === 'object' && (data.description || data.message || data.errors)) ||
+              res.statusText ||
+              str('error', 'Something went wrong. Please try again.');
+            if (typeof description === 'object') description = JSON.stringify(description);
+            var err = new Error(description);
+            err.status = res.status;
+            err.description = description;
+            err.data = data;
+            throw err;
+          }
+          return data;
+        }, function (err) {
+          if (timedOut) throw timeoutError();
+          throw err;
+        });
+      })
+      .then(
+        function (data) {
+          settle();
+          return data;
+        },
+        function (err) {
+          settle();
           throw err;
         }
-        return data;
-      });
-    });
+      );
   };
 
   /* ------------------------------------------------------------------------
@@ -231,6 +293,10 @@
     return list.length ? list.join(',') : null;
   }
 
+  /* A stalled request must not freeze every later cart action behind it in
+     the queue, so cart calls give up after this long and show an error. */
+  var CART_TIMEOUT = 15000;
+
   var queue = Promise.resolve();
   function enqueue(task) {
     var run = queue.then(task, task);
@@ -240,7 +306,7 @@
 
   L.cart = {
     get: function () {
-      return L.fetchJSON(route('cart', '/cart') + '.js', { cache: 'no-store' });
+      return L.fetchJSON(route('cart', '/cart') + '.js', { cache: 'no-store', timeout: CART_TIMEOUT });
     },
 
     add: function (items, opts) {
@@ -252,10 +318,14 @@
           body.sections = sections;
           body.sections_url = opts.sectionsUrl || window.location.pathname;
         }
-        return L.fetchJSON(route('cartAdd', '/cart/add') + '.js', { method: 'POST', body: body }).then(function (res) {
+        return L.fetchJSON(route('cartAdd', '/cart/add') + '.js', { method: 'POST', body: body, timeout: CART_TIMEOUT }).then(function (res) {
           var added = (res && res.items) || (res && res.id ? [res] : []);
           var renderedSections = (res && res.sections) || null;
-          return L.cart.get().then(function (cart) {
+          /* The item is in the basket now. If the follow-up refresh fails,
+             resolve with cart: null rather than reject: a rejection here
+             reads as "add failed" and invites a second add (product-form
+             even re-posts natively on a status-less error). */
+          return L.cart.get().catch(function () { return null; }).then(function (cart) {
             var out = { cart: cart, sections: renderedSections, items: added };
             L.emit('lunova:cart:updated', { cart: cart, source: opts.source || 'add', sections: renderedSections, items: added });
             return out;
@@ -275,7 +345,7 @@
           body.sections = sections;
           body.sections_url = opts.sectionsUrl || window.location.pathname;
         }
-        return L.fetchJSON(route('cartChange', '/cart/change') + '.js', { method: 'POST', body: body }).then(function (cart) {
+        return L.fetchJSON(route('cartChange', '/cart/change') + '.js', { method: 'POST', body: body, timeout: CART_TIMEOUT }).then(function (cart) {
           var renderedSections = (cart && cart.sections) || null;
           if (cart && cart.sections) delete cart.sections;
           L.emit('lunova:cart:updated', { cart: cart, source: opts.source || 'change', sections: renderedSections });
@@ -294,7 +364,7 @@
           body.sections = sections;
           body.sections_url = opts.sectionsUrl || window.location.pathname;
         }
-        return L.fetchJSON(route('cartUpdate', '/cart/update') + '.js', { method: 'POST', body: body }).then(function (cart) {
+        return L.fetchJSON(route('cartUpdate', '/cart/update') + '.js', { method: 'POST', body: body, timeout: CART_TIMEOUT }).then(function (cart) {
           var renderedSections = (cart && cart.sections) || null;
           if (cart && cart.sections) delete cart.sections;
           L.emit('lunova:cart:updated', { cart: cart, source: opts.source || 'update', sections: renderedSections });
@@ -733,6 +803,26 @@
     return pence < 100 ? fill(str('pence', '[amount]p'), { amount: pence }) : L.money(pence);
   };
 
+  /**
+   * Is this a memory-foam bed the foam guarantee covers? Mirrors
+   * snippets/foam-bed.liquid: title, type or tags mention orthopaedic /
+   * orthopedic / memory foam; tag guarantee:yes forces it on, guarantee:no
+   * (which wins) forces it off. `product` is any object with title, type
+   * (or product_type) and tags (array or comma string). Gate per-night
+   * figures and guarantee lines on this.
+   */
+  L.foamBed = function (product) {
+    if (!product) return false;
+    var tags = product.tags || [];
+    if (typeof tags === 'string') tags = tags.split(',');
+    tags = tags.map(function (t) { return String(t).trim().toLowerCase(); });
+    if (tags.indexOf('guarantee:no') !== -1) return false;
+    if (tags.indexOf('guarantee:yes') !== -1) return true;
+    var hay = [product.title, product.type || product.product_type, tags.join(',')].join(' ').toLowerCase();
+    return /orthopaedic|orthopedic|memory[ -]foam/.test(hay);
+  };
+  L.guaranteeEligible = L.foamBed;
+
   /** Exact figure for the basis line: "9.26p" / "£1.12" */
   L.perNightExact = function (cents) {
     var s = L.settings || {};
@@ -826,8 +916,11 @@
             this.nextButtons = this.nextButtons.concat(qsa('[data-slider-for="' + this.id + '"] [data-slider-next], [data-slider-next][data-slider-for="' + this.id + '"]'));
           }
 
-          if (this.track !== this && !this.track.hasAttribute('tabindex')) {
-            this.track.setAttribute('tabindex', '0');
+          /* The track is a tab stop only while it actually scrolls (see
+             update()); a desktop grid that fits needs no extra stop. Leave
+             any tabindex the markup set alone. */
+          if (this._autoTabindex === undefined) {
+            this._autoTabindex = this.track !== this && !this.track.hasAttribute('tabindex');
           }
 
           this._onScroll = L.debounce(this.update.bind(this), 60);
@@ -901,6 +994,10 @@
           var max = t.scrollWidth - t.clientWidth;
           var overflowing = max > 2;
           this.toggleAttribute('data-overflowing', overflowing);
+          if (this._autoTabindex && t.hasAttribute('tabindex') !== overflowing) {
+            if (overflowing) t.setAttribute('tabindex', '0');
+            else t.removeAttribute('tabindex');
+          }
           var x = Math.abs(t.scrollLeft);
           this.prevButtons.forEach(function (b) { b.disabled = !overflowing || x <= 2; });
           this.nextButtons.forEach(function (b) { b.disabled = !overflowing || x >= max - 2; });
@@ -1003,6 +1100,30 @@
     return !!L.settings.finderEnabled && !!doc.querySelector('bed-finder');
   }
 
+  /* finder.js and cart.js are deferred and load after this file, so an
+     element can be in the DOM before it is defined (and listening). Run cb
+     once it is defined; customElements.whenDefined resolves after the
+     upgrade, so connectedCallback has already subscribed by then. */
+  function whenDefined(tag, cb) {
+    if (!window.customElements) return;
+    if (customElements.get(tag)) cb();
+    else customElements.whenDefined(tag).then(cb);
+  }
+
+  /** True when following this link would load another page (not just a #hash here). */
+  function leavesPage(el) {
+    if (!el.matches('a[href], area[href]')) return false;
+    var href = el.getAttribute('href') || '';
+    if (!href || href.charAt(0) === '#' || /^\s*javascript:/i.test(href)) return false;
+    try {
+      var u = new URL(el.href, window.location.href);
+      var here = window.location;
+      return !(u.origin === here.origin && u.pathname === here.pathname && u.search === here.search);
+    } catch (err) {
+      return false;
+    }
+  }
+
   doc.addEventListener('click', function (e) {
     if (e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var target = e.target instanceof Element ? e.target : null;
@@ -1010,6 +1131,9 @@
 
     var opener = target.closest('[data-open-finder], a[href$="#bed-finder"]');
     if (opener && finderAvailable()) {
+      /* finder.js not ready yet (or failed to load): a real link still works,
+         so let it go to the finder page rather than swallowing the tap. */
+      if (!customElements.get('bed-finder') && leavesPage(opener)) return;
       e.preventDefault();
       var detail = { trigger: opener };
       var step = opener.getAttribute('data-finder-step');
@@ -1022,12 +1146,16 @@
           /* ignore malformed */
         }
       }
-      L.emit('lunova:finder:open', detail);
+      /* A button tapped before finder.js arrives opens it once it can. */
+      whenDefined('bed-finder', function () { L.emit('lunova:finder:open', detail); });
       return;
     }
 
-    var quick = target.closest('[data-quick-add]');
-    if (quick && doc.querySelector('quick-add-drawer')) {
+    /* Only the card's own control, never a wrapper that merely carries a
+       data-quick-add setting (e.g. <recently-viewed data-quick-add="true">).
+       Until cart.js defines the drawer, the link simply goes to the product. */
+    var quick = target.closest('a[data-quick-add], button[data-quick-add]');
+    if (quick && doc.querySelector('quick-add-drawer') && customElements.get('quick-add-drawer')) {
       e.preventDefault();
       L.emit('lunova:quickadd:open', {
         handle: quick.getAttribute('data-handle'),
@@ -1132,9 +1260,13 @@
     initCountdowns();
   }
 
+  /* On first load this runs before finder.js has defined <bed-finder>, so
+     wait for it: email and ad links to …#bed-finder must open the finder. */
   function openFinderFromHash() {
     if (window.location.hash === '#bed-finder' && finderAvailable()) {
-      L.emit('lunova:finder:open', { reason: 'hash' });
+      whenDefined('bed-finder', function () {
+        L.emit('lunova:finder:open', { reason: 'hash' });
+      });
     }
   }
 

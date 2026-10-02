@@ -1,8 +1,9 @@
 {%- comment -%}
   Problem signs — the second beat of the arc: NAME IT.
 
-  Named behaviours the owner can check tonight (circling, choosing the floor,
-  the slower rise). Optional "Sounds familiar" toggles let the visitor
+  Named signs the owner can check tonight (circling, choosing the floor, a
+  dip in the bed that doesn't spring back). Signs describe the bed or how
+  the dog uses it, never a symptom the bed is blamed for. Optional "Sounds familiar" toggles let the visitor
   self-diagnose — a small, honest commitment (foot-in-the-door) — and the
   closing line then reflects their own answers ("2 of 3 sound familiar")
   before handing them to the Bed Finder. Nothing is stored or sent anywhere.
@@ -30,6 +31,7 @@
   if cta_label == ''
     assign cta_label = 'home.hero.finder_cta' | t
   endif
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
   assign fallback_label = s.fallback_label | default: '' | strip | escape
   if fallback_label == ''
     assign fallback_label = 'home.hero.shop_cta' | t
@@ -57,10 +59,10 @@
           -%}
           <li class="problem-signs__item" data-reveal style="--i: {{ forloop.index0 }};" data-sign>
             <span class="problem-signs__num" aria-hidden="true">{{ forloop.index | prepend: '0' }}</span>
-            <h3 class="problem-signs__title h4">{{ k_title | t }}</h3>
+            <h3 class="problem-signs__title h4" id="{{ section.id }}-sign-{{ forloop.index }}">{{ k_title | t }}</h3>
             <p class="problem-signs__text">{{ k_text | t }}</p>
             {%- if s.enable_check -%}
-              <button type="button" class="chip problem-signs__check" aria-pressed="false" data-sign-toggle hidden>
+              <button type="button" class="chip problem-signs__check" aria-pressed="false" aria-describedby="{{ section.id }}-sign-{{ forloop.index }}" data-sign-toggle hidden>
                 {%- render 'icon', name: 'check' -%}<span>{{ 'home.signs.familiar' | t }}</span>
               </button>
             {%- endif -%}
@@ -71,13 +73,13 @@
           <li class="problem-signs__item" data-reveal style="--i: {{ forloop.index0 }};" data-sign {{ block.shopify_attributes }}>
             <span class="problem-signs__num" aria-hidden="true">{% if forloop.index < 10 %}0{% endif %}{{ forloop.index }}</span>
             {%- if block.settings.title != blank -%}
-              <h3 class="problem-signs__title h4">{{ block.settings.title | escape }}</h3>
+              <h3 class="problem-signs__title h4" id="{{ section.id }}-sign-{{ forloop.index }}">{{ block.settings.title | escape }}</h3>
             {%- endif -%}
             {%- if block.settings.text != blank -%}
               <p class="problem-signs__text">{{ block.settings.text | escape }}</p>
             {%- endif -%}
             {%- if s.enable_check -%}
-              <button type="button" class="chip problem-signs__check" aria-pressed="false" data-sign-toggle hidden>
+              <button type="button" class="chip problem-signs__check" aria-pressed="false"{% if block.settings.title != blank %} aria-describedby="{{ section.id }}-sign-{{ forloop.index }}"{% endif %} data-sign-toggle hidden>
                 {%- render 'icon', name: 'check' -%}<span>{{ 'home.signs.familiar' | t }}</span>
               </button>
             {%- endif -%}
@@ -102,9 +104,9 @@
       {%- endif -%}
       <div class="problem-signs__actions">
         {%- if settings.finder_enable -%}
-          <button type="button" class="btn btn--secondary" data-open-finder aria-haspopup="dialog">
+          <a href="{{ finder_url }}" class="btn btn--secondary" data-open-finder aria-haspopup="dialog">
             <span>{{ cta_label }}</span>{%- render 'icon', name: 'arrow-right' -%}
-          </button>
+          </a>
         {%- elsif s.fallback_link != blank -%}
           <a class="btn btn--secondary" href="{{ s.fallback_link }}">
             <span>{{ fallback_label }}</span>{%- render 'icon', name: 'arrow-right' -%}
@@ -249,7 +251,7 @@
       "blocks": [
         { "type": "sign", "settings": { "title": "They keep circling after they have lain down.", "text": "A few turns before settling is just what dogs do. Turning, resettling, then shifting again ten minutes later usually means no position on that bed takes the weight off." } },
         { "type": "sign", "settings": { "title": "They have started choosing the floor.", "text": "Once foam has bottomed out, hard tiles genuinely are the firmer, flatter option. A dog picking the kitchen floor over their own bed has done the comparison and reached a conclusion." } },
-        { "type": "sign", "settings": { "title": "Standing up has become a two-stage job.", "text": "Front end first, then a pause, then the back end. It comes on slowly enough that most owners only spot it in an old photograph." } }
+        { "type": "sign", "settings": { "title": "There's a dip that doesn't spring back.", "text": "Press a flat hand into the middle where they lie. If you can feel the floor through it, so can their hips and elbows." } }
       ]
     }
   ]

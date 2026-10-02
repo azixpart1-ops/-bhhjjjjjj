@@ -3,7 +3,9 @@
   <head>
     {%- render 'meta-tags' -%}
 
-    <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
+    {%- unless settings.type_heading_font.system? and settings.type_body_font.system? %}
+      <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
+    {%- endunless %}
 
     {%- if settings.favicon != blank %}
       <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 64, height: 64 }}">
@@ -53,9 +55,16 @@
       endcase
     -%}
 
-    {%- if body_font != blank %}
-      <link rel="preload" as="font" href="{{ body_font | font_url }}" type="font/woff2" crossorigin>
-    {%- endif %}
+    {%- comment -%}
+      System fonts have no CDN file: font_url returns '' for them, so skip the
+      preload (and the preconnect above when no webfont loads at all).
+      preload_tag adds crossorigin itself for fonts and feeds Early Hints.
+    {%- endcomment -%}
+    {%- unless settings.type_body_font.system? -%}
+      {%- if body_font != blank %}
+      {{ body_font | font_url | preload_tag: as: 'font', type: 'font/woff2' }}
+      {%- endif %}
+    {%- endunless %}
 
     <style>
       {{ heading_font | font_face: font_display: 'swap' }}
@@ -256,6 +265,7 @@
         soldOut: {{ 'core.js.sold_out' | t | json }},
         unavailable: {{ 'core.js.unavailable' | t | json }},
         error: {{ 'core.js.error' | t | json }},
+        timeout: {{ 'core.js.timeout' | t | json }},
         quantityError: {{ 'core.js.quantity_error' | t | json }},
         loading: {{ 'core.js.loading' | t | json }},
         close: {{ 'core.js.close' | t | json }},

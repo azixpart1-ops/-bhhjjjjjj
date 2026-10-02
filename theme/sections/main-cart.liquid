@@ -58,12 +58,12 @@
   endif
 
   assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
-  assign finder_label = settings.finder_cta_label | default: ''
+  assign finder_label = settings.finder_cta_label | default: '' | strip | escape
   if finder_label == ''
     assign finder_label = 'collection.finder_tile.cta' | t
   endif
   assign shop_link = section.settings.shop_link | default: routes.all_products_collection_url
-  assign shop_label = section.settings.shop_link_label | default: ''
+  assign shop_label = section.settings.shop_link_label | default: '' | strip | escape
   if shop_label == ''
     assign shop_label = 'collection.empty.all_beds' | t
   endif
@@ -129,13 +129,13 @@
                   {%- liquid
                     assign upsell_variants = upsell.variants | where: 'available'
                     assign upsell_first = upsell.selected_or_first_available_variant
-                    assign upsell_heading = settings.cart_upsell_heading | default: ''
+                    assign upsell_heading = settings.cart_upsell_heading | default: '' | strip | escape
                     if upsell_heading == ''
                       assign upsell_heading = 'collection.cart.upsell_heading' | t
                     endif
                   -%}
                   <div class="cart-offer">
-                    <h2 class="cart-offer__heading">{{ upsell_heading | escape }}</h2>
+                    <h2 class="cart-offer__heading">{{ upsell_heading }}</h2>
                     <div class="cart-offer__card">
                       <a href="{{ upsell.url }}" class="cart-offer__media" tabindex="-1" aria-hidden="true">
                         {%- render 'image',
@@ -257,7 +257,8 @@
                 {%- if section.settings.show_trial_line and trial_on -%}
                   <p class="cart__trial">
                     {%- render 'icon', name: 'moon', class: 'cart__trial-icon' -%}
-                    <span>{{ 'collection.cart.trial_line' | t: nights: settings.trial_nights }}</span>
+                    {%- capture cart_terms -%}{%- render 'trial-terms' -%}{%- endcapture -%}
+                    <span>{{ 'collection.cart.trial_line' | t: nights: settings.trial_nights, terms: cart_terms }}</span>
                   </p>
                 {%- endif -%}
 
@@ -313,15 +314,15 @@
             {%- if settings.finder_enable -%}
               <a href="{{ finder_url }}" class="btn btn--secondary btn--lg" data-open-finder>
                 {%- render 'icon', name: 'paw' -%}
-                <span>{{ finder_label | escape }}</span>
+                <span>{{ finder_label }}</span>
               </a>
               <a href="{{ shop_link }}" class="cart-empty__link">
-                <span>{{ shop_label | escape }}</span>
+                <span>{{ shop_label }}</span>
                 {%- render 'icon', name: 'arrow-right' -%}
               </a>
             {%- else -%}
               <a href="{{ shop_link }}" class="btn btn--secondary btn--lg">
-                <span>{{ shop_label | escape }}</span>
+                <span>{{ shop_label }}</span>
                 {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
               </a>
             {%- endif -%}

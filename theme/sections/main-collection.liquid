@@ -11,7 +11,9 @@
       load), state lives in the URL (shareable, back button works), quick
       add on every card, a sticky "Filter & sort (n)" bar on phones.
     - Recovery, never a dead end: empty / over-filtered states offer
-      "Clear all" and the finder.
+      "Clear all" and the finder. Before the store has any beds at all, the
+      finder has nothing to recommend, so the empty state asks for an email
+      instead ("Email me when they land") and the filter bar stays hidden.
     - SEO without clutter: the collection description sits under the grid,
       its headings demoted one level so the page keeps a single H1.
 
@@ -71,13 +73,22 @@
   endif
 
   assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
-  assign finder_label = settings.finder_cta_label | default: ''
+  assign finder_label = settings.finder_cta_label | default: '' | strip | escape
   if finder_label == ''
     assign finder_label = 'collection.finder_tile.cta' | t
   endif
 
   assign total_in_collection = collection.all_products_count | default: 0 | plus: 0
   assign shop_total = collections.all.products_count | default: 0 | plus: 0
+
+  comment
+    No filter bar or sidebar over an empty collection: there is nothing to
+    filter. Kept when filters are active, so they can still be cleared.
+  endcomment
+  assign show_facets = false
+  if total_in_collection > 0 or active_count > 0
+    assign show_facets = true
+  endif
 -%}
 
 {%- paginate collection.products by per_page -%}
@@ -96,37 +107,39 @@
   >
     <div class="page-width">
       <facet-filters
-        class="facets-layout facets-layout--{{ fx_layout }}{% if has_filters %} has-filters{% endif %}"
+        class="facets-layout facets-layout--{{ fx_layout }}{% if has_filters and show_facets %} has-filters{% endif %}"
         data-section-id="{{ sid }}"
         data-results-url="{{ collection.url }}"
       >
         <h2 class="visually-hidden" id="ResultsHeading-{{ sid }}" tabindex="-1" data-results-heading>{{ 'collection.grid.heading' | t: title: title }}</h2>
 
-        {%- render 'facets',
-          part: 'bar',
-          results: collection,
-          section_id: sid,
-          action_url: collection.url,
-          layout: fx_layout,
-          enable_filtering: section.settings.enable_filtering,
-          enable_sorting: section.settings.enable_sorting,
-          results_count: results_count,
-          noun: 'beds'
-        -%}
-        {%- render 'facets',
-          part: 'panel',
-          results: collection,
-          section_id: sid,
-          action_url: collection.url,
-          layout: fx_layout,
-          enable_filtering: section.settings.enable_filtering,
-          enable_sorting: section.settings.enable_sorting,
-          results_count: results_count,
-          noun: 'beds'
-        -%}
+        {%- if show_facets -%}
+          {%- render 'facets',
+            part: 'bar',
+            results: collection,
+            section_id: sid,
+            action_url: collection.url,
+            layout: fx_layout,
+            enable_filtering: section.settings.enable_filtering,
+            enable_sorting: section.settings.enable_sorting,
+            results_count: results_count,
+            noun: 'beds'
+          -%}
+          {%- render 'facets',
+            part: 'panel',
+            results: collection,
+            section_id: sid,
+            action_url: collection.url,
+            layout: fx_layout,
+            enable_filtering: section.settings.enable_filtering,
+            enable_sorting: section.settings.enable_sorting,
+            results_count: results_count,
+            noun: 'beds'
+          -%}
+        {%- endif -%}
 
         <div class="facets-layout__main">
-          {%- if total_in_collection > 0 or active_count > 0 -%}
+          {%- if show_facets -%}
             {%- render 'facets',
               part: 'toolbar',
               results: collection,
@@ -210,26 +223,82 @@
               </ul>
 
             {%- elsif total_in_collection == 0 and active_count == 0 -%}
+              {%- liquid
+                comment
+                  Store with no beds yet: the finder would come back empty,
+                  so offer to email them when the first beds land instead.
+                endcomment
+                assign empty_body = section.settings.empty_text
+                if shop_total == 0
+                  assign empty_body = section.settings.empty_store_text
+                endif
+              -%}
               <div class="collection-empty">
                 <span class="collection-empty__art" aria-hidden="true">{%- render 'icon', name: 'bed' -%}</span>
                 <h3 class="h3 collection-empty__heading">{{ section.settings.empty_heading | escape }}</h3>
-                {%- if section.settings.empty_text != blank -%}
-                  <div class="collection-empty__text rte">{{ section.settings.empty_text }}</div>
+                {%- if empty_body != blank -%}
+                  <div class="collection-empty__text rte">{{ empty_body }}</div>
                 {%- endif -%}
-                <div class="collection-empty__actions">
-                  {%- if settings.finder_enable -%}
-                    <a href="{{ finder_url }}" class="btn btn--secondary" data-open-finder>
-                      {%- render 'icon', name: 'paw' -%}
-                      <span>{{ finder_label | escape }}</span>
-                    </a>
-                  {%- endif -%}
-                  {%- if collection.handle != 'all' and shop_total > 0 -%}
-                    <a href="{{ routes.all_products_collection_url }}" class="collection-empty__link">
-                      <span>{{ 'collection.empty.all_beds' | t }}</span>
-                      {%- render 'icon', name: 'arrow-right' -%}
-                    </a>
-                  {%- endif -%}
-                </div>
+                {%- if shop_total == 0 -%}
+                  {%- liquid
+                    assign notify_form_id = 'LaunchNotify-' | append: sid
+                    assign notify_field_id = 'LaunchNotifyEmail-' | append: sid
+                    assign notify_error_id = 'LaunchNotifyError-' | append: sid
+                  -%}
+                  {%- form 'customer', id: notify_form_id, class: 'collection-empty__form' -%}
+                    <input type="hidden" name="contact[tags]" value="newsletter,launch-waitlist">
+                    {%- if form.posted_successfully? -%}
+                      <p class="collection-empty__success" role="status">
+                        {%- render 'icon', name: 'check-circle' -%}
+                        <span>{{ 'collection.empty.notify_success' | t }}</span>
+                      </p>
+                    {%- else -%}
+                      <label class="field__label collection-empty__label" for="{{ notify_field_id }}">{{ 'collection.empty.notify_label' | t }}</label>
+                      <div class="collection-empty__form-row">
+                        <input
+                          class="input collection-empty__input"
+                          id="{{ notify_field_id }}"
+                          type="email"
+                          name="contact[email]"
+                          value="{{ form.email }}"
+                          autocomplete="email"
+                          autocapitalize="off"
+                          spellcheck="false"
+                          required
+                          placeholder="{{ 'collection.empty.notify_placeholder' | t }}"
+                          {%- if form.errors %} aria-invalid="true" aria-describedby="{{ notify_error_id }}"{% endif %}
+                        >
+                        <button type="submit" class="btn btn--secondary collection-empty__submit" name="commit">
+                          {{- 'collection.empty.notify_submit' | t -}}
+                        </button>
+                      </div>
+                      {%- if form.errors -%}
+                        <p class="field__error collection-empty__error" id="{{ notify_error_id }}" role="alert">
+                          {%- if form.errors contains 'email' -%}
+                            {{ 'collection.empty.notify_error' | t }}
+                          {%- else -%}
+                            {{ form.errors | default_errors }}
+                          {%- endif -%}
+                        </p>
+                      {%- endif -%}
+                    {%- endif -%}
+                  {%- endform -%}
+                {%- else -%}
+                  <div class="collection-empty__actions">
+                    {%- if settings.finder_enable -%}
+                      <a href="{{ finder_url }}" class="btn btn--secondary" data-open-finder>
+                        {%- render 'icon', name: 'paw' -%}
+                        <span>{{ finder_label }}</span>
+                      </a>
+                    {%- endif -%}
+                    {%- if collection.handle != 'all' -%}
+                      <a href="{{ routes.all_products_collection_url }}" class="collection-empty__link">
+                        <span>{{ 'collection.empty.all_beds' | t }}</span>
+                        {%- render 'icon', name: 'arrow-right' -%}
+                      </a>
+                    {%- endif -%}
+                  </div>
+                {%- endif -%}
                 {%- render 'trust-list', items: 'trial,guarantee,delivery', layout: 'row', size: 'sm', class: 'collection-empty__trust' -%}
               </div>
 
@@ -469,6 +538,13 @@
       "id": "empty_text",
       "label": "Text",
       "default": "<p>We're still filling this collection. Tell us how your dog sleeps and we'll point you to the right bed in the meantime.</p>"
+    },
+    {
+      "type": "richtext",
+      "id": "empty_store_text",
+      "label": "Text before the shop has any beds",
+      "default": "<p>The first beds are on their way. Leave your email and we'll let you know when they're in.</p>",
+      "info": "Shown only while the whole shop has no products, above an email sign-up (tagged newsletter and launch-waitlist) in place of the Bed Finder button."
     },
     {
       "type": "header",

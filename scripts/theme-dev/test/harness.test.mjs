@@ -124,3 +124,30 @@ test('image_url / image_tag emit sized srcset for fixture images', () => {
   assert.match(html, /srcset="[^"]*352w/);
   assert.match(html, /width="800" height="\d+"/);
 });
+
+test('bare size/first/last are nil (not the globals key count); params and assign still win', () => {
+  const route = resolveRoute(store, '/', new URLSearchParams());
+  r.begin(route, null);
+  const g = { globals: r.cur.globals };
+  const out = r.engine.parseAndRenderSync("[{{ size }}|{{ first }}|{{ last }}|{{ size | default: 0 | plus: 0 }}]{% assign size = 5 %}{{ size }}", {}, g);
+  const param = r.engine.parseAndRenderSync('{{ size }}', { size: 12 }, g);
+  r.cur = null;
+  assert.equal(out, '[|||0]5');
+  assert.equal(param, '12');
+});
+
+test('keyed globals: sortable arrays that still resolve by handle', () => {
+  const route = resolveRoute(store, '/', new URLSearchParams());
+  r.begin(route, null);
+  const html = r.engine.parseAndRenderSync(
+    "{% assign sorted = collections | sort: 'title' %}{% for c in sorted %}<{{ c.handle }}|{{ c.url }}>{% endfor %}"
+      + "S{{ collections.size }}/{{ collections | sort_natural: 'title' | map: 'handle' | join: ',' }}"
+      + "H{{ collections['nest-beds'].title }}/{{ collections.cooling.handle }}/{{ linklists['main-menu'].handle }}",
+    {}, { globals: r.cur.globals });
+  const n = store.collectionHandles().length;
+  r.cur = null;
+  assert.doesNotMatch(html, /<\|>/, 'sort must not yield a blank item');
+  assert.equal((html.match(/<[a-z-]+\|\/collections\/[a-z-]+>/g) || []).length, n);
+  assert.match(html, new RegExp(`S${n}/`));
+  assert.match(html, /H[^/]+\/cooling\/main-menu$/);
+});

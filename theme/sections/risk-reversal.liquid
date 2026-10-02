@@ -4,9 +4,11 @@
 
   "Try it for [trial_nights] nights. At our risk, not yours." A three-step
   night timeline drawn as phases of the moon (Night 1 → Night 30 → Night
-  [trial_nights]: not right? We collect it free and refund every penny),
+  [trial_nights]: not right? Tell us, on the trial terms from Theme settings),
   the objection pre-empted ("It doesn't need to be unused"), and fine print
-  linking the real refund policy.
+  linking the real refund policy. The link only renders once a refund policy
+  is published (Settings → Policies): Shopify 404s /policies/refund-policy
+  until then.
 
   Every number comes from Theme settings. The whole section hides itself on
   the live store when the trial is switched off (and says why in the editor),
@@ -16,7 +18,9 @@
   Personalisation: if the Bed Finder knows the dog's name, a line reads
   "Bella gets the final say: 100 nights of it." (global.js fills [name]).
 
-  Text can use [trial_nights], [guarantee_years], [threshold], [trial_mid].
+  Text can use [trial_nights], [guarantee_years], [threshold], [trial_mid],
+  [trial_terms] and [trial_terms_short] (Theme settings → Promises, so the
+  returns wording is set once, to match the real policy).
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
@@ -52,12 +56,20 @@
   assign ph_years = years | append: ''
   assign ph_mid = mid | append: ''
   assign ph_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round | money_without_trailing_zeros
+  capture terms
+    render 'trial-terms'
+  endcapture
+  capture terms_short
+    render 'trial-terms', short: true
+  endcapture
+  assign ph_terms = terms | escape
+  assign ph_terms_short = terms_short | escape
 
-  assign heading = s.heading | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[trial_mid]', ph_mid | newline_to_br
-  assign pull = s.pull | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years
-  assign reassure = s.reassurance | default: '' | escape | replace: '[trial_nights]', ph_nights
+  assign heading = s.heading | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[trial_mid]', ph_mid | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | newline_to_br
+  assign pull = s.pull | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms
+  assign reassure = s.reassurance | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms
 
-  assign policy_url = shop.refund_policy.url | default: '/policies/refund-policy'
+  assign policy_url = shop.refund_policy.url | default: ''
 
   assign step_blocks = section.blocks | where: 'type', 'step'
   assign step_count = step_blocks.size
@@ -124,8 +136,8 @@
                   assign phase = 'gibbous'
                 endif
                 assign label = b.night | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_mid]', ph_mid
-                assign title = b.title | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_mid]', ph_mid
-                assign text = b.text | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[trial_mid]', ph_mid
+                assign title = b.title | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_mid]', ph_mid | replace: '[trial_terms_short]', ph_terms_short
+                assign text = b.text | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[trial_mid]', ph_mid | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms
               -%}
               <li class="risk-reversal__step risk-reversal__step--{{ phase }}" data-reveal style="--i: {{ forloop.index0 }};" {{ block.shopify_attributes }}>
                 <span class="risk-reversal__moon" aria-hidden="true">
@@ -166,7 +178,7 @@
                 </span>
                 <span class="risk-reversal__night">{{ k_night | t: nights: ph_nights, mid: ph_mid }}</span>
                 <h3 class="risk-reversal__step-title">{{ k_title | t: nights: ph_nights }}</h3>
-                <p class="risk-reversal__step-text">{{ k_text | t: nights: ph_nights }}</p>
+                <p class="risk-reversal__step-text">{{ k_text | t: nights: ph_nights, terms: terms }}</p>
               </li>
             {%- endfor -%}
           {%- endif -%}
@@ -182,7 +194,7 @@
           {%- if guarantee_on and s.guarantee_note != blank -%}
             <p>{{ s.guarantee_note | escape | replace: '[guarantee_years]', ph_years }}</p>
           {%- endif -%}
-          {%- if s.policy_label != blank -%}
+          {%- if s.policy_label != blank and policy_url != '' -%}
             <p><a class="risk-reversal__policy" href="{{ policy_url }}">{{ s.policy_label | escape }}</a></p>
           {%- endif -%}
         </div>
@@ -200,7 +212,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Numbers come from Theme settings → Promises. Text can use [trial_nights], [trial_mid] (night 30, or half-way on a short trial), [guarantee_years] and [threshold]. The section hides itself when the trial is switched off."
+      "content": "Numbers and returns wording come from Theme settings → Promises. Text can use [trial_nights], [trial_mid] (night 30, or half-way on a short trial), [guarantee_years], [threshold], [trial_terms] (e.g. \"If it isn't right, we collect it free and refund every penny.\") and [trial_terms_short]. The section hides itself when the trial is switched off."
     },
     {
       "type": "select",
@@ -230,7 +242,7 @@
       "type": "textarea",
       "id": "pull",
       "label": "Intro",
-      "default": "If your dog isn't visibly more comfortable on it, tell us. We collect it free of charge and refund every penny."
+      "default": "Tell us how they get on. [trial_terms]"
     },
     {
       "type": "checkbox",
@@ -257,7 +269,7 @@
       "id": "policy_label",
       "label": "Policy link label",
       "default": "Read the full returns policy",
-      "info": "Links to your refund policy (Settings → Policies)."
+      "info": "Links to your refund policy (Settings → Policies). Hidden until a refund policy is published there."
     },
     {
       "type": "image_picker",
@@ -332,7 +344,7 @@
       "blocks": [
         { "type": "step", "settings": { "night": "Night 1", "title": "It arrives", "text": "Put it where they already sleep, with a blanket that smells of home on top." } },
         { "type": "step", "settings": { "night": "Night [trial_mid]", "title": "Give them time", "text": "Plenty of dogs claim a new bed the first evening. Some take a fortnight and a familiar blanket on top. Both are normal." } },
-        { "type": "step", "settings": { "night": "Night [trial_nights]", "title": "Not right? Tell us", "text": "Any time inside the [trial_nights] nights. We collect it free and refund every penny. You are not paying to send it back." } }
+        { "type": "step", "settings": { "night": "Night [trial_nights]", "title": "Not right? Tell us", "text": "Any time inside the [trial_nights] nights. [trial_terms]" } }
       ]
     }
   ]

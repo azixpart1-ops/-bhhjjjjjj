@@ -3,7 +3,8 @@
 
   Blocks: icon + title + supporting line (+ optional link). Text may use
   [trial_nights], [guarantee_years], [threshold] (free-delivery amount),
-  [cutoff], [origin] — filled from Theme settings, and a block that names a
+  [cutoff], [origin], [trial_terms_short], [trial_terms] — filled from Theme
+  settings, and a block that names a
   promise which is switched off hides itself (so the bar can never claim a
   trial or free delivery the shop isn't offering).
 
@@ -23,6 +24,14 @@
   assign ph_years = settings.guarantee_years | default: 0 | plus: 0 | append: ''
   assign ph_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round | money_without_trailing_zeros
   assign ph_origin = settings.origin_line | default: '' | strip | escape
+  capture terms_short
+    render 'trial-terms', short: true
+  endcapture
+  capture terms
+    render 'trial-terms'
+  endcapture
+  assign ph_terms_short = terms_short | escape
+  assign ph_terms = terms | escape
 
   assign on_trial = false
   if settings.trial_enable and settings.trial_nights > 0
@@ -48,11 +57,12 @@
   assign list_label = 'core.trust.label' | t
 -%}
 <div
-  class="section trust-bar scheme-{{ s.color_scheme }} trust-bar--{{ s.style | default: 'dividers' }} trust-bar--mobile-{{ s.mobile_layout | default: 'scroll' }} trust-bar--align-{{ s.align | default: 'left' }}"
+  class="section trust-bar scheme-{{ s.color_scheme }} trust-bar--{{ s.style | default: 'dividers' }} trust-bar--mobile-{{ s.mobile_layout | default: 'grid' }} trust-bar--align-{{ s.align | default: 'left' }}"
   id="{{ section.id }}-wrap"
 >
   <div class="page-width">
-    <ul class="trust-bar__list" role="list" aria-label="{{ list_label }}">
+    {%- comment -%} A swipeable row must be reachable by keyboard to scroll it (WCAG 2.1.1). {%- endcomment -%}
+    <ul class="trust-bar__list" role="list" aria-label="{{ list_label }}"{% if s.mobile_layout == 'scroll' %} tabindex="0"{% endif %}>
       {%- if section.blocks.size > 0 -%}
         {%- for block in section.blocks -%}
           {%- liquid
@@ -60,6 +70,9 @@
             assign raw = b.title | append: ' ' | append: b.text
             assign show = true
             if raw contains '[trial_nights]' and on_trial == false
+              assign show = false
+            endif
+            if raw contains '[trial_terms' and on_trial == false
               assign show = false
             endif
             if raw contains '[guarantee_years]' and on_guarantee == false
@@ -100,8 +113,8 @@
               assign show = false
             endif
 
-            assign title = b.title | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[origin]', ph_origin
-            assign text = b.text | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[origin]', ph_origin
+            assign title = b.title | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[origin]', ph_origin | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms
+            assign text = b.text | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[origin]', ph_origin | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms
           -%}
           {%- if show -%}
             <li class="trust-bar__item" {{ block.shopify_attributes }}>
@@ -134,7 +147,7 @@
             <span class="trust-bar__icon">{%- render 'icon', name: 'moon' -%}</span>
             <span class="trust-bar__text">
               <span class="trust-bar__title">{{ 'home.trust.trial_title' | t: nights: ph_nights }}</span>
-              <span class="trust-bar__sub">{{ 'home.trust.trial_text' | t }}</span>
+              <span class="trust-bar__sub">{{ 'home.trust.trial_text' | t: terms_short: terms_short }}</span>
             </span>
           </li>
         {%- endif -%}
@@ -185,7 +198,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Text can use [trial_nights], [guarantee_years], [threshold] (free-delivery amount), [cutoff] (dispatch cut-off) and [origin]. They are filled from Theme settings, and a promise that is switched off there hides its block."
+      "content": "Text can use [trial_nights], [guarantee_years], [threshold] (free-delivery amount), [cutoff] (dispatch cut-off), [origin] and [trial_terms_short] (e.g. \"Free collection, full refund\", from Theme settings → Promises). They are filled from Theme settings, and a promise that is switched off there hides its block."
     },
     {
       "type": "select",
@@ -228,7 +241,7 @@
         { "value": "scroll", "label": "Swipeable row" },
         { "value": "grid", "label": "Two per row" }
       ],
-      "default": "scroll"
+      "default": "grid"
     },
     {
       "type": "range",
@@ -292,7 +305,7 @@
           "type": "text",
           "id": "text",
           "label": "Supporting line",
-          "default": "Free collection, full refund"
+          "default": "[trial_terms_short]"
         },
         {
           "type": "url",
@@ -320,7 +333,7 @@
     {
       "name": "Trust bar",
       "blocks": [
-        { "type": "promise", "settings": { "icon": "moon", "title": "[trial_nights]-night sleep trial", "text": "Free collection, full refund", "promise": "trial" } },
+        { "type": "promise", "settings": { "icon": "moon", "title": "[trial_nights]-night sleep trial", "text": "[trial_terms_short]", "promise": "trial" } },
         { "type": "promise", "settings": { "icon": "shield", "title": "[guarantee_years]-year foam guarantee", "text": "On every memory foam bed", "promise": "guarantee" } },
         { "type": "promise", "settings": { "icon": "leaf", "title": "Named for the Lakes", "text": "Borrowdale, Coniston, Grasmere, Windermere", "promise": "none" } },
         { "type": "promise", "settings": { "icon": "truck", "title": "Free UK delivery over [threshold]", "text": "Tracked, on every order", "promise": "free_delivery" } }

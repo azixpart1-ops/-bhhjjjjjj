@@ -7,17 +7,19 @@
   name — end on ONE bed in the right size, addable from the result.
 
   What it renders
-    1. <script type="application/json" id="finder-config"> — everything the
-       client needs: step copy, size hints, the merchant's Match blocks with full
-       product data, and fallback candidates (max 50) for answer combinations no
-       block covers. The <bed-finder> element renders its UI from this island,
-       so the same component works in the modal, inline on the dedicated page
-       (main-finder-page) and when resumed from the homepage teaser.
+    1. <script type="application/json" id="finder-config"> — what the client
+       needs up front: step copy, size hints and the merchant's Match blocks
+       with their beds' data. The <bed-finder> element renders its UI from
+       this island, so the same component works in the modal, inline on the
+       dedicated page (main-finder-page) and when resumed from the teaser.
     2. <template id="finder-icons"> — the theme's own icons, cloned by finder.js.
-    3. <dialog class="modal finder-modal"> holding <bed-finder mode="modal">,
+    3. <template id="finder-notify"> — only while the store has no products:
+       "We're not quite open yet" with a launch email sign-up, shown instead of
+       the questions (a quiz that can't end on a bed is a dead end).
+    4. <dialog class="modal finder-modal"> holding <bed-finder mode="modal">,
        opened by `lunova:finder:open`. Not rendered on the dedicated finder
        page, where the inline finder answers that event instead.
-    4. In the theme editor only: a setup panel listing every Match block with
+    5. In the theme editor only: a setup panel listing every Match block with
        warnings (no style ticked, unknown sizes, sold out…).
 
   Matching (finder.js): strict Match blocks first (priority, then order) →
@@ -27,16 +29,22 @@
   from its size option; if that size is sold out the next size up is offered,
   and the result says so.
 
-  Fallback payload: candidates are only emitted when some style × stage pair
-  is not covered by an available, all-sizes Match block — so a fully set-up
-  finder keeps every page light. Products tagged finder:exclude and gift
-  cards are never fallback candidates.
+  Fallback beds are NOT printed here: when some style × stage pair isn't
+  covered by an available, all-sizes Match block, the island carries the
+  fallback collection's URL and finder.js fetches sections/finder-products
+  (Section Rendering API) once a shopper heads for the finder. Products
+  tagged finder:exclude and gift cards are never fallback candidates.
+
+  On the bed-finder page template, main-finder-page has already loaded
+  finder.css and finder.js, so they aren't requested twice.
 
   Renders nothing when Theme settings → Bed Finder is switched off.
 {%- endcomment -%}
 {%- if settings.finder_enable -%}
-  {{ 'finder.css' | asset_url | stylesheet_tag }}
-  <script src="{{ 'finder.js' | asset_url }}" defer="defer"></script>
+  {%- unless template.suffix == 'bed-finder' -%}
+    {{ 'finder.css' | asset_url | stylesheet_tag }}
+    <script src="{{ 'finder.js' | asset_url }}" defer="defer"></script>
+  {%- endunless -%}
   {%- render 'section-styles', section: section -%}
 
   {%- liquid
@@ -86,15 +94,28 @@
       endfor
     endfor
 
-    assign nb = section.blocks.size
-    assign nf = 0
-    if need_fallback
-      assign nf = fb_coll.products.size | default: 0
-      if nf > 50
-        assign nf = 50
-      endif
+    comment
+      Fallback beds are fetched on demand (sections/finder-products), and
+      only when the fallback collection has anything in it.
+    endcomment
+    assign fb_count = fb_coll.products_count | default: 0 | plus: 0
+    if fb_count > 50
+      assign fb_count = 50
     endif
-    assign total = nb | plus: nf
+    assign fallback_url = nil
+    if need_fallback and fb_count > 0
+      assign fallback_url = fb_coll.url
+    endif
+
+    comment
+      A brand-new store with nothing to sell: the finder offers a launch
+      sign-up instead of four questions that can only end on "nothing yet".
+    endcomment
+    assign shop_total = collections.all.products_count | default: 0 | plus: 0
+    assign store_empty = false
+    if shop_total == 0
+      assign store_empty = true
+    endif
 
     capture hints_json
       render 'size-hints', mode: 'json'
@@ -107,7 +128,7 @@
     assign finder_page_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
 
     assign string_keys = 'dialog_label,close,back,next,step_of,your_match,browse_all,your_dog,options.curl_title,options.curl_text,options.curl_short,options.curl_phrase,options.lean_title,options.lean_text,options.lean_short,options.lean_phrase,options.sprawl_title,options.sprawl_text,options.sprawl_short,options.sprawl_phrase,options.fine_title,options.fine_text,options.fine_short,options.slowing_title,options.slowing_text,options.slowing_short,options.diagnosed_title,options.diagnosed_text,options.diagnosed_short,size.meta,size.measure_icon_label,name.label,name.placeholder,name.submit,name.submit_named,name.skip,name.privacy,matching.heading,matching.heading_named,matching.style,matching.stage,matching.size' | split: ','
-    assign result_keys = 'heading,heading_named,answers,change,why_heading,why_heading_named,why_style,why_style_miss,material_both,material_foam,material_ortho,why_ortho_diagnosed,why_ortho_slowing,why_ortho_fine,why_fine,why_slowing,why_diagnosed,why_size,why_size_plain,why_size_label,why_size_larger_sold,why_size_larger_missing,why_size_approx,why_size_one,why_trial,size_line,size_one,stock_in,stock_low,stock_low_one,stock_backorder,per_night,per_night_basis,per_night_hint,was,now,save,rating,rating_count,add,add_named,add_short_named,add_price,mini_trial,adding,add_error,details,alt_heading,alt_line,alt_switch,alt_view,alt_view_label,diff_cheaper,diff_support,diff_curl,diff_lean,diff_sprawl,diff_other,restart,empty_heading,empty_text,nofit_heading,nofit_text,try_size,setup_note' | split: ','
+    assign result_keys = 'heading,heading_named,answers,change,why_heading,why_heading_named,why_style,why_style_miss,material_both,material_foam,material_ortho,why_ortho_diagnosed,why_ortho_slowing,why_ortho_fine,why_fine,why_slowing,why_diagnosed,why_size,why_size_plain,why_size_label,why_size_larger_sold,why_size_larger_missing,why_size_approx,why_size_one,why_trial,vet_note,size_line,size_one,stock_in,stock_low,stock_low_one,stock_backorder,per_night,per_night_basis,per_night_hint,was,now,save,rating,rating_count,add,add_named,add_short_named,add_price,mini_trial,adding,add_error,details,alt_heading,alt_line,alt_switch,alt_view,alt_view_label,diff_cheaper,diff_support,diff_curl,diff_lean,diff_sprawl,diff_other,restart,empty_heading,empty_text,nofit_heading,nofit_text,try_size,setup_note' | split: ','
   -%}
 
   {%- comment -%} ---------------- 1. Config island ---------------- {%- endcomment -%}
@@ -155,132 +176,30 @@
         {%- endfor -%}
       },
       "sizeHints": {{ hints_json }},
+      "storeEmpty": {{ store_empty | json }},
+      "fallbackUrl": {{ fallback_url | json }},
       "products": {
-        {%- liquid
-          assign emitted = '|'
-          assign fallback_handles = ''
-          assign first_p = true
-        -%}
-        {%- if total > 0 -%}
-          {%- for i in (1..total) -%}
-            {%- liquid
-              assign p = nil
-              assign from_fallback = false
-              if i <= nb
-                assign bi = i | minus: 1
-                assign blk = section.blocks[bi]
-                if blk.type == 'match'
-                  assign p = blk.settings.product
-                endif
-              else
-                assign fi = i | minus: nb | minus: 1
-                assign p = fb_coll.products[fi]
-                assign from_fallback = true
-              endif
-              if p == blank
-                continue
-              endif
-              if from_fallback
-                if p.gift_card?
-                  continue
-                endif
-                assign tags_lc = p.tags | join: '|' | downcase
-                if tags_lc contains 'finder:exclude'
-                  continue
-                endif
-                if p.available != true
-                  continue
-                endif
-                unless fallback_handles contains p.handle
-                  assign fallback_handles = fallback_handles | append: p.handle | append: ','
-                endunless
-              endif
-              assign key = '|' | append: p.handle | append: '|'
-              if emitted contains key
-                continue
-              endif
-              assign emitted = emitted | append: p.handle | append: '|'
-
-              comment
-                Reason line falls back to the product's own words: its tagline
-                metafield, else the first sentence of its description. Nothing
-                has to be written twice to add a bed to the finder.
-              endcomment
-              assign blurb = p.metafields.custom.tagline.value | default: '' | strip
-              if blurb == ''
-                assign plain = p.description | default: '' | strip_html | strip_newlines | replace: '  ', ' ' | strip
-                assign blurb = plain | split: '. ' | first | default: '' | strip
-                if blurb != '' and blurb != plain
-                  assign blurb = blurb | append: '.'
-                endif
-                assign blurb = blurb | truncate: 220
-              endif
-
-              comment
-                A dimensions line from custom.specs ("Dimensions: 90 × 65cm"),
-                shown for one-size beds so the shopper can check the fit.
-              endcomment
-              assign dims = ''
-              assign specs = p.metafields.custom.specs.value | default: ''
-              if specs != ''
-                assign spec_lines = specs | newline_to_br | split: '<br />'
-                for sl in spec_lines
-                  assign sll = sl | strip | downcase
-                  if sll contains 'dimension' or sll contains 'measurement' or sll contains 'external' or sll contains 'size'
-                    assign dims = sl | split: ':' | last | strip_html | strip
-                    break
-                  endif
-                endfor
-              endif
-
-              assign img = p.featured_image
-              assign rating = p.metafields.reviews.rating.value.rating
-              assign rating_count = p.metafields.reviews.rating_count.value
-            -%}
-            {%- unless first_p -%},{%- endunless -%}
-            {%- assign first_p = false -%}
-            {{ p.handle | json }}: {
-              "id": {{ p.id | json }},
-              "handle": {{ p.handle | json }},
-              "title": {{ p.title | json }},
-              "url": {{ p.url | json }},
-              "type": {{ p.type | default: '' | json }},
-              "image": {% if img != blank %}{{ img | image_url: width: 600 | json }}{% else %}null{% endif %},
-              "imageAlt": {{ img.alt | default: p.title | json }},
-              "imageRatio": {% if img != blank and img.aspect_ratio %}{{ img.aspect_ratio | json }}{% else %}1{% endif %},
-              "price": {{ p.price | default: 0 | json }},
-              "compare_at_price": {% if p.compare_at_price > 0 %}{{ p.compare_at_price | json }}{% else %}null{% endif %},
-              "available": {{ p.available | json }},
-              "tags": {{ p.tags | json }},
-              "options": {{ p.options | json }},
-              "rating": {% if rating != blank %}{{ rating | json }}{% else %}null{% endif %},
-              "ratingCount": {% if rating_count != blank %}{{ rating_count | json }}{% else %}null{% endif %},
-              "blurb": {{ blurb | json }},
-              "dims": {{ dims | json }},
-              "variants": [
-                {%- for v in p.variants limit: 60 -%}
-                  {
-                    "id": {{ v.id | json }},
-                    "title": {{ v.title | json }},
-                    "options": {{ v.options | json }},
-                    "price": {{ v.price | default: 0 | json }},
-                    "compare_at_price": {% if v.compare_at_price > 0 %}{{ v.compare_at_price | json }}{% else %}null{% endif %},
-                    "available": {{ v.available | json }}
-                    {%- if v.inventory_management == 'shopify' -%}
-                      {%- if v.inventory_policy == 'deny' -%}
-                        ,"inventory_quantity": {{ v.inventory_quantity | default: 0 | json }}
-                      {%- elsif v.inventory_quantity <= 0 -%}
-                        ,"backorder": true
-                      {%- endif -%}
-                    {%- endif -%}
-                    {%- if v.metafields.custom.most_chosen.value == true -%},"mc": true{%- endif -%}
-                    {%- if v.featured_image != blank -%},"image": {{ v.featured_image | image_url: width: 600 | json }}{%- endif -%}
-                  }{%- unless forloop.last -%},{%- endunless -%}
-                {%- endfor -%}
-              ]
-            }
-          {%- endfor -%}
-        {%- endif -%}
+        {%- assign emitted = '|' -%}
+        {%- assign first_p = true -%}
+        {%- for block in section.blocks -%}
+          {%- liquid
+            if block.type != 'match'
+              continue
+            endif
+            assign p = block.settings.product
+            if p == blank
+              continue
+            endif
+            assign key = '|' | append: p.handle | append: '|'
+            if emitted contains key
+              continue
+            endif
+            assign emitted = emitted | append: p.handle | append: '|'
+          -%}
+          {%- unless first_p -%},{%- endunless -%}
+          {%- assign first_p = false -%}
+          {%- render 'finder-product-json', p: p -%}
+        {%- endfor -%}
       },
       "matches": [
         {%- assign first_m = true -%}
@@ -323,8 +242,7 @@
             "priority": {{ block.settings.priority | default: 5 | json }}
           }
         {%- endfor -%}
-      ],
-      "fallback": {{ fallback_handles | split: ',' | json }}
+      ]
     }
   </script>
 
@@ -336,7 +254,56 @@
     {%- endfor -%}
   </template>
 
-  {%- comment -%} ---------------- 3. The modal ---------------- {%- endcomment -%}
+  {%- comment -%}
+    ---------------- 3. Launch sign-up (store with no products yet) ----------------
+    A plain Shopify customer form: it posts, the page reloads with
+    form.posted_successfully?, and finder.js re-opens the finder on the
+    "done" state (only after a sign-up made here; see finder.js). Tags let
+    the merchant email exactly these people when the beds are in.
+  {%- endcomment -%}
+  {%- if store_empty -%}
+    <template id="finder-notify">
+      {%- form 'customer', id: 'FinderNotify', class: 'finder-notify' -%}
+        <input type="hidden" name="contact[tags]" value="newsletter,launch-waitlist">
+        {%- if form.posted_successfully? -%}
+          <div class="finder-result finder-result--empty finder-notify__state" data-notify-state="done" role="status">
+            <span class="finder-matching__halo finder-notify__halo" aria-hidden="true">{%- render 'icon', name: 'check' -%}</span>
+            <h2 class="finder__heading h3" tabindex="-1" data-step-heading>{{ 'finder.notify.done' | t }}</h2>
+          </div>
+        {%- else -%}
+          <div class="finder-result finder-result--empty finder-notify__state" data-notify-state="{% if form.errors %}error{% else %}form{% endif %}">
+            <span class="finder-matching__halo" aria-hidden="true">{%- render 'icon', name: 'paw' -%}</span>
+            <h2 class="finder__heading h3" tabindex="-1" data-step-heading>{{ 'finder.notify.heading' | t }}</h2>
+            <p class="finder__sub">{{ 'finder.notify.text' | t }}</p>
+            <div class="field finder-notify__field">
+              <label class="field__label" for="FinderNotifyEmail">{{ 'finder.notify.email_label' | t }}</label>
+              <div class="finder-notify__row">
+                <input
+                  class="input finder-notify__input"
+                  id="FinderNotifyEmail"
+                  type="email"
+                  name="contact[email]"
+                  value="{{ form.email | escape }}"
+                  autocomplete="email"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  required
+                  placeholder="{{ 'finder.notify.placeholder' | t }}"
+                  {%- if form.errors %} aria-invalid="true" aria-describedby="FinderNotifyError"{% endif %}
+                >
+                <button type="submit" class="btn finder-btn-ink finder-notify__submit">{{ 'finder.notify.submit' | t }}</button>
+              </div>
+              {%- if form.errors -%}
+                <p class="field__error finder-notify__error" id="FinderNotifyError" role="alert">{{ 'finder.notify.error' | t }}</p>
+              {%- endif -%}
+            </div>
+          </div>
+        {%- endif -%}
+      {%- endform -%}
+    </template>
+  {%- endif -%}
+
+  {%- comment -%} ---------------- 4. The modal ---------------- {%- endcomment -%}
   {%- if show_modal -%}
     <dialog
       class="modal modal--sheet finder-modal scheme-{{ cs }}"
@@ -345,7 +312,7 @@
       data-finder-modal
     >
       {%- if request.design_mode -%}
-        {%- comment -%} 4. Editor-only setup panel. Each block's root carries shopify_attributes. {%- endcomment -%}
+        {%- comment -%} 5. Editor-only setup panel. Each block's root carries shopify_attributes. {%- endcomment -%}
         <details class="finder-setup" open>
           <summary class="finder-setup__summary">{{ 'finder.setup.heading' | t }}</summary>
           <div class="finder-setup__body">
@@ -442,14 +409,13 @@
             {%- endif -%}
             <p class="finder-setup__label">
               {%- if need_fallback -%}
-                {%- assign fb_count = fallback_handles | split: ',' | size -%}
                 {%- assign fb_title = fb_coll.title | default: '' | escape -%}
                 {{ 'finder.setup.fallback' | t | replace: '[count]', fb_count | replace: '[collection]', fb_title }}
               {%- else -%}
                 {{ 'finder.setup.fallback_skipped' | t }}
               {%- endif -%}
             </p>
-            {%- if collections.all.products_count == 0 -%}
+            {%- if store_empty -%}
               <p class="finder-setup__empty">{{ 'finder.setup.no_products' | t }}</p>
             {%- endif -%}
           </div>

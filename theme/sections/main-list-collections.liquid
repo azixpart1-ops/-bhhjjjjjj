@@ -32,7 +32,7 @@
     when 'products_high', 'products_low'
       assign list = collections | sort: 'all_products_count'
     when 'date', 'date_reversed'
-      assign list = collections | sort: 'updated_at'
+      assign list = collections | sort: 'published_at'
     else
       assign list = collections | sort: 'title'
   endcase
@@ -70,12 +70,12 @@
   endfor
 
   assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
-  assign finder_label = settings.finder_cta_label | default: ''
+  assign finder_label = settings.finder_cta_label | default: '' | strip | escape
   if finder_label == ''
     assign finder_label = 'collection.finder_tile.cta' | t
   endif
   assign shop_total = collections.all.products_count | default: 0 | plus: 0
-  assign heading = section.settings.heading | default: ''
+  assign heading = section.settings.heading | default: '' | strip | escape
   if heading == ''
     assign heading = 'collection.list.fallback_heading' | t
   endif
@@ -83,7 +83,7 @@
 <section class="section scheme-{{ cs }} main-list-collections" id="{{ sid }}-wrap" aria-labelledby="ListCollectionsTitle-{{ sid }}">
   <div class="page-width">
     <header class="section-head list-collections__head">
-      <h1 class="h1" id="ListCollectionsTitle-{{ sid }}">{{ heading | escape }}</h1>
+      <h1 class="h1" id="ListCollectionsTitle-{{ sid }}">{{ heading }}</h1>
       {%- if section.settings.text != blank -%}
         <div class="lede">{{ section.settings.text }}</div>
       {%- endif -%}
@@ -198,7 +198,7 @@
           {%- if settings.finder_enable -%}
             <a href="{{ finder_url }}" class="btn btn--secondary" data-open-finder>
               {%- render 'icon', name: 'paw' -%}
-              <span>{{ finder_label | escape }}</span>
+              <span>{{ finder_label }}</span>
             </a>
           {%- endif -%}
           {%- if shop_total > 0 -%}

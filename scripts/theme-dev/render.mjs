@@ -980,6 +980,14 @@ export class ThemeRenderer {
       predictive_search: route.predictive || { performed: false, terms: '', types: [], resources: { products: [], collections: [], pages: [], articles: [], queries: [] } },
       order: route.template === 'order' && customer ? customer.orders.find((o) => String(o.id) === String(route.orderId)) || customer.orders[0] : null,
       checkout: null,
+      // liquidjs resolves an unknown bare variable against the globals object
+      // itself, so `{{ size }}` would read the globals' key count (~40) and
+      // `{{ first }}`/`{{ last }}` fall through the same way. Shopify returns nil.
+      // Shadow them here; params, `assign` and loop vars still win (scopes are
+      // searched before globals).
+      size: null,
+      first: null,
+      last: null,
     };
     return globals;
   }

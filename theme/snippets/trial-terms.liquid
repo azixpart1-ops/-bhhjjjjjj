@@ -1,0 +1,42 @@
+{%- comment -%}
+  The sleep-trial terms, from Theme settings → Promises, as plain text
+  (unescaped: escape it for the context you print it in, and pass it raw as
+  a parameter to a translation key without _html, which Shopify escapes).
+
+    trial_terms / trial_terms_short   the merchant's own words, if filled in
+    trial_free_collection             otherwise picks the standard wording:
+                                      free collection + full refund, or a
+                                      plain "send it back for a refund"
+
+  Parameters
+    short   true → the few-word version for trust rows and tables
+
+  Usage
+    {%- capture terms -%}{%- render 'trial-terms' -%}{%- endcapture -%}
+    {%- capture terms_short -%}{%- render 'trial-terms', short: true -%}{%- endcapture -%}
+
+  Section text uses the tokens [trial_terms] and [trial_terms_short]. JS
+  reads Lunova.settings.trialTerms / trialTermsShort / trialFreeCollection.
+{%- endcomment -%}
+{%- liquid
+  if short
+    assign tt = settings.trial_terms_short | default: '' | strip
+    if tt == ''
+      if settings.trial_free_collection
+        assign tt = 'core.trial.terms_short_free_html' | t
+      else
+        assign tt = 'core.trial.terms_short_paid_html' | t
+      endif
+    endif
+  else
+    assign tt = settings.trial_terms | default: '' | strip
+    if tt == ''
+      if settings.trial_free_collection
+        assign tt = 'core.trial.terms_free_html' | t
+      else
+        assign tt = 'core.trial.terms_paid_html' | t
+      endif
+    endif
+  endif
+  echo tt
+-%}

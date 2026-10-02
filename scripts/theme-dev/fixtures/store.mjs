@@ -17,13 +17,19 @@ export const SORT_OPTIONS = [
   { value: 'created-descending', name: 'Date, new to old' },
 ];
 
-/** Iterable + keyed object (like Shopify's `collections`, `pages`, `linklists`). */
+/**
+ * Array with non-enumerable handle keys (like Shopify's `collections`, `pages`,
+ * `linklists`): `x.handle` / `x['handle']` resolve, `size`/`first`/`last` and
+ * array filters (`sort`, `sort_natural`, `map`, `where`) behave as on Shopify.
+ * A plain keyed object would make liquidjs `sort` wrap it into one blank item.
+ */
 export function keyed(list, keyFn = (x) => x.handle) {
-  const obj = {};
-  for (const item of list) obj[keyFn(item)] = item;
-  Object.defineProperty(obj, 'size', { value: list.length, enumerable: false });
-  Object.defineProperty(obj, Symbol.iterator, { value: function* () { yield* list; }, enumerable: false });
-  return obj;
+  const arr = [...list];
+  for (const item of list) {
+    const k = keyFn(item);
+    if (!(k in arr)) Object.defineProperty(arr, k, { value: item, enumerable: false });
+  }
+  return arr;
 }
 
 function cartesian(options) {

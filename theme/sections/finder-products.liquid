@@ -1,0 +1,45 @@
+{%- comment -%}
+  Bed Finder fallback beds. Never placed in a template: finder.js fetches it
+  through the Section Rendering API (<fallback collection url>?section_id=
+  finder-products) once a shopper is on their way to a result, so the
+  catalogue isn't printed into every page's HTML (sections/bed-finder.liquid
+  keeps only the Match block beds inline).
+
+  Renders in the requested collection's context: its first 50 products,
+  skipping gift cards, products tagged finder:exclude and sold-out beds. The
+  per-bed JSON is the same snippet bed-finder uses.
+{%- endcomment -%}
+{%- liquid
+  assign handles = ''
+  assign first_p = true
+-%}
+<script type="application/json" id="finder-products">{"products":{
+{%- if collection != blank -%}
+  {%- for p in collection.products limit: 50 -%}
+    {%- liquid
+      if p.gift_card?
+        continue
+      endif
+      assign tags_lc = p.tags | join: '|' | downcase
+      if tags_lc contains 'finder:exclude'
+        continue
+      endif
+      if p.available != true
+        continue
+      endif
+      assign handles = handles | append: p.handle | append: ','
+    -%}
+    {%- unless first_p -%},{%- endunless -%}
+    {%- assign first_p = false -%}
+    {%- render 'finder-product-json', p: p -%}
+  {%- endfor -%}
+{%- endif -%}
+},"fallback":{{ handles | split: ',' | json }}}</script>
+
+{% schema %}
+{
+  "name": "Bed Finder beds",
+  "class": "section-finder-products",
+  "settings": []
+}
+{% endschema %}

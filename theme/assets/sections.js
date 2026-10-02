@@ -8,11 +8,17 @@
      [data-hero-resume]    "See Bella's match again" for returning finder users
      [data-signs]          "Sounds familiar" self-check + live tally line
      [data-video]          click-to-load YouTube / Vimeo / Shopify video
+     editor                a <details> block (FAQ question) opens while it is
+                           selected in the theme editor's sidebar
 
-   Idempotent: safe to run again on shopify:section:load.
+   Idempotent: safe to run again on shopify:section:load. Several sections
+   include this file, so it boots once per page.
    ========================================================================== */
 (function () {
   'use strict';
+
+  if (window.__lunovaSections) return;
+  window.__lunovaSections = true;
 
   var doc = document;
   var root = doc.documentElement;
@@ -223,6 +229,21 @@
 
   doc.addEventListener('shopify:section:load', function (e) {
     init(e.target);
+  });
+
+  /* Theme editor: show the answer being edited, then put it back as it was. */
+  doc.addEventListener('shopify:block:select', function (e) {
+    var d = e.target;
+    if (!d || d.tagName !== 'DETAILS') return;
+    d.dataset.lunovaEditorOpened = d.open ? '' : '1';
+    d.open = true;
+  });
+
+  doc.addEventListener('shopify:block:deselect', function (e) {
+    var d = e.target;
+    if (!d || d.tagName !== 'DETAILS') return;
+    if (d.dataset.lunovaEditorOpened === '1') d.open = false;
+    delete d.dataset.lunovaEditorOpened;
   });
 
   doc.addEventListener('lunova:finder:complete', function () {

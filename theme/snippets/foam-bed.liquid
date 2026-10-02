@@ -1,0 +1,36 @@
+{%- comment -%}
+  The one "is this a memory-foam bed?" test, shared by everything that makes
+  a foam-specific claim about a product: the foam guarantee line and
+  per-night price (buy box, cards, finder result via Lunova.foamBed), the
+  cost reframe, the mechanism diagram and the comparison table.
+
+  A product passes when its title, type or tags mention orthopaedic /
+  orthopedic / memory foam. Merchants override it per product with ONE tag
+  pair: "guarantee:yes" (treat as a foam bed the guarantee covers) or
+  "guarantee:no" (never). guarantee:no wins over guarantee:yes.
+
+  Output: the word "true" for a foam bed, nothing otherwise. Capture it:
+    {%- capture is_foam -%}{%- render 'foam-bed', product: product -%}{%- endcapture -%}
+    {%- if is_foam == 'true' -%} … {%- endif -%}
+
+  Keep in step with Lunova.foamBed() in assets/global.js.
+{%- endcomment -%}
+{%- liquid
+  if product != blank
+    assign fb_tags = product.tags | join: ',' | downcase | prepend: ',' | append: ','
+    assign fb_hay = product.title | append: ' ' | append: product.type | append: ' ' | append: fb_tags | downcase
+    assign fb_ok = false
+    if fb_hay contains 'orthopaedic' or fb_hay contains 'orthopedic' or fb_hay contains 'memory foam' or fb_hay contains 'memory-foam'
+      assign fb_ok = true
+    endif
+    if fb_tags contains ',guarantee:yes,'
+      assign fb_ok = true
+    endif
+    if fb_tags contains ',guarantee:no,'
+      assign fb_ok = false
+    endif
+    if fb_ok
+      echo 'true'
+    endif
+  endif
+-%}

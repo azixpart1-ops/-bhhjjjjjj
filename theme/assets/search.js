@@ -135,7 +135,8 @@
       if (this.form) {
         this.form.addEventListener('submit', function (e) {
           var opt = self.options()[self.activeIndex];
-          var link = opt && opt.querySelector('a[href]');
+          // The option is the link itself (older markup wrapped one).
+          var link = opt && (opt.matches('a[href]') ? opt : opt.querySelector('a[href]'));
           if (link) {
             e.preventDefault();
             link.click();

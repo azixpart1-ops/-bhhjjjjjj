@@ -142,7 +142,18 @@
               {%- if block.settings.text != blank -%}
                 <div class="footer__text rte">{{ block.settings.text }}</div>
               {%- endif -%}
-              <ul class="footer__contact" role="list">
+              {%- comment -%}
+                The link falls back to the store's contact page (Shopify creates one
+                with every new store), so this column always offers a way to ask.
+                An empty list is never printed.
+              {%- endcomment -%}
+              {%- liquid
+                assign c_link = block.settings.link
+                if c_link == blank
+                  assign c_link = pages.contact.url
+                endif
+              -%}
+              {%- capture contact_items -%}
                 {%- if block.settings.email != blank -%}
                   <li>
                     <a href="mailto:{{ block.settings.email | strip | escape }}" class="footer__contact-link">
@@ -165,15 +176,18 @@
                     <span><span class="visually-hidden">{{ 'chrome.footer.hours' | t }}: </span>{{ block.settings.hours | escape }}</span>
                   </li>
                 {%- endif -%}
-                {%- if block.settings.link != blank and block.settings.link_label != blank -%}
+                {%- if c_link != blank and block.settings.link_label != blank -%}
                   <li>
-                    <a href="{{ block.settings.link }}" class="footer__contact-link footer__contact-link--cta">
+                    <a href="{{ c_link }}" class="footer__contact-link footer__contact-link--cta">
                       {%- render 'icon', name: 'chat', size: 18 -%}
                       <span>{{ block.settings.link_label | escape }}</span>
                     </a>
                   </li>
                 {%- endif -%}
-              </ul>
+              {%- endcapture -%}
+              {%- if contact_items != blank -%}
+                <ul class="footer__contact" role="list">{{ contact_items }}</ul>
+              {%- endif -%}
             </div>
         {%- endcase -%}
       {%- endfor -%}
@@ -276,20 +290,21 @@
       "type": "text",
       "id": "newsletter_heading",
       "label": "Heading",
-      "default": "Get the size guide for your breed"
+      "default": "Sizing help and care tips, now and then",
+      "info": "Only promise a guide or discount if your email app actually sends it."
     },
     {
       "type": "richtext",
       "id": "newsletter_text",
       "label": "Text",
-      "default": "<p>Plus care tips for large and senior dogs. No spam, unsubscribe any time.</p>",
+      "default": "<p>Mostly for big and older dogs. No spam, unsubscribe any time.</p>",
       "info": "Only promise what your welcome email actually sends."
     },
     {
       "type": "text",
       "id": "newsletter_button",
       "label": "Button label",
-      "default": "Send it"
+      "default": "Sign up"
     },
     {
       "type": "header",
@@ -466,7 +481,7 @@
           "type": "url",
           "id": "link",
           "label": "Link",
-          "info": "Usually your contact page."
+          "info": "Leave blank to use your contact page."
         }
       ]
     }

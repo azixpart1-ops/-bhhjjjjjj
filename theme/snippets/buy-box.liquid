@@ -88,8 +88,33 @@
   if settings.trial_enable and nights > 0
     assign trial_on = true
   endif
+  comment
+    Returns wording from Theme settings → Promises (snippets/trial-terms):
+    [trial_terms] / [trial_terms_short] in block text.
+  endcomment
+  capture trial_terms
+    render 'trial-terms'
+  endcapture
+  capture trial_terms_short
+    render 'trial-terms', short: true
+  endcapture
+  assign ph_terms = trial_terms | escape
+  assign ph_terms_short = trial_terms_short | escape
+  comment
+    One foam-bed test (snippets/foam-bed) for every foam-specific claim in
+    the buy box: the guarantee is on the foam, so it (and the per-night
+    reframe built on it) is only promised for a bed it covers, and the
+    foam-describing tagline / benefits fallbacks only show on foam beds.
+  endcomment
+  capture bb_foam
+    render 'foam-bed', product: product
+  endcapture
+  assign is_foam = false
+  if bb_foam == 'true'
+    assign is_foam = true
+  endif
   assign guarantee_on = false
-  if settings.guarantee_enable and years > 0
+  if settings.guarantee_enable and years > 0 and is_foam
     assign guarantee_on = true
   endif
   assign threshold_cents = 0
@@ -320,9 +345,16 @@
       {%- liquid
         assign tagline = product.metafields.custom.tagline.value | default: '' | strip
         if tagline == ''
-          assign tagline = bs.text | default: '' | strip
+          comment
+            The fallback copy describes a memory-foam bed: by default it is
+            only used on beds whose title, type or tags say orthopaedic /
+            memory foam, or tagged guarantee:yes (snippets/foam-bed).
+          endcomment
+          if is_foam or bs.fallback_scope == 'all'
+            assign tagline = bs.text | default: '' | strip
+          endif
         endif
-        assign tagline = tagline | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money
+        assign tagline = tagline | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', trial_terms_short | replace: '[trial_terms]', trial_terms
       -%}
       {%- if tagline != '' -%}
         <div class="pblock pblock--tagline"{% if block %} {{ block.shopify_attributes }}{% endif %}>
@@ -354,7 +386,7 @@
           {%- render 'price', product: product, variant: current, size: 'lg', show_from: false, show_save: true, show_sold_out: false -%}
         </div>
         {%- if show_pn -%}
-          {%- render 'per-night', price: current.price, class: 'buy-box__per-night' -%}
+          {%- render 'per-night', price: current.price, product: product, class: 'buy-box__per-night' -%}
         {%- endif -%}
         {%- if show_inst -%}
           {%- assign inst_amount = current.price | divided_by: inst_count | money -%}
@@ -422,8 +454,35 @@
           else
             assign stock_text = in_text | escape
         endcase
+
+        comment
+          Stock and delivery on one line (block setting show_delivery): the
+          dispatch estimate from delivery-promise, kept live by global.js from
+          the real cut-off, follows the stock status directly above the
+          button. Hidden while the variant is sold out or on back order, as
+          in the Delivery block.
+        endcomment
+        assign with_delivery = false
+        assign sl_promise = ''
+        assign sl_free = false
+        if bs.show_delivery
+          assign with_delivery = true
+          capture sl_promise
+            render 'delivery-promise', variant: current
+          endcapture
+          if threshold_cents > 0
+            unless bs.show_free_delivery_note == false
+              assign sl_free = true
+            endunless
+          endif
+        endif
+        assign sl_hide_delivery = false
+        if stock_state == 'out' or stock_state == 'backorder'
+          assign sl_hide_delivery = true
+        endif
       -%}
-      <div class="pblock pblock--stock"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+      <div class="pblock pblock--stock{% if with_delivery %} pblock--stock-line{% endif %}"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+        {%- if with_delivery -%}<div class="stock-line">{%- endif -%}
         <p
           class="stock stock--{{ stock_state }}"
           data-stock
@@ -434,6 +493,28 @@
           <span class="stock__dot" aria-hidden="true"></span>
           <span class="stock__text" data-stock-text>{{ stock_text }}</span>
         </p>
+        {%- if with_delivery -%}
+          {%- if sl_promise != blank or sl_free -%}
+            <div class="stock-line__delivery" data-delivery-wrap{% if sl_hide_delivery %} hidden{% endif %}>
+              {{- sl_promise -}}
+              {%- if sl_free -%}
+                {%- liquid
+                  assign sl_qualifies = false
+                  if current.price >= threshold_cents
+                    assign sl_qualifies = true
+                  endif
+                -%}
+                <span class="stock-line__free{% if sl_qualifies %} is-qualified{% endif %}" data-free-delivery data-threshold="{{ threshold_cents }}">
+                  {%- render 'icon', name: 'check-circle', class: 'stock-line__free-icon' -%}
+                  <span data-free-delivery-text>
+                    {%- if sl_qualifies -%}{{ 'product.delivery.qualifies' | t }}{%- else -%}{{ 'product.delivery.threshold' | t: amount: threshold_money }}{%- endif -%}
+                  </span>
+                </span>
+              {%- endif -%}
+            </div>
+          {%- endif -%}
+          </div>
+        {%- endif -%}
       </div>
 
     {%- comment -%} ---------- Delivery promise (live countdown) ---------- {%- endcomment -%}
@@ -582,21 +663,26 @@
             {%- endif -%}
           {%- endform -%}
         </product-form>
+        {%- comment -%}
+          Compact: the one-line risk reversal rides with the button, so the
+          two stay together when the button sticks to the drawer's bottom edge.
+        {%- endcomment -%}
+        {%- if compact and trial_on and parts contains 'risk_reversal' -%}
+          <p class="buy-box__risk-line">
+            {%- render 'icon', name: 'moon' -%}
+            <span>{{ 'core.trust.trial_title' | t: nights: nights }} · {{ 'core.trust.trial_sub' | t: terms_short: trial_terms_short }}</span>
+          </p>
+        {%- endif -%}
       </div>
 
     {%- comment -%} ---------- Risk reversal, directly under the button ---------- {%- endcomment -%}
     {%- when 'risk_reversal' -%}
       {%- if compact -%}
-        {%- if trial_on -%}
-          <p class="buy-box__risk-line">
-            {%- render 'icon', name: 'moon' -%}
-            <span>{{ 'core.trust.trial_title' | t: nights: nights }} · {{ 'core.trust.trial_sub' | t }}</span>
-          </p>
-        {%- endif -%}
+        {%- comment -%} Rendered inside the buy_buttons part (see above). {%- endcomment -%}
       {%- else -%}
         {%- liquid
-          assign rr_heading = bs.heading | default: '' | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money
-          assign rr_text = bs.text | default: '' | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money
+          assign rr_heading = bs.heading | default: '' | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', trial_terms_short | replace: '[trial_terms]', trial_terms
+          assign rr_text = bs.text | default: '' | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', trial_terms_short | replace: '[trial_terms]', trial_terms
           assign show_g = false
           if guarantee_on and bs.show_guarantee
             assign show_g = true
@@ -671,6 +757,13 @@
         endif
         assign line_list = lines | split: '<<>>'
         assign fallback = bs.content | default: ''
+        comment
+          Same rule as the tagline: the foam-specific fallback list only on
+          foam / orthopaedic beds unless the block says every product.
+        endcomment
+        if line_list.size == 0 and bs.fallback_scope != 'all' and is_foam == false
+          assign fallback = ''
+        endif
       -%}
       {%- if line_list.size > 0 or fallback != blank -%}
         <div class="pblock pblock--benefits"{% if block %} {{ block.shopify_attributes }}{% endif %}>
@@ -691,7 +784,7 @@
             </ul>
           {%- else -%}
             <div class="benefits benefits--rte rte">
-              {{- fallback | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money -}}
+              {{- fallback | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms -}}
             </div>
           {%- endif -%}
         </div>
@@ -726,7 +819,7 @@
               <p class="finder-prompt__heading" data-finder-result-text></p>
               <p class="finder-prompt__note">
                 {{ 'product.finder.result_note' | t }}
-                <button type="button" class="link finder-prompt__retake" data-open-finder>{{ 'product.finder.retake' | t }}</button>
+                <button type="button" class="link finder-prompt__retake" data-open-finder data-finder-step="1">{{ 'product.finder.retake' | t }}</button>
               </p>
             </div>
           </div>
@@ -837,7 +930,7 @@
                 <li>{%- render 'icon', name: 'check-circle', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_free' | t: amount: threshold_money }}</span></li>
               {%- endif -%}
               {%- if trial_on -%}
-                <li>{%- render 'icon', name: 'moon', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_trial' | t: nights: nights }}</span></li>
+                <li>{%- render 'icon', name: 'moon', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_trial' | t: nights: nights, terms: trial_terms }}</span></li>
               {%- endif -%}
               {%- if guarantee_on -%}
                 <li>{%- render 'icon', name: 'shield', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_guarantee' | t: years: years }}</span></li>
@@ -875,7 +968,7 @@
             {{- extra -}}
         {%- endcase -%}
       {%- endcapture -%}
-      {%- assign acc_body = acc_body | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money -%}
+      {%- assign acc_body = acc_body | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms -%}
       {%- if acc_body != blank -%}
         <div class="pblock pblock--accordion"{% if block %} {{ block.shopify_attributes }}{% endif %}>
           <details class="accordion product-accordion"{% if bs.open %} open{% endif %}>
@@ -899,7 +992,7 @@
       {%- if bs.text != blank -%}
         <div class="pblock pblock--text"{% if block %} {{ block.shopify_attributes }}{% endif %}>
           <div class="rte buy-box__text buy-box__text--{{ bs.style | default: 'body' }}">
-            {{- bs.text | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money -}}
+            {{- bs.text | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms -}}
           </div>
         </div>
       {%- endif -%}

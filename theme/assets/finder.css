@@ -578,6 +578,7 @@
 
 .finder-result__heading {
   font-size: calc(clamp(1.75rem, 1.35rem + 1.5vw, 2.5rem) * var(--heading-scale));
+  text-wrap: balance;
 }
 
 .finder-result__answers {
@@ -648,21 +649,42 @@
   min-width: 0;
 }
 
+/* Wider screens: price and Add sit right under the bed's name, beside the
+   photo, so the buy action is in the first view; the reasons run full width
+   underneath. (.finder-result__info only groups them for phones.) */
 @media (min-width: 750px) {
   .finder-result__card {
     grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto auto 1fr auto;
     grid-template-areas:
       "media id"
-      "media info";
-    gap: 12px 28px;
+      "media offer"
+      "media buy"
+      "media details"
+      "why why";
+    gap: 14px 28px;
     padding: 24px;
   }
-  .finder-result__id {
-    align-self: end;
+  .finder-result__info {
+    display: contents;
   }
-  .finder-result__media {
+  .finder-result__id,
+  .finder-result__media,
+  .finder-result__details {
     align-self: start;
+  }
+  .finder-result__offer {
+    grid-area: offer;
+  }
+  .finder-result__buy {
+    grid-area: buy;
+  }
+  .finder-result__details {
+    grid-area: details;
+  }
+  .finder-result__why {
+    grid-area: why;
+    margin-top: 4px;
   }
 }
 
@@ -766,6 +788,16 @@
   color: var(--success);
 }
 
+/* Shown for "stiff, older or diagnosed": support, not treatment. */
+.finder-result__vet {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
 .finder-result__offer {
   display: grid;
   gap: 6px;
@@ -842,41 +874,47 @@
   justify-self: start;
 }
 
-/* Phones, in the pop-up: a slim price + Add bar slides up whenever the
-   main button is out of view (finder.js toggles .is-visible). It keeps its
+/* A slim price + Add bar slides up whenever the main button isn't fully in
+   view (finder.js toggles .is-visible): at the foot of the pop-up at every
+   width, and at the foot of the screen on the finder page. It keeps its
    space, so showing it never moves the content. */
-.finder-mini {
-  display: none;
+.finder .finder-mini {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px var(--finder-pad) calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  box-shadow: 0 -12px 22px -18px rgba(23, 21, 15, 0.4);
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(100%);
+  transition:
+    opacity var(--dur-fast) linear,
+    transform var(--dur) var(--ease-out),
+    visibility 0s linear var(--dur);
 }
 
-@media (max-width: 749px) {
-  .finder--modal .finder-mini {
-    position: sticky;
-    bottom: 0;
-    z-index: 3;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin: 18px calc(var(--finder-pad) * -1) calc(var(--section-pb, 32px) * -1);
-    padding: 10px var(--finder-pad) calc(10px + env(safe-area-inset-bottom, 0px));
-    border-top: 1px solid var(--line);
-    background: var(--bg);
-    box-shadow: 0 -12px 22px -18px rgba(23, 21, 15, 0.4);
-    visibility: hidden;
-    opacity: 0;
-    transform: translateY(100%);
-    transition:
-      opacity var(--dur-fast) linear,
-      transform var(--dur) var(--ease-out),
-      visibility 0s linear var(--dur);
-  }
-  .finder--modal .finder-mini.is-visible {
-    visibility: visible;
-    opacity: 1;
-    transform: none;
-    transition-delay: 0s;
-  }
+.finder .finder-mini.is-visible {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition-delay: 0s;
+}
+
+/* In the pop-up it sits flush with the bottom edge of the sheet. */
+.finder--modal .finder-mini {
+  margin: 18px calc(var(--finder-pad) * -1) calc(var(--section-pb, 32px) * -1);
+}
+
+/* On the finder page it spans the card and sticks to the screen's foot. */
+.finder--inline .finder-mini {
+  margin: 18px calc(var(--finder-pad) * -1) 0;
+  background: var(--card-bg);
 }
 
 .finder-mini__info {
@@ -936,6 +974,41 @@
   justify-content: center;
   gap: 12px;
   margin-top: 6px;
+}
+
+/* Launch sign-up — shown instead of the questions while the store has no
+   products (bed-finder.liquid renders it, finder.js mounts it). */
+.finder__top.is-notify .finder__progress {
+  visibility: hidden;
+}
+
+.finder-notify__field {
+  width: min(100%, 28rem);
+  margin-top: 6px;
+  text-align: left;
+}
+
+.finder-notify__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.finder-notify__input {
+  flex: 1 1 13rem;
+  min-width: 0;
+}
+
+.finder-notify__submit {
+  flex: 1 1 auto;
+}
+
+.finder-notify__error {
+  margin-top: 6px;
+}
+
+.finder-notify__halo {
+  color: var(--success);
 }
 
 .finder-result__setup {
@@ -1278,7 +1351,6 @@
   text-align: center;
 }
 
-/* Inline finder on a light card: the sticky buy bar is a phone-modal thing only. */
 @media (max-width: 749px) {
   .finder-page .finder--inline {
     margin-inline: calc(var(--gutter) * -0.5);

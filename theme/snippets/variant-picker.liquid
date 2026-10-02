@@ -24,6 +24,13 @@
   Combinations that don't exist or are sold out stay selectable (you might want
   that colour in another size) but are struck through and announced as such.
 
+  Help sits in the size option's label row, as text links rather than boxes:
+    "Size: Medium · Size guide · Not sure? Take the 30-second finder"
+  (block settings show_size_guide_link / show_finder_link). Once the Bed
+  Finder has a result the finder link becomes "Retake the finder" (product.js
+  updateFinderPrompts). The visible row is aria-hidden for its label part; the
+  fieldset's legend (visually hidden there) still names the group.
+
   Without JavaScript the whole picker is hidden (.no-js) and buy-box renders a
   plain <select name="id"> inside the product form instead.
 {%- endcomment -%}
@@ -37,6 +44,7 @@
   assign show_hints = true
   assign show_prices = true
   assign show_guide = true
+  assign show_finder = false
   assign size_style = 'rows'
   if has_block
     if block.settings.show_size_hints == false
@@ -47,6 +55,9 @@
     endif
     if block.settings.show_size_guide_link == false
       assign show_guide = false
+    endif
+    if settings.finder_enable and block.settings.show_finder_link != false
+      assign show_finder = true
     endif
     if block.settings.size_style == 'grid'
       assign size_style = 'grid'
@@ -117,19 +128,53 @@
           assign values_class = values_class | append: ' variant-picker__values--' | append: size_style
         endif
       -%}
-      <div class="variant-picker__group{% if kind == 'size' and show_guide %} variant-picker__group--guide{% endif %}">
-      {%- if kind == 'size' and show_guide -%}
-        <button type="button" class="variant-picker__guide link" data-size-guide-open aria-haspopup="dialog">
-          {%- render 'icon', name: 'ruler' -%}
-          <span>{{ 'product.picker.size_guide' | t }}</span>
-        </button>
+      {%- liquid
+        assign has_help = false
+        if kind == 'size'
+          if show_guide or show_finder
+            assign has_help = true
+          endif
+        endif
+      -%}
+      <div class="variant-picker__group{% if has_help %} variant-picker__group--help{% endif %}">
+      {%- if has_help -%}
+        <p class="variant-picker__head">
+          <span class="variant-picker__head-label" aria-hidden="true">
+            <span class="variant-picker__name">{{ option.name | escape }}</span>
+            <span class="variant-picker__selected" data-selected-value>{{ current_value | escape }}</span>
+          </span>
+          {%- if show_guide -%}
+            <span class="variant-picker__help">
+              <span class="variant-picker__sep" aria-hidden="true">·</span>
+              <button type="button" class="variant-picker__guide link" data-size-guide-open aria-haspopup="dialog">
+                {{- 'product.picker.size_guide' | t -}}
+              </button>
+            </span>
+          {%- endif -%}
+          {%- if show_finder -%}
+            <span class="variant-picker__help variant-picker__finder" data-finder-prompt>
+              <span class="variant-picker__sep" aria-hidden="true">·</span>
+              <span data-finder-prompt-default>
+                {{- 'product.picker.finder_question' | t }}
+                <button type="button" class="variant-picker__finder-link link" data-open-finder>
+                  {{- 'product.picker.finder_cta' | t -}}
+                </button>
+              </span>
+              <span data-finder-prompt-result hidden>
+                <button type="button" class="variant-picker__finder-link link" data-open-finder data-finder-step="1">
+                  {{- 'product.finder.retake' | t -}}
+                </button>
+              </span>
+            </span>
+          {%- endif -%}
+        </p>
       {%- endif -%}
       <fieldset
         class="variant-picker__option variant-picker__option--{{ kind }}"
         data-option-index="{{ idx }}"
         data-option-kind="{{ kind }}"
       >
-        <legend class="variant-picker__legend">
+        <legend class="variant-picker__legend{% if has_help %} visually-hidden{% endif %}">
           <span class="variant-picker__name">{{ option.name | escape }}</span>
           <span class="variant-picker__selected" data-selected-value>{{ current_value | escape }}</span>
         </legend>

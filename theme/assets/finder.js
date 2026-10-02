@@ -4,7 +4,9 @@
    result. Also the homepage teaser that asks question 1 inline.
 
    <bed-finder mode="modal|inline">  renders its whole UI from the JSON island
-                                      #finder-config (sections/bed-finder.liquid)
+                                      #finder-config (sections/bed-finder.liquid);
+                                      fallback beds are fetched on demand from
+                                      sections/finder-products (loadProducts)
    <finder-teaser>                    homepage Q1 cards → opens the finder on Q2
 
    Levers, honestly applied
@@ -39,6 +41,12 @@
   var STAGES = ['fine', 'slowing', 'diagnosed'];
   var TOTAL = 4;
   var PROGRESS_KEY = 'lunova:finder:progress';
+  var NOTIFY_KEY = 'lunova:finder:notify';
+  /* Fallback beds come from sections/finder-products, fetched on demand. */
+  var PRODUCTS_QUERY = 'section_id=finder-products';
+  var PRODUCTS_TIMEOUT = 8000;
+  /* Longer names make the Add button wrap onto three lines on small phones. */
+  var CTA_NAME_MAX = 12;
   var ADVANCE_MS = 280;
   var CLOSE_MS = 200;
   var STYLE_WORDS = {
@@ -240,28 +248,33 @@
     return id ? url + (url.indexOf('?') > -1 ? '&' : '?') + 'variant=' + id : url;
   }
 
+  function sessionGet(key) {
+    try {
+      var raw = window.sessionStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function sessionSet(key, v) {
+    try {
+      if (v == null) window.sessionStorage.removeItem(key);
+      else window.sessionStorage.setItem(key, JSON.stringify(v));
+    } catch (e) {
+      /* private mode */
+    }
+  }
+
   var session = {
     get: function () {
-      try {
-        var raw = window.sessionStorage.getItem(PROGRESS_KEY);
-        return raw ? JSON.parse(raw) : null;
-      } catch (e) {
-        return null;
-      }
+      return sessionGet(PROGRESS_KEY);
     },
     set: function (v) {
-      try {
-        window.sessionStorage.setItem(PROGRESS_KEY, JSON.stringify(v));
-      } catch (e) {
-        /* private mode */
-      }
+      sessionSet(PROGRESS_KEY, v);
     },
     clear: function () {
-      try {
-        window.sessionStorage.removeItem(PROGRESS_KEY);
-      } catch (e) {
-        /* private mode */
-      }
+      sessionSet(PROGRESS_KEY, null);
     }
   };
 
@@ -288,6 +301,24 @@
 
   function finderAvailable() {
     return !!settings().finderEnabled && !!doc.querySelector('bed-finder');
+  }
+
+  function headerHeight() {
+    return parseFloat(getComputedStyle(root).getPropertyValue('--header-h')) || 0;
+  }
+
+  /**
+   * True once, on the page load that follows a launch sign-up made in the
+   * finder (the customer form reloads the page): the finder then re-opens
+   * on the "done" (or error) state. Sign-ups elsewhere (footer, pop-up)
+   * never open it.
+   */
+  function notifyReturned() {
+    if (!sessionGet(NOTIFY_KEY)) return false;
+    sessionSet(NOTIFY_KEY, null);
+    var tpl = doc.getElementById('finder-notify');
+    var state = tpl && tpl.content ? tpl.content.querySelector('[data-notify-state]') : null;
+    return !!state && state.getAttribute('data-notify-state') !== 'form';
   }
 
   /* ------------------------------------------------------------------------
@@ -345,6 +376,11 @@
       return !!cfg.products[handle];
     });
     cfg.hasProducts = Object.keys(cfg.products).length > 0;
+    cfg.storeEmpty = cfg.storeEmpty === true;
+    cfg.fallbackUrl = typeof cfg.fallbackUrl === 'string' && cfg.fallbackUrl ? cfg.fallbackUrl : null;
+    /* Only the Match block beds are inline; the fallback beds are fetched (loadProducts). */
+    cfg.productsReady = !cfg.fallbackUrl;
+    cfg.productsLoad = null;
   }
 
   function prepareProduct(p) {
@@ -369,6 +405,82 @@
     var v = cfg && cfg.strings ? cfg.strings[key] : null;
     return typeof v === 'string' ? v : '';
   }
+
+  /* ------------------------------------------------------------------------
+     Fallback beds — sections/finder-products, fetched through the Section
+     Rendering API on the fallback collection's URL, so the catalogue isn't
+     printed into every page. Started as soon as a shopper heads for the
+     finder (hover/focus/touch on a finder link, the teaser coming into view,
+     the finder opening, the finder page) and awaited before matching; the
+     "finding your bed" moment covers the wait. One request per page.
+     ---------------------------------------------------------------------- */
+  function mergeProducts(cfg, data) {
+    var list = data && data.products && typeof data.products === 'object' ? data.products : {};
+    Object.keys(list).forEach(function (handle) {
+      var p = list[handle];
+      if (!p || typeof p !== 'object' || cfg.products[handle]) return;
+      prepareProduct(p);
+      cfg.products[handle] = p;
+    });
+    (Array.isArray(data && data.fallback) ? data.fallback : []).forEach(function (handle) {
+      if (handle && cfg.products[handle] && cfg.fallback.indexOf(handle) === -1) cfg.fallback.push(handle);
+    });
+    cfg.hasProducts = Object.keys(cfg.products).length > 0;
+  }
+
+  function loadProducts() {
+    var cfg = config();
+    if (!cfg) return Promise.resolve(null);
+    if (cfg.productsReady) return Promise.resolve(cfg);
+    if (cfg.productsLoad) return cfg.productsLoad;
+    var url = cfg.fallbackUrl + (cfg.fallbackUrl.indexOf('?') > -1 ? '&' : '?') + PRODUCTS_QUERY;
+    cfg.productsLoad = window
+      .fetch(url, { credentials: 'same-origin', headers: { Accept: 'text/html' } })
+      .then(function (res) {
+        if (!res.ok) throw new Error('finder-products ' + res.status);
+        return res.text();
+      })
+      .then(function (html) {
+        var node = new DOMParser().parseFromString(html, 'text/html').getElementById('finder-products');
+        if (!node) throw new Error('finder-products: no data');
+        mergeProducts(cfg, JSON.parse(node.textContent));
+        cfg.productsReady = true;
+        return cfg;
+      })
+      .catch(function () {
+        /* Match block beds still match; otherwise the friendly browse-all
+           state. The next result tries the request again. */
+        cfg.productsLoad = null;
+        return cfg;
+      });
+    return cfg.productsLoad;
+  }
+
+  /** loadProducts(), but a slow network never holds the result back for long. */
+  function whenProducts() {
+    return Promise.race([
+      loadProducts(),
+      new Promise(function (resolve) {
+        setTimeout(resolve, PRODUCTS_TIMEOUT);
+      })
+    ]);
+  }
+
+  var WARM_EVENTS = ['pointerover', 'focusin', 'touchstart'];
+  var WARM_SELECTOR = '[data-open-finder], a[href$="#bed-finder"], [data-teaser-style], [data-teaser-retake]';
+
+  function warmProducts(e) {
+    var t = e.target instanceof Element ? e.target : null;
+    if (!t || !t.closest(WARM_SELECTOR)) return;
+    WARM_EVENTS.forEach(function (name) {
+      doc.removeEventListener(name, warmProducts, true);
+    });
+    loadProducts();
+  }
+
+  WARM_EVENTS.forEach(function (name) {
+    doc.addEventListener(name, warmProducts, { capture: true, passive: true });
+  });
 
   /* ------------------------------------------------------------------------
      Sizes — same matching rules as snippets/size-hints.liquid
@@ -720,6 +832,8 @@
         this.dialog = this.closest('dialog');
         this.wireDialog();
         this.wireEditor();
+        /* Back from a launch sign-up made in the pop-up: show how it went. */
+        if (this.storeClosed() && notifyReturned()) this.openModal({ reason: 'notify' });
       } else {
         this.bootInline();
       }
@@ -793,6 +907,12 @@
         params = null;
       }
       var fromUrl = params ? cleanAnswers({ style: params.get('style'), stage: params.get('stage'), size: params.get('size') }) : {};
+      if (this.storeClosed()) {
+        if (fromUrl.style) this.state.answers.style = fromUrl.style;
+        this.showNotify({ focus: notifyReturned() });
+        return;
+      }
+      loadProducts();
       if (fromUrl.style || fromUrl.stage || fromUrl.size) {
         Object.assign(this.state.answers, fromUrl);
         this.go(this.firstUnanswered(), { focus: false });
@@ -818,7 +938,8 @@
       if (memory.style && memory.stage && memory.size) {
         this.state.answers = { style: memory.style, stage: memory.stage, size: memory.size };
         if (memory.dogName != null) this.state.name = memory.dogName;
-        this.showResult(Object.assign({ instant: true }, opts));
+        /* Re-showing the remembered result: nothing new to save or announce. */
+        this.showResult(Object.assign({ instant: true, restored: true }, opts));
         return;
       }
       this.go(1, opts);
@@ -854,6 +975,18 @@
       return this.dogName() || S('your_dog');
     }
 
+    /** The name, when it's short enough to sit inside a button without wrapping. */
+    ctaName() {
+      var name = this.dogName();
+      return name && name.length <= CTA_NAME_MAX ? name : '';
+    }
+
+    /** No products in the store yet: the finder offers a launch sign-up instead (never in the editor). */
+    storeClosed() {
+      var cfg = this.cfg;
+      return !!(cfg && cfg.storeEmpty && !cfg.designMode && doc.getElementById('finder-notify'));
+    }
+
     saveProgress() {
       var st = this.state.step;
       if (typeof st === 'number' && st >= 1 && st <= TOTAL) {
@@ -864,6 +997,7 @@
     /* ---------------- events ---------------- */
 
     onOpenEvent(detail) {
+      loadProducts();
       var inline = doc.querySelector('bed-finder[mode="inline"]');
       if (this.mode === 'modal') {
         if (inline && inline !== this && inline.isConnected) return; // the page's own finder answers
@@ -885,6 +1019,12 @@
       detail = detail || {};
       var step = detail.step === 'result' ? 5 : Number(detail.step);
       var ans = cleanAnswers(detail.answers);
+      if (this.storeClosed()) {
+        /* Keep what the teaser told us: it tags the sign-up. */
+        if (ans.style) this.state.answers.style = ans.style;
+        this.showNotify();
+        return;
+      }
       var restart = detail.restart === true || step === 1;
       if (ans.dogName != null && ans.dogName !== '') this.state.name = ans.dogName;
 
@@ -1103,9 +1243,16 @@
       }
       if (this.mode === 'modal' && this.dialog) this.dialog.scrollTop = 0;
       else if (focus) {
-        var r = this.getBoundingClientRect();
-        var headerH = parseFloat(getComputedStyle(root).getPropertyValue('--header-h')) || 0;
-        if (r.top < headerH) this.scrollIntoView({ behavior: 'auto', block: 'start' });
+        var headerH = headerHeight();
+        var heading = name === 'result' ? qs('.finder-result__head', panel) : null;
+        if (heading) {
+          /* The result: bring its heading (where focus lands) to just under the header. */
+          var top = heading.getBoundingClientRect().top - headerH - 12;
+          if (Math.abs(top) > 4) window.scrollBy({ top: top, behavior: 'auto' });
+        } else {
+          var r = this.getBoundingClientRect();
+          if (r.top < headerH) this.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }
       }
       if (focus) this.focusHeading();
     }
@@ -1117,12 +1264,14 @@
 
     updateTop() {
       var st = this.state.step;
+      var notify = st === 'notify';
       var done = st === 'result' || st === 'matching' || st === 'result-pending';
-      this.backBtn.hidden = st === 1 || done;
-      this.progressLabel.textContent = done ? S('your_match') : fill(S('step_of'), { step: st, total: TOTAL });
-      var pct = done ? 100 : (Number(st) / TOTAL) * 100;
+      this.backBtn.hidden = st === 1 || done || notify;
+      this.progressLabel.textContent = notify ? '' : done ? S('your_match') : fill(S('step_of'), { step: st, total: TOTAL });
+      var pct = done ? 100 : notify ? 0 : (Number(st) / TOTAL) * 100;
       this.progressBar.style.setProperty('--progress', String(pct));
       this.top.classList.toggle('is-done', done);
+      this.top.classList.toggle('is-notify', notify);
     }
 
     /* ---------------- step views ---------------- */
@@ -1322,23 +1471,45 @@
 
     /* ---------------- result ---------------- */
 
+    /**
+     * opts: instant (skip the matching moment), restored (re-showing the
+     * remembered result: don't save or announce it again), focus.
+     */
     showResult(opts) {
       opts = opts || {};
       if (!this.allAnswered()) {
         this.go(this.firstUnanswered(), opts);
         return;
       }
+      var self = this;
       var cfg = this.cfg;
-      this.result = recommend(cfg, this.state.answers, cfg.options.showAlternative !== false);
-      var instant = opts.instant || reduceMotion() || cfg.options.matchingMoment === false || !this.result.main;
-      if (instant) {
-        this.renderResult(opts);
+      var token = (this._resultToken = {});
+      var calm = !!opts.instant || reduceMotion() || cfg.options.matchingMoment === false;
+      if (cfg.productsReady) {
+        this.result = recommend(cfg, this.state.answers, cfg.options.showAlternative !== false);
+        if (calm || !this.result.main) {
+          this.renderResult(opts);
+          return;
+        }
+        this.viewMatching(opts, calm);
+        this.later(function () { self.renderResult(opts); }, 900);
         return;
       }
-      this.viewMatching();
+      /* The fallback beds are still on their way: the matching moment covers the wait. */
+      var started = Date.now();
+      this.viewMatching(opts, calm);
+      whenProducts().then(function () {
+        if (self._resultToken !== token || self.state.step !== 'matching' || !self.isConnected) return;
+        var now = self.cfg;
+        self.result = recommend(now, self.state.answers, now.options.showAlternative !== false);
+        var wait = calm || !self.result.main ? 0 : Math.max(0, 900 - (Date.now() - started));
+        if (wait) self.later(function () { self.renderResult(opts); }, wait);
+        else self.renderResult(opts);
+      });
     }
 
-    viewMatching() {
+    viewMatching(opts, calm) {
+      opts = opts || {};
       var self = this;
       var a = this.state.answers;
       var name = this.dogName();
@@ -1362,13 +1533,13 @@
           h('ul', { class: 'finder-matching__list', role: 'list' }, rows)
         ])
       ];
-      this.mount(panel, 'matching', 'forward', true);
+      this.mount(panel, 'matching', 'forward', opts.focus !== false);
       this.updateTop();
       var items = qsa('.finder-matching__item', this.stage);
       items.forEach(function (li, i) {
-        self.later(function () { li.classList.add('is-done'); }, 160 + i * 170);
+        if (calm) li.classList.add('is-done');
+        else self.later(function () { li.classList.add('is-done'); }, 160 + i * 170);
       });
-      this.later(function () { self.renderResult(); }, 900);
     }
 
     renderResult(opts) {
@@ -1382,21 +1553,24 @@
       this.mount(nodes, 'result', 'forward', opts.focus !== false);
       this.updateTop();
       this.watchCta();
-      if (res.main) this.persist(res.main);
+      if (res.main && !opts.restored) this.persist(res.main);
     }
 
-    /* Phones, in the pop-up: a slim price + Add bar appears whenever the main button is out of view. */
+    /* A slim price + Add bar sticks to the bottom (of the pop-up, or of the
+       screen on the finder page) whenever the main button isn't fully in view. */
     watchCta() {
       this.unwatchCta();
       var mini = qs('.finder-mini', this.stage);
       var main = qs('.finder-result__add', this.stage);
       if (!mini || !main || !('IntersectionObserver' in window)) return;
-      var topBar = this.top ? Math.round(this.top.getBoundingClientRect().height) : 0;
+      var modal = this.mode === 'modal';
+      var inset = modal ? (this.top ? Math.round(this.top.getBoundingClientRect().height) : 0) : Math.round(headerHeight());
       this._io = new IntersectionObserver(function (entries) {
-        var show = !entries[entries.length - 1].isIntersecting;
+        var e = entries[entries.length - 1];
+        var show = !(e.isIntersecting && e.intersectionRatio >= 0.9);
         mini.classList.toggle('is-visible', show);
         mini.inert = !show;
-      }, { root: this.mode === 'modal' ? this.dialog : null, rootMargin: '-' + topBar + 'px 0px 0px 0px', threshold: 0 });
+      }, { root: modal ? this.dialog : null, rootMargin: '-' + inset + 'px 0px 0px 0px', threshold: [0, 0.9] });
       this._io.observe(main);
     }
 
@@ -1409,6 +1583,19 @@
       var a = this.state.answers;
       var p = pick.product;
       var v = pick.fit.variant;
+      /* Same bed, size, answers and name as last time: a re-display, not a new
+         result. Re-announcing it would reset a size the shopper has since
+         picked on the product page, and count a "finder complete" twice. */
+      var prev = stored();
+      if (
+        prev &&
+        prev.handle === p.handle &&
+        String(prev.variantId) === String(v.id) &&
+        prev.style === a.style &&
+        prev.stage === a.stage &&
+        prev.size === a.size &&
+        String(prev.dogName || '') === this.dogName()
+      ) return;
       var data = remember({
         dogName: this.dogName(),
         style: a.style,
@@ -1504,19 +1691,24 @@
       return wrap;
     }
 
-    perNight(price) {
+    /** Per-night reframe. Only for a bed the foam guarantee covers (the
+     *  guarantee is the basis of the sum): see Lunova.foamBed / snippets/foam-bed. */
+    perNight(price, product) {
       if (this.cfg.options.showPerNight === false || typeof L.perNight !== 'function') return null;
+      if (product && typeof L.foamBed === 'function' && !L.foamBed(product)) return null;
       var amount = L.perNight(price);
       if (!amount) return null;
       var years = Number(settings().guaranteeYears) || 0;
       var exact = typeof L.perNightExact === 'function' ? L.perNightExact(price) : amount;
       var text = fillNodes(h('span', { class: 'per-night__text' }), fill(S('result.per_night'), { years: years }), { amount: amount }, ['amount']);
+      /* Same markup as snippets/per-night: the info mark ends the sentence
+         (non-breaking space, so it never wraps alone onto a new line). */
+      text.appendChild(h('span', { class: 'per-night__end' }, ['\u00a0', icon('info', 'per-night__more')]));
       return h('div', { class: 'per-night per-night--compact finder-result__per-night' }, [
         h('details', { class: 'per-night__details' }, [
           h('summary', { class: 'per-night__summary' }, [
             icon('moon', 'per-night__icon'),
             text,
-            icon('info', 'per-night__more'),
             h('span', { class: 'visually-hidden', text: ' — ' + S('result.per_night_hint') })
           ]),
           h('p', { class: 'per-night__basis', text: fill(S('result.per_night_basis'), { price: money(price), years: years, exact: exact }) })
@@ -1535,11 +1727,13 @@
       return { kind: 'in', text: S('result.stock_in') };
     }
 
-    riskLine() {
+    riskLine(product) {
       var s = settings();
       var copy = this.cfg.copy;
       var nights = Number(s.trialNights) || 0;
       var years = Number(s.guaranteeYears) || 0;
+      /* The guarantee is on the foam: never promise it for a bed it doesn't cover. */
+      if (product && typeof L.foamBed === 'function' && !L.foamBed(product)) years = 0;
       var parts = [];
       if (nights > 0 && copy.riskText) parts.push(fill(copy.riskText, { nights: nights }));
       if (years > 0 && copy.guaranteeText) parts.push(fill(copy.guaranteeText, { years: years }));
@@ -1622,7 +1816,8 @@
         reason ? h('p', { class: 'finder-result__reason', text: reason }) : null,
         h('ul', { class: 'finder-result__bullets', role: 'list' }, why.map(function (t) {
           return h('li', null, [icon('check', 'finder-result__bullet-icon'), h('span', { text: t })]);
-        }))
+        })),
+        this.state.answers.stage === 'diagnosed' && S('result.vet_note') ? h('p', { class: 'finder-result__vet', text: S('result.vet_note') }) : null
       ]);
 
       /* Price, stock, delivery */
@@ -1640,8 +1835,9 @@
         L.delivery.render(delivery);
       }
 
-      /* Buy */
-      var label = name ? fill(S('result.add_named'), { name: name }) : S('result.add');
+      /* Buy — a long name stays in the heading, not the button */
+      var ctaName = this.ctaName();
+      var label = ctaName ? fill(S('result.add_named'), { name: ctaName }) : S('result.add');
       var addBtn = h('button', { type: 'button', class: 'btn btn--primary btn--lg btn--block finder-result__add' }, [
         icon('basket'),
         h('span', { text: fill(S('result.add_price'), { label: label, price: money(v.price) }) })
@@ -1650,13 +1846,13 @@
       addBtn.addEventListener('click', function () {
         self.addToBasket(addBtn, errorEl, pick);
       });
-      var buy = h('div', { class: 'finder-result__buy' }, [addBtn, errorEl, this.riskLine()]);
+      var buy = h('div', { class: 'finder-result__buy' }, [addBtn, errorEl, this.riskLine(p)]);
 
       var details = h('a', { class: 'btn btn--ghost finder-result__details', href: url }, [h('span', { text: S('result.details') }), icon('arrow-right', 'icon--arrow-right')]);
 
       var info = h('div', { class: 'finder-result__info' }, [
         whyBlock,
-        h('div', { class: 'finder-result__offer' }, [this.priceBlock(v), this.perNight(v.price), stockEl, delivery]),
+        h('div', { class: 'finder-result__offer' }, [this.priceBlock(v), this.perNight(v.price, p), stockEl, delivery]),
         buy,
         details
       ]);
@@ -1666,24 +1862,23 @@
       var nodes = [head, card];
       if (res.alt) nodes.push(this.viewAlt(res.alt));
       nodes.push(this.foot());
-      if (this.mode === 'modal') {
-        var nights = Number(settings().trialNights) || 0;
-        var miniBtn = h('button', { type: 'button', class: 'btn btn--primary finder-mini__add' }, [
-          h('span', { text: name ? fill(S('result.add_short_named'), { name: name }) : S('result.add') })
-        ]);
-        miniBtn.addEventListener('click', function () {
-          self.addToBasket(miniBtn, errorEl, pick);
-        });
-        nodes.push(
-          h('div', { class: 'finder-mini', inert: true }, [
-            h('p', { class: 'finder-mini__info' }, [
-              h('strong', { class: 'finder-mini__price', text: money(v.price) }),
-              h('span', { class: 'finder-mini__meta', text: nights > 0 ? fill(S('result.mini_trial'), { nights: nights }) : sizeLabel })
-            ]),
-            miniBtn
-          ])
-        );
-      }
+      /* Price + Add, kept in reach while the main button is out of view (see watchCta). */
+      var nights = Number(settings().trialNights) || 0;
+      var miniBtn = h('button', { type: 'button', class: 'btn btn--primary finder-mini__add' }, [
+        h('span', { text: ctaName ? fill(S('result.add_short_named'), { name: ctaName }) : S('result.add') })
+      ]);
+      miniBtn.addEventListener('click', function () {
+        self.addToBasket(miniBtn, errorEl, pick);
+      });
+      nodes.push(
+        h('div', { class: 'finder-mini', inert: true }, [
+          h('p', { class: 'finder-mini__info' }, [
+            h('strong', { class: 'finder-mini__price', text: money(v.price) }),
+            h('span', { class: 'finder-mini__meta', text: nights > 0 ? fill(S('result.mini_trial'), { nights: nights }) : sizeLabel })
+          ]),
+          miniBtn
+        ])
+      );
       return [h('div', { class: 'finder-result' }, nodes)];
     }
 
@@ -1721,6 +1916,37 @@
         self.go(1, { dir: 'back' });
       });
       return h('div', { class: 'finder-result__foot' }, [restart]);
+    }
+
+    /** "We're not quite open yet" + the launch sign-up (<template id="finder-notify">, bed-finder.liquid). */
+    showNotify(opts) {
+      opts = opts || {};
+      var tpl = doc.getElementById('finder-notify');
+      if (!tpl || !tpl.content) return;
+      var self = this;
+      this.clearTimers();
+      this.busy = false;
+      this.editing = false;
+      this.state.step = 'notify';
+      session.clear();
+      var frag = tpl.content.cloneNode(true);
+      var form = qs('form', frag);
+      if (form) {
+        form.addEventListener('submit', function () {
+          /* Tag what we already know, so the launch email can be relevant. */
+          var tags = qs('input[name="contact[tags]"]', form);
+          var a = self.state.answers;
+          if (tags) {
+            var extra = [];
+            if (a.style) extra.push('finder-style-' + a.style);
+            if (a.size) extra.push('finder-size-' + String(a.size).toLowerCase());
+            tags.value = [tags.defaultValue].concat(extra).join(',');
+          }
+          sessionSet(NOTIFY_KEY, 1);
+        });
+      }
+      this.mount(Array.prototype.slice.call(frag.childNodes), 'notify', 'forward', opts.focus !== false);
+      this.updateTop();
     }
 
     viewEmpty() {
@@ -1818,10 +2044,25 @@
       };
       window.addEventListener('storage', this._onStorage);
       this.update();
+      /* A shopper who scrolls to question 1 is likely to answer it: fetch the beds now. */
+      if ('IntersectionObserver' in window) {
+        this._warm = new IntersectionObserver(function (entries) {
+          if (!entries.some(function (en) { return en.isIntersecting; })) return;
+          self.stopWarming();
+          loadProducts();
+        }, { rootMargin: '300px 0px' });
+        this._warm.observe(this);
+      }
+    }
+
+    stopWarming() {
+      if (this._warm) this._warm.disconnect();
+      this._warm = null;
     }
 
     disconnectedCallback() {
       this._connected = false;
+      this.stopWarming();
       this.removeEventListener('click', this._onClick);
       (this._offs || []).forEach(function (off) { off(); });
       window.removeEventListener('storage', this._onStorage);
@@ -1906,5 +2147,5 @@
   if (!customElements.get('finder-teaser')) customElements.define('finder-teaser', FinderTeaser);
 
   /* For other areas/tests: the pure matching engine. */
-  L.finderEngine = { config: config, recommend: recommend, rank: rank, resolveSize: resolveSize, hintIndex: hintIndex };
+  L.finderEngine = { config: config, loadProducts: loadProducts, recommend: recommend, rank: rank, resolveSize: resolveSize, hintIndex: hintIndex };
 })();

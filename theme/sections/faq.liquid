@@ -6,8 +6,14 @@
 
   Blocks: question + answer (rich text) + "hide when this promise is off".
   Text can use [trial_nights], [guarantee_years], [threshold], [cutoff],
-  [delivery_min], [delivery_max], [origin], [shop]. A question naming a
-  promise that is switched off hides itself.
+  [delivery_min], [delivery_max], [origin], [shop], [returns_policy]. A
+  question naming a promise that is switched off hides itself.
+
+  Returns policy: links only ever point at a refund policy that exists
+  (shop.refund_policy). Until one is published in Settings → Policies,
+  [returns_policy] is plain text, a hand-typed /policies/refund-policy link
+  loses its href (Shopify would 404 it), and the default trial / guarantee
+  answers drop their "Full terms…" sentence.
 
   With no blocks (e.g. product / collection templates with "settings": {})
   the default questions render from the locale file, each one gated on its
@@ -17,6 +23,10 @@
   friendly with no JS.
 {%- endcomment -%}
 {{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- if request.design_mode -%}
+  {%- comment -%} Opens the question selected in the editor's sidebar. {%- endcomment -%}
+  <script src="{{ 'sections.js' | asset_url }}" defer="defer"></script>
+{%- endif -%}
 {%- render 'section-styles', section: section -%}
 {%- capture ph_cutoff -%}{%- render 'delivery-promise', mode: 'time' -%}{%- endcapture -%}
 {%- liquid
@@ -35,7 +45,11 @@
   assign ph_dmax = dmax | append: ''
   assign ph_origin = settings.origin_line | default: '' | strip | escape
   assign ph_shop = shop.name | escape
-  assign policy_url = shop.refund_policy.url | default: '/policies/refund-policy'
+  assign policy_url = shop.refund_policy.url | default: ''
+  assign policy_word = 'home.faq.returns_policy' | t
+  if policy_url != ''
+    assign policy_word = '<a href="' | append: policy_url | append: '">' | append: policy_word | append: '</a>'
+  endif
 
   assign on_trial = false
   if settings.trial_enable and settings.trial_nights > 0
@@ -196,9 +210,21 @@
                     assign a = a | append: a_free
                   endif
                 when 'trial'
-                  assign a = 'home.faq.trial_a_html' | t: nights: ph_nights, policy_url: policy_url
+                  capture faq_terms
+                    render 'trial-terms'
+                  endcapture
+                  assign faq_terms = faq_terms | escape
+                  if policy_url != ''
+                    assign a = 'home.faq.trial_a_html' | t: nights: ph_nights, policy_url: policy_url, terms: faq_terms
+                  else
+                    assign a = 'home.faq.trial_a_nolink_html' | t: nights: ph_nights, terms: faq_terms
+                  endif
                 when 'guarantee'
-                  assign a = 'home.faq.guarantee_a_html' | t: years: ph_years, policy_url: policy_url
+                  if policy_url != ''
+                    assign a = 'home.faq.guarantee_a_html' | t: years: ph_years, policy_url: policy_url
+                  else
+                    assign a = 'home.faq.guarantee_a_nolink_html' | t: years: ph_years
+                  endif
                 else
                   assign k_a = 'home.faq.' | append: dk | append: '_a_html'
                   assign a = k_a | t: nights: ph_nights, years: ph_years
@@ -208,7 +234,10 @@
               assign block = section.blocks[bi]
               if block
                   assign q = block.settings.question | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop
-                  assign a = block.settings.answer | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop
+                  assign a = block.settings.answer | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop | replace: '[returns_policy]', policy_word
+                  if policy_url == ''
+                    assign a = a | replace: ' href="/policies/refund-policy"', ''
+                  endif
                   assign attrs = block.shopify_attributes
               endif
             endif
@@ -254,7 +283,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Order questions the way people buy: size, foam, washing, delivery, trial, guarantee, health. Text can use [trial_nights], [guarantee_years], [threshold], [cutoff], [delivery_min], [delivery_max], [origin] and [shop]. With no questions added, sensible defaults show."
+      "content": "Order questions the way people buy: size, foam, washing, delivery, trial, guarantee, health. Text can use [trial_nights], [guarantee_years], [threshold], [cutoff], [delivery_min], [delivery_max], [origin] and [shop]. [returns_policy] links to your refund policy (Settings → Policies), and stays plain text until one is published. With no questions added, sensible defaults show."
     },
     {
       "type": "select",

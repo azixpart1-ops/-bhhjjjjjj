@@ -1,10 +1,14 @@
 {%- comment -%}
-  Comparison table — "us vs a typical bed", row by row (contrast effect,
-  specificity). Keep the "typical" column fair: describe what is commonly
-  sold, never name or misrepresent a competitor.
+  Comparison table — "what to ask of any bed", row by row, with our answer
+  beside each question (contrast effect, specificity). The right-hand column
+  asks questions rather than making unevidenced claims about other sellers
+  (CAP Code rules on comparisons and denigration), so it carries a neutral
+  marker, never a negative one. Never name or describe a competitor's
+  product there.
 
   Rows are blocks (label, ours, theirs, + hide when a promise is off). Text
-  can use [trial_nights], [guarantee_years], [threshold]. With no blocks the
+  can use [trial_nights], [guarantee_years], [threshold], [trial_terms] and
+  [trial_terms_short] (returns wording from Theme settings). With no blocks the
   default rows render. Desktop: a real <table>. Phones: one card per row.
 {%- endcomment -%}
 {{ 'sections.css' | asset_url | stylesheet_tag }}
@@ -15,6 +19,16 @@
   assign ph_nights = settings.trial_nights | default: 0 | plus: 0 | append: ''
   assign ph_years = settings.guarantee_years | default: 0 | plus: 0 | append: ''
   assign ph_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round | money_without_trailing_zeros
+  capture terms
+    render 'trial-terms'
+  endcapture
+  capture terms_short
+    render 'trial-terms', short: true
+  endcapture
+  assign terms = terms | remove: '^' | remove: '~'
+  assign terms_short = terms_short | remove: '^' | remove: '~'
+  assign ph_terms = terms | escape
+  assign ph_terms_short = terms_short | escape
 
   assign on_trial = false
   if settings.trial_enable and settings.trial_nights > 0
@@ -48,6 +62,9 @@
       if raw contains '[trial_nights]' and on_trial == false
         assign keep = false
       endif
+      if raw contains '[trial_terms' and on_trial == false
+        assign keep = false
+      endif
       if raw contains '[guarantee_years]' and on_guarantee == false
         assign keep = false
       endif
@@ -72,9 +89,9 @@
         assign keep = false
       endif
       if keep
-        assign r_label = b.label | default: '' | remove: '^' | remove: '~' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold
-        assign r_ours = b.ours | default: '' | remove: '^' | remove: '~' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold
-        assign r_theirs = b.theirs | default: '' | remove: '^' | remove: '~' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold
+        assign r_label = b.label | default: '' | remove: '^' | remove: '~' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms
+        assign r_ours = b.ours | default: '' | remove: '^' | remove: '~' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms
+        assign r_theirs = b.theirs | default: '' | remove: '^' | remove: '~' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms
         assign rows = rows | append: r_label | append: '^' | append: r_ours | append: '^' | append: r_theirs | append: '^' | append: forloop.index0 | append: '~'
       endif
     endfor
@@ -94,7 +111,7 @@
         assign k_ours = k | append: '_ours'
         assign k_theirs = k | append: '_theirs'
         assign r_label = k_label | t
-        assign r_ours = k_ours | t: nights: ph_nights, years: ph_years
+        assign r_ours = k_ours | t: nights: ph_nights, years: ph_years, terms_short: terms_short
         assign r_theirs = k_theirs | t
         assign rows = rows | append: r_label | append: '^' | append: r_ours | append: '^' | append: r_theirs | append: '^' | append: '-' | append: '~'
       endif
@@ -144,7 +161,7 @@
                 </td>
                 <td class="comparison-table__theirs">
                   <div class="comparison-table__cell">
-                    <span class="comparison-table__mark comparison-table__mark--no">{%- render 'icon', name: 'minus' -%}</span>
+                    <span class="comparison-table__mark comparison-table__mark--ask" aria-hidden="true">{%- render 'icon', name: 'info' -%}</span>
                     <span>{{ cells[2] }}</span>
                   </div>
                 </td>
@@ -163,7 +180,7 @@
                 <span><span class="comparison-table__who">{{ ours_label }}</span> {{ cells[1] }}</span>
               </p>
               <p class="comparison-table__card-theirs">
-                <span class="comparison-table__mark comparison-table__mark--no">{%- render 'icon', name: 'minus' -%}</span>
+                <span class="comparison-table__mark comparison-table__mark--ask" aria-hidden="true">{%- render 'icon', name: 'info' -%}</span>
                 <span><span class="comparison-table__who">{{ theirs_label }}</span> {{ cells[2] }}</span>
               </p>
             </li>
@@ -189,7 +206,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Keep the right-hand column fair: describe what is commonly sold, and never name or misrepresent another brand. Text can use [trial_nights], [guarantee_years] and [threshold]."
+      "content": "Keep the right-hand column to questions a buyer can ask of any bed. Claims about what other sellers offer need evidence, and must never name or misrepresent another brand. Text can use [trial_nights], [guarantee_years], [threshold], [trial_terms] and [trial_terms_short] (returns wording from Theme settings → Promises)."
     },
     {
       "type": "select",
@@ -223,7 +240,7 @@
       "type": "text",
       "id": "heading",
       "label": "Heading",
-      "default": "What you usually get, and what you get here."
+      "default": "Worth checking on any bed."
     },
     {
       "type": "textarea",
@@ -239,8 +256,8 @@
     {
       "type": "text",
       "id": "theirs_label",
-      "label": "Their column",
-      "default": "A typical bed online"
+      "label": "Question column",
+      "default": "Ask of any bed"
     },
     {
       "type": "text",
@@ -289,8 +306,8 @@
         {
           "type": "text",
           "id": "theirs",
-          "label": "Typical",
-          "default": "Shredded offcuts or low-density foam"
+          "label": "Question to ask of any bed",
+          "default": "Is the foam density stated in kg/m³?"
         },
         {
           "type": "select",
@@ -311,10 +328,10 @@
     {
       "name": "Comparison table",
       "blocks": [
-        { "type": "row", "settings": { "label": "Built for", "ours": "How your dog actually sleeps: curlers, leaners, sprawlers", "theirs": "One bed shape, sold to every dog" } },
-        { "type": "row", "settings": { "label": "Filling", "ours": "50kg/m³ high-density memory foam on the orthopaedic range", "theirs": "Shredded offcuts or low-density foam" } },
-        { "type": "row", "settings": { "label": "Trying it", "ours": "[trial_nights] nights, free collection, full refund", "theirs": "14 or 30-day returns, at your cost", "promise": "trial" } },
-        { "type": "row", "settings": { "label": "Washing", "ours": "Most covers zip off and machine-wash at 30°C", "theirs": "Spot-clean only, or a cover that won't go back on" } }
+        { "type": "row", "settings": { "label": "Built for", "ours": "How your dog actually sleeps: curlers, leaners, sprawlers", "theirs": "Is it shaped for how your dog sleeps?" } },
+        { "type": "row", "settings": { "label": "Filling", "ours": "50kg/m³ high-density memory foam on the orthopaedic range", "theirs": "Is the foam density stated in kg/m³?" } },
+        { "type": "row", "settings": { "label": "Trying it", "ours": "[trial_nights] nights · [trial_terms_short]", "theirs": "How long is the trial, and who pays for the return?", "promise": "trial" } },
+        { "type": "row", "settings": { "label": "Washing", "ours": "Most covers zip off and machine-wash at 30°C", "theirs": "Does the whole cover come off to wash?" } }
       ]
     }
   ]

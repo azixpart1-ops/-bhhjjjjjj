@@ -43,6 +43,14 @@
   assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
   assign shop_link = section.settings.shop_link | default: routes.all_products_collection_url
 -%}
+{%- comment -%}
+  Styles for every chrome dialog (menu, search, this drawer, quick add, email
+  pop-up). They're all closed at load, so the file is linked here at the end
+  of <body> instead of blocking first paint from <head>; deferred scripts
+  wait for it, so no dialog opens unstyled. Section re-renders only swap
+  [data-drawer-content], so this tag is never duplicated.
+{%- endcomment -%}
+{{ 'chrome-dialogs.css' | asset_url | stylesheet_tag }}
 
 <cart-drawer
   class="cart-drawer"
@@ -74,7 +82,8 @@
               <div>
                 <p class="cart-drawer__added-title" data-cart-added-text></p>
                 {%- if section.settings.show_added_trial and settings.trial_enable and settings.trial_nights > 0 -%}
-                  <p class="cart-drawer__added-trial">{{ 'chrome.cart.added_trial' | t: nights: settings.trial_nights }}</p>
+                  {%- capture added_terms -%}{%- render 'trial-terms' -%}{%- endcapture -%}
+                  <p class="cart-drawer__added-trial">{{ 'chrome.cart.added_trial' | t: nights: settings.trial_nights, terms: added_terms }}</p>
                 {%- endif -%}
               </div>
             </div>

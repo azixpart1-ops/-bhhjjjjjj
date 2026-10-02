@@ -29,7 +29,7 @@
   assign shop_url = shop.url | default: ''
   assign finder_url = shop_url | append: '/pages/bed-finder'
   assign all_url = shop_url | append: '/collections/all'
-  assign finder_label = settings.finder_cta_label | default: '' | strip
+  assign finder_label = settings.finder_cta_label | default: '' | strip | escape
   if finder_label == ''
     assign finder_label = 'pages.cta.finder_button' | t
   endif
@@ -53,15 +53,24 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="{{ settings.color_bg | default: '#FAF6EF' }}">
     <title>{{ 'pages.gift_card.title' | t: value: initial_money, shop: shop.name }}</title>
-    <meta name="description" content="{{ 'pages.gift_card.meta_description' | t: shop: shop.name | escape }}">
+    <meta name="description" content="{{ 'pages.gift_card.meta_description' | t: shop: shop.name | escape_once }}">
 
-    <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
+    {%- unless settings.type_heading_font.system? and settings.type_body_font.system? %}
+      <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
+    {%- endunless %}
     {%- if settings.favicon != blank %}
       <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 64, height: 64 }}">
     {%- endif %}
-    {%- if body_font != blank %}
-      <link rel="preload" as="font" href="{{ body_font | font_url }}" type="font/woff2" crossorigin>
-    {%- endif %}
+    {%- comment -%}
+      System fonts have no CDN file: font_url returns '' for them, so skip the
+      preload (and the preconnect above when no webfont loads at all).
+      preload_tag adds crossorigin itself for fonts and feeds Early Hints.
+    {%- endcomment -%}
+    {%- unless settings.type_body_font.system? -%}
+      {%- if body_font != blank %}
+      {{ body_font | font_url | preload_tag: as: 'font', type: 'font/woff2' }}
+      {%- endif %}
+    {%- endunless %}
 
     <style>
       {{ heading_font | font_face: font_display: 'swap' }}
@@ -188,7 +197,7 @@
                   type="button"
                   class="btn btn--secondary btn--sm gift-card__copy"
                   data-copy-text="{{ gift_card.code | escape }}"
-                  data-copy-done="{{ 'pages.gift_card.copied' | t | escape }}"
+                  data-copy-done="{{ 'pages.gift_card.copied' | t }}"
                   hidden
                 >
                   {%- render 'icon', name: 'check', size: 16, class: 'gift-card__copy-done' -%}
@@ -204,9 +213,9 @@
                 id="QrCode"
                 class="gift-card__qr"
                 data-identifier="{{ gift_card.qr_identifier }}"
-                data-qr-label="{{ 'pages.gift_card.qr_label' | t | escape }}"
+                data-qr-label="{{ 'pages.gift_card.qr_label' | t }}"
                 role="img"
-                aria-label="{{ 'pages.gift_card.qr_label' | t | escape }}"
+                aria-label="{{ 'pages.gift_card.qr_label' | t }}"
               ></div>
               {%- if gift_card.pass_url -%}
                 <a class="gift-card__wallet" href="{{ gift_card.pass_url }}">
@@ -214,7 +223,7 @@
                     src="{{ 'gift-card/add-to-apple-wallet.svg' | shopify_asset_url }}"
                     width="120"
                     height="40"
-                    alt="{{ 'pages.gift_card.apple_wallet' | t | escape }}"
+                    alt="{{ 'pages.gift_card.apple_wallet' | t }}"
                     loading="lazy"
                   >
                 </a>
@@ -243,7 +252,7 @@
             <p class="pages-cta__text">{{ 'pages.gift_card.finder_text' | t }}</p>
             <div class="cluster pages-cta__actions">
               <a class="btn btn--secondary" href="{{ finder_url }}">
-                <span>{{ finder_label | escape }}</span>
+                <span>{{ finder_label }}</span>
                 {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
               </a>
               <a class="btn btn--ghost" href="{{ all_url }}">{{ 'pages.cta.shop_all' | t }}</a>

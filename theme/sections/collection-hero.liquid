@@ -9,14 +9,25 @@
       (with its own headings demoted) sits below the grid in main-collection.
     - A short intro: the section's own text if set, otherwise the opening of
       the collection description (first sentence or two, ~160 characters).
-    - Product count ("27 beds") — a sense of the size of the choice.
+      Hidden on phones, where the full description under the grid does
+      the job and the beds need the space.
+    - Product count ("27 beds") — a sense of the size of the choice. Off in
+      the default template: the toolbar above the grid already says it.
     - Store rating line only when the merchant has filled in BOTH
       store_rating and store_review_count (no invented proof).
-    - Trust chips from theme settings (trial, guarantee, delivery) — each
-      hides itself when switched off.
+    - Promises from theme settings (trial, guarantee, delivery) as one quiet
+      inline row — each hides itself when switched off. Hidden on phones,
+      where the announcement bar and the risk-reversal under the grid carry
+      them.
     - "Not sure? Find my dog's bed" — a secondary, ink-outline action that
       opens the Bed Finder (choice architecture: one recommendation
-      instead of 27 similar beds).
+      instead of 27 similar beds). Off in the default template (the header
+      button and the grid's finder tile already offer it), and never shown
+      on the live store before it has any beds, when the finder has nothing
+      to recommend.
+    - The collection image, when shown, is the desktop LCP: it loads eagerly
+      at high priority, and when it is hidden on phones a <picture> source
+      swaps in a 1×1 GIF there so phones never download it.
 {%- endcomment -%}
 {{ 'collection.css' | asset_url | stylesheet_tag }}
 {%- render 'section-styles', section: section -%}
@@ -112,6 +123,19 @@
     endif
   endif
 
+  comment
+    Before the shop has any beds, the all-beds intro ("Filter by size… or let
+    the finder narrow it down") promises things the page can't do yet.
+  endcomment
+  assign shop_total = collections.all.products_count | default: 0 | plus: 0
+  assign live_store_empty = false
+  if shop_total == 0 and request.design_mode == false
+    assign live_store_empty = true
+  endif
+  if live_store_empty and section.settings.intro == blank and collection.description == blank
+    assign intro = ''
+  endif
+
   assign count = collection.all_products_count | default: 0 | plus: 0
 
   assign show_image = false
@@ -121,9 +145,14 @@
   endif
 
   assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
-  assign finder_label = settings.finder_cta_label | default: ''
+  assign finder_label = settings.finder_cta_label | default: '' | strip | escape
   if finder_label == ''
     assign finder_label = 'collection.finder_tile.cta' | t
+  endif
+
+  assign show_finder = false
+  if section.settings.show_finder and settings.finder_enable and live_store_empty == false
+    assign show_finder = true
   endif
 -%}
 <section
@@ -183,43 +212,51 @@
       {%- endif -%}
 
       {%- if section.settings.show_trust -%}
-        {%- render 'trust-list', items: 'trial,guarantee,delivery', layout: 'row', size: 'sm', scroll: true, class: 'collection-hero__trust' -%}
+        {%- render 'trust-list', items: 'trial,guarantee,delivery', layout: 'row', size: 'sm', class: 'collection-hero__trust' -%}
       {%- endif -%}
 
-      {%- if section.settings.show_finder and settings.finder_enable -%}
+      {%- if show_finder -%}
         <div class="collection-hero__finder" data-finder-only>
           <span class="collection-hero__finder-lead">{{ section.settings.finder_lead | escape }}</span>
           <a href="{{ finder_url }}" class="btn btn--secondary btn--sm collection-hero__finder-btn" data-open-finder>
             {%- render 'icon', name: 'paw' -%}
-            <span>{{ finder_label | escape }}</span>
+            <span>{{ finder_label }}</span>
           </a>
         </div>
       {%- endif -%}
     </div>
 
     {%- if show_image -%}
-      {%- liquid
-        comment
-          Hidden on phones by default, so only fetch it eagerly when it shows
-          everywhere; otherwise lazy (still in view on desktop at load).
-        endcomment
-        assign img_loading = 'lazy'
-        assign img_priority = 'auto'
-        if section.settings.show_image_mobile
-          assign img_loading = 'eager'
-          assign img_priority = 'high'
-        endif
-      -%}
+      {%- comment -%}
+        In view at load, so eager + high priority. When the image is hidden on
+        phones (below 990px), the <source> hands those screens a 1×1 GIF data
+        URI instead, so they never fetch the photo.
+      {%- endcomment -%}
       <div class="collection-hero__media media">
-        {%- render 'image',
-          image: hero_image,
-          widths: '480,640,800,1000,1200',
-          sizes: '(min-width: 990px) 40vw, 100vw',
-          class: 'collection-hero__img',
-          loading: img_loading,
-          fetchpriority: img_priority,
-          alt: hero_image.alt
-        -%}
+        {%- if section.settings.show_image_mobile -%}
+          {%- render 'image',
+            image: hero_image,
+            widths: '480,640,800,1000,1200',
+            sizes: '(min-width: 990px) 40vw, 100vw',
+            class: 'collection-hero__img',
+            loading: 'eager',
+            fetchpriority: 'high',
+            alt: hero_image.alt
+          -%}
+        {%- else -%}
+          <picture class="collection-hero__picture">
+            <source media="(max-width: 989px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAACH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+            {%- render 'image',
+              image: hero_image,
+              widths: '480,640,800,1000,1200',
+              sizes: '40vw',
+              class: 'collection-hero__img',
+              loading: 'eager',
+              fetchpriority: 'high',
+              alt: hero_image.alt
+            -%}
+          </picture>
+        {%- endif -%}
       </div>
     {%- endif -%}
   </div>

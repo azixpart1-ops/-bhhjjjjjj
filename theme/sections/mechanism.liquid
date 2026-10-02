@@ -11,25 +11,20 @@
 
   On product pages ("Show on" = auto) the section only renders for beds whose
   title, type or tags mention orthopaedic / memory foam, so a fibre-filled
-  nest bed is never shown a foam diagram it doesn't have. Tag a product
-  "mechanism:show" or "mechanism:hide" to override.
+  nest bed is never shown a foam diagram it doesn't have (snippets/foam-bed,
+  shared with the guarantee line and per-night price). Tag a product
+  "guarantee:yes" or "guarantee:no" to override.
 
-  Text can use [trial_nights] and [guarantee_years].
+  Text can use [trial_nights], [guarantee_years] and [trial_terms_short].
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
   assign render_it = true
   if template.name == 'product' and product != blank and s.product_filter != 'always'
-    assign tags_down = product.tags | join: ',' | downcase
-    assign hay = product.title | append: ' ' | append: product.type | append: ' ' | append: tags_down | downcase
-    assign render_it = false
-    if hay contains 'orthopaedic' or hay contains 'orthopedic' or hay contains 'memory foam' or hay contains 'memory-foam'
-      assign render_it = true
-    endif
-    if tags_down contains 'mechanism:show'
-      assign render_it = true
-    endif
-    if tags_down contains 'mechanism:hide'
+    capture m_foam
+      render 'foam-bed', product: product
+    endcapture
+    if m_foam != 'true'
       assign render_it = false
     endif
   endif
@@ -52,7 +47,11 @@
 
   assign layer_blocks = section.blocks | where: 'type', 'layer'
   assign proof_blocks = section.blocks | where: 'type', 'proof'
-  assign body = s.body | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years
+  capture terms_short
+    render 'trial-terms', short: true
+  endcapture
+  assign ph_terms_short = terms_short | escape
+  assign body = s.body | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[trial_terms_short]', ph_terms_short
 -%}
 <section
   class="section mechanism scheme-{{ s.color_scheme }} mechanism--media-{{ s.diagram_side | default: 'right' }}"
@@ -145,6 +144,9 @@
               if raw contains '[trial_nights]' and on_trial == false
                 assign show = false
               endif
+              if raw contains '[trial_terms' and on_trial == false
+                assign show = false
+              endif
               if raw contains '[guarantee_years]' and on_guarantee == false
                 assign show = false
               endif
@@ -162,9 +164,9 @@
               <li class="mechanism__proof-item" {{ block.shopify_attributes }}>
                 <span class="mechanism__proof-icon">{%- render 'icon', name: b.icon -%}</span>
                 <span class="mechanism__proof-text">
-                  <span class="mechanism__proof-title">{{ b.title | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years }}</span>
+                  <span class="mechanism__proof-title">{{ b.title | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[trial_terms_short]', ph_terms_short }}</span>
                   {%- if b.text != blank -%}
-                    <span class="mechanism__proof-sub">{{ b.text | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years }}</span>
+                    <span class="mechanism__proof-sub">{{ b.text | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[trial_terms_short]', ph_terms_short }}</span>
                   {%- endif -%}
                 </span>
               </li>
@@ -176,7 +178,7 @@
               <span class="mechanism__proof-icon">{%- render 'icon', name: 'moon' -%}</span>
               <span class="mechanism__proof-text">
                 <span class="mechanism__proof-title">{{ 'home.trust.trial_title' | t: nights: ph_nights }}</span>
-                <span class="mechanism__proof-sub">{{ 'home.trust.trial_text' | t }}</span>
+                <span class="mechanism__proof-sub">{{ 'home.trust.trial_text' | t: terms_short: terms_short }}</span>
               </span>
             </li>
           {%- endif -%}
@@ -243,7 +245,7 @@
         { "value": "always", "label": "Always" }
       ],
       "default": "auto",
-      "info": "Auto shows it when the product's title, type or tags mention orthopaedic or memory foam. Tag a product mechanism:show or mechanism:hide to override."
+      "info": "Auto shows it when the product's title, type or tags mention orthopaedic or memory foam. Tag a product guarantee:yes or guarantee:no to override (the same tags decide the foam guarantee line and per-night price)."
     },
     {
       "type": "text",

@@ -87,16 +87,28 @@
     return f && f.dogName ? String(f.dogName).trim().slice(0, 40) : '';
   }
 
+  /* Shopify's `t` filter HTML-escapes translations ("didn&#39;t"), and these
+     strings are only ever set as text, so decode them once after parsing
+     (the same as global.js does for Lunova.strings). */
   var STRINGS = null;
   function str(key) {
     if (!STRINGS) {
       var el = doc.getElementById('LunovaChromeStrings');
       try { STRINGS = el ? JSON.parse(el.textContent) : {}; } catch (e) { STRINGS = {}; }
+      if (!STRINGS || typeof STRINGS !== 'object') STRINGS = {};
+      var box = null;
+      Object.keys(STRINGS).forEach(function (k) {
+        var v = STRINGS[k];
+        if (typeof v !== 'string' || v.indexOf('&') === -1) return;
+        box = box || doc.createElement('textarea');
+        box.innerHTML = v;
+        STRINGS[k] = box.value;
+      });
     }
     return STRINGS[key] || (L.strings && L.strings[key]) || '';
   }
 
-  /* Fill `el` from a template such as "[name]'s [product] is in your basket."
+  /* Fill `el` from a template such as "[name]'s new bed is in your basket: [product]."
      Values go in as text (never HTML); [product] is set in bold. */
   function fillTemplate(el, template, values) {
     el.textContent = '';
@@ -584,9 +596,17 @@
       if (added && Array.isArray(added.items)) item = added.items[0];
       else if (Array.isArray(added)) item = added[0];
       if (!item) return;
+      // Only call it "Bella's new bed" when it is the bed the finder picked
+      // (any size of it); anything else added later is just named.
+      var f = finderData();
+      var isMatch = !!(f && f.dogName && (
+        (f.handle && item.handle && String(item.handle) === String(f.handle)) ||
+        (f.productId && item.product_id && String(item.product_id) === String(f.productId)) ||
+        (f.variantId && String(item.variant_id || item.id || '') === String(f.variantId))
+      ));
       this.added = {
         product: item.product_title || item.title || '',
-        name: finderName()
+        name: isMatch ? finderName() : ''
       };
     }
 
@@ -929,6 +949,24 @@
   }
   define('quick-add-drawer', QuickAddDrawer);
 
+  /* product.js / product.css are no longer loaded on every page for quick
+     add. Start fetching them the moment a shopper heads for a quick add
+     button, in parallel with the section fetch the tap will make. Both
+     ensure* methods are idempotent; the listeners go once they have run. */
+  (function () {
+    var types = ['pointerover', 'touchstart', 'focusin'];
+    function warm(e) {
+      var q = e.target && e.target.closest && e.target.closest('[data-quick-add]');
+      if (!q) return;
+      var d = doc.querySelector('quick-add-drawer');
+      if (!d || typeof d.ensureJs !== 'function') return;
+      d.ensureJs();
+      d.ensureCss();
+      types.forEach(function (t) { doc.removeEventListener(t, warm, true); });
+    }
+    types.forEach(function (t) { doc.addEventListener(t, warm, { passive: true, capture: true }); });
+  })();
+
   /* ---------------------------------------------------------------------
      Global delegation: links to /cart open the drawer; single-variant
      quick add from product cards goes straight in.
@@ -1067,8 +1105,14 @@
         this._ro = new ResizeObserver(this._measure);
         this._ro.observe(this.bar);
       }
-      this.measure();
-      this.onScroll();
+      // First measure a frame later: writing --header-h on <html> and then
+      // reading layout here would force a full style recalc while cart.js is
+      // still evaluating. --header-reserve only reserves the height the bar
+      // already has, so the first frame looks the same.
+      requestAnimationFrame(function () {
+        self.measure();
+        self.onScroll();
+      });
 
       // Menu drawer toggle(s)
       this.querySelectorAll('[data-menu-open]').forEach(function (btn) {
@@ -1096,16 +1140,25 @@
         this.section.style.setProperty('--header-reserve', h + 'px');
       }
       if (this.mode === 'always') {
-        root.style.setProperty('--header-h', h + 'px');
+        this.setHeaderH(h);
         return;
       }
       // Not sticky, or tucked away on scroll: nothing covers the top of the
       // page, so sticky elements elsewhere should sit at 0. Written a frame
       // later so it lands after global.js's own [data-site-header] measure.
+      var self = this;
       var visible = this.mode === 'none' || this._hidden ? 0 : h;
       requestAnimationFrame(function () {
-        root.style.setProperty('--header-h', visible + 'px');
+        self.setHeaderH(visible);
       });
+    }
+
+    /* --header-h is inherited from <html>, so every write restyles the whole
+       page: only write it when the value actually changes. */
+    setHeaderH(px) {
+      if (this._headerH === px) return;
+      this._headerH = px;
+      root.style.setProperty('--header-h', px + 'px');
     }
 
     onScroll() {
@@ -1265,6 +1318,7 @@
       this.rowOnDesktop = this.getAttribute('data-desktop') === 'row';
       this.stopped = false;
       this.paused = false;
+      this.editing = false;
 
       if (this.slides.length < 2) return;
 
@@ -1284,6 +1338,24 @@
       this._onMq = function () { self.layout(); };
       if (desktopMq.addEventListener) desktopMq.addEventListener('change', this._onMq);
       if (reduceMotion.addEventListener) reduceMotion.addEventListener('change', this._onMq);
+
+      // Theme editor: show the announcement being edited and hold it there
+      // while it's selected; rotation resumes when it's deselected.
+      this._onBlockSelect = function (e) {
+        var slide = e.target && e.target.closest && e.target.closest('[data-slide]');
+        var i = slide && self.contains(slide) ? self.slides.indexOf(slide) : -1;
+        if (i < 0) return;
+        self.editing = true;
+        clearInterval(self._timer);
+        if (!self.isRow) self.show(i, false);
+      };
+      this._onBlockDeselect = function (e) {
+        if (!self.editing || !(e.target && self.contains(e.target))) return;
+        self.editing = false;
+        self.layout();
+      };
+      doc.addEventListener('shopify:block:select', this._onBlockSelect);
+      doc.addEventListener('shopify:block:deselect', this._onBlockDeselect);
       this.layout();
     }
 
@@ -1291,6 +1363,8 @@
       clearInterval(this._timer);
       if (desktopMq.removeEventListener && this._onMq) desktopMq.removeEventListener('change', this._onMq);
       if (reduceMotion.removeEventListener && this._onMq) reduceMotion.removeEventListener('change', this._onMq);
+      if (this._onBlockSelect) doc.removeEventListener('shopify:block:select', this._onBlockSelect);
+      if (this._onBlockDeselect) doc.removeEventListener('shopify:block:deselect', this._onBlockDeselect);
     }
 
     get isRow() {
@@ -1310,7 +1384,7 @@
         return;
       }
       this.show(this.index, false);
-      if (this.autoplay && !this.stopped && !reduceMotion.matches) {
+      if (this.autoplay && !this.stopped && !this.editing && !reduceMotion.matches) {
         this._timer = setInterval(function () {
           if (self.paused || doc.hidden) return;
           self.step(1, false);

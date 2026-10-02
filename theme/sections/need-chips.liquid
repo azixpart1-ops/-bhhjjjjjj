@@ -3,7 +3,9 @@
 
   A row of one-tap shortcuts that let a shopper describe their dog instead
   of decoding product names (choice architecture: name the situation, not
-  the SKU). A horizontal swipe row on phones; wraps on desktop.
+  the SKU). The heading sits above one horizontal row of chips on every
+  screen size (swipe on phones, scroll if it ever overflows on desktop), so
+  the strip stays a single line and the grid starts higher.
 
   Each chip goes to its own link, else its collection. A chip with neither
   is hidden on the live store (and shown as a hint in the editor), so the
@@ -11,7 +13,9 @@
   aria-current="page".
 
   Until the store has collections, the template's chips run a search
-  (e.g. /search?q=nest) so they still lead somewhere real.
+  (e.g. /search?q=nest) so they still lead somewhere real. Before the store
+  has any products at all, every chip would lead to an empty page, so the
+  row renders nothing on the live store (the editor still shows it).
 {%- endcomment -%}
 {{ 'collection.css' | asset_url | stylesheet_tag }}
 {%- render 'section-styles', section: section -%}
@@ -33,8 +37,20 @@
   if section.settings.show_all
     assign renderable = renderable | plus: 1
   endif
+
+  assign show_row = false
+  if renderable > 0
+    assign show_row = true
+  endif
+  assign shop_total = collections.all.products_count | default: 0 | plus: 0
+  if shop_total == 0
+    assign show_row = false
+  endif
+  if request.design_mode
+    assign show_row = true
+  endif
 -%}
-{%- if renderable > 0 or request.design_mode -%}
+{%- if show_row -%}
   <div class="section scheme-{{ cs }} need-chips" id="{{ sid }}-wrap">
     <nav class="page-width need-chips__inner" aria-labelledby="NeedChipsHeading-{{ sid }}">
       {%- if section.settings.heading != blank -%}
@@ -54,9 +70,9 @@
           <li class="need-chips__item">
             <a class="chip need-chips__chip" href="{{ all_url }}"{% if all_current %} aria-current="page"{% endif %}>
               {%- render 'icon', name: 'bed', class: 'need-chips__icon' -%}
-              {%- assign all_label = section.settings.all_label | default: '' -%}
+              {%- assign all_label = section.settings.all_label | default: '' | strip | escape -%}
               {%- if all_label == '' -%}{%- assign all_label = 'collection.need_chips.all' | t -%}{%- endif -%}
-              <span>{{ all_label | escape }}</span>
+              <span>{{ all_label }}</span>
             </a>
           </li>
         {%- endif -%}
@@ -115,9 +131,9 @@
           {%- elsif request.design_mode -%}
             <li class="need-chips__item" {{ block.shopify_attributes }}>
               <span class="chip need-chips__chip need-chips__chip--empty">
-                {%- assign hint_label = block.settings.label | default: '' -%}
+                {%- assign hint_label = block.settings.label | default: '' | strip | escape -%}
                 {%- if hint_label == '' -%}{%- assign hint_label = 'collection.need_chips.editor_label' | t -%}{%- endif -%}
-                <span>{{ hint_label | escape }}</span>
+                <span>{{ hint_label }}</span>
                 <span class="need-chips__hint">{{ 'collection.need_chips.editor_hint' | t }}</span>
               </span>
             </li>

@@ -22,11 +22,20 @@
     assign page_heading = 'finder.dialog_label' | t
   endif
   assign trust_label = 'finder.page.trust_label' | t
+  comment
+    No products yet: the finder shows a launch sign-up, not questions, so
+    the "4 quick questions" label would promise something that isn't there.
+  endcomment
+  assign show_eyebrow = section.settings.show_title
+  assign shop_total = collections.all.products_count | default: 0 | plus: 0
+  if shop_total == 0 and settings.finder_enable and request.design_mode != true
+    assign show_eyebrow = false
+  endif
 -%}
 <section class="section scheme-{{ cs }} finder-page" id="{{ section.id }}-wrap" aria-labelledby="{{ hid }}">
   <div class="page-width page-width--narrow">
     <header class="finder-page__head section-head section-head--center">
-      {%- if section.settings.eyebrow != blank and section.settings.show_title -%}
+      {%- if section.settings.eyebrow != blank and show_eyebrow -%}
         <p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>
       {%- endif -%}
       <h1 class="h1{% unless section.settings.show_title %} visually-hidden{% endunless %}" id="{{ hid }}">{{ page_heading | escape }}</h1>
