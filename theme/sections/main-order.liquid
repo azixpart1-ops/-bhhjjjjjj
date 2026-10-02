@@ -1,0 +1,303 @@
+{%- comment -%}
+  Order (classic accounts) — customers/order.json.
+
+  Everything about one order, plainly: status (payment, fulfilment,
+  cancellation), each line with its tracking where Shopify has it, the
+  totals with every discount, delivery, VAT and refund line shown (no
+  surprises), and both addresses. Post-purchase reassurance: the trial and
+  guarantee (from Theme settings, hidden when off) and a one-tap route to
+  help that pre-fills this order number on the contact form.
+{%- endcomment -%}
+{{ 'pages.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-title'
+  assign items_id = section.id | append: '-items'
+  assign help_id = section.id | append: '-help'
+  assign contact_url = s.contact_page.url | default: ''
+  if contact_url == ''
+    assign contact_url = routes.root_url | append: '/pages/contact' | replace: '//', '/'
+  endif
+  assign order_param = order.name | url_param_escape
+  assign help_url = contact_url | append: '?topic=order&order=' | append: order_param
+-%}
+<section class="section customer main-order scheme-{{ s.color_scheme | default: 'bone' }}" id="{{ section.id }}-wrap" aria-labelledby="{{ heading_id }}">
+  <div class="page-width">
+    <p class="customer__back">
+      <a class="btn btn--ghost" href="{{ routes.account_url }}">
+        {%- render 'icon', name: 'arrow-left', size: 18 -%}
+        <span>{{ 'pages.customer.order.back' | t }}</span>
+      </a>
+    </p>
+
+    <header class="customer__header customer__header--order">
+      <div>
+        <p class="eyebrow">{{ 'pages.customer.order.eyebrow' | t }}</p>
+        <h1 class="h1 customer__title" id="{{ heading_id }}">{{ 'pages.customer.order.title' | t: name: order.name }}</h1>
+        <p class="muted">
+          {{ 'pages.customer.order.placed_on' | t }}
+          <time datetime="{{ order.created_at | date: '%Y-%m-%d' }}">{{ order.created_at | date: '%-d %B %Y' }}</time>
+        </p>
+      </div>
+      <ul class="cluster order-status" role="list" aria-label="{{ 'pages.customer.order.status_label' | t }}">
+        <li>
+          <span class="status-pill">
+            <span class="status-pill__label">{{ 'pages.customer.order.payment' | t }}</span>
+            {{ order.financial_status_label }}
+          </span>
+        </li>
+        <li>
+          <span class="status-pill{% if order.fulfillment_status == 'fulfilled' %} status-pill--success{% endif %}">
+            <span class="status-pill__label">{{ 'pages.customer.order.fulfilment' | t }}</span>
+            {{ order.fulfillment_status_label }}
+          </span>
+        </li>
+      </ul>
+    </header>
+
+    {%- if order.cancelled -%}
+      <div class="order-notice" role="note">
+        {%- render 'icon', name: 'info', size: 20 -%}
+        <p>
+          {%- assign cancelled_on = order.cancelled_at | date: '%-d %B %Y' -%}
+          {{ 'pages.customer.order.cancelled' | t: date: cancelled_on }}
+          {%- if order.cancel_reason_label != blank %} {{ 'pages.customer.order.cancel_reason' | t: reason: order.cancel_reason_label }}{% endif -%}
+        </p>
+      </div>
+    {%- endif -%}
+
+    <div class="customer__grid">
+      <div class="customer__main" role="region" aria-labelledby="{{ items_id }}">
+        <h2 class="h3 customer__section-title" id="{{ items_id }}">{{ 'pages.customer.order.items' | t }}</h2>
+        <table class="order-table order-table--items" role="table">
+          <caption class="visually-hidden">{{ 'pages.customer.order.items_caption' | t: name: order.name }}</caption>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">{{ 'pages.customer.order.col_product' | t }}</th>
+              <th scope="col" role="columnheader" class="order-table__num">{{ 'pages.customer.order.col_price' | t }}</th>
+              <th scope="col" role="columnheader" class="order-table__num">{{ 'pages.customer.order.col_quantity' | t }}</th>
+              <th scope="col" role="columnheader" class="order-table__num">{{ 'pages.customer.order.col_total' | t }}</th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            {%- for line_item in order.line_items -%}
+              <tr role="row">
+                <th scope="row" role="rowheader" class="order-line" data-label="{{ 'pages.customer.order.col_product' | t | escape }}">
+                  <div class="order-line__inner">
+                    {%- if line_item.image -%}
+                      <div class="order-line__media media" style="--ratio: 1;">
+                        {%- render 'image', image: line_item.image, widths: '120,180,240', sizes: '72px', aspect: 1, decorative: true -%}
+                      </div>
+                    {%- endif -%}
+                    <div class="order-line__info">
+                      {%- if line_item.url != blank and line_item.product -%}
+                        <a class="order-line__title" href="{{ line_item.url }}">{{ line_item.product.title | default: line_item.title | escape }}</a>
+                      {%- else -%}
+                        <span class="order-line__title">{{ line_item.title | escape }}</span>
+                      {%- endif -%}
+                      {%- unless line_item.product.has_only_default_variant or line_item.variant_title == blank -%}
+                        <span class="order-line__variant">{{ line_item.variant_title | escape }}</span>
+                      {%- endunless -%}
+                      {%- for property in line_item.properties -%}
+                        {%- assign first_char = property.first | slice: 0 -%}
+                        {%- if property.last != blank and first_char != '_' -%}
+                          <span class="order-line__prop">{{ property.first | escape }}: {{ property.last | escape }}</span>
+                        {%- endif -%}
+                      {%- endfor -%}
+                      {%- if line_item.selling_plan_allocation -%}
+                        <span class="order-line__prop">{{ line_item.selling_plan_allocation.selling_plan.name | escape }}</span>
+                      {%- endif -%}
+                      {%- for discount in line_item.line_level_discount_allocations -%}
+                        <span class="order-line__discount">
+                          {%- render 'icon', name: 'tag', size: 14 -%}
+                          {{ discount.discount_application.title | escape }} (−{{ discount.amount | money }})
+                        </span>
+                      {%- endfor -%}
+                      {%- if line_item.fulfillment -%}
+                        <span class="order-line__fulfilment">
+                          {%- render 'icon', name: 'truck', size: 14 -%}
+                          {%- assign dispatched_on = line_item.fulfillment.created_at | date: '%-d %B %Y' -%}
+                          {{ 'pages.customer.order.dispatched_on' | t: date: dispatched_on }}
+                          {%- if line_item.fulfillment.tracking_url != blank -%}
+                            ·
+                            <a href="{{ line_item.fulfillment.tracking_url }}" target="_blank" rel="noopener">
+                              {{- 'pages.customer.order.track' | t -}}
+                              {%- if line_item.fulfillment.tracking_company != blank %} ({{ line_item.fulfillment.tracking_company | escape }}){% endif -%}
+                              <span class="visually-hidden"> ({{ 'accessibility.new_window' | t }})</span>
+                            </a>
+                          {%- elsif line_item.fulfillment.tracking_number != blank -%}
+                            · {{ 'pages.customer.order.tracking_number' | t: number: line_item.fulfillment.tracking_number }}
+                          {%- endif -%}
+                        </span>
+                      {%- endif -%}
+                    </div>
+                  </div>
+                </th>
+                <td role="cell" class="order-table__num" data-label="{{ 'pages.customer.order.col_price' | t | escape }}">
+                  {%- if line_item.original_price != line_item.final_price -%}
+                    <s class="muted"><span class="visually-hidden">{{ 'accessibility.was_price' | t }} </span>{{ line_item.original_price | money }}</s>
+                  {%- endif -%}
+                  {{ line_item.final_price | money }}
+                </td>
+                <td role="cell" class="order-table__num" data-label="{{ 'pages.customer.order.col_quantity' | t | escape }}">{{ line_item.quantity }}</td>
+                <td role="cell" class="order-table__num" data-label="{{ 'pages.customer.order.col_total' | t | escape }}">
+                  {%- if line_item.original_line_price != line_item.final_line_price -%}
+                    <s class="muted"><span class="visually-hidden">{{ 'accessibility.was_price' | t }} </span>{{ line_item.original_line_price | money }}</s>
+                  {%- endif -%}
+                  {{ line_item.final_line_price | money }}
+                </td>
+              </tr>
+            {%- endfor -%}
+          </tbody>
+        </table>
+
+        <dl class="order-summary">
+          <div class="order-summary__row">
+            <dt>{{ 'pages.customer.order.subtotal' | t }}</dt>
+            <dd>{{ order.line_items_subtotal_price | money }}</dd>
+          </div>
+          {%- for discount_application in order.cart_level_discount_applications -%}
+            <div class="order-summary__row">
+              <dt>
+                {%- render 'icon', name: 'tag', size: 14 -%}
+                {{ 'pages.customer.order.discount' | t }}
+                {%- if discount_application.title != blank %} ({{ discount_application.title | escape }}){% endif -%}
+              </dt>
+              <dd>−{{ discount_application.total_allocated_amount | money }}</dd>
+            </div>
+          {%- endfor -%}
+          {%- for shipping_method in order.shipping_methods -%}
+            <div class="order-summary__row">
+              <dt>{{ 'pages.customer.order.delivery' | t }} ({{ shipping_method.title | escape }})</dt>
+              <dd>
+                {%- if shipping_method.price == 0 -%}
+                  {{ 'pages.customer.order.free' | t }}
+                {%- else -%}
+                  {{ shipping_method.price | money }}
+                {%- endif -%}
+              </dd>
+            </div>
+          {%- endfor -%}
+          {%- for tax_line in order.tax_lines -%}
+            <div class="order-summary__row order-summary__row--muted">
+              <dt>
+                {%- if order.tax_price > 0 and shop.taxes_included -%}
+                  {{ 'pages.customer.order.tax_included' | t: title: tax_line.title, rate: tax_line.rate_percentage }}
+                {%- else -%}
+                  {{ tax_line.title | escape }} ({{ tax_line.rate_percentage }}%)
+                {%- endif -%}
+              </dt>
+              <dd>{{ tax_line.price | money }}</dd>
+            </div>
+          {%- endfor -%}
+          <div class="order-summary__row order-summary__row--total">
+            <dt>{{ 'pages.customer.order.total' | t }}</dt>
+            <dd>{{ order.total_price | money_with_currency }}</dd>
+          </div>
+          {%- if order.total_refunded_amount > 0 -%}
+            <div class="order-summary__row order-summary__row--refund">
+              <dt>{{ 'pages.customer.order.refunded' | t }}</dt>
+              <dd>−{{ order.total_refunded_amount | money }}</dd>
+            </div>
+          {%- endif -%}
+        </dl>
+      </div>
+
+      <div class="customer__side">
+        {%- if order.shipping_address -%}
+          <section class="card card--lg customer-card" aria-labelledby="{{ section.id }}-ship">
+            <h2 class="h4" id="{{ section.id }}-ship">{{ 'pages.customer.order.shipping_address' | t }}</h2>
+            <address class="customer-card__address">{{ order.shipping_address | format_address }}</address>
+          </section>
+        {%- endif -%}
+        {%- if order.billing_address -%}
+          <section class="card card--lg customer-card" aria-labelledby="{{ section.id }}-bill">
+            <h2 class="h4" id="{{ section.id }}-bill">{{ 'pages.customer.order.billing_address' | t }}</h2>
+            <address class="customer-card__address">{{ order.billing_address | format_address }}</address>
+          </section>
+        {%- endif -%}
+
+        <section class="card card--lg scheme-oat customer-card" aria-labelledby="{{ help_id }}">
+          <h2 class="h4" id="{{ help_id }}">{{ s.help_heading | default: '' | escape }}</h2>
+          {%- if s.help_text != blank -%}
+            <p class="muted">{{ s.help_text | escape }}</p>
+          {%- endif -%}
+          {%- if s.show_promises -%}
+            {%- render 'trust-list', items: 'trial,guarantee', layout: 'stack', size: 'md' -%}
+          {%- endif -%}
+          <a class="btn btn--secondary btn--block" href="{{ help_url }}">
+            {%- render 'icon', name: 'chat', size: 18 -%}
+            <span>{{ 'pages.customer.order.get_help' | t }}</span>
+          </a>
+        </section>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Order",
+  "class": "section-main-order",
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "text",
+      "id": "help_heading",
+      "label": "Help card heading",
+      "default": "Questions about this order?"
+    },
+    {
+      "type": "textarea",
+      "id": "help_text",
+      "label": "Help card text",
+      "default": "Tell us what's up and we'll sort it. We'll have your order number to hand."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_promises",
+      "label": "Remind them of the trial and guarantee",
+      "default": true,
+      "info": "From Theme settings → Promises; each hides when switched off."
+    },
+    {
+      "type": "page",
+      "id": "contact_page",
+      "label": "Contact page",
+      "info": "The help button opens it with this order number filled in. Leave blank to use /pages/contact."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    }
+  ]
+}
+{% endschema %}

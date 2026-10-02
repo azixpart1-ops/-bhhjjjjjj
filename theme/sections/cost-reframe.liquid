@@ -1,0 +1,345 @@
+{%- comment -%}
+  Cost reframe — the price, spread honestly over the nights it is guaranteed
+  for: "£169 ÷ (5 years × 365 nights) = about 9p a night".
+
+  Honest by construction:
+    - the basis is the guarantee length from Theme settings, stated in full
+      under the sum ("A way of seeing the cost, not a payment plan");
+    - integer arithmetic, rounded half-up to the nearest penny, "about";
+    - renders only when Theme settings → Pricing → per-night is on AND the
+      guarantee is on with a length (the guarantee IS the basis). Otherwise
+      it hides on the live store and explains why in the editor.
+
+  Price source: the chosen product's lowest price ("from"), else the product
+  being viewed on a product page, else the example price setting.
+
+  Everyday comparisons (blocks) show how many nights on the bed the same
+  money covers ("A takeaway coffee, about £3.50 ≈ 38 nights"). Keep them
+  realistic; they are merchant copy.
+
+  Text can use [per_night], [price], [guarantee_years], [product].
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign years = settings.guarantee_years | default: 0 | plus: 0
+  assign enabled = false
+  if settings.show_per_night and settings.guarantee_enable and years > 0
+    assign enabled = true
+  endif
+
+  assign source_product = s.product
+  if source_product == blank and template.name == 'product' and product != blank
+    assign source_product = product
+  endif
+
+  if source_product != blank
+    assign cents = source_product.price_min | default: 0 | plus: 0
+  else
+    assign cents = s.price | default: 0 | times: 100 | round | plus: 0
+  endif
+  if cents <= 0
+    assign enabled = false
+  endif
+-%}
+{%- if enabled or request.design_mode -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign heading_id = section.id | append: '-heading'
+  if enabled
+    assign nights = years | times: 365
+    assign twice_nights = nights | times: 2
+    assign rounded = cents | times: 2 | plus: nights | divided_by: twice_nights
+    if rounded < 1
+      assign rounded = 1
+    endif
+    assign hundredths = cents | times: 200 | plus: nights | divided_by: twice_nights
+    assign whole = hundredths | divided_by: 100
+    assign frac = hundredths | modulo: 100
+    if frac < 10
+      assign frac = '0' | append: frac
+    endif
+    if rounded < 100
+      assign per_night = rounded | append: 'p'
+      assign exact_text = whole | append: '.' | append: frac | append: 'p'
+    else
+      assign per_night = rounded | money
+      assign exact_text = rounded | money
+    endif
+  else
+    assign nights = 0
+    assign per_night = ''
+    assign exact_text = ''
+  endif
+
+  assign price_short = cents | money_without_trailing_zeros
+  assign price_full = cents | money
+  assign years_text = years | append: ''
+  assign nights_text = nights | append: ''
+
+  if source_product != blank
+    assign product_name = source_product.title | escape
+    if source_product.price_varies
+      assign price_label = 'home.cost.product_from' | t: product: product_name
+    else
+      assign price_label = product_name
+    endif
+  else
+    assign product_name = ''
+    assign price_label = 'home.cost.example_label' | t
+  endif
+
+  assign heading = s.heading | default: '' | escape | replace: '[per_night]', per_night | replace: '[price]', price_short | replace: '[guarantee_years]', years_text | replace: '[product]', product_name
+  assign body = s.body | replace: '[per_night]', per_night | replace: '[price]', price_short | replace: '[guarantee_years]', years_text | replace: '[product]', product_name
+
+  comment
+    Comparison items: nights on the bed the same money covers, and the
+    largest figure for the bar scale.
+  endcomment
+  assign item_blocks = section.blocks | where: 'type', 'item'
+  assign max_nights = 1
+  for block in item_blocks
+    assign ic = block.settings.price | default: 0 | times: 100 | round | plus: 0
+    if ic > 0 and cents > 0
+      assign covered = ic | times: nights | times: 2 | plus: cents | divided_by: cents | divided_by: 2
+      if covered > max_nights
+        assign max_nights = covered
+      endif
+    endif
+  endfor
+
+  assign cta_label = s.cta_label | default: '' | strip | escape
+  if cta_label == ''
+    assign cta_label = settings.finder_cta_label | default: '' | strip | escape
+  endif
+  if cta_label == ''
+    assign cta_label = 'home.hero.finder_cta' | t
+  endif
+-%}
+<section
+  class="section cost-reframe scheme-{{ s.color_scheme }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width">
+    {%- unless enabled -%}
+      <p class="editor-note">{{ 'home.editor.cost_hidden' | t }}</p>
+    {%- endunless -%}
+    <div class="cost-reframe__inner">
+      <div class="cost-reframe__copy">
+        {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        <h2 id="{{ heading_id }}" class="h2">{{ heading | default: shop.name }}</h2>
+        {%- if body != blank -%}<div class="rte cost-reframe__body">{{ body }}</div>{%- endif -%}
+        {%- if s.cta != 'none' -%}
+          <div class="cost-reframe__actions">
+            {%- if s.cta == 'product' and source_product != blank -%}
+              <a class="btn btn--secondary" href="{{ source_product.url }}">
+                <span>{{ 'home.cost.see_product' | t: product: product_name }}</span>{%- render 'icon', name: 'arrow-right' -%}
+              </a>
+            {%- elsif settings.finder_enable -%}
+              <button type="button" class="btn btn--secondary" data-open-finder aria-haspopup="dialog">
+                <span>{{ cta_label }}</span>{%- render 'icon', name: 'arrow-right' -%}
+              </button>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+      </div>
+
+      {%- if enabled -%}
+        <div class="cost-reframe__panel" data-reveal>
+          <p class="visually-hidden">
+            {{- 'home.cost.sr_sum' | t: price: price_short, years: years_text, nights: nights_text, amount: per_night -}}
+          </p>
+          <div class="cost-reframe__sum" aria-hidden="true">
+            <div class="cost-reframe__term">
+              <span class="cost-reframe__value">{{ price_short }}</span>
+              <span class="cost-reframe__label">{{ price_label }}</span>
+            </div>
+            <span class="cost-reframe__op">÷</span>
+            <div class="cost-reframe__term">
+              <span class="cost-reframe__value">{{ years }}<span class="cost-reframe__times">×</span>365</span>
+              <span class="cost-reframe__label">{{ 'home.cost.nights_label' | t: years: years_text }}</span>
+            </div>
+            <span class="cost-reframe__op">=</span>
+            <div class="cost-reframe__term cost-reframe__term--result">
+              <span class="cost-reframe__value">{{ per_night }}</span>
+              <span class="cost-reframe__label">{{ 'home.cost.a_night' | t }}</span>
+            </div>
+          </div>
+          <p class="cost-reframe__basis">
+            {{- 'home.cost.basis' | t: price: price_full, years: years_text, exact: exact_text -}}
+          </p>
+
+          {%- if item_blocks.size > 0 -%}
+            <div class="cost-reframe__compare">
+              {%- if s.compare_heading != blank -%}
+                <h3 class="cost-reframe__compare-heading">{{ s.compare_heading | escape }}</h3>
+              {%- endif -%}
+              <ul class="cost-reframe__items" role="list">
+                {%- for block in item_blocks -%}
+                  {%- liquid
+                    assign ic = block.settings.price | default: 0 | times: 100 | round | plus: 0
+                    assign covered = 0
+                    if ic > 0
+                      assign covered = ic | times: nights | times: 2 | plus: cents | divided_by: cents | divided_by: 2
+                    endif
+                    assign pct = covered | times: 100 | divided_by: max_nights
+                    if pct < 4
+                      assign pct = 4
+                    endif
+                    if pct > 100
+                      assign pct = 100
+                    endif
+                    assign item_price = ic | money_without_trailing_zeros
+                  -%}
+                  {%- if ic > 0 and block.settings.label != blank and covered > 0 -%}
+                    <li class="cost-reframe__item" style="--pct: {{ pct }};" {{ block.shopify_attributes }}>
+                      <span class="cost-reframe__item-label">
+                        {{- block.settings.label | escape -}}
+                        <span class="cost-reframe__item-price">{{ 'home.cost.about_price' | t: price: item_price }}</span>
+                      </span>
+                      <span class="cost-reframe__item-nights">{{ 'home.cost.covers_nights' | t: count: covered }}</span>
+                      <span class="cost-reframe__bar" aria-hidden="true"><span class="cost-reframe__bar-fill"></span></span>
+                    </li>
+                  {%- endif -%}
+                {%- endfor -%}
+              </ul>
+            </div>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Price per night",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 4,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Divides a price by the nights in your guarantee (Theme settings → Promises), rounded to the nearest penny, with the working shown. Hidden when per-night pricing or the guarantee is switched off. Text can use [per_night], [price], [guarantee_years] and [product]."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "oat"
+    },
+    {
+      "type": "product",
+      "id": "product",
+      "label": "Bed to price",
+      "info": "Uses its lowest price. On a product page, leave blank to use that product."
+    },
+    {
+      "type": "number",
+      "id": "price",
+      "label": "Example price (£)",
+      "default": 169,
+      "info": "Used when no bed is chosen. Use a real price from your range."
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "What it really costs"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "About [per_night] a night."
+    },
+    {
+      "type": "richtext",
+      "id": "body",
+      "label": "Text",
+      "default": "<p>Dogs spend twelve to fourteen hours a day lying down. Spread over the [guarantee_years] years the foam is guaranteed for, a bed that actually holds them up works out at pennies a night.</p>"
+    },
+    {
+      "type": "select",
+      "id": "cta",
+      "label": "Button",
+      "options": [
+        { "value": "finder", "label": "Open the Bed Finder" },
+        { "value": "product", "label": "Go to the chosen bed" },
+        { "value": "none", "label": "No button" }
+      ],
+      "default": "finder"
+    },
+    {
+      "type": "text",
+      "id": "cta_label",
+      "label": "Bed Finder button label",
+      "info": "Leave blank to use the label from Theme settings."
+    },
+    {
+      "type": "text",
+      "id": "compare_heading",
+      "label": "Comparison heading",
+      "default": "The same money, elsewhere"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    }
+  ],
+  "blocks": [
+    {
+      "type": "item",
+      "name": "Everyday comparison",
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Item",
+          "default": "A takeaway coffee"
+        },
+        {
+          "type": "number",
+          "id": "price",
+          "label": "Typical price (£)",
+          "default": 3.5,
+          "info": "Keep it realistic. Shown as \"about £3.50\" with the nights on the bed it would cover."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Price per night",
+      "blocks": [
+        { "type": "item", "settings": { "label": "A takeaway coffee", "price": 3.5 } },
+        { "type": "item", "settings": { "label": "A bag of dog treats", "price": 4 } },
+        { "type": "item", "settings": { "label": "A cinema ticket", "price": 12 } }
+      ]
+    }
+  ]
+}
+{% endschema %}

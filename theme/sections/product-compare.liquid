@@ -1,0 +1,364 @@
+{%- comment -%}
+  "Why it's worth more than a £25 bed" — this bed against the budget
+  category, row by row. Anchoring and specificity, done honestly:
+    - the right-hand column describes a category in general terms and never
+      names a competitor;
+    - every left-hand claim should be physical and checkable (density, cover,
+      guarantee, trial) — no medical claims;
+    - rows can depend on a promise (trial / guarantee / free delivery) and hide
+      when that promise is switched off in Theme settings.
+  Placeholders in any cell: [trial_nights] [guarantee_years] [threshold].
+
+  Semantic <table> with explicit ARIA roles, so phones can lay each row out as
+  a card without losing the table for screen readers.
+{%- endcomment -%}
+{{ 'product.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign nights = settings.trial_nights | default: 0 | plus: 0
+  assign years = settings.guarantee_years | default: 0 | plus: 0
+  assign nights_s = nights | append: ''
+  assign years_s = years | append: ''
+  assign threshold_cents = settings.free_shipping_threshold | default: 0 | times: 100 | round
+  assign threshold_money = threshold_cents | money_without_trailing_zeros
+
+  assign ours_label = section.settings.ours_label | default: ''
+  if section.settings.use_product_title and product != blank and product.id != blank
+    assign ours_label = product.title | split: ' | ' | first | strip
+  endif
+  if ours_label == ''
+    assign ours_label = shop.name
+  endif
+  assign theirs_label = section.settings.theirs_label | default: ''
+
+  assign visible_ids = ''
+  for block in section.blocks
+    assign req = block.settings.requires | default: 'none'
+    assign ok = true
+    case req
+      when 'trial'
+        unless settings.trial_enable and nights > 0
+          assign ok = false
+        endunless
+      when 'guarantee'
+        unless settings.guarantee_enable and years > 0
+          assign ok = false
+        endunless
+      when 'free_delivery'
+        unless settings.free_shipping_enable and threshold_cents > 0
+          assign ok = false
+        endunless
+    endcase
+    if ok
+      assign visible_ids = visible_ids | append: block.id | append: ','
+    endif
+  endfor
+  assign row_count = visible_ids | split: ',' | size
+-%}
+{%- if row_count > 0 -%}
+  <section
+    id="{{ section.id }}-wrap"
+    class="section scheme-{{ section.settings.color_scheme }} product-compare"
+    aria-labelledby="{{ section.id }}-heading"
+  >
+    <div class="page-width page-width--narrow">
+      <div class="section-head section-head--center">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>
+        {%- endif -%}
+        <h2 class="h2" id="{{ section.id }}-heading">{{ section.settings.heading | escape }}</h2>
+        {%- if section.settings.intro != blank -%}
+          <div class="lede rte">
+            {{- section.settings.intro | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money -}}
+          </div>
+        {%- endif -%}
+      </div>
+
+      <table class="compare" role="table">
+        <caption class="visually-hidden">{{ section.settings.heading | escape }}</caption>
+        <thead role="rowgroup">
+          <tr class="compare__head" role="row">
+            <th scope="col" role="columnheader" class="compare__feature-head"><span class="visually-hidden">{{ 'product.compare.feature' | t }}</span></th>
+            <th scope="col" role="columnheader" class="compare__col compare__col--ours">
+              {%- render 'icon', name: 'paw', class: 'compare__col-icon' -%}
+              <span>{{ ours_label | escape }}</span>
+            </th>
+            <th scope="col" role="columnheader" class="compare__col compare__col--theirs"><span>{{ theirs_label | escape }}</span></th>
+          </tr>
+        </thead>
+        <tbody role="rowgroup">
+          {%- for block in section.blocks -%}
+            {%- liquid
+              assign key = block.id | append: ','
+              unless visible_ids contains key
+                continue
+              endunless
+              assign b = block.settings
+            -%}
+            <tr class="compare__row" role="row" {{ block.shopify_attributes }}>
+              <th scope="row" role="rowheader" class="compare__feature">{{ b.label | escape }}</th>
+              <td role="cell" class="compare__cell compare__cell--ours">
+                <span class="compare__mobile-label" aria-hidden="true">{{ ours_label | escape }}</span>
+                <span class="compare__value">
+                  {%- if b.ours_icon == 'check' -%}
+                    <span class="compare__mark compare__mark--yes">{%- render 'icon', name: 'check' -%}<span class="visually-hidden">{{ 'product.compare.yes' | t }}: </span></span>
+                  {%- elsif b.ours_icon == 'cross' -%}
+                    <span class="compare__mark compare__mark--no">{%- render 'icon', name: 'close' -%}<span class="visually-hidden">{{ 'product.compare.no' | t }}: </span></span>
+                  {%- endif -%}
+                  <span>{{ b.ours | escape | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money }}</span>
+                </span>
+              </td>
+              <td role="cell" class="compare__cell compare__cell--theirs">
+                <span class="compare__mobile-label" aria-hidden="true">{{ theirs_label | escape }}</span>
+                <span class="compare__value">
+                  {%- if b.theirs_icon == 'check' -%}
+                    <span class="compare__mark compare__mark--yes">{%- render 'icon', name: 'check' -%}<span class="visually-hidden">{{ 'product.compare.yes' | t }}: </span></span>
+                  {%- elsif b.theirs_icon == 'cross' -%}
+                    <span class="compare__mark compare__mark--no">{%- render 'icon', name: 'close' -%}<span class="visually-hidden">{{ 'product.compare.no' | t }}: </span></span>
+                  {%- endif -%}
+                  <span>{{ b.theirs | escape | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money }}</span>
+                </span>
+              </td>
+            </tr>
+          {%- endfor -%}
+        </tbody>
+      </table>
+
+      {%- if section.settings.footnote != blank -%}
+        <p class="compare__footnote small muted">{{ section.settings.footnote | escape }}</p>
+      {%- endif -%}
+
+      {%- if section.settings.show_cta and template.name == 'product' -%}
+        <p class="compare__cta">
+          <a class="btn btn--secondary" href="#ProductBuy">
+            <span>{%- if section.settings.cta_label != blank -%}{{ section.settings.cta_label | escape }}{%- else -%}{{ 'product.compare.cta' | t }}{%- endif -%}</span>
+            {%- render 'icon', name: 'arrow-right' -%}
+          </a>
+        </p>
+      {%- endif -%}
+    </div>
+  </section>
+{%- elsif request.design_mode -%}
+  <div class="page-width product-compare__empty">
+    <p class="small muted">Add a comparison row, or switch on the promise your rows depend on in Theme settings → Promises.</p>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Worth-it comparison",
+  "tag": "div",
+  "class": "product-compare-section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Where the money goes"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Why it's worth more than a £25 bed"
+    },
+    {
+      "type": "richtext",
+      "id": "intro",
+      "label": "Intro",
+      "default": "<p>Cheap beds feel lovely in the shop and flatten inside a year. Here's what you're paying for instead.</p>"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_product_title",
+      "label": "Use the product's name for our column",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "ours_label",
+      "label": "Our column",
+      "default": "This bed"
+    },
+    {
+      "type": "text",
+      "id": "theirs_label",
+      "label": "Their column",
+      "default": "A typical £25 bed"
+    },
+    {
+      "type": "text",
+      "id": "footnote",
+      "label": "Footnote",
+      "default": "\"Typical\" describes budget dog beds in general. We don't name or compare against any other brand."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_cta",
+      "label": "Show \"Choose your size\" link on product pages",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "cta_label",
+      "label": "Link label",
+      "default": "Choose your size"
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    }
+  ],
+  "blocks": [
+    {
+      "type": "row",
+      "name": "Row",
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Feature",
+          "default": "Filling"
+        },
+        {
+          "type": "text",
+          "id": "ours",
+          "label": "Ours",
+          "default": "50kg/m³ high-density memory foam core"
+        },
+        {
+          "type": "select",
+          "id": "ours_icon",
+          "label": "Our mark",
+          "options": [
+            { "value": "check", "label": "Tick" },
+            { "value": "cross", "label": "Cross" },
+            { "value": "none", "label": "None" }
+          ],
+          "default": "check"
+        },
+        {
+          "type": "text",
+          "id": "theirs",
+          "label": "Theirs",
+          "default": "Shredded offcuts or low-density foam"
+        },
+        {
+          "type": "select",
+          "id": "theirs_icon",
+          "label": "Their mark",
+          "options": [
+            { "value": "check", "label": "Tick" },
+            { "value": "cross", "label": "Cross" },
+            { "value": "none", "label": "None" }
+          ],
+          "default": "cross"
+        },
+        {
+          "type": "select",
+          "id": "requires",
+          "label": "Only show when this promise is on",
+          "options": [
+            { "value": "none", "label": "Always show" },
+            { "value": "trial", "label": "Sleep trial" },
+            { "value": "guarantee", "label": "Guarantee" },
+            { "value": "free_delivery", "label": "Free delivery" }
+          ],
+          "default": "none"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 10,
+  "presets": [
+    {
+      "name": "Worth-it comparison",
+      "blocks": [
+        {
+          "type": "row",
+          "settings": {
+            "label": "Filling",
+            "ours": "50kg/m³ high-density memory foam core",
+            "ours_icon": "check",
+            "theirs": "Shredded offcuts or low-density foam",
+            "theirs_icon": "cross",
+            "requires": "none"
+          }
+        },
+        {
+          "type": "row",
+          "settings": {
+            "label": "Guarantee",
+            "ours": "[guarantee_years] years on the foam",
+            "ours_icon": "check",
+            "theirs": "Rarely more than a year",
+            "theirs_icon": "cross",
+            "requires": "guarantee"
+          }
+        },
+        {
+          "type": "row",
+          "settings": {
+            "label": "Trial",
+            "ours": "[trial_nights] nights, slept on",
+            "ours_icon": "check",
+            "theirs": "14 days, and it has to be unused",
+            "theirs_icon": "cross",
+            "requires": "trial"
+          }
+        },
+        {
+          "type": "row",
+          "settings": {
+            "label": "Returns",
+            "ours": "We collect it, free",
+            "ours_icon": "check",
+            "theirs": "You pay the courier",
+            "theirs_icon": "cross",
+            "requires": "trial"
+          }
+        },
+        {
+          "type": "row",
+          "settings": {
+            "label": "Cleaning",
+            "ours": "Cover unzips, machine-washes at 30°C",
+            "ours_icon": "check",
+            "theirs": "Spot-clean only",
+            "theirs_icon": "cross",
+            "requires": "none"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,460 @@
+{%- comment -%}
+  Header — logo, navigation, the bed finder, search, account and basket.
+
+  The finder button is the main road to a purchase for anyone undecided, so it
+  stays visible at every width (outline pill on desktop, short label on
+  mobile). The basket stays one tap away: the header is sticky by default.
+
+  JS: <site-header>, <menu-drawer>, <cart-count> in cart.js;
+      <search-modal>, <predictive-search> in search.js (loaded below).
+{%- endcomment -%}
+{%- liquid
+  assign menu = section.settings.menu
+  assign finder_url = section.settings.finder_link
+  if finder_url == blank
+    assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  endif
+
+  assign show_finder = false
+  if section.settings.show_finder and settings.finder_enable
+    assign show_finder = true
+  endif
+
+  assign transparent = false
+  if section.settings.transparent_home and template.name == 'index'
+    assign transparent = true
+  endif
+
+  assign finder_label = settings.finder_cta_label | default: "Find my dog's bed"
+  assign finder_label_mobile = section.settings.finder_label_mobile | default: finder_label
+
+  assign logo_alt = settings.logo.alt | default: shop.name
+  assign logo_w = settings.logo_width | default: 140
+  assign logo_sizes = logo_w | append: 'px'
+-%}
+
+<site-header
+  class="header scheme-{{ section.settings.color_scheme }}{% if transparent %} header--transparent{% endif %}"
+  data-header
+  data-sticky="{{ section.settings.sticky }}"
+  data-condense="{{ section.settings.condense }}"
+  style="--logo-w: {{ logo_w }}px; --logo-w-mobile: {{ section.settings.mobile_logo_width }}px; --hdr-pt: {{ section.settings.padding_top }}px; --hdr-pb: {{ section.settings.padding_bottom }}px;"
+>
+  <div class="header__bar" data-header-bar data-site-header>
+    <div class="page-width header__inner">
+      <button
+        type="button"
+        class="header__icon header__menu-toggle"
+        aria-controls="MenuDrawer"
+        aria-expanded="false"
+        aria-haspopup="dialog"
+        data-menu-open
+      >
+        {%- render 'icon', name: 'menu', size: 24 -%}
+        <span class="visually-hidden">{{ 'chrome.header.menu' | t }}</span>
+      </button>
+
+      <a href="{{ routes.root_url }}" class="header__logo">
+        {%- if settings.logo != blank -%}
+          {%- render 'image',
+            image: settings.logo,
+            widths: '120,160,240,320,480,560',
+            sizes: logo_sizes,
+            class: 'header__logo-img header__logo-img--default',
+            loading: 'eager',
+            alt: logo_alt
+          -%}
+          {%- if transparent and section.settings.transparent_logo != blank -%}
+            {%- render 'image',
+              image: section.settings.transparent_logo,
+              widths: '120,160,240,320,480,560',
+              sizes: logo_sizes,
+              class: 'header__logo-img header__logo-img--light',
+              loading: 'eager',
+              decorative: true
+            -%}
+          {%- endif -%}
+        {%- else -%}
+          <span class="header__logo-text">{{ shop.name | escape }}</span>
+        {%- endif -%}
+      </a>
+
+      {%- if menu.links.size > 0 -%}
+        <nav class="header__nav" aria-label="{{ 'chrome.header.nav_label' | t }}">
+          <ul class="header__menu" role="list">
+            {%- for link in menu.links -%}
+              <li class="header__menu-item{% if link.links.size > 0 %} header__menu-item--parent{% endif %}">
+                {%- if link.links.size > 0 -%}
+                  {%- liquid
+                    assign is_mega = false
+                    for child in link.links
+                      if child.links.size > 0
+                        assign is_mega = true
+                        break
+                      endif
+                    endfor
+                  -%}
+                  <details class="nav-dropdown{% if is_mega %} nav-dropdown--mega{% endif %}" data-nav-dropdown>
+                    <summary class="header__menu-link{% if link.child_active or link.active %} is-active{% endif %}" aria-expanded="false">
+                      <span>{{ link.title | escape }}</span>
+                      {%- render 'icon', name: 'chevron-down', size: 14, class: 'header__menu-chevron' -%}
+                    </summary>
+                    <div class="nav-dropdown__panel">
+                      <ul class="nav-dropdown__list" role="list">
+                        {%- for child in link.links -%}
+                          <li class="nav-dropdown__item">
+                            <a
+                              href="{{ child.url }}"
+                              class="nav-dropdown__link{% if child.links.size > 0 %} nav-dropdown__link--group{% endif %}"
+                              {% if child.current %}aria-current="page"{% endif %}
+                            >
+                              {{- child.title | escape -}}
+                            </a>
+                            {%- if child.links.size > 0 -%}
+                              <ul class="nav-dropdown__sublist" role="list">
+                                {%- for grandchild in child.links -%}
+                                  <li>
+                                    <a href="{{ grandchild.url }}" class="nav-dropdown__sublink"{% if grandchild.current %} aria-current="page"{% endif %}>
+                                      {{- grandchild.title | escape -}}
+                                    </a>
+                                  </li>
+                                {%- endfor -%}
+                              </ul>
+                            {%- endif -%}
+                          </li>
+                        {%- endfor -%}
+                      </ul>
+                      <div class="nav-dropdown__footer">
+                        {%- if link.url != blank and link.url != '#' -%}
+                          <a href="{{ link.url }}" class="nav-dropdown__all"{% if link.current %} aria-current="page"{% endif %}>
+                            {{- 'chrome.header.view_all' | t: title: link.title -}}
+                            {%- render 'icon', name: 'arrow-right', size: 14 -%}
+                          </a>
+                        {%- endif -%}
+                        {%- if show_finder and section.settings.dropdown_finder -%}
+                          <a href="{{ finder_url }}" class="nav-dropdown__finder" data-open-finder>
+                            {%- render 'icon', name: 'paw', size: 20, class: 'nav-dropdown__finder-icon' -%}
+                            <span>
+                              <span class="nav-dropdown__finder-title">{{ 'chrome.header.finder_nudge_title' | t }}</span>
+                              <span class="nav-dropdown__finder-text">{{ 'chrome.header.finder_nudge_text' | t }}</span>
+                            </span>
+                          </a>
+                        {%- endif -%}
+                      </div>
+                    </div>
+                  </details>
+                {%- else -%}
+                  <a
+                    href="{{ link.url }}"
+                    class="header__menu-link{% if link.active %} is-active{% endif %}"
+                    {% if link.current %}aria-current="page"{% endif %}
+                  >
+                    {{- link.title | escape -}}
+                  </a>
+                {%- endif -%}
+              </li>
+            {%- endfor -%}
+          </ul>
+        </nav>
+      {%- endif -%}
+
+      <div class="header__actions">
+        {%- if show_finder -%}
+          <a href="{{ finder_url }}" class="header__finder" data-open-finder>
+            {%- render 'icon', name: 'paw', size: 18, class: 'header__finder-icon' -%}
+            <span class="header__finder-label header__finder-label--desktop">{{ finder_label | escape }}</span>
+            <span class="header__finder-label header__finder-label--mobile">{{ finder_label_mobile | escape }}</span>
+          </a>
+        {%- endif -%}
+
+        <a
+          href="{{ routes.search_url }}"
+          class="header__icon header__icon--search"
+          data-search-open
+          aria-haspopup="dialog"
+        >
+          {%- render 'icon', name: 'search', size: 22 -%}
+          <span class="visually-hidden">{{ 'chrome.header.search' | t }}</span>
+        </a>
+
+        {%- if shop.customer_accounts_enabled -%}
+          <a href="{{ routes.account_url }}" class="header__icon header__icon--account">
+            {%- render 'icon', name: 'user', size: 22 -%}
+            <span class="visually-hidden">
+              {%- if customer -%}{{ 'chrome.header.account' | t }}{%- else -%}{{ 'chrome.header.log_in' | t }}{%- endif -%}
+            </span>
+          </a>
+        {%- endif -%}
+
+        <a href="{{ routes.cart_url }}" class="header__icon header__icon--basket" data-cart-link>
+          {%- render 'icon', name: 'basket', size: 24 -%}
+          <span class="visually-hidden">{{ 'chrome.header.basket' | t }}</span>
+          <cart-count
+            class="cart-count"
+            data-cart-count
+            data-count="{{ cart.item_count }}"
+            data-item="{{ 'chrome.header.item' | t }}"
+            data-items="{{ 'chrome.header.items' | t }}"
+            {% if cart.item_count == 0 %}hidden{% endif %}
+          >
+            <span class="cart-count__number" aria-hidden="true" data-cart-count-number>
+              {%- if cart.item_count > 99 -%}99+{%- else -%}{{ cart.item_count }}{%- endif -%}
+            </span>
+            <span class="visually-hidden" data-cart-count-label>, {{ 'chrome.header.basket_count' | t: count: cart.item_count }}</span>
+          </cart-count>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {%- if menu.links.size > 0 -%}
+    <noscript>
+      <nav class="header__noscript-nav page-width" aria-label="{{ 'chrome.header.nav_label' | t }}">
+        <ul class="header__noscript-list" role="list">
+          {%- for link in menu.links -%}
+            <li><a href="{{ link.url }}" class="header__noscript-link">{{ link.title | escape }}</a></li>
+          {%- endfor -%}
+        </ul>
+      </nav>
+    </noscript>
+  {%- endif -%}
+
+  {%- render 'menu-drawer',
+    menu: menu,
+    finder_url: finder_url,
+    show_finder: show_finder,
+    scheme: section.settings.color_scheme
+  -%}
+
+  <search-modal class="search-modal" id="SearchModal">
+    <dialog class="chrome-dialog search-modal__dialog" aria-labelledby="SearchModalTitle">
+      <div class="chrome-dialog__scrim" data-close aria-hidden="true"></div>
+      <div class="search-modal__panel scheme-{{ section.settings.color_scheme }}">
+        <div class="page-width search-modal__inner">
+          <h2 class="visually-hidden" id="SearchModalTitle">{{ 'chrome.search.title' | t }}</h2>
+          <predictive-search
+            class="search-modal__search"
+            data-section-id="predictive-search"
+            data-enabled="{{ settings.predictive_search_enable }}"
+            data-loading-text="{{ 'chrome.search.loading' | t }}"
+          >
+            <form action="{{ routes.search_url }}" method="get" role="search" class="search-modal__form">
+              <label class="visually-hidden" for="SearchModalInput">{{ 'chrome.search.label' | t }}</label>
+              <div class="search-modal__field">
+                {%- render 'icon', name: 'search', size: 20, class: 'search-modal__field-icon' -%}
+                <input
+                  type="search"
+                  id="SearchModalInput"
+                  class="search-modal__input"
+                  name="q"
+                  value="{{ search.terms | escape }}"
+                  placeholder="{{ 'chrome.search.placeholder' | t }}"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  enterkeyhint="search"
+                  data-dialog-focus
+                  {%- if settings.predictive_search_enable %}
+                    role="combobox"
+                    aria-expanded="false"
+                    aria-controls="predictive-search-listbox"
+                    aria-autocomplete="list"
+                    aria-haspopup="listbox"
+                  {%- endif %}
+                >
+                <input type="hidden" name="options[prefix]" value="last">
+                <button type="submit" class="search-modal__submit">{{ 'chrome.search.submit' | t }}</button>
+              </div>
+              <button type="button" class="search-modal__close" data-close aria-label="{{ 'chrome.search.close' | t }}">
+                {%- render 'icon', name: 'close', size: 22 -%}
+              </button>
+            </form>
+
+            <div class="search-modal__default" data-search-default>
+              {%- assign quick = section.settings.search_menu -%}
+              {%- if quick.links.size > 0 -%}
+                <div class="search-modal__quick">
+                  <h3 class="search-modal__heading">{{ 'chrome.search.quick_links' | t }}</h3>
+                  <ul class="search-modal__chips" role="list">
+                    {%- for link in quick.links -%}
+                      <li><a href="{{ link.url }}" class="chip search-modal__chip">{{ link.title | escape }}</a></li>
+                    {%- endfor -%}
+                  </ul>
+                </div>
+              {%- endif -%}
+              {%- if show_finder -%}
+                <a href="{{ finder_url }}" class="search-modal__finder" data-open-finder>
+                  <span class="search-modal__finder-icon">{%- render 'icon', name: 'paw', size: 22 -%}</span>
+                  <span class="search-modal__finder-copy">
+                    <span class="search-modal__finder-title">{{ 'chrome.search.finder_title' | t }}</span>
+                    <span class="search-modal__finder-text">{{ 'chrome.search.finder_text' | t }}</span>
+                  </span>
+                  <span class="search-modal__finder-cta">
+                    {{- finder_label | escape -}}
+                    {%- render 'icon', name: 'arrow-right', size: 16 -%}
+                  </span>
+                </a>
+              {%- endif -%}
+            </div>
+
+            <div class="search-modal__results" data-predictive-results hidden></div>
+            <p class="visually-hidden" role="status" aria-live="polite" aria-atomic="true" data-predictive-status></p>
+          </predictive-search>
+        </div>
+      </div>
+    </dialog>
+  </search-modal>
+</site-header>
+
+<script src="{{ 'search.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Header",
+  "tag": "header",
+  "class": "header-section",
+  "enabled_on": {
+    "groups": ["header"]
+  },
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "Menu",
+      "default": "main-menu",
+      "info": "Two levels open as dropdowns on desktop; a third level shows as grouped columns."
+    },
+    {
+      "type": "range",
+      "id": "mobile_logo_width",
+      "label": "Logo width on mobile",
+      "min": 60,
+      "max": 140,
+      "step": 4,
+      "unit": "px",
+      "default": 104,
+      "info": "Desktop width is in Theme settings → Logo."
+    },
+    {
+      "type": "header",
+      "content": "Behaviour"
+    },
+    {
+      "type": "select",
+      "id": "sticky",
+      "label": "Sticky header",
+      "options": [
+        { "value": "always", "label": "Always visible" },
+        { "value": "scroll_up", "label": "Hide on scroll down, show on scroll up" },
+        { "value": "none", "label": "Not sticky" }
+      ],
+      "default": "always",
+      "info": "Always visible keeps the basket and bed finder one tap away."
+    },
+    {
+      "type": "checkbox",
+      "id": "condense",
+      "label": "Slim down when scrolling",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Bed finder button"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_finder",
+      "label": "Show bed finder button",
+      "default": true,
+      "info": "Uses the label in Theme settings → Bed finder, and hides itself if the finder is switched off."
+    },
+    {
+      "type": "text",
+      "id": "finder_label_mobile",
+      "label": "Short label on mobile",
+      "default": "Find their bed",
+      "info": "Keep it under 15 characters so it fits beside the basket on small phones."
+    },
+    {
+      "type": "url",
+      "id": "finder_link",
+      "label": "Fallback link",
+      "info": "Where the button goes if the finder pop-up isn't on the page. Leave blank to use /pages/bed-finder."
+    },
+    {
+      "type": "checkbox",
+      "id": "dropdown_finder",
+      "label": "Suggest the finder inside menu dropdowns",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Search"
+    },
+    {
+      "type": "link_list",
+      "id": "search_menu",
+      "label": "Quick links menu",
+      "info": "Shown in the search panel before anyone types. Predictive results are switched on in Theme settings → Search."
+    },
+    {
+      "type": "header",
+      "content": "Transparent header"
+    },
+    {
+      "type": "checkbox",
+      "id": "transparent_home",
+      "label": "Overlay the homepage's first section",
+      "default": false,
+      "info": "Only use this when the first section is a dark image or uses the Moss scheme, so the menu stays readable."
+    },
+    {
+      "type": "image_picker",
+      "id": "transparent_logo",
+      "label": "Light logo for the overlay"
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Extra top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Extra bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "Header"
+    }
+  ]
+}
+{% endschema %}

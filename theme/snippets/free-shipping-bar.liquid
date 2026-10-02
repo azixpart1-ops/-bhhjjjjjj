@@ -1,0 +1,73 @@
+{%- comment -%}
+  Free-delivery progress (goal gradient). Server-side, JS-free: the cart
+  drawer and cart page re-render it through the Section Rendering API.
+
+    empty basket  → "Free UK delivery on orders over £40"
+    below         → "You're £11 away from free UK delivery" + bar
+    reached       → "Free UK delivery unlocked" + full bar
+
+  Parameters
+    cart     the cart object (required)
+    compact  true → tighter spacing
+    class    extra classes
+
+  Renders nothing when settings.free_shipping_enable is off or the threshold
+  is 0. The threshold is in the store's currency (GBP); the theme does not
+  convert it for other presentment currencies.
+{%- endcomment -%}
+{%- liquid
+  assign threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round
+  assign show = false
+  if settings.free_shipping_enable and threshold > 0
+    assign show = true
+  endif
+-%}
+{%- if show -%}
+  {%- liquid
+    assign total = cart.total_price | default: 0
+    assign remaining = threshold | minus: total
+    assign unlocked = false
+    if remaining <= 0
+      assign unlocked = true
+    endif
+    assign pct = total | times: 100 | divided_by: threshold
+    if pct > 100
+      assign pct = 100
+    endif
+    assign item_count = cart.item_count | default: 0
+    assign threshold_money = threshold | money_without_trailing_zeros
+    assign remaining_money = remaining | money_without_trailing_zeros
+    assign total_money = total | money_without_trailing_zeros
+  -%}
+  <div
+    class="free-shipping{% if unlocked %} is-unlocked{% endif %}{% if compact %} free-shipping--compact{% endif %}{% if class %} {{ class }}{% endif %}"
+    data-free-shipping
+    data-threshold="{{ threshold }}"
+  >
+    <p class="free-shipping__message">
+      {%- if item_count == 0 -%}
+        {%- render 'icon', name: 'truck', class: 'free-shipping__icon' -%}
+        <span>{{ 'core.free_shipping.empty' | t: amount: threshold_money }}</span>
+      {%- elsif unlocked -%}
+        {%- render 'icon', name: 'check-circle', class: 'free-shipping__icon' -%}
+        <span>{{ 'core.free_shipping.unlocked' | t }}</span>
+      {%- else -%}
+        {%- render 'icon', name: 'truck', class: 'free-shipping__icon' -%}
+        <span>{{ 'core.free_shipping.remaining_html' | t: amount: remaining_money }}</span>
+      {%- endif -%}
+    </p>
+    {%- if item_count > 0 -%}
+      <div
+        class="progress free-shipping__progress"
+        role="progressbar"
+        aria-label="{{ 'accessibility.free_delivery_progress' | t }}"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="{{ pct }}"
+        aria-valuetext="{{ 'accessibility.free_delivery_progress_value' | t: total: total_money, threshold: threshold_money }}"
+      >
+        <span class="progress__bar" style="--progress: {{ pct }}"></span>
+      </div>
+    {%- endif -%}
+  </div>
+{%- endif -%}

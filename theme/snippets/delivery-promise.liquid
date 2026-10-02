@@ -1,0 +1,113 @@
+{%- comment -%}
+  Delivery promise with an honest dispatch countdown.
+
+  Server renders a true, timeless fallback ("Order by 3pm Mon–Fri for same-day
+  dispatch"). global.js then replaces the text with a live line computed from
+  the merchant's real cut-off, dispatch days, holidays and delivery window in
+  the store's time zone:
+    "Order within 2h 14m for dispatch today — arrives Thu 8 Oct–Sat 10 Oct"
+    "Order now for dispatch tomorrow (Mon) — arrives Tue 6 Oct–Thu 8 Oct"
+  It updates every 30s, never resets on reload, and is hidden entirely when
+  settings.delivery_promise_enable is off.
+
+  Parameters
+    variant   optional; when it is unavailable the line starts hidden
+              (global.js re-shows it on lunova:variant:change to an available one)
+    compact   true → small single line (cards, drawer, sticky bar)
+    class     extra classes
+    mode      'time' → outputs only the cut-off time text ("3pm"; blank when the
+              cut-off hour is 0, i.e. no same-day dispatch)
+              'days' → outputs only the dispatch days text ("Mon–Fri")
+              (used by trust-list; no markup)
+{%- endcomment -%}
+{%- liquid
+  assign hour = settings.dispatch_cutoff_hour | default: 15 | plus: 0
+  comment
+    A cut-off of 0 means nothing ever goes out the same day, so there is
+    no order-by time to promise.
+  endcomment
+  if hour == 0
+    assign time_text = ''
+  elsif hour == 12
+    assign time_text = 'core.delivery.noon' | t
+  elsif hour < 12
+    assign time_text = 'core.delivery.am' | t: hour: hour
+  else
+    assign h12 = hour | minus: 12
+    assign time_text = 'core.delivery.pm' | t: hour: h12
+  endif
+
+  comment
+    Dispatch days: "1,2,3,4,5" (0 = Sunday). Anything that isn't a single
+    digit 0–6 is ignored rather than read as Sunday.
+  endcomment
+  assign raw_days = settings.dispatch_days | default: '' | split: ','
+  assign valid = ''
+  for r in raw_days
+    assign rn = r | strip
+    if rn.size == 1 and '0123456' contains rn
+      unless valid contains rn
+        assign valid = valid | append: rn
+      endunless
+    endif
+  endfor
+
+  comment
+    Monday-first order, so Mon–Fri reads as a range.
+  endcomment
+  assign order = '1,2,3,4,5,6,0' | split: ','
+  assign keys = 'sun,mon,tue,wed,thu,fri,sat' | split: ','
+  assign names = ''
+  assign count = 0
+  assign first_pos = -1
+  assign last_pos = -1
+  for d in order
+    if valid contains d
+      assign idx = d | plus: 0
+      assign key = 'core.delivery.days.' | append: keys[idx]
+      assign nm = key | t
+      if names != ''
+        assign names = names | append: '|'
+      endif
+      assign names = names | append: nm
+      assign count = count | plus: 1
+      if first_pos == -1
+        assign first_pos = forloop.index0
+      endif
+      assign last_pos = forloop.index0
+    endif
+  endfor
+  assign name_list = names | split: '|'
+  assign span = last_pos | minus: first_pos | plus: 1
+  if count >= 3 and span == count
+    assign days_text = name_list.first | append: '–' | append: name_list.last
+  else
+    assign days_text = name_list | join: ', '
+  endif
+-%}
+{%- if mode == 'time' -%}
+  {{- time_text -}}
+{%- elsif mode == 'days' -%}
+  {{- days_text -}}
+{%- elsif settings.delivery_promise_enable and count > 0 -%}
+  {%- liquid
+    assign starts_hidden = false
+    if variant != blank and variant.available == false
+      assign starts_hidden = true
+    endif
+  -%}
+  <div
+    class="delivery-promise{% if compact %} delivery-promise--compact{% endif %}{% if class %} {{ class }}{% endif %}"
+    data-countdown
+    {%- if starts_hidden %} data-unavailable hidden{% endif %}
+  >
+    {%- render 'icon', name: 'truck', class: 'delivery-promise__icon' -%}
+    <p class="delivery-promise__text" data-countdown-text>
+      {%- if time_text != '' -%}
+        {{- 'core.delivery.fallback' | t: time: time_text, days: days_text -}}
+      {%- else -%}
+        {{- 'core.delivery.fallback_days_only' | t: days: days_text -}}
+      {%- endif -%}
+    </p>
+  </div>
+{%- endif -%}

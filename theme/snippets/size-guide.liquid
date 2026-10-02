@@ -1,0 +1,194 @@
+{%- comment -%}
+  Size guide — a native <dialog> (bottom sheet on phones) built from THIS
+  product's size option values crossed with settings.size_hints, so the
+  breeds and weights always line up with the sizes actually on sale.
+
+  Opened by any [data-size-guide-open] button in the same product scope
+  (variant picker's "Size guide" link, the size_guide block). Each row has a
+  "Choose" button that selects that size in the picker and closes the guide.
+
+  Parameters
+    product   required
+    section   required (ids are scoped to section.id)
+    variant   the selected variant (marks its row "Selected")
+    block     optional main-product size_guide block — its heading / measuring
+              tip override the defaults
+    compact   true inside the quick-add drawer
+{%- endcomment -%}
+{%- if product != blank and product.id != blank -%}
+  {%- liquid
+    assign current = variant | default: product.selected_or_first_available_variant
+    assign size_idx = -1
+    assign size_option = nil
+    for option in product.options_with_values
+      assign oname = option.name | downcase
+      if oname contains 'size'
+        assign size_idx = forloop.index0
+        assign size_option = option
+        break
+      endif
+    endfor
+
+    assign dlg_id = 'SizeGuide-' | append: section.id
+    if compact
+      assign dlg_id = dlg_id | append: '-c'
+    endif
+
+    assign heading = block.settings.guide_heading | default: ''
+    if heading == ''
+      assign heading = 'product.size_guide.title' | t
+    endif
+    assign measure_html = block.settings.measure_text | default: ''
+    if measure_html == ''
+      assign measure_html = 'product.size_guide.measure_html' | t
+    endif
+
+    assign nights = settings.trial_nights | default: 0 | plus: 0
+    assign current_size = ''
+    if size_idx >= 0
+      assign current_size = current.options[size_idx]
+    endif
+
+    comment
+      Show the price column only when sizes are priced differently.
+    endcomment
+    assign show_price = product.price_varies
+    assign display_title = product.title | split: ' | ' | first
+  -%}
+  <dialog
+    class="modal modal--sheet size-guide"
+    id="{{ dlg_id }}"
+    data-size-guide
+    aria-labelledby="{{ dlg_id }}-title"
+    style="--modal-width: 760px"
+  >
+    <div class="modal__header size-guide__header">
+      <h2 class="h3 size-guide__title" id="{{ dlg_id }}-title">{{ heading | escape }}</h2>
+      <button type="button" class="btn btn--icon size-guide__close" data-dialog-close aria-label="{{ 'product.size_guide.close' | t }}">
+        {%- render 'icon', name: 'close' -%}
+      </button>
+    </div>
+    <div class="modal__body size-guide__body">
+      {%- if size_idx >= 0 -%}
+        <table class="size-guide__table" role="table">
+          <caption class="visually-hidden">{{ 'product.size_guide.caption' | t: title: display_title }}</caption>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">{{ 'product.size_guide.col_size' | t }}</th>
+              <th scope="col" role="columnheader">{{ 'product.size_guide.col_breeds' | t }}</th>
+              <th scope="col" role="columnheader">{{ 'product.size_guide.col_weight' | t }}</th>
+              {%- if show_price -%}
+                <th scope="col" role="columnheader">{{ 'product.size_guide.col_price' | t }}</th>
+              {%- endif -%}
+              <th scope="col" role="columnheader"><span class="visually-hidden">{{ 'product.size_guide.choose' | t }}</span></th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            {%- for value in size_option.values -%}
+              {%- liquid
+                assign val = value.name | default: value | append: ''
+                capture s_label
+                  render 'size-hints', value: val, mode: 'label'
+                endcapture
+                capture s_breeds
+                  render 'size-hints', value: val, mode: 'breeds', breeds: 0
+                endcapture
+                capture s_weight
+                  render 'size-hints', value: val, mode: 'weight'
+                endcapture
+                assign s_label = s_label | strip
+                assign s_breeds = s_breeds | strip
+                assign s_weight = s_weight | strip
+
+                assign min_price = -1
+                assign any_available = false
+                for v in product.variants
+                  if v.options[size_idx] == val
+                    if min_price < 0
+                      assign min_price = v.price
+                    elsif v.price < min_price
+                      assign min_price = v.price
+                    endif
+                    if v.available
+                      assign any_available = true
+                    endif
+                  endif
+                endfor
+                assign is_current = false
+                if val == current_size
+                  assign is_current = true
+                endif
+                assign label_lc = s_label | downcase
+                assign val_lc = val | downcase
+              -%}
+              <tr role="row" class="size-guide__row{% if is_current %} is-current{% endif %}{% unless any_available %} is-sold-out{% endunless %}" data-size-row data-value="{{ val | escape }}">
+                <th scope="row" role="rowheader" class="size-guide__size">
+                  <span class="size-guide__value">{{ val | escape }}</span>
+                  {%- if s_label != '' and label_lc != val_lc -%}
+                    <span class="size-guide__label">{{ s_label }}</span>
+                  {%- endif -%}
+                </th>
+                <td role="cell" class="size-guide__breeds" data-label="{{ 'product.size_guide.col_breeds' | t }}">{{ s_breeds | default: '—' }}</td>
+                <td role="cell" class="size-guide__weight" data-label="{{ 'product.size_guide.col_weight' | t }}">{{ s_weight | default: '—' }}</td>
+                {%- if show_price -%}
+                  <td role="cell" class="size-guide__price" data-label="{{ 'product.size_guide.col_price' | t }}">
+                    {%- if min_price >= 0 -%}{{ min_price | money }}{%- endif -%}
+                    {%- unless any_available %} <span class="size-guide__sold">{{ 'general.sold_out' | t }}</span>{% endunless -%}
+                  </td>
+                {%- endif -%}
+                <td role="cell" class="size-guide__action">
+                  <button
+                    type="button"
+                    class="btn btn--secondary btn--sm size-guide__choose"
+                    data-size-guide-choose
+                    data-option-index="{{ size_idx }}"
+                    data-value="{{ val | escape }}"
+                    aria-pressed="{{ is_current }}"
+                    aria-label="{{ 'product.size_guide.choose_label' | t: size: val }}"
+                  >
+                    <span class="size-guide__choose-text">{{ 'product.size_guide.choose' | t }}</span>
+                    <span class="size-guide__chosen-text">{%- render 'icon', name: 'check' -%}{{ 'product.size_guide.selected' | t }}</span>
+                  </button>
+                </td>
+              </tr>
+            {%- endfor -%}
+          </tbody>
+        </table>
+      {%- else -%}
+        <p class="size-guide__single">{{ 'product.size_guide.no_sizes' | t }}</p>
+      {%- endif -%}
+
+      <div class="size-guide__measure">
+        <div class="size-guide__diagram" aria-hidden="true">
+          <svg viewBox="0 0 240 96" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <path d="M38 62c6-15 22-24 44-24h58c14 0 24-5 31-13 4-5 11-6 16-2l9 8c4 4 2 10-3 12l-11 4c-4 2-6 6-6 10v8c0 6-5 10-11 10H74c-20 0-32-5-36-13z" class="size-guide__dog"/>
+            <circle cx="186" cy="26" r="1.6" fill="currentColor" stroke="none"/>
+            <path d="M38 62c-6-2-12-1-17 3" />
+            <path d="M18 84h196" class="size-guide__tape"/>
+            <path d="M18 78v12M214 78v12"/>
+          </svg>
+        </div>
+        <div class="size-guide__measure-copy">
+          <h3 class="h4 size-guide__measure-heading">{{ 'product.size_guide.measure_heading' | t }}</h3>
+          <div class="rte size-guide__measure-text">{{ measure_html }}</div>
+        </div>
+      </div>
+
+      {%- if settings.trial_enable and nights > 0 -%}
+        <p class="size-guide__trial">
+          {%- render 'icon', name: 'return', class: 'size-guide__trial-icon' -%}
+          <span>{{ 'product.size_guide.trial_note' | t: nights: nights }}</span>
+        </p>
+      {%- endif -%}
+
+      {%- if settings.finder_enable -%}
+        <p class="size-guide__finder">
+          <button type="button" class="btn btn--secondary btn--block" data-open-finder data-dialog-close>
+            {%- render 'icon', name: 'paw' -%}
+            <span>{{ 'product.size_guide.finder_cta' | t }}</span>
+          </button>
+        </p>
+      {%- endif -%}
+    </div>
+  </dialog>
+{%- endif -%}

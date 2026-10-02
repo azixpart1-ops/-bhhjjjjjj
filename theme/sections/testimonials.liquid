@@ -1,0 +1,305 @@
+{%- comment -%}
+  Testimonials — owners' own words (social proof), done lawfully.
+
+  Every quote is merchant entered: quote, name, dog (name / age / breed),
+  optional photo, optional star rating (stars render ONLY when one is set),
+  optional link to the bed it's about. The store-level rating line renders
+  ONLY when Theme settings → Social proof has both a rating and a count.
+
+  Guardrail (DMCC Act 2024 bans fake or invented reviews): quotes stay
+  hidden on the live store until the merchant ticks "These are real
+  customers' words". In the editor they show with a reminder, so defaults
+  carried over from the old store can be checked against the real reviews
+  before anything is published.
+
+  Phones: swipeable row. Desktop: grid.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign store_rating = settings.store_rating | default: '' | strip
+  assign store_count = settings.store_review_count | default: '' | strip
+  assign rating_ok = false
+  if s.show_store_rating and store_rating != '' and store_count != ''
+    assign rating_ok = true
+  endif
+
+  assign quote_count = 0
+  for block in section.blocks
+    if block.settings.quote != blank
+      assign quote_count = quote_count | plus: 1
+    endif
+  endfor
+  assign quotes_live = false
+  if s.confirm_genuine and quote_count > 0
+    assign quotes_live = true
+  endif
+  assign show_quotes = quotes_live
+  if request.design_mode and quote_count > 0
+    assign show_quotes = true
+  endif
+-%}
+{%- if quotes_live or rating_ok or request.design_mode -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- assign heading_id = section.id | append: '-heading' -%}
+<section
+  class="section testimonials scheme-{{ s.color_scheme }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width">
+    <header class="section-head section-head--split testimonials__head">
+      <div class="stack stack--sm">
+        {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        <h2 id="{{ heading_id }}" class="h2">{{ s.heading | default: shop.name | escape }}</h2>
+      </div>
+      {%- if rating_ok -%}
+        <div class="testimonials__summary">
+          <span class="testimonials__score">{{ store_rating | escape }}</span>
+          <span class="testimonials__score-meta">
+            {%- render 'rating', rating: store_rating, count: store_count, size: 'md', show_count: false -%}
+            <span class="testimonials__count">{{ 'core.rating.store_label' | t: count: store_count }}</span>
+            {%- if s.rating_source != blank -%}
+              <span class="testimonials__source">{{ s.rating_source | escape }}</span>
+            {%- endif -%}
+          </span>
+        </div>
+      {%- endif -%}
+    </header>
+
+    {%- if request.design_mode and s.confirm_genuine == false -%}
+      <p class="editor-note">{{ 'home.editor.testimonials_unconfirmed' | t }}</p>
+    {%- endif -%}
+    {%- if request.design_mode and quote_count == 0 -%}
+      <p class="editor-note">{{ 'home.editor.testimonials_empty' | t }}</p>
+    {%- endif -%}
+
+    {%- if show_quotes -%}
+      <slider-row class="testimonials__slider" id="Slider-{{ section.id }}">
+        <ul
+          class="slider-row slider-row--grid-desktop testimonials__list"
+          data-slider-track
+          role="list"
+          aria-label="{{ s.heading | default: shop.name | escape }}"
+          style="--slider-cols: {{ quote_count | at_most: s.columns_desktop | at_least: 1 }};"
+        >
+          {%- for block in section.blocks -%}
+            {%- assign b = block.settings -%}
+            {%- if b.quote != blank -%}
+              <li class="testimonials__item" {{ block.shopify_attributes }}>
+                <figure class="testimonials__card">
+                  {%- assign stars = b.stars | default: '' -%}
+                  {%- if stars != '' and stars != 'none' -%}
+                    {%- assign pct = stars | plus: 0 | times: 20 -%}
+                    <span
+                      class="stars testimonials__stars"
+                      style="--rating-pct: {{ pct }}%;"
+                      role="img"
+                      aria-label="{{ 'accessibility.rating' | t: rating: stars, max: 5 }}"
+                    ></span>
+                  {%- endif -%}
+                  <blockquote class="testimonials__quote">
+                    <p>{{ b.quote | escape | newline_to_br }}</p>
+                  </blockquote>
+                  <figcaption class="testimonials__by">
+                    {%- if b.photo != blank -%}
+                      <span class="testimonials__photo">
+                        {%- render 'image', image: b.photo, widths: '96,144,192', sizes: '48px', aspect: 1, decorative: true, class: 'testimonials__photo-img' -%}
+                      </span>
+                    {%- endif -%}
+                    <span class="testimonials__who">
+                      <span class="testimonials__name">{{ b.name | escape }}</span>
+                      {%- if b.dog != blank -%}
+                        <span class="testimonials__dog">{{ b.dog | escape }}</span>
+                      {%- endif -%}
+                      {%- if b.product != blank -%}
+                        <a class="testimonials__product" href="{{ b.product.url }}">{{ 'home.testimonials.about_product' | t: product: b.product.title }}</a>
+                      {%- endif -%}
+                    </span>
+                  </figcaption>
+                </figure>
+              </li>
+            {%- else -%}
+              {%- if request.design_mode -%}<li hidden {{ block.shopify_attributes }}></li>{%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+        <div class="slider-row__nav">
+          <button type="button" class="slider-row__btn" data-slider-prev aria-label="{{ 'accessibility.previous' | t }}">
+            {%- render 'icon', name: 'chevron-left' -%}
+          </button>
+          <button type="button" class="slider-row__btn" data-slider-next aria-label="{{ 'accessibility.next' | t }}">
+            {%- render 'icon', name: 'chevron-right' -%}
+          </button>
+        </div>
+      </slider-row>
+    {%- endif -%}
+
+    {%- if s.link_label != blank and s.link != blank -%}
+      <p class="testimonials__more">
+        <a class="btn btn--ghost" href="{{ s.link }}"><span>{{ s.link_label | escape }}</span>{%- render 'icon', name: 'arrow-right' -%}</a>
+      </p>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Testimonials",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 12,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Only use real customers' own words, with their permission. Never write, edit the meaning of, or pay for reviews: fake or invented reviews are banned under UK law (DMCC Act 2024)."
+    },
+    {
+      "type": "checkbox",
+      "id": "confirm_genuine",
+      "label": "These are real customers' words",
+      "default": false,
+      "info": "Quotes only appear on your live store once this is ticked. Until then they show in the editor only."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Owner reviews"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "What owners have told us."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_store_rating",
+      "label": "Show store rating",
+      "default": true,
+      "info": "Only appears when Store rating and Review count are filled in under Theme settings → Social proof."
+    },
+    {
+      "type": "text",
+      "id": "rating_source",
+      "label": "Where the rating comes from",
+      "info": "E.g. \"Collected by Judge.me\". Saying where a rating comes from makes it more credible."
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "Columns on desktop",
+      "min": 2,
+      "max": 4,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "text",
+      "id": "link_label",
+      "label": "Link label",
+      "info": "E.g. \"Read every review\"."
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "Link"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    }
+  ],
+  "blocks": [
+    {
+      "type": "testimonial",
+      "name": "Testimonial",
+      "settings": [
+        {
+          "type": "textarea",
+          "id": "quote",
+          "label": "Quote",
+          "info": "The customer's own words."
+        },
+        {
+          "type": "text",
+          "id": "name",
+          "label": "Customer name",
+          "info": "As they agreed to be named, e.g. \"Caleb Z.\""
+        },
+        {
+          "type": "text",
+          "id": "dog",
+          "label": "Their dog",
+          "info": "E.g. \"Bramble, 11, Labrador\"."
+        },
+        {
+          "type": "image_picker",
+          "id": "photo",
+          "label": "Photo (optional)",
+          "info": "Only with the customer's permission."
+        },
+        {
+          "type": "select",
+          "id": "stars",
+          "label": "Star rating they gave",
+          "options": [
+            { "value": "none", "label": "None" },
+            { "value": "5", "label": "5 stars" },
+            { "value": "4", "label": "4 stars" },
+            { "value": "3", "label": "3 stars" },
+            { "value": "2", "label": "2 stars" },
+            { "value": "1", "label": "1 star" }
+          ],
+          "default": "none",
+          "info": "Only the rating this customer actually gave."
+        },
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Bed they bought (optional)"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Testimonials",
+      "blocks": [
+        { "type": "testimonial" },
+        { "type": "testimonial" },
+        { "type": "testimonial" }
+      ]
+    }
+  ]
+}
+{% endschema %}

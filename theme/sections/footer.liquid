@@ -1,0 +1,485 @@
+{%- comment -%}
+  Footer — newsletter, brand, link columns, contact, promises, the small print.
+
+  The last thing a still-undecided visitor scrolls to, so it answers the
+  last doubts: who are you, how do I reach a person, what are the promises,
+  can I pay my way. Link columns collapse on phones (cart.js enhances the
+  headings into disclosure buttons; without JS everything stays open).
+{%- endcomment -%}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign year = 'now' | date: '%Y'
+  assign show_locale_country = false
+  if section.settings.show_country and localization.available_countries.size > 1
+    assign show_locale_country = true
+  endif
+  assign show_locale_language = false
+  if section.settings.show_language and localization.available_languages.size > 1
+    assign show_locale_language = true
+  endif
+-%}
+<div class="footer section scheme-{{ section.settings.color_scheme }}" data-footer>
+  <div class="page-width footer__inner">
+    {%- if section.settings.show_newsletter -%}
+      <div class="footer__newsletter">
+        <div class="footer__newsletter-copy">
+          {%- if section.settings.newsletter_heading != blank -%}
+            <h2 class="footer__newsletter-heading h3">{{ section.settings.newsletter_heading | escape }}</h2>
+          {%- endif -%}
+          {%- if section.settings.newsletter_text != blank -%}
+            <div class="footer__newsletter-text rte">{{ section.settings.newsletter_text }}</div>
+          {%- endif -%}
+        </div>
+        {%- form 'customer', id: 'FooterNewsletter', class: 'footer__newsletter-form' -%}
+          <input type="hidden" name="contact[tags]" value="newsletter,footer">
+          {%- if form.posted_successfully? -%}
+            <p class="footer__newsletter-success" role="status" tabindex="-1">
+              {%- render 'icon', name: 'check-circle', size: 20 -%}
+              <span>{{ 'chrome.footer.newsletter_success' | t }}</span>
+            </p>
+          {%- else -%}
+            <label class="footer__newsletter-label" for="FooterNewsletterEmail">{{ 'chrome.footer.newsletter_email' | t }}</label>
+            <div class="footer__newsletter-row">
+              <input
+                type="email"
+                id="FooterNewsletterEmail"
+                class="footer__newsletter-input"
+                name="contact[email]"
+                value="{{ form.email | escape }}"
+                placeholder="{{ 'chrome.footer.newsletter_placeholder' | t }}"
+                autocomplete="email"
+                autocapitalize="off"
+                spellcheck="false"
+                required
+                {% if form.errors %}aria-invalid="true" aria-describedby="FooterNewsletterError"{% endif %}
+              >
+              <button type="submit" class="footer__newsletter-submit">{{ section.settings.newsletter_button | escape }}</button>
+            </div>
+            {%- if form.errors -%}
+              <div class="footer__newsletter-error" id="FooterNewsletterError" role="alert">{{ form.errors | default_errors }}</div>
+            {%- endif -%}
+          {%- endif -%}
+        {%- endform -%}
+      </div>
+    {%- endif -%}
+
+    <div class="footer__grid">
+      <div class="footer__brand">
+        {%- if section.settings.show_logo -%}
+          <a href="{{ routes.root_url }}" class="footer__logo">
+            {%- if settings.logo != blank -%}
+              {%- assign footer_logo_alt = settings.logo.alt | default: shop.name -%}
+              {%- render 'image',
+                image: settings.logo,
+                widths: '120,160,240,320,480',
+                sizes: '160px',
+                class: 'footer__logo-img',
+                loading: 'lazy',
+                alt: footer_logo_alt
+              -%}
+            {%- else -%}
+              <span class="footer__logo-text">{{ shop.name | escape }}</span>
+            {%- endif -%}
+          </a>
+        {%- endif -%}
+        {%- if section.settings.brand_text != blank -%}
+          <div class="footer__brand-text rte">{{ section.settings.brand_text }}</div>
+        {%- endif -%}
+        {%- if section.settings.show_origin and settings.origin_line != blank -%}
+          <p class="footer__origin">
+            {%- render 'icon', name: 'home', size: 18 -%}
+            <span>{{ settings.origin_line | escape }}</span>
+          </p>
+        {%- endif -%}
+        {%- if section.settings.show_social -%}
+          {%- render 'social-icons', class: 'footer__social', size: 20 -%}
+        {%- endif -%}
+      </div>
+
+      {%- for block in section.blocks -%}
+        {%- case block.type -%}
+          {%- when 'links' -%}
+            {%- assign col_menu = block.settings.menu -%}
+            {%- if col_menu.links.size > 0 -%}
+              {%- assign col_heading = block.settings.heading | default: col_menu.title -%}
+              <div class="footer__col" {{ block.shopify_attributes }}>
+                <h2 class="footer__heading">
+                  <span class="footer__heading-label" data-footer-label>{{ col_heading | escape }}</span>
+                  <button type="button" class="footer__toggle" aria-expanded="true" aria-controls="FooterCol-{{ block.id }}" data-footer-toggle hidden>
+                    <span>{{ col_heading | escape }}</span>
+                    {%- render 'icon', name: 'chevron-down', size: 18, class: 'footer__toggle-icon' -%}
+                  </button>
+                </h2>
+                <ul class="footer__links" id="FooterCol-{{ block.id }}" role="list" data-footer-panel>
+                  {%- for link in col_menu.links -%}
+                    <li>
+                      <a href="{{ link.url }}" class="footer__link"{% if link.current %} aria-current="page"{% endif %}>{{ link.title | escape }}</a>
+                    </li>
+                  {%- endfor -%}
+                </ul>
+              </div>
+            {%- endif -%}
+
+          {%- when 'text' -%}
+            <div class="footer__col" {{ block.shopify_attributes }}>
+              {%- if block.settings.heading != blank -%}
+                <h2 class="footer__heading">
+                  <span class="footer__heading-label" data-footer-label>{{ block.settings.heading | escape }}</span>
+                  <button type="button" class="footer__toggle" aria-expanded="true" aria-controls="FooterCol-{{ block.id }}" data-footer-toggle hidden>
+                    <span>{{ block.settings.heading | escape }}</span>
+                    {%- render 'icon', name: 'chevron-down', size: 18, class: 'footer__toggle-icon' -%}
+                  </button>
+                </h2>
+              {%- endif -%}
+              <div class="footer__text rte" id="FooterCol-{{ block.id }}" data-footer-panel>{{ block.settings.text }}</div>
+            </div>
+
+          {%- when 'contact' -%}
+            <div class="footer__col footer__col--contact" {{ block.shopify_attributes }}>
+              {%- if block.settings.heading != blank -%}
+                <h2 class="footer__heading footer__heading--static">{{ block.settings.heading | escape }}</h2>
+              {%- endif -%}
+              {%- if block.settings.text != blank -%}
+                <div class="footer__text rte">{{ block.settings.text }}</div>
+              {%- endif -%}
+              <ul class="footer__contact" role="list">
+                {%- if block.settings.email != blank -%}
+                  <li>
+                    <a href="mailto:{{ block.settings.email | strip | escape }}" class="footer__contact-link">
+                      {%- render 'icon', name: 'mail', size: 18 -%}
+                      <span><span class="visually-hidden">{{ 'chrome.footer.email' | t }}: </span>{{ block.settings.email | strip | escape }}</span>
+                    </a>
+                  </li>
+                {%- endif -%}
+                {%- if block.settings.phone != blank -%}
+                  <li>
+                    <a href="tel:{{ block.settings.phone | remove: ' ' | escape }}" class="footer__contact-link">
+                      {%- render 'icon', name: 'phone', size: 18 -%}
+                      <span><span class="visually-hidden">{{ 'chrome.footer.phone' | t }}: </span>{{ block.settings.phone | escape }}</span>
+                    </a>
+                  </li>
+                {%- endif -%}
+                {%- if block.settings.hours != blank -%}
+                  <li class="footer__contact-hours">
+                    {%- render 'icon', name: 'clock', size: 18 -%}
+                    <span><span class="visually-hidden">{{ 'chrome.footer.hours' | t }}: </span>{{ block.settings.hours | escape }}</span>
+                  </li>
+                {%- endif -%}
+                {%- if block.settings.link != blank and block.settings.link_label != blank -%}
+                  <li>
+                    <a href="{{ block.settings.link }}" class="footer__contact-link footer__contact-link--cta">
+                      {%- render 'icon', name: 'chat', size: 18 -%}
+                      <span>{{ block.settings.link_label | escape }}</span>
+                    </a>
+                  </li>
+                {%- endif -%}
+              </ul>
+            </div>
+        {%- endcase -%}
+      {%- endfor -%}
+    </div>
+
+    {%- if section.settings.show_trust -%}
+      <div class="footer__trust">
+        {%- render 'trust-list', items: 'trial,guarantee,delivery,secure', layout: 'row', size: 'sm' -%}
+      </div>
+    {%- endif -%}
+
+    <div class="footer__bottom">
+      {%- if show_locale_country or show_locale_language -%}
+        <div class="footer__localization">
+          {%- if show_locale_country -%}
+            {%- form 'localization', id: 'FooterCountryForm', class: 'footer__locale-form' -%}
+              <label class="footer__locale-label" for="FooterCountry">{{ 'chrome.footer.country' | t }}</label>
+              <div class="footer__locale-row">
+                <select id="FooterCountry" class="footer__locale-select" name="country_code">
+                  {%- for country in localization.available_countries -%}
+                    <option value="{{ country.iso_code }}"{% if country.iso_code == localization.country.iso_code %} selected{% endif %}>
+                      {{- country.name }} ({{ country.currency.iso_code }} {{ country.currency.symbol }})
+                    </option>
+                  {%- endfor -%}
+                </select>
+                <button type="submit" class="footer__locale-submit">{{ 'chrome.footer.update' | t }}</button>
+              </div>
+            {%- endform -%}
+          {%- endif -%}
+          {%- if show_locale_language -%}
+            {%- form 'localization', id: 'FooterLanguageForm', class: 'footer__locale-form' -%}
+              <label class="footer__locale-label" for="FooterLanguage">{{ 'chrome.footer.language' | t }}</label>
+              <div class="footer__locale-row">
+                <select id="FooterLanguage" class="footer__locale-select" name="language_code">
+                  {%- for language in localization.available_languages -%}
+                    <option value="{{ language.iso_code }}" lang="{{ language.iso_code }}"{% if language.iso_code == localization.language.iso_code %} selected{% endif %}>
+                      {{- language.endonym_name | capitalize -}}
+                    </option>
+                  {%- endfor -%}
+                </select>
+                <button type="submit" class="footer__locale-submit">{{ 'chrome.footer.update' | t }}</button>
+              </div>
+            {%- endform -%}
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      {%- if section.settings.show_payment_icons -%}
+        {%- render 'payment-icons', class: 'footer__payment' -%}
+      {%- endif -%}
+
+      <div class="footer__legal">
+        <p class="footer__copyright">{{ 'chrome.footer.copyright' | t: year: year, shop: shop.name }}</p>
+        {%- if section.settings.show_policies and shop.policies.size > 0 -%}
+          <ul class="footer__policies" role="list" aria-label="{{ 'chrome.footer.policies' | t }}">
+            {%- for policy in shop.policies -%}
+              <li><a href="{{ policy.url }}" class="footer__policy-link">{{ policy.title | escape }}</a></li>
+            {%- endfor -%}
+          </ul>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Footer",
+  "tag": "footer",
+  "class": "footer-section",
+  "enabled_on": {
+    "groups": ["footer"]
+  },
+  "max_blocks": 5,
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "moss"
+    },
+    {
+      "type": "header",
+      "content": "Newsletter"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_newsletter",
+      "label": "Show newsletter sign-up",
+      "default": true,
+      "info": "Sign-ups are saved as customers tagged \"newsletter\" (Customers in your admin)."
+    },
+    {
+      "type": "text",
+      "id": "newsletter_heading",
+      "label": "Heading",
+      "default": "Get the size guide for your breed"
+    },
+    {
+      "type": "richtext",
+      "id": "newsletter_text",
+      "label": "Text",
+      "default": "<p>Plus care tips for large and senior dogs. No spam, unsubscribe any time.</p>",
+      "info": "Only promise what your welcome email actually sends."
+    },
+    {
+      "type": "text",
+      "id": "newsletter_button",
+      "label": "Button label",
+      "default": "Send it"
+    },
+    {
+      "type": "header",
+      "content": "Brand"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_logo",
+      "label": "Show logo",
+      "default": true
+    },
+    {
+      "type": "richtext",
+      "id": "brand_text",
+      "label": "About text",
+      "default": "<p>Orthopaedic dog beds for real dogs and real homes — named for the Lakes, built for real sleep.</p>"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_origin",
+      "label": "Show origin line",
+      "default": true,
+      "info": "The line itself is in Theme settings → Promises, and is hidden while it's blank."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_social",
+      "label": "Show social links",
+      "default": true,
+      "info": "Add your profiles in Theme settings → Social media."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_trust",
+      "label": "Show promises row",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Small print"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_payment_icons",
+      "label": "Show payment icons",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_policies",
+      "label": "Show policy links",
+      "default": true,
+      "info": "Write your policies in Settings → Policies."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_country",
+      "label": "Show country/region selector",
+      "default": true,
+      "info": "Only appears when you sell to more than one market."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_language",
+      "label": "Show language selector",
+      "default": true,
+      "info": "Only appears when more than one language is published."
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    }
+  ],
+  "blocks": [
+    {
+      "type": "links",
+      "name": "Link column",
+      "limit": 4,
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Shop",
+          "info": "Leave blank to use the menu's name."
+        },
+        {
+          "type": "link_list",
+          "id": "menu",
+          "label": "Menu",
+          "default": "footer"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Text",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "About PawLunova"
+        },
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Every bed in the range is named after a fell or a dale — Borrowdale, Coniston, Grasmere, Windermere — the places most of the thinking about these beds happened.</p>"
+        }
+      ]
+    },
+    {
+      "type": "contact",
+      "name": "Contact",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Talk to us"
+        },
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Not sure about sizing, or which bed suits your dog? Ask before you buy — we'd much rather help you choose than arrange a return.</p>"
+        },
+        {
+          "type": "text",
+          "id": "email",
+          "label": "Email address"
+        },
+        {
+          "type": "text",
+          "id": "phone",
+          "label": "Phone number"
+        },
+        {
+          "type": "text",
+          "id": "hours",
+          "label": "Opening hours",
+          "info": "For example: Mon–Fri, 9am–5pm"
+        },
+        {
+          "type": "text",
+          "id": "link_label",
+          "label": "Link label",
+          "default": "Send us a message"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link",
+          "info": "Usually your contact page."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Footer",
+      "blocks": [
+        { "type": "links", "settings": { "heading": "Shop", "menu": "main-menu" } },
+        { "type": "links", "settings": { "heading": "Help", "menu": "footer" } },
+        { "type": "contact" }
+      ]
+    }
+  ]
+}
+{% endschema %}

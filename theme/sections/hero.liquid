@@ -1,0 +1,448 @@
+{%- comment -%}
+  Hero — the first beat of the homepage arc: NOTICE.
+
+  Psychology, all honest and switchable:
+    - Outcome headline in the brand's own words, recognition lede ("You notice
+      it before they do…") so the owner sees their own dog in the first line.
+    - ONE terracotta action (Von Restorff): "Find my dog's bed" opens the Bed
+      Finder (choice architecture — four taps instead of twenty-odd beds),
+      with a friction-reducing micro-line ("4 questions · 30 seconds").
+      The secondary "Shop all beds" is an ink outline for the ready buyer.
+    - Returning visitors who already used the finder see "See Bella's match
+      again" (endowment) — filled by sections.js from Lunova.finder.
+    - Proof: the store rating ONLY when Theme settings → Social proof is filled
+      in; otherwise a concrete spec (50kg/m³) instead of an invented number.
+    - Trust row from settings (trial, guarantee, delivery) — risk removed
+      before the first price is seen.
+  Mobile: headline + CTA sit above the fold; the image follows (or becomes a
+  short banner, or is hidden).
+{%- endcomment -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'sections.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-heading'
+  assign note_id = section.id | append: '-cta-note'
+
+  assign hero_img = s.image
+  if hero_img == blank and s.image_product != blank
+    assign hero_img = s.image_product.featured_media.preview_image
+  endif
+  assign img_alt = s.image_alt | default: hero_img.alt | default: ''
+
+  case s.image_shape
+    when 'square'
+      assign img_ratio = 1
+    when 'rounded'
+      assign img_ratio = 0.8
+    else
+      assign img_ratio = 0.8333
+  endcase
+  if s.layout == 'stacked'
+    assign img_ratio = 2.4
+  endif
+
+  assign h_tag = s.heading_tag | default: 'h1'
+  assign h_class = s.heading_size | default: 'h0'
+
+  assign finder_label = s.primary_label | default: settings.finder_cta_label | strip | escape
+  if finder_label == blank
+    assign finder_label = 'home.hero.finder_cta' | t
+  endif
+  assign shop_link = s.secondary_link | default: routes.all_products_collection_url
+  assign shop_label = s.secondary_label | strip | escape
+  if shop_label == blank
+    assign shop_label = 'home.hero.shop_cta' | t
+  endif
+
+  assign rating_ok = false
+  assign store_rating = settings.store_rating | default: '' | strip
+  assign store_count = settings.store_review_count | default: '' | strip
+  if s.show_store_rating and store_rating != '' and store_count != ''
+    assign rating_ok = true
+  endif
+
+  assign ph_years = settings.guarantee_years | default: 0 | plus: 0 | append: ''
+  assign ph_nights = settings.trial_nights | default: 0 | plus: 0 | append: ''
+  assign proof_text = s.proof_text | default: '' | strip | escape | replace: '[guarantee_years]', ph_years | replace: '[trial_nights]', ph_nights
+  if s.proof_text contains '[guarantee_years]'
+    unless settings.guarantee_enable and settings.guarantee_years > 0
+      assign proof_text = ''
+    endunless
+  endif
+  if s.proof_text contains '[trial_nights]'
+    unless settings.trial_enable and settings.trial_nights > 0
+      assign proof_text = ''
+    endunless
+  endif
+  assign proof_number = s.proof_number | default: '' | strip
+-%}
+<section
+  class="section hero scheme-{{ s.color_scheme }} hero--{{ s.layout | default: 'split' }} hero--media-{{ s.media_side | default: 'right' }} hero--shape-{{ s.image_shape | default: 'arch' }} hero--mobile-{{ s.mobile_media | default: 'below' }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width hero__inner">
+    <div class="hero__copy">
+      {%- if s.eyebrow != blank -%}
+        <p class="eyebrow hero__eyebrow">{{ s.eyebrow | escape }}</p>
+      {%- endif -%}
+
+      <{{ h_tag }} id="{{ heading_id }}" class="{{ h_class }} hero__heading">
+        {{- s.heading | default: shop.name | escape | newline_to_br -}}
+      </{{ h_tag }}>
+
+      {%- if s.lede != blank -%}
+        <p class="lede hero__lede">{{ s.lede | escape | newline_to_br }}</p>
+      {%- endif -%}
+
+      <div class="hero__actions">
+        {%- if settings.finder_enable -%}
+          <div class="hero__primary">
+            <button
+              type="button"
+              class="btn btn--primary btn--lg hero__cta"
+              data-open-finder
+              aria-haspopup="dialog"
+              {%- if s.primary_note != blank %} aria-describedby="{{ note_id }}"{% endif %}
+            >
+              <span>{{ finder_label }}</span>
+              {%- render 'icon', name: 'arrow-right' -%}
+            </button>
+            {%- if s.primary_note != blank -%}
+              <p class="hero__note" id="{{ note_id }}">{{ s.primary_note | escape }}</p>
+            {%- endif -%}
+          </div>
+          {%- if s.secondary_label != blank -%}
+            <a class="btn btn--secondary btn--lg hero__cta hero__cta--secondary" href="{{ shop_link }}">
+              {{- s.secondary_label | escape -}}
+            </a>
+          {%- endif -%}
+        {%- else -%}
+          {%- comment -%} Finder switched off: shopping becomes the one primary action. {%- endcomment -%}
+          <div class="hero__primary">
+            <a class="btn btn--primary btn--lg hero__cta" href="{{ shop_link }}">
+              <span>{{ shop_label }}</span>
+              {%- render 'icon', name: 'arrow-right' -%}
+            </a>
+          </div>
+        {%- endif -%}
+      </div>
+
+      {%- if s.show_resume and settings.finder_enable -%}
+        <p class="hero__resume" data-hero-resume hidden>
+          {%- render 'icon', name: 'paw', class: 'hero__resume-icon' -%}
+          <a
+            class="hero__resume-link"
+            href="{{ routes.all_products_collection_url }}"
+            data-hero-resume-link
+            data-template-named="{{ 'home.hero.resume_named' | t }}"
+            data-template-default="{{ 'home.hero.resume' | t }}"
+          >{{ 'home.hero.resume' | t }}</a>
+        </p>
+      {%- endif -%}
+
+      {%- if s.show_trust -%}
+        {%- render 'trust-list', items: s.trust_items, layout: 'row', size: 'sm', class: 'hero__trust' -%}
+      {%- endif -%}
+      {%- if rating_ok or proof_number != '' or proof_text != '' -%}
+        <div class="hero__proof">
+          {%- if rating_ok -%}
+            <div class="hero__rating">
+              {%- render 'rating', rating: store_rating, count: store_count, size: 'md' -%}
+            </div>
+          {%- endif -%}
+          {%- if proof_number != '' or proof_text != '' -%}
+            <p class="hero__spec">
+              {%- if proof_number != '' -%}
+                <span class="hero__spec-number">{{ proof_number | escape }}</span>
+              {%- endif -%}
+              {%- if proof_text != '' -%}
+                <span class="hero__spec-text">{{ proof_text }}</span>
+              {%- endif -%}
+            </p>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+    </div>
+
+    <div class="hero__media">
+      <div class="hero__frame{% if hero_img == blank %} hero__frame--art{% endif %}">
+        {%- if hero_img != blank -%}
+          {%- if s.layout == 'stacked' -%}
+            {%- assign img_sizes = '(min-width: 1360px) 1320px, 100vw' -%}
+          {%- else -%}
+            {%- assign img_sizes = '(min-width: 1360px) 600px, (min-width: 990px) 46vw, 100vw' -%}
+          {%- endif -%}
+          {%- render 'image',
+            image: hero_img,
+            widths: '420,640,860,1080,1300,1600',
+            sizes: img_sizes,
+            class: 'hero__img',
+            loading: 'eager',
+            fetchpriority: 'high',
+            alt: img_alt,
+            aspect: img_ratio
+          -%}
+        {%- else -%}
+          {%- comment -%}
+            No photo yet: a quiet night scene in the brand's own colours (a
+            branded placeholder), so a brand-new store never opens on grey
+            line art. Decorative only.
+          {%- endcomment -%}
+          <svg class="hero__art" viewBox="0 0 500 600" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+            <rect class="hero__art-sky" width="500" height="600"/>
+            <circle class="hero__art-star" cx="96" cy="150" r="2.5"/>
+            <circle class="hero__art-star" cx="168" cy="96" r="1.8"/>
+            <circle class="hero__art-star" cx="410" cy="320" r="2"/>
+            <circle class="hero__art-star" cx="132" cy="272" r="1.6"/>
+            <circle class="hero__art-star" cx="214" cy="200" r="1.4"/>
+            <circle class="hero__art-moon" cx="318" cy="196" r="66"/>
+            <circle class="hero__art-sky" cx="290" cy="178" r="60"/>
+            <rect class="hero__art-floor" y="468" width="500" height="132"/>
+            <ellipse class="hero__art-shadow" cx="250" cy="524" rx="176" ry="16"/>
+            <rect class="hero__art-bolster" x="84" y="392" width="332" height="128" rx="64"/>
+            <rect class="hero__art-cushion" x="122" y="418" width="256" height="72" rx="36"/>
+            <path class="hero__art-blanket" d="M236 430h96a18 18 0 0 1 18 18v12a18 18 0 0 1-18 18h-96z"/>
+            <path class="hero__art-fold" d="M236 430v48"/>
+          </svg>
+          {%- if request.design_mode -%}
+            <p class="hero__art-note editor-note">{{ 'home.editor.hero_image' | t }}</p>
+          {%- endif -%}
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Hero",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "options": [
+        { "value": "split", "label": "Text beside image" },
+        { "value": "stacked", "label": "Text above wide image" }
+      ],
+      "default": "split"
+    },
+    {
+      "type": "select",
+      "id": "media_side",
+      "label": "Image side (desktop)",
+      "options": [
+        { "value": "right", "label": "Right" },
+        { "value": "left", "label": "Left" }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "select",
+      "id": "image_shape",
+      "label": "Image shape",
+      "options": [
+        { "value": "arch", "label": "Arch" },
+        { "value": "rounded", "label": "Rounded" },
+        { "value": "square", "label": "Square" }
+      ],
+      "default": "arch"
+    },
+    {
+      "type": "select",
+      "id": "mobile_media",
+      "label": "Image on phones",
+      "options": [
+        { "value": "below", "label": "Below the buttons" },
+        { "value": "banner", "label": "Short banner above the headline" },
+        { "value": "hide", "label": "Hide" }
+      ],
+      "default": "below",
+      "info": "Below keeps the headline and the Bed Finder button above the fold."
+    },
+    {
+      "type": "header",
+      "content": "Image"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    },
+    {
+      "type": "product",
+      "id": "image_product",
+      "label": "Or use a product's photo",
+      "info": "Used when no image is chosen above."
+    },
+    {
+      "type": "text",
+      "id": "image_alt",
+      "label": "Image description (alt text)",
+      "info": "Describe the photo for people using screen readers, e.g. \"A golden retriever asleep on a bolster bed\"."
+    },
+    {
+      "type": "header",
+      "content": "Text"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Orthopaedic dog beds"
+    },
+    {
+      "type": "textarea",
+      "id": "heading",
+      "label": "Heading",
+      "default": "The sleep they'd choose,\nif they could choose.",
+      "info": "Press Enter for a line break."
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "Heading size",
+      "options": [
+        { "value": "h0", "label": "Extra large" },
+        { "value": "h1", "label": "Large" }
+      ],
+      "default": "h0"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "Heading level",
+      "options": [
+        { "value": "h1", "label": "H1 (first section on the page)" },
+        { "value": "h2", "label": "H2" }
+      ],
+      "default": "h1",
+      "info": "Each page should have exactly one H1."
+    },
+    {
+      "type": "textarea",
+      "id": "lede",
+      "label": "Intro",
+      "default": "You notice it before they do. The pause at the bottom of the stairs. The longer stretch before the first step."
+    },
+    {
+      "type": "header",
+      "content": "Buttons"
+    },
+    {
+      "type": "text",
+      "id": "primary_label",
+      "label": "Bed Finder button label",
+      "info": "Leave blank to use the label from Theme settings → Bed Finder. Hidden when the finder is switched off."
+    },
+    {
+      "type": "text",
+      "id": "primary_note",
+      "label": "Line under the button",
+      "default": "4 questions · 30 seconds"
+    },
+    {
+      "type": "text",
+      "id": "secondary_label",
+      "label": "Second button label",
+      "default": "Shop all beds"
+    },
+    {
+      "type": "url",
+      "id": "secondary_link",
+      "label": "Second button link",
+      "default": "/collections/all"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_resume",
+      "label": "Welcome back returning finder users",
+      "default": true,
+      "info": "Visitors who already used the Bed Finder see a link back to their dog's match."
+    },
+    {
+      "type": "header",
+      "content": "Proof"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_store_rating",
+      "label": "Show store rating",
+      "default": true,
+      "info": "Only appears when Store rating and Review count are filled in under Theme settings → Social proof."
+    },
+    {
+      "type": "text",
+      "id": "proof_number",
+      "label": "Spec figure",
+      "default": "50kg/m³"
+    },
+    {
+      "type": "text",
+      "id": "proof_text",
+      "label": "Spec line",
+      "default": "High-density memory foam core on the orthopaedic range.",
+      "info": "Use [guarantee_years] or [trial_nights] to pull numbers from Theme settings."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_trust",
+      "label": "Show promises row",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "trust_items",
+      "label": "Promises to show",
+      "default": "trial,guarantee,delivery",
+      "info": "Comma list from: trial, guarantee, delivery, secure, origin, rating, installments. Each one hides itself when switched off in Theme settings."
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    }
+  ],
+  "presets": [
+    {
+      "name": "Hero"
+    }
+  ]
+}
+{% endschema %}

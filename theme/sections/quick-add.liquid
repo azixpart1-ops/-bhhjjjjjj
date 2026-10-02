@@ -1,0 +1,75 @@
+{%- comment -%}
+  Quick add drawer (static section, id "quick-add", rendered once by
+  theme.liquid). An empty shell: on `lunova:quickadd:open` cart.js fetches
+  /products/<handle>?section_id=quick-add-product and puts the compact buy
+  box in here — choose a size, add, and the basket drawer takes over.
+  No page load, no losing your place in the collection.
+
+  product.js defines <product-form> / <variant-picker>, which the buy box
+  needs. The product template loads it itself (main-product), so it is only
+  included here on every other template. product.css is fetched by cart.js
+  the first time the drawer opens, so collection pages don't pay for it
+  up front.
+
+  JS: <quick-add-drawer> in cart.js.
+{%- endcomment -%}
+<quick-add-drawer
+  class="quick-add"
+  id="QuickAdd"
+  data-section-id="quick-add-product"
+  data-product-css="{{ 'product.css' | asset_url }}"
+  data-product-js="{{ 'product.js' | asset_url }}"
+>
+  <dialog class="chrome-dialog quick-add__dialog" aria-labelledby="QuickAddTitle">
+    <div class="chrome-dialog__scrim" data-close aria-hidden="true"></div>
+    <div class="chrome-panel quick-add__panel scheme-{{ section.settings.color_scheme }}">
+      <div class="chrome-panel__header">
+        <h2 class="chrome-panel__title" id="QuickAddTitle" tabindex="-1" data-dialog-focus>{{ 'chrome.quick_add.title' | t }}</h2>
+        <button type="button" class="chrome-panel__close" data-close aria-label="{{ 'chrome.quick_add.close' | t }}">
+          {%- render 'icon', name: 'close', size: 22 -%}
+        </button>
+      </div>
+      <div class="chrome-panel__body quick-add__body" data-quick-add-content></div>
+    </div>
+  </dialog>
+  <template data-quick-add-skeleton>
+    <div class="quick-add__skeleton" aria-hidden="true">
+      <div class="quick-add__skeleton-row">
+        <span class="quick-add__skeleton-media"></span>
+        <span class="quick-add__skeleton-lines"><span></span><span></span><span></span></span>
+      </div>
+      <span class="quick-add__skeleton-block"></span>
+      <span class="quick-add__skeleton-block quick-add__skeleton-block--btn"></span>
+    </div>
+    <p class="visually-hidden">{{ 'chrome.quick_add.loading' | t }}</p>
+  </template>
+</quick-add-drawer>
+
+{%- unless template.name == 'product' -%}
+  <script src="{{ 'product.js' | asset_url }}" defer></script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Quick add",
+  "class": "quick-add-section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Opens from the quick add button on product cards. Card settings live in Theme settings → Product cards."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    }
+  ]
+}
+{% endschema %}

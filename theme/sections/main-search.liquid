@@ -1,0 +1,553 @@
+{%- comment -%}
+  Search results (/search).
+
+  - One search box that remembers what was typed; results split into beds
+    (product cards, filterable and sortable), guides (articles) and pages.
+  - Filters/sort reuse the collection machinery (facets snippet +
+    <facet-filters>), so they apply instantly and every state is a URL.
+  - No results is never a dead end: "No beds match '…'", a spelling nudge,
+    popular searches that do work, popular collections and the Bed Finder —
+    the shopper who can't name what they want is exactly who the finder
+    is for.
+{%- endcomment -%}
+{{ 'collection.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'collection.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign sid = section.id
+  assign cs = section.settings.color_scheme | default: 'bone'
+  assign per_page = section.settings.results_per_page | default: 24
+  assign fx_layout = section.settings.filter_layout | default: 'sidebar'
+  assign cols = section.settings.columns_desktop | default: '4'
+  assign terms = search.terms | default: ''
+  assign terms_escaped = terms | escape
+
+  case settings.card_image_ratio
+    when 'portrait'
+      assign ratio_css = '4 / 5'
+    when 'landscape'
+      assign ratio_css = '4 / 3'
+    else
+      assign ratio_css = '1 / 1'
+  endcase
+
+  assign has_filters = false
+  if section.settings.enable_filtering and search.filters.size > 0
+    assign has_filters = true
+  endif
+
+  assign active_count = 0
+  if has_filters
+    for filter in search.filters
+      if filter.type == 'price_range'
+        if filter.min_value.value != nil or filter.max_value.value != nil
+          assign active_count = active_count | plus: 1
+        endif
+      else
+        assign active_count = active_count | plus: filter.active_values.size
+      endif
+    endfor
+  endif
+
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign finder_label = settings.finder_cta_label | default: ''
+  if finder_label == ''
+    assign finder_label = 'collection.finder_tile.cta' | t
+  endif
+
+  comment
+    Popular searches: a comma list from the section.
+  endcomment
+  assign popular_raw = section.settings.popular_searches | default: '' | split: ','
+  assign popular_terms = ''
+  for p in popular_raw
+    assign pt = p | strip
+    if pt != ''
+      assign popular_terms = popular_terms | append: pt | append: '|'
+    endif
+  endfor
+  assign popular_list = popular_terms | split: '|'
+
+  comment
+    Popular collections: picked in the section, else the biggest few that
+    actually have beds in them.
+  endcomment
+  assign popular_cols = section.settings.popular_collections
+  assign auto_cols = false
+  if popular_cols == blank or popular_cols.size == 0
+    assign auto_cols = true
+    assign popular_cols = collections | sort: 'all_products_count' | reverse
+  endif
+
+  assign search_url = routes.search_url
+
+  assign start_heading = section.settings.heading | default: ''
+  if start_heading == ''
+    assign start_heading = 'collection.search.fallback_heading' | t
+  endif
+  assign popular_heading = section.settings.popular_heading | default: ''
+  if popular_heading == ''
+    assign popular_heading = 'collection.search.popular_heading' | t
+  endif
+  assign collections_heading = section.settings.collections_heading | default: ''
+  if collections_heading == ''
+    assign collections_heading = 'collection.search.collections_heading' | t
+  endif
+-%}
+
+{%- capture recovery -%}
+  {%- comment -%} Shared by "no results" and the empty search page. {%- endcomment -%}
+  {%- if popular_list.size > 0 -%}
+    <div class="search-recovery__block">
+      <h2 class="search-recovery__heading">{{ popular_heading | escape }}</h2>
+      <ul class="search-recovery__chips" role="list">
+        {%- for pt in popular_list -%}
+          <li><a class="chip" href="{{ search_url }}?q={{ pt | url_encode }}&amp;options%5Bprefix%5D=last">{%- render 'icon', name: 'search' -%}<span>{{ pt | escape }}</span></a></li>
+        {%- endfor -%}
+      </ul>
+    </div>
+  {%- endif -%}
+
+  {%- assign col_shown = 0 -%}
+  {%- capture col_links -%}
+    {%- for c in popular_cols -%}
+      {%- if col_shown >= 6 -%}{%- break -%}{%- endif -%}
+      {%- if auto_cols -%}
+        {%- if c.handle == 'frontpage' or c.all_products_count == 0 -%}{%- continue -%}{%- endif -%}
+      {%- endif -%}
+      {%- assign col_shown = col_shown | plus: 1 -%}
+      {%- assign c_title = c.title | split: ' | ' | first | split: ' – ' | first | strip -%}
+      <li>
+        <a class="search-recovery__link" href="{{ c.url }}">
+          <span>{{ c_title | escape }}</span>
+          {%- if c.all_products_count > 0 -%}<span class="search-recovery__count">{{ 'collection.hero.count' | t: count: c.all_products_count }}</span>{%- endif -%}
+          {%- render 'icon', name: 'arrow-right' -%}
+        </a>
+      </li>
+    {%- endfor -%}
+  {%- endcapture -%}
+  {%- if col_shown > 0 -%}
+    <div class="search-recovery__block">
+      <h2 class="search-recovery__heading">{{ collections_heading | escape }}</h2>
+      <ul class="search-recovery__links" role="list">{{ col_links }}</ul>
+    </div>
+  {%- elsif collections.all.products_count > 0 -%}
+    <div class="search-recovery__block">
+      <ul class="search-recovery__links" role="list">
+        <li>
+          <a class="search-recovery__link" href="{{ routes.all_products_collection_url }}">
+            <span>{{ 'collection.empty.all_beds' | t }}</span>
+            {%- render 'icon', name: 'arrow-right' -%}
+          </a>
+        </li>
+      </ul>
+    </div>
+  {%- endif -%}
+{%- endcapture -%}
+
+{%- capture finder_card -%}
+  {%- if settings.finder_enable and section.settings.show_finder -%}
+    <div class="search-finder scheme-moss" data-finder-only>
+      <span class="search-finder__icon" aria-hidden="true">{%- render 'icon', name: 'paw' -%}</span>
+      <div class="search-finder__text">
+        <h2 class="search-finder__heading">{{ section.settings.finder_heading | escape }}</h2>
+        <p>{{ section.settings.finder_text | escape }}</p>
+      </div>
+      <a href="{{ finder_url }}" class="btn btn--secondary search-finder__cta" data-open-finder>
+        <span>{{ finder_label | escape }}</span>
+        {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+      </a>
+    </div>
+  {%- endif -%}
+{%- endcapture -%}
+
+{%- paginate search.results by per_page -%}
+  {%- liquid
+    assign results_count = search.results_count | default: 0 | plus: 0
+    assign product_results = search.results | where: 'object_type', 'product'
+    assign article_results = search.results | where: 'object_type', 'article'
+    assign page_results = search.results | where: 'object_type', 'page'
+    assign type_groups = 0
+    if product_results.size > 0
+      assign type_groups = type_groups | plus: 1
+    endif
+    if article_results.size > 0 and section.settings.show_articles
+      assign type_groups = type_groups | plus: 1
+    endif
+    if page_results.size > 0 and section.settings.show_pages
+      assign type_groups = type_groups | plus: 1
+    endif
+
+    assign state = 'start'
+    if search.performed
+      if results_count > 0 or active_count > 0
+        assign state = 'results'
+      else
+        assign state = 'none'
+      endif
+    endif
+  -%}
+  <section class="section scheme-{{ cs }} main-search" id="{{ sid }}-wrap" aria-labelledby="SearchTitle-{{ sid }}">
+    <div class="page-width">
+      <header class="search-head">
+        <h1 class="h2 search-head__title" id="SearchTitle-{{ sid }}">
+          {%- case state -%}
+            {%- when 'results' -%}{{ 'collection.search.title_results' | t }} <span class="search-head__terms">“{{ terms_escaped }}”</span>
+            {%- when 'none' -%}{{ 'collection.search.title_none' | t }} <span class="search-head__terms">“{{ terms_escaped }}”</span>
+            {%- else -%}{{ start_heading | escape }}
+          {%- endcase -%}
+        </h1>
+
+        <form class="search-form" action="{{ search_url }}" method="get" role="search">
+          <label class="visually-hidden" for="SearchQ-{{ sid }}">{{ 'collection.search.label' | t }}</label>
+          <div class="search-form__field">
+            {%- render 'icon', name: 'search', class: 'search-form__icon' -%}
+            <input
+              class="input search-form__input"
+              type="search"
+              id="SearchQ-{{ sid }}"
+              name="q"
+              value="{{ terms_escaped }}"
+              placeholder="{{ section.settings.placeholder | escape }}"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              enterkeyhint="search"
+            >
+            <input type="hidden" name="options[prefix]" value="last">
+            <button type="submit" class="btn btn--secondary search-form__submit">{{ 'collection.search.submit' | t }}</button>
+          </div>
+        </form>
+      </header>
+
+      {%- case state -%}
+        {%- when 'results' -%}
+          <facet-filters
+            class="facets-layout facets-layout--{{ fx_layout }}{% if has_filters %} has-filters{% endif %}"
+            data-section-id="{{ sid }}"
+            data-results-url="{{ search_url }}"
+          >
+            <h2 class="visually-hidden" id="ResultsHeading-{{ sid }}" tabindex="-1" data-results-heading>{{ 'collection.search.results_heading' | t }}</h2>
+
+            {%- render 'facets',
+              part: 'bar',
+              results: search,
+              section_id: sid,
+              action_url: search_url,
+              terms: terms,
+              layout: fx_layout,
+              enable_filtering: section.settings.enable_filtering,
+              enable_sorting: section.settings.enable_sorting,
+              results_count: results_count,
+              noun: 'results'
+            -%}
+            {%- render 'facets',
+              part: 'panel',
+              results: search,
+              section_id: sid,
+              action_url: search_url,
+              terms: terms,
+              layout: fx_layout,
+              enable_filtering: section.settings.enable_filtering,
+              enable_sorting: section.settings.enable_sorting,
+              results_count: results_count,
+              noun: 'results'
+            -%}
+
+            <div class="facets-layout__main">
+              {%- render 'facets',
+                part: 'toolbar',
+                results: search,
+                section_id: sid,
+                action_url: search_url,
+                terms: terms,
+                layout: fx_layout,
+                enable_filtering: section.settings.enable_filtering,
+                enable_sorting: section.settings.enable_sorting,
+                results_count: results_count,
+                noun: 'results'
+              -%}
+
+              <div class="collection-results search-results" id="Results-{{ sid }}" data-swap="results" data-results>
+                {%- if results_count > 0 -%}
+                  {%- if product_results.size > 0 -%}
+                    <div class="search-results__group">
+                      <h2 class="search-results__heading{% if type_groups < 2 %} visually-hidden{% endif %}">{{ 'collection.search.products_heading' | t }}</h2>
+                      <ul
+                        class="grid collection-grid collection-grid--{{ cols }}{% if has_filters and fx_layout == 'sidebar' %} collection-grid--beside-filters{% endif %}"
+                        role="list"
+                        style="--card-ratio: {{ ratio_css }};"
+                      >
+                        {%- for item in product_results -%}
+                          <li class="collection-grid__item">
+                            {%- liquid
+                              assign card_lazy = true
+                              if forloop.index <= 2
+                                assign card_lazy = false
+                              endif
+                            -%}
+                            {%- render 'product-card', product: item, lazy: card_lazy, heading_level: 'h3' -%}
+                          </li>
+                        {%- endfor -%}
+                      </ul>
+                    </div>
+                  {%- endif -%}
+
+                  {%- if section.settings.show_articles and article_results.size > 0 -%}
+                    <div class="search-results__group">
+                      <h2 class="search-results__heading">{{ 'collection.search.articles_heading' | t }}</h2>
+                      <ul class="search-entries" role="list">
+                        {%- for item in article_results -%}
+                          <li class="search-entry{% unless item.image %} search-entry--text{% endunless %}">
+                            {%- if item.image -%}
+                              <div class="search-entry__media">
+                                {%- render 'image', image: item.image, widths: '160,240,320', sizes: '120px', class: 'search-entry__img', decorative: true, aspect: 1.33 -%}
+                              </div>
+                            {%- endif -%}
+                            <div class="search-entry__body">
+                              <p class="search-entry__kind">{{ 'collection.search.article_kind' | t }}</p>
+                              <h3 class="search-entry__title"><a class="search-entry__link" href="{{ item.url }}">{{ item.title | escape }}</a></h3>
+                              <p class="search-entry__excerpt">{{ item.excerpt_or_content | strip_html | strip | truncatewords: 24, '…' }}</p>
+                            </div>
+                          </li>
+                        {%- endfor -%}
+                      </ul>
+                    </div>
+                  {%- endif -%}
+
+                  {%- if section.settings.show_pages and page_results.size > 0 -%}
+                    <div class="search-results__group">
+                      <h2 class="search-results__heading">{{ 'collection.search.pages_heading' | t }}</h2>
+                      <ul class="search-entries" role="list">
+                        {%- for item in page_results -%}
+                          <li class="search-entry search-entry--text search-entry--page">
+                            <div class="search-entry__body">
+                              <p class="search-entry__kind">{{ 'collection.search.page_kind' | t }}</p>
+                              <h3 class="search-entry__title"><a class="search-entry__link" href="{{ item.url }}">{{ item.title | escape }}</a></h3>
+                              <p class="search-entry__excerpt">{{ item.content | strip_html | strip | truncatewords: 22, '…' }}</p>
+                            </div>
+                          </li>
+                        {%- endfor -%}
+                      </ul>
+                    </div>
+                  {%- endif -%}
+
+                  {%- render 'pagination', paginate: paginate, show_summary: true, class: 'collection-results__pagination' -%}
+
+                  {%- if paginate.current_page == paginate.pages or paginate.pages <= 1 -%}
+                    {{ finder_card }}
+                  {%- endif -%}
+                {%- else -%}
+                  <div class="collection-empty collection-empty--filtered">
+                    <span class="collection-empty__art" aria-hidden="true">{%- render 'icon', name: 'filter' -%}</span>
+                    <h2 class="h3 collection-empty__heading">{{ 'collection.empty.filtered_heading' | t }}</h2>
+                    <p class="collection-empty__text">{{ 'collection.search.filtered_text' | t }}</p>
+                    <div class="collection-empty__actions">
+                      <a href="{{ search_url }}?q={{ terms | url_encode }}&amp;options%5Bprefix%5D=last" class="btn btn--secondary" data-facets-link>{{ 'collection.facets.clear_all' | t }}</a>
+                      {%- if settings.finder_enable -%}
+                        <a href="{{ finder_url }}" class="btn btn--ghost" data-open-finder>
+                          {%- render 'icon', name: 'paw' -%}
+                          <span>{{ 'collection.empty.filtered_finder' | t }}</span>
+                        </a>
+                      {%- endif -%}
+                    </div>
+                  </div>
+                {%- endif -%}
+              </div>
+            </div>
+
+            <p class="visually-hidden" role="status" aria-live="polite" aria-atomic="true" data-facets-live></p>
+          </facet-filters>
+
+        {%- when 'none' -%}
+          <div class="search-none">
+            <div class="search-none__lead">
+              <p class="lede">{{ 'collection.search.none_text' | t }}</p>
+            </div>
+            {{ finder_card }}
+            <div class="search-recovery">{{ recovery }}</div>
+          </div>
+
+        {%- else -%}
+          <div class="search-start">
+            {%- if section.settings.intro != blank -%}
+              <div class="lede search-start__intro">{{ section.settings.intro }}</div>
+            {%- endif -%}
+            <div class="search-recovery">{{ recovery }}</div>
+            {{ finder_card }}
+          </div>
+      {%- endcase -%}
+    </div>
+  </section>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Search results",
+  "tag": "div",
+  "class": "section-main-search",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading before a search",
+      "default": "Search"
+    },
+    {
+      "type": "richtext",
+      "id": "intro",
+      "label": "Text before a search",
+      "default": "<p>Search by breed, by size, or by the way your dog sleeps — curler, leaner, sprawler.</p>"
+    },
+    {
+      "type": "text",
+      "id": "placeholder",
+      "label": "Search box placeholder",
+      "default": "Try \"orthopaedic\" or \"large nest\""
+    },
+    {
+      "type": "range",
+      "id": "results_per_page",
+      "label": "Results per page",
+      "min": 12,
+      "max": 48,
+      "step": 4,
+      "default": 24
+    },
+    {
+      "type": "select",
+      "id": "columns_desktop",
+      "label": "Columns on desktop",
+      "options": [
+        { "value": "3", "label": "3" },
+        { "value": "4", "label": "4" }
+      ],
+      "default": "4"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_articles",
+      "label": "Show guides (blog posts) in results",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_pages",
+      "label": "Show pages in results",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Filtering and sorting"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_filtering",
+      "label": "Enable filtering",
+      "default": true,
+      "info": "Filters come from the Shopify Search & Discovery app."
+    },
+    {
+      "type": "select",
+      "id": "filter_layout",
+      "label": "Filters on desktop",
+      "options": [
+        { "value": "sidebar", "label": "Sidebar" },
+        { "value": "topbar", "label": "Top bar" }
+      ],
+      "default": "sidebar"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_sorting",
+      "label": "Enable sorting",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "When nothing matches"
+    },
+    {
+      "type": "text",
+      "id": "popular_heading",
+      "label": "Popular searches heading",
+      "default": "Popular searches"
+    },
+    {
+      "type": "text",
+      "id": "popular_searches",
+      "label": "Popular searches",
+      "default": "orthopaedic, nest, sofa bed, cooling, large",
+      "info": "Separate with commas. Each becomes a one-tap search."
+    },
+    {
+      "type": "text",
+      "id": "collections_heading",
+      "label": "Collections heading",
+      "default": "Popular collections"
+    },
+    {
+      "type": "collection_list",
+      "id": "popular_collections",
+      "label": "Collections to suggest",
+      "limit": 6,
+      "info": "Leave empty to suggest your largest collections automatically."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_finder",
+      "label": "Suggest the Bed Finder",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "finder_heading",
+      "label": "Bed Finder heading",
+      "default": "Skip the searching"
+    },
+    {
+      "type": "text",
+      "id": "finder_text",
+      "label": "Bed Finder text",
+      "default": "Tell us how your dog sleeps and we'll recommend one bed, in the right size."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    }
+  ]
+}
+{% endschema %}

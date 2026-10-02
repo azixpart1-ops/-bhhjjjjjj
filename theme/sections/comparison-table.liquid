@@ -1,0 +1,322 @@
+{%- comment -%}
+  Comparison table — "us vs a typical bed", row by row (contrast effect,
+  specificity). Keep the "typical" column fair: describe what is commonly
+  sold, never name or misrepresent a competitor.
+
+  Rows are blocks (label, ours, theirs, + hide when a promise is off). Text
+  can use [trial_nights], [guarantee_years], [threshold]. With no blocks the
+  default rows render. Desktop: a real <table>. Phones: one card per row.
+{%- endcomment -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-heading'
+  assign ph_nights = settings.trial_nights | default: 0 | plus: 0 | append: ''
+  assign ph_years = settings.guarantee_years | default: 0 | plus: 0 | append: ''
+  assign ph_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round | money_without_trailing_zeros
+
+  assign on_trial = false
+  if settings.trial_enable and settings.trial_nights > 0
+    assign on_trial = true
+  endif
+  assign on_guarantee = false
+  if settings.guarantee_enable and settings.guarantee_years > 0
+    assign on_guarantee = true
+  endif
+  assign on_free = false
+  if settings.free_shipping_enable and settings.free_shipping_threshold > 0
+    assign on_free = true
+  endif
+
+  assign ours_label = s.ours_label | default: shop.name | escape
+  assign theirs_label = s.theirs_label | default: '' | escape
+  if theirs_label == ''
+    assign theirs_label = 'home.compare.theirs_default' | t
+  endif
+
+  comment
+    Build rows as label^ours^theirs^key lines, so the table and the phone
+    cards render from one list and gating happens once.
+  endcomment
+  assign rows = ''
+  if section.blocks.size > 0
+    for block in section.blocks
+      assign b = block.settings
+      assign raw = b.label | append: ' ' | append: b.ours | append: ' ' | append: b.theirs
+      assign keep = true
+      if raw contains '[trial_nights]' and on_trial == false
+        assign keep = false
+      endif
+      if raw contains '[guarantee_years]' and on_guarantee == false
+        assign keep = false
+      endif
+      if raw contains '[threshold]' and on_free == false
+        assign keep = false
+      endif
+      case b.promise
+        when 'trial'
+          if on_trial == false
+            assign keep = false
+          endif
+        when 'guarantee'
+          if on_guarantee == false
+            assign keep = false
+          endif
+        when 'free_delivery'
+          if on_free == false
+            assign keep = false
+          endif
+      endcase
+      if b.label == blank and b.ours == blank
+        assign keep = false
+      endif
+      if keep
+        assign r_label = b.label | default: '' | remove: '^' | remove: '~' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold
+        assign r_ours = b.ours | default: '' | remove: '^' | remove: '~' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold
+        assign r_theirs = b.theirs | default: '' | remove: '^' | remove: '~' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold
+        assign rows = rows | append: r_label | append: '^' | append: r_ours | append: '^' | append: r_theirs | append: '^' | append: forloop.index0 | append: '~'
+      endif
+    endfor
+  else
+    assign keys = 'shape,filling,trial,washing,guarantee' | split: ','
+    for key in keys
+      assign keep = true
+      if key == 'trial' and on_trial == false
+        assign keep = false
+      endif
+      if key == 'guarantee' and on_guarantee == false
+        assign keep = false
+      endif
+      if keep
+        assign k = 'home.compare.default_' | append: key
+        assign k_label = k | append: '_label'
+        assign k_ours = k | append: '_ours'
+        assign k_theirs = k | append: '_theirs'
+        assign r_label = k_label | t
+        assign r_ours = k_ours | t: nights: ph_nights, years: ph_years
+        assign r_theirs = k_theirs | t
+        assign rows = rows | append: r_label | append: '^' | append: r_ours | append: '^' | append: r_theirs | append: '^' | append: '-' | append: '~'
+      endif
+    endfor
+  endif
+  assign row_list = rows | split: '~'
+-%}
+{%- if row_list.size > 0 or request.design_mode -%}
+<section
+  class="section comparison-table scheme-{{ s.color_scheme }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width">
+    <header class="section-head{% if s.align == 'center' %} section-head--center{% endif %}">
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      <h2 id="{{ heading_id }}" class="h2">{{ s.heading | default: shop.name | escape }}</h2>
+      {%- if s.lede != blank -%}<p class="lede muted">{{ s.lede | escape }}</p>{%- endif -%}
+    </header>
+
+    {%- if row_list.size > 0 -%}
+      <div class="comparison-table__wrap">
+        <table class="comparison-table__table">
+          <caption class="visually-hidden">{{ 'home.compare.caption' | t: ours: ours_label, theirs: theirs_label }}</caption>
+          <thead>
+            <tr>
+              <td class="comparison-table__corner"></td>
+              <th scope="col" class="comparison-table__col comparison-table__col--ours">
+                {%- render 'icon', name: 'moon' -%}<span>{{ ours_label }}</span>
+              </th>
+              <th scope="col" class="comparison-table__col comparison-table__col--theirs">{{ theirs_label }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {%- for row in row_list -%}
+              {%- assign cells = row | split: '^' -%}
+              {%- assign bid = cells[3] -%}
+              {%- assign row_block = nil -%}
+              {%- if bid != '-' -%}{%- assign bi = bid | plus: 0 -%}{%- assign row_block = section.blocks[bi] -%}{%- endif -%}
+              <tr class="comparison-table__row"{% if row_block %} {{ row_block.shopify_attributes }}{% endif %}>
+                <th scope="row" class="comparison-table__label">{{ cells[0] }}</th>
+                <td class="comparison-table__ours">
+                  <div class="comparison-table__cell">
+                    <span class="comparison-table__mark comparison-table__mark--yes">{%- render 'icon', name: 'check' -%}</span>
+                    <span>{{ cells[1] }}</span>
+                  </div>
+                </td>
+                <td class="comparison-table__theirs">
+                  <div class="comparison-table__cell">
+                    <span class="comparison-table__mark comparison-table__mark--no">{%- render 'icon', name: 'minus' -%}</span>
+                    <span>{{ cells[2] }}</span>
+                  </div>
+                </td>
+              </tr>
+            {%- endfor -%}
+          </tbody>
+        </table>
+
+        <ul class="comparison-table__cards" role="list">
+          {%- for row in row_list -%}
+            {%- assign cells = row | split: '^' -%}
+            <li class="comparison-table__card">
+              <h3 class="comparison-table__card-label">{{ cells[0] }}</h3>
+              <p class="comparison-table__card-ours">
+                <span class="comparison-table__mark comparison-table__mark--yes">{%- render 'icon', name: 'check' -%}</span>
+                <span><span class="comparison-table__who">{{ ours_label }}</span> {{ cells[1] }}</span>
+              </p>
+              <p class="comparison-table__card-theirs">
+                <span class="comparison-table__mark comparison-table__mark--no">{%- render 'icon', name: 'minus' -%}</span>
+                <span><span class="comparison-table__who">{{ theirs_label }}</span> {{ cells[2] }}</span>
+              </p>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </div>
+    {%- else -%}
+      <p class="editor-note">{{ 'home.editor.compare_empty' | t }}</p>
+    {%- endif -%}
+
+    {%- if s.note != blank -%}
+      <p class="comparison-table__note">{{ s.note | escape }}</p>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Comparison table",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 8,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Keep the right-hand column fair: describe what is commonly sold, and never name or misrepresent another brand. Text can use [trial_nights], [guarantee_years] and [threshold]."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "oat"
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Centre" }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Side by side"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "What you usually get, and what you get here."
+    },
+    {
+      "type": "textarea",
+      "id": "lede",
+      "label": "Intro"
+    },
+    {
+      "type": "text",
+      "id": "ours_label",
+      "label": "Our column",
+      "info": "Defaults to your store name."
+    },
+    {
+      "type": "text",
+      "id": "theirs_label",
+      "label": "Their column",
+      "default": "A typical bed online"
+    },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Footnote",
+      "default": "Foam density and the waterproof liner apply to the orthopaedic range; each product page says how that bed is built."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    }
+  ],
+  "blocks": [
+    {
+      "type": "row",
+      "name": "Row",
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "What's compared",
+          "default": "Filling"
+        },
+        {
+          "type": "text",
+          "id": "ours",
+          "label": "Ours",
+          "default": "50kg/m³ high-density memory foam on the orthopaedic range"
+        },
+        {
+          "type": "text",
+          "id": "theirs",
+          "label": "Typical",
+          "default": "Shredded offcuts or low-density foam"
+        },
+        {
+          "type": "select",
+          "id": "promise",
+          "label": "Hide when this promise is off",
+          "options": [
+            { "value": "none", "label": "Never hide" },
+            { "value": "trial", "label": "Sleep trial" },
+            { "value": "guarantee", "label": "Guarantee" },
+            { "value": "free_delivery", "label": "Free delivery" }
+          ],
+          "default": "none"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Comparison table",
+      "blocks": [
+        { "type": "row", "settings": { "label": "Built for", "ours": "How your dog actually sleeps: curlers, leaners, sprawlers", "theirs": "One bed shape, sold to every dog" } },
+        { "type": "row", "settings": { "label": "Filling", "ours": "50kg/m³ high-density memory foam on the orthopaedic range", "theirs": "Shredded offcuts or low-density foam" } },
+        { "type": "row", "settings": { "label": "Trying it", "ours": "[trial_nights] nights, free collection, full refund", "theirs": "14 or 30-day returns, at your cost", "promise": "trial" } },
+        { "type": "row", "settings": { "label": "Washing", "ours": "Most covers zip off and machine-wash at 30°C", "theirs": "Spot-clean only, or a cover that won't go back on" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

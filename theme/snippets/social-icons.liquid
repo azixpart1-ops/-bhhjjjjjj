@@ -1,0 +1,56 @@
+{%- comment -%}
+  Social profile links from the Social theme settings. Each setting accepts a
+  full URL or just a handle ("pawlunova" / "@pawlunova"). Renders nothing
+  when every setting is blank.
+
+  Parameters
+    class   extra classes on the list
+    size    icon size in px (default 20)
+{%- endcomment -%}
+{%- liquid
+  assign networks = 'instagram,facebook,tiktok,pinterest,youtube' | split: ','
+  assign any = false
+  for n in networks
+    assign key = 'social_' | append: n
+    if settings[key] != blank
+      assign any = true
+    endif
+  endfor
+  assign icon_px = size | default: 20
+-%}
+{%- if any -%}
+  <ul class="social-icons{% if class %} {{ class }}{% endif %}" role="list" aria-label="{{ 'accessibility.social_links' | t: shop: shop.name | escape }}">
+    {%- for n in networks -%}
+      {%- liquid
+        assign key = 'social_' | append: n
+        assign raw = settings[key] | default: '' | strip
+        if raw == ''
+          continue
+        endif
+        assign url = raw
+        unless raw contains '://'
+          assign handle = raw | remove_first: '@' | split: '/' | last | strip
+          case n
+            when 'instagram'
+              assign url = 'https://www.instagram.com/' | append: handle
+            when 'facebook'
+              assign url = 'https://www.facebook.com/' | append: handle
+            when 'tiktok'
+              assign url = 'https://www.tiktok.com/@' | append: handle
+            when 'pinterest'
+              assign url = 'https://www.pinterest.co.uk/' | append: handle
+            when 'youtube'
+              assign url = 'https://www.youtube.com/@' | append: handle
+          endcase
+        endunless
+        assign label_key = 'core.social.' | append: n
+      -%}
+      <li>
+        <a class="social-icons__link" href="{{ url | escape }}" target="_blank" rel="noopener">
+          {%- render 'icon', name: n, size: icon_px -%}
+          <span class="visually-hidden">{{ label_key | t }} ({{ 'accessibility.new_window' | t }})</span>
+        </a>
+      </li>
+    {%- endfor -%}
+  </ul>
+{%- endif -%}

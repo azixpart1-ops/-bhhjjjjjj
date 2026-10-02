@@ -1,0 +1,67 @@
+{%- comment -%}
+  Organization + WebSite JSON-LD. Rendered by layout/theme.liquid on the
+  homepage only. sameAs comes from the Social settings (full URLs only — a
+  bare handle is skipped rather than guessed at here).
+{%- endcomment -%}
+{%- liquid
+  assign site_url = shop.url | default: request.origin
+  assign same_as = ''
+  assign networks = 'instagram,facebook,tiktok,pinterest,youtube' | split: ','
+  for n in networks
+    assign key = 'social_' | append: n
+    assign raw = settings[key] | default: '' | strip
+    if raw contains '://'
+      if same_as != ''
+        assign same_as = same_as | append: ','
+      endif
+      assign same_as = same_as | append: raw
+    endif
+  endfor
+  assign same_as_list = same_as | split: ','
+-%}
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": {{ site_url | append: '/#organization' | json }},
+        "name": {{ shop.name | json }},
+        "url": {{ site_url | json }}
+        {%- if settings.logo != blank -%},
+        "logo": {
+          "@type": "ImageObject",
+          "url": {{ settings.logo | image_url: width: 600 | prepend: 'https:' | json }},
+          "width": 600,
+          "height": {{ 600 | divided_by: settings.logo.aspect_ratio | round | json }}
+        }
+        {%- endif -%}
+        {%- if same_as_list.size > 0 -%},
+        "sameAs": {{ same_as_list | json }}
+        {%- endif -%}
+        {%- if shop.email != blank -%},
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "customer service",
+          "email": {{ shop.email | json }}
+        }
+        {%- endif %}
+      },
+      {
+        "@type": "WebSite",
+        "@id": {{ site_url | append: '/#website' | json }},
+        "name": {{ shop.name | json }},
+        "url": {{ site_url | json }},
+        "publisher": { "@id": {{ site_url | append: '/#organization' | json }} },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": {{ site_url | append: routes.search_url | append: '?q={search_term_string}' | json }}
+          },
+          "query-input": "required name=search_term_string"
+        }
+      }
+    ]
+  }
+</script>

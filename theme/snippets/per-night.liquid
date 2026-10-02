@@ -1,0 +1,72 @@
+{%- comment -%}
+  Per-night price reframe: "about 9p a night over the 5-year guarantee".
+
+  Honest by construction:
+    - only shows when settings.show_per_night AND the guarantee is switched on
+      with a length > 0 (the guarantee is the basis of the sum);
+    - rounds to the nearest penny and says "about";
+    - the exact working is one tap away: "£169.00 ÷ (5 years × 365 nights)
+      = 9.26p a night", with a plain note that it is not a payment plan.
+
+  Parameters
+    price     price in minor units (pence). Required.
+    compact   true → smaller, single line (cards, sticky bar)
+    class     extra classes
+
+  JS: global.js updates [data-per-night] inside the product section on
+  lunova:variant:change (amount + basis), using Lunova.perNight().
+{%- endcomment -%}
+{%- liquid
+  assign cents = price | default: 0 | plus: 0
+  assign years = settings.guarantee_years | default: 0 | plus: 0
+  assign show = false
+  if settings.show_per_night and settings.guarantee_enable and years > 0 and cents > 0
+    assign show = true
+  endif
+-%}
+{%- if show -%}
+  {%- liquid
+    comment
+      Integer arithmetic only, so no engine float quirks can creep into a
+      price claim. Round half up to the nearest penny; never show 0p.
+    endcomment
+    assign nights = years | times: 365
+    assign twice_nights = nights | times: 2
+    assign rounded = cents | times: 2 | plus: nights | divided_by: twice_nights | floor
+    if rounded < 1
+      assign rounded = 1
+    endif
+    if rounded < 100
+      assign amount = rounded | append: 'p'
+      assign hundredths = cents | times: 200 | plus: nights | divided_by: twice_nights | floor
+      assign whole = hundredths | divided_by: 100 | floor
+      assign frac = hundredths | modulo: 100
+      if frac < 10
+        assign frac = '0' | append: frac
+      endif
+      assign exact_text = whole | append: '.' | append: frac | append: 'p'
+    else
+      assign amount = rounded | money
+      assign exact_text = rounded | money
+    endif
+    assign price_money = cents | money
+  -%}
+  <div
+    class="per-night{% if compact %} per-night--compact{% endif %}{% if class %} {{ class }}{% endif %}"
+    data-per-night
+    data-price="{{ cents }}"
+    data-basis-template="{{ 'core.per_night.basis' | t: price: '[price]', years: years, exact: '[exact]' }}"
+  >
+    <details class="per-night__details">
+      <summary class="per-night__summary">
+        {%- render 'icon', name: 'moon', class: 'per-night__icon' -%}
+        <span class="per-night__text">{{ 'core.per_night.label_html' | t: amount: amount, years: years }}</span>
+        {%- render 'icon', name: 'info', class: 'per-night__more' -%}
+        <span class="visually-hidden">— {{ 'core.per_night.toggle_hint' | t }}</span>
+      </summary>
+      <p class="per-night__basis" data-per-night-basis>
+        {{- 'core.per_night.basis' | t: price: price_money, years: years, exact: exact_text -}}
+      </p>
+    </details>
+  </div>
+{%- endif -%}

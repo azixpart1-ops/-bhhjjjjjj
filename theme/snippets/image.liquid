@@ -1,0 +1,107 @@
+{%- comment -%}
+  Responsive <img> with srcset, intrinsic width/height (no layout shift),
+  focal-point-aware object-position, and a placeholder when no image is set.
+
+  Parameters
+    image          image object (or media.preview_image). Blank → placeholder SVG.
+    widths         comma list of candidate widths. Default '360,540,720,960,1200'.
+                   Widths larger than the source are dropped (no upscaling).
+    sizes          sizes attribute. Default '100vw'.
+    class          extra classes on the <img> (or the placeholder <svg>).
+    loading        'lazy' (default) | 'eager'.
+    fetchpriority  'high' | 'auto' (default: omitted).
+    alt            alt text. Default image.alt. Pass decorative: true for alt="".
+    decorative     true → alt="" (image adds nothing the text doesn't say).
+    aspect         optional width/height ratio (e.g. 1, 0.8, 1.5). With it, the
+                   image is cropped server-side to that ratio.
+    crop           'center' (default when aspect set) | 'top' | 'bottom' | 'left' | 'right'.
+    placeholder    placeholder_svg_tag name when image is blank. Default 'product-1'.
+
+  Usage
+    {% render 'image', image: section.settings.image, sizes: '(min-width: 990px) 50vw, 100vw', loading: 'eager', fetchpriority: 'high' %}
+{%- endcomment -%}
+{%- liquid
+  assign img_class = class | default: ''
+  assign ph_name = placeholder | default: 'product-1'
+-%}
+{%- if image == blank or image.width == blank -%}
+  {%- assign ph_class = 'placeholder-svg ' | append: img_class -%}
+  {{ ph_name | placeholder_svg_tag: ph_class }}
+{%- else -%}
+  {%- liquid
+    assign w_list = widths | default: '360,540,720,960,1200' | split: ','
+    assign src_w = image.width | plus: 0
+    assign ratio = aspect | default: 0 | plus: 0.0
+    assign crop_mode = crop | default: 'center'
+
+    assign srcset = ''
+    assign largest = 0
+    for w in w_list
+      assign wn = w | strip | plus: 0
+      if wn > 0 and wn <= src_w
+        if ratio > 0
+          assign hn = wn | divided_by: ratio | round
+          assign url = image | image_url: width: wn, height: hn, crop: crop_mode
+        else
+          assign url = image | image_url: width: wn
+        endif
+        if srcset != ''
+          assign srcset = srcset | append: ', '
+        endif
+        assign srcset = srcset | append: url | append: ' ' | append: wn | append: 'w'
+        if wn > largest
+          assign largest = wn
+        endif
+      endif
+    endfor
+
+    comment
+      A source smaller than every candidate width still gets one entry, at its
+      own size, so the tag is never left without a src.
+    endcomment
+    if largest == 0
+      assign largest = src_w
+      if ratio > 0
+        assign hn = largest | divided_by: ratio | round
+        assign url = image | image_url: width: largest, height: hn, crop: crop_mode
+      else
+        assign url = image | image_url: width: largest
+      endif
+      assign srcset = url | append: ' ' | append: largest | append: 'w'
+    endif
+
+    if ratio > 0
+      assign out_h = largest | divided_by: ratio | round
+      assign src = image | image_url: width: largest, height: out_h, crop: crop_mode
+    else
+      assign img_ratio = image.aspect_ratio | default: 1 | plus: 0.0
+      if img_ratio <= 0
+        assign img_ratio = 1.0
+      endif
+      assign out_h = largest | divided_by: img_ratio | round
+      assign src = image | image_url: width: largest
+    endif
+
+    if decorative
+      assign alt_text = ''
+    else
+      assign alt_text = alt | default: image.alt | default: ''
+    endif
+
+    assign load_mode = loading | default: 'lazy'
+    assign focal = image.presentation.focal_point | default: ''
+  -%}
+  <img
+    src="{{ src }}"
+    srcset="{{ srcset }}"
+    sizes="{{ sizes | default: '100vw' }}"
+    width="{{ largest }}"
+    height="{{ out_h }}"
+    alt="{{ alt_text | strip_html | escape }}"
+    {%- if img_class != '' %} class="{{ img_class }}"{% endif %}
+    {%- if focal != '' %} style="object-position: {{ focal }}"{% endif %}
+    loading="{{ load_mode }}"
+    {%- if fetchpriority == 'high' %} fetchpriority="high"{% endif %}
+    {%- if load_mode != 'eager' %} decoding="async"{% endif %}
+  >
+{%- endif -%}

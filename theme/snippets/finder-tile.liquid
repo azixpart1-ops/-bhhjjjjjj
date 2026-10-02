@@ -1,0 +1,81 @@
+{%- comment -%}
+  Bed Finder tile — a card-sized way into the finder that sits inside a grid
+  of product (or collection) cards, so an undecided shopper is offered help
+  at the exact moment the choice starts to feel big (Hick's law), without
+  leaving the listing.
+
+  Same footprint as a product card: a media-shaped top (matching the card
+  image ratio) and a body underneath, so rows stay even. Visually distinct:
+  it uses the moss scheme, and its button is the ink/outline secondary style
+  — terracotta stays reserved for buying.
+
+  Parameters
+    heading    default 'collection.finder_tile.heading'
+    text       default 'collection.finder_tile.text'
+    cta        button label. Default settings.finder_cta_label
+    eyebrow    small line above the heading. Default 'collection.finder_tile.eyebrow'
+    tag        'li' (default, for <ul role="list"> grids) | 'div'
+    ratio      CSS aspect-ratio for the top panel, e.g. '1 / 1' (default),
+               '4 / 5', '4 / 3'. Match the cards around it.
+    heading_level  'h2' | 'h3' (default)
+    index      1-based position → --i for the staggered reveal
+    class      extra classes
+
+  Renders nothing when the finder is switched off in theme settings.
+
+  Personalisation (global.js): once the shopper has told the finder their
+  dog's name, the heading reads "Not sure which bed for Bella?".
+  The CTA works without JavaScript: it links to /pages/bed-finder, and
+  global.js turns the click into lunova:finder:open when the modal exists.
+{%- endcomment -%}
+{%- if settings.finder_enable -%}
+  {%- liquid
+    assign tile_tag = tag | default: 'li'
+    assign h_tag = heading_level | default: 'h3'
+    assign tile_ratio = ratio | default: '1 / 1'
+    assign tile_heading = heading | default: ''
+    if tile_heading == ''
+      assign tile_heading = 'collection.finder_tile.heading' | t
+    endif
+    assign tile_heading_named = 'collection.finder_tile.heading_named' | t: name: '[name]'
+    assign tile_text = text | default: ''
+    if tile_text == ''
+      assign tile_text = 'collection.finder_tile.text' | t
+    endif
+    assign tile_eyebrow = eyebrow | default: ''
+    if tile_eyebrow == ''
+      assign tile_eyebrow = 'collection.finder_tile.eyebrow' | t
+    endif
+    assign tile_cta = cta | default: settings.finder_cta_label | default: ''
+    if tile_cta == ''
+      assign tile_cta = 'collection.finder_tile.cta' | t
+    endif
+    assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+    assign style_attr = '--card-ratio: ' | append: tile_ratio | append: ';'
+    if index
+      assign style_attr = style_attr | append: ' --i: ' | append: index | append: ';'
+    endif
+  -%}
+  <{{ tile_tag }} class="finder-tile scheme-moss{% if class %} {{ class }}{% endif %}" style="{{ style_attr }}" data-finder-only>
+    <div class="finder-tile__art" aria-hidden="true">
+      <span class="finder-tile__halo">
+        {%- render 'icon', name: 'paw', class: 'finder-tile__icon' -%}
+      </span>
+      <span class="finder-tile__steps">
+        <span class="finder-tile__step is-done"></span>
+        <span class="finder-tile__step"></span>
+        <span class="finder-tile__step"></span>
+        <span class="finder-tile__step"></span>
+      </span>
+    </div>
+    <div class="finder-tile__body">
+      <p class="finder-tile__eyebrow">{{ tile_eyebrow | escape }}</p>
+      <{{ h_tag }} class="finder-tile__title" data-finder-name="{{ tile_heading_named }}">{{ tile_heading | escape }}</{{ h_tag }}>
+      <p class="finder-tile__text">{{ tile_text | escape }}</p>
+      <a href="{{ finder_url }}" class="btn btn--secondary btn--sm btn--block finder-tile__cta" data-open-finder>
+        <span>{{ tile_cta | escape }}</span>
+        {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+      </a>
+    </div>
+  </{{ tile_tag }}>
+{%- endif -%}

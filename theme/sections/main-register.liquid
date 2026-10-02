@@ -1,0 +1,228 @@
+{%- comment -%}
+  Create account (classic accounts) — customers/register.json.
+
+  Four fields, honest labels, autocomplete on everything, a show-password
+  toggle, and the marketing checkbox unticked by default (never pre-ticked).
+  Beside it: what an account is for, and the reminder that checkout works
+  without one.
+{%- endcomment -%}
+{{ 'pages.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'customer.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign f = 'CustomerRegister-' | append: section.id
+  assign heading_id = f | append: '-title'
+  assign aside_id = section.id | append: '-aside-title'
+-%}
+<section class="section customer main-register scheme-{{ s.color_scheme | default: 'bone' }}" id="{{ section.id }}-wrap" aria-labelledby="{{ heading_id }}">
+  <div class="page-width">
+    <div class="customer__layout">
+      <div class="card card--lg customer-auth__panel">
+        <h1 class="h2 customer-auth__title" id="{{ heading_id }}">{{ s.heading | default: '' | escape }}</h1>
+        {%- if s.text != blank -%}
+          <p class="muted customer-auth__lede">{{ s.text | escape }}</p>
+        {%- endif -%}
+
+        {%- form 'create_customer', id: f, class: 'customer-form' -%}
+          {%- if form.errors -%}
+            <div class="form-errors" role="alert" tabindex="-1" autofocus id="{{ f }}-errors">
+              <h2 class="form-errors__title">
+                {%- render 'icon', name: 'info', size: 20 -%}
+                <span>{{ 'pages.forms.error_heading' | t }}</span>
+              </h2>
+              <ul class="form-errors__list">
+                {%- for field in form.errors -%}
+                  <li>
+                    {%- if field == 'form' -%}
+                      {{ form.errors.messages[field] }}
+                    {%- else -%}
+                      <a href="#{{ f }}-{{ field }}">{{ form.errors.translated_fields[field] | capitalize }} {{ form.errors.messages[field] }}</a>
+                    {%- endif -%}
+                  </li>
+                {%- endfor -%}
+              </ul>
+            </div>
+          {%- endif -%}
+
+          <div class="field-row field-row--2">
+            <div class="field">
+              <label class="field__label" for="{{ f }}-first_name">{{ 'pages.customer.first_name' | t }}</label>
+              <input
+                class="input"
+                type="text"
+                id="{{ f }}-first_name"
+                name="customer[first_name]"
+                value="{{ form.first_name | escape }}"
+                autocomplete="given-name"
+                {%- if form.errors contains 'first_name' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}
+              >
+            </div>
+            <div class="field">
+              <label class="field__label" for="{{ f }}-last_name">{{ 'pages.customer.last_name' | t }}</label>
+              <input
+                class="input"
+                type="text"
+                id="{{ f }}-last_name"
+                name="customer[last_name]"
+                value="{{ form.last_name | escape }}"
+                autocomplete="family-name"
+                {%- if form.errors contains 'last_name' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}
+              >
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="{{ f }}-email">{{ 'pages.customer.email' | t }}</label>
+            <input
+              class="input"
+              type="email"
+              id="{{ f }}-email"
+              name="customer[email]"
+              value="{{ form.email | escape }}"
+              autocomplete="email"
+              autocapitalize="off"
+              spellcheck="false"
+              required
+              {%- if form.errors contains 'email' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}
+            >
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="{{ f }}-password">{{ 'pages.customer.password' | t }}</label>
+            <div class="password-field">
+              <input
+                class="input password-field__input"
+                type="password"
+                id="{{ f }}-password"
+                name="customer[password]"
+                autocomplete="new-password"
+                minlength="5"
+                required
+                aria-describedby="{{ f }}-password-hint{% if form.errors contains 'password' %} {{ f }}-errors{% endif %}"
+                {%- if form.errors contains 'password' %} aria-invalid="true"{% endif %}
+              >
+              <button
+                type="button"
+                class="password-field__toggle"
+                data-password-toggle
+                aria-controls="{{ f }}-password"
+                aria-pressed="false"
+                data-label-show="{{ 'pages.forms.show_password' | t | escape }}"
+                data-label-hide="{{ 'pages.forms.hide_password' | t | escape }}"
+                hidden
+              >
+                {{- 'pages.forms.show_password' | t -}}
+              </button>
+            </div>
+            <p class="field__hint" id="{{ f }}-password-hint">{{ 'pages.customer.register.password_hint' | t }}</p>
+          </div>
+
+          {%- if s.show_marketing -%}
+            <label class="checkbox customer-form__consent" for="{{ f }}-marketing">
+              <input type="checkbox" id="{{ f }}-marketing" name="customer[accepts_marketing]" value="true">
+              <span>{{ s.marketing_label | default: '' | escape }}</span>
+            </label>
+          {%- endif -%}
+
+          <button type="submit" class="btn btn--lg btn--block pages-submit">{{ 'pages.customer.register.submit' | t }}</button>
+        {%- endform -%}
+
+        <p class="customer-auth__switch">
+          {{ 'pages.customer.register.have_account' | t }}
+          <a href="{{ routes.account_login_url }}">{{ 'pages.customer.register.log_in' | t }}</a>
+        </p>
+      </div>
+
+      {%- if s.show_aside -%}
+        <aside class="customer__aside" aria-labelledby="{{ aside_id }}">
+          <h2 class="h4" id="{{ aside_id }}">{{ s.aside_heading | default: '' | escape }}</h2>
+          <ul class="customer__benefits" role="list">
+            <li>{%- render 'icon', name: 'truck', size: 20 -%}<span>{{ 'pages.customer.benefits.track' | t }}</span></li>
+            <li>{%- render 'icon', name: 'home', size: 20 -%}<span>{{ 'pages.customer.benefits.addresses' | t }}</span></li>
+            <li>{%- render 'icon', name: 'clock', size: 20 -%}<span>{{ 'pages.customer.benefits.faster' | t }}</span></li>
+          </ul>
+          <p class="small muted">{{ 'pages.customer.benefits.guest_note' | t }}</p>
+        </aside>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Create account",
+  "class": "section-main-register",
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Create your account"
+    },
+    {
+      "type": "text",
+      "id": "text",
+      "label": "Text",
+      "default": "It takes a minute, and your orders and addresses are in one place from then on."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_marketing",
+      "label": "Offer email sign-up",
+      "default": true,
+      "info": "Always unticked: the shopper chooses."
+    },
+    {
+      "type": "text",
+      "id": "marketing_label",
+      "label": "Email sign-up label",
+      "default": "Email me about new beds and offers. Unsubscribe any time."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_aside",
+      "label": "Show the benefits panel",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "aside_heading",
+      "label": "Panel heading",
+      "default": "What an account is for"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,328 @@
+{%- comment -%}
+  Shop by need — start from the problem, not the catalogue (choice
+  architecture: a handful of doors instead of a wall of beds).
+
+  Tiles: image, label, note, link (collection picker, or any URL). The image
+  falls back to the collection's own image; a tile with no image anywhere
+  becomes a compact text tile rather than a grey placeholder. Optional
+  "12 beds" count from the collection (real, never estimated).
+
+  With no blocks the tiles build themselves from the store's collections
+  (skipping the home page and all-products ones). A tile with nowhere to
+  link to is hidden on the live store.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign tile_count = 0
+  if section.blocks.size > 0
+    for block in section.blocks
+      if block.settings.collection != blank or block.settings.link != blank
+        assign tile_count = tile_count | plus: 1
+      endif
+    endfor
+  else
+    for c in collections
+      if c.handle != 'frontpage' and c.handle != 'all' and c.products_count > 0
+        assign tile_count = tile_count | plus: 1
+      endif
+      if tile_count >= 8
+        break
+      endif
+    endfor
+  endif
+-%}
+{%- if tile_count > 0 or request.design_mode -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign heading_id = section.id | append: '-heading'
+  assign cols = s.columns_desktop | default: 3 | plus: 0
+  case s.image_ratio
+    when 'portrait'
+      assign ratio = 0.8
+      assign ratio_css = '4 / 5'
+    when 'square'
+      assign ratio = 1
+      assign ratio_css = '1 / 1'
+    else
+      assign ratio = 1.3333
+      assign ratio_css = '4 / 3'
+  endcase
+-%}
+<section
+  class="section shop-by-need scheme-{{ s.color_scheme }} shop-by-need--{{ s.style | default: 'tiles' }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width">
+    <header class="section-head{% if s.align == 'center' %} section-head--center{% endif %}">
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      <h2 id="{{ heading_id }}" class="h2">{{ s.heading | default: shop.name | escape }}</h2>
+      {%- if s.lede != blank -%}<p class="lede muted">{{ s.lede | escape }}</p>{%- endif -%}
+    </header>
+
+    <ul class="shop-by-need__grid" role="list" style="--cols: {{ cols }}; --tile-ratio: {{ ratio_css }};">
+      {%- if section.blocks.size > 0 -%}
+        {%- for block in section.blocks -%}
+          {%- liquid
+            assign b = block.settings
+            assign c = b.collection
+            assign url = b.link
+            if url == blank and c != blank
+              assign url = c.url
+            endif
+            assign label = b.label | default: c.title | default: '' | escape
+            if label == ''
+              assign label = 'home.need.placeholder_label' | t
+            endif
+            assign img = b.image
+            if img == blank and c != blank
+              assign img = c.featured_image | default: c.image
+            endif
+            assign has_img = false
+            if img != blank and s.style == 'tiles'
+              assign has_img = true
+            endif
+            assign count_text = ''
+            if s.show_count and c != blank and c.products_count > 0
+              assign count_text = 'home.need.count' | t: count: c.products_count
+            endif
+          -%}
+          {%- if url != blank or request.design_mode -%}
+            <li class="shop-by-need__item" data-reveal style="--i: {{ forloop.index0 }};" {{ block.shopify_attributes }}>
+              <a class="shop-by-need__tile{% unless has_img %} shop-by-need__tile--compact{% endunless %}" href="{{ url | default: '#' }}">
+                {%- if has_img -%}
+                  <span class="shop-by-need__media">
+                    {%- render 'image', image: img, widths: '320,480,640,800,960', sizes: '(min-width: 990px) 33vw, (min-width: 750px) 50vw, 100vw', aspect: ratio, decorative: true, class: 'shop-by-need__img' -%}
+                  </span>
+                {%- elsif request.design_mode and s.style == 'tiles' -%}
+                  <span class="shop-by-need__media">
+                    {%- capture ph -%}collection-{{ forloop.index | modulo: 6 | plus: 1 }}{%- endcapture -%}
+                    {{ ph | placeholder_svg_tag: 'placeholder-svg shop-by-need__img' }}
+                  </span>
+                {%- endif -%}
+                <span class="shop-by-need__body">
+                  <span class="shop-by-need__label">{{ label }}</span>
+                  {%- if b.note != blank -%}<span class="shop-by-need__note">{{ b.note | escape }}</span>{%- endif -%}
+                  {%- if count_text != '' -%}<span class="shop-by-need__count">{{ count_text }}</span>{%- endif -%}
+                </span>
+                <span class="shop-by-need__arrow" aria-hidden="true">{%- render 'icon', name: 'arrow-right' -%}</span>
+              </a>
+            </li>
+          {%- endif -%}
+        {%- endfor -%}
+      {%- else -%}
+        {%- assign n = 0 -%}
+        {%- for c in collections -%}
+          {%- if c.handle != 'frontpage' and c.handle != 'all' and c.products_count > 0 -%}
+            {%- liquid
+              assign n = n | plus: 1
+              assign img = c.featured_image | default: c.image
+              assign has_img = false
+              if img != blank and s.style == 'tiles'
+                assign has_img = true
+              endif
+            -%}
+            <li class="shop-by-need__item" data-reveal style="--i: {{ n | minus: 1 }};">
+              <a class="shop-by-need__tile{% unless has_img %} shop-by-need__tile--compact{% endunless %}" href="{{ c.url }}">
+                {%- if has_img -%}
+                  <span class="shop-by-need__media">
+                    {%- render 'image', image: img, widths: '320,480,640,800,960', sizes: '(min-width: 990px) 33vw, (min-width: 750px) 50vw, 100vw', aspect: ratio, decorative: true, class: 'shop-by-need__img' -%}
+                  </span>
+                {%- endif -%}
+                <span class="shop-by-need__body">
+                  <span class="shop-by-need__label">{{ c.title | escape }}</span>
+                  {%- if s.show_count -%}<span class="shop-by-need__count">{{ 'home.need.count' | t: count: c.products_count }}</span>{%- endif -%}
+                </span>
+                <span class="shop-by-need__arrow" aria-hidden="true">{%- render 'icon', name: 'arrow-right' -%}</span>
+              </a>
+            </li>
+            {%- if n >= 8 -%}{%- break -%}{%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- if n == 0 and request.design_mode -%}
+          <li class="shop-by-need__item"><p class="editor-note">{{ 'home.editor.need_empty' | t }}</p></li>
+        {%- endif -%}
+      {%- endif -%}
+    </ul>
+
+    {%- if settings.finder_enable and s.finder_prompt != blank -%}
+      <p class="shop-by-need__finder">
+        <span>{{ s.finder_prompt | escape }}</span>
+        <button type="button" class="link shop-by-need__finder-link" data-open-finder aria-haspopup="dialog">
+          {{- s.finder_link_label | default: settings.finder_cta_label | escape -}}
+        </button>
+      </p>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Shop by need",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 8,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "With no tiles added, this shows your collections automatically. A tile with nothing to link to is hidden on the live store."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "Style",
+      "options": [
+        { "value": "tiles", "label": "Image tiles" },
+        { "value": "compact", "label": "Compact list (no images)" }
+      ],
+      "default": "tiles"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "Columns on desktop",
+      "min": 2,
+      "max": 4,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Image shape",
+      "options": [
+        { "value": "landscape", "label": "Landscape" },
+        { "value": "square", "label": "Square" },
+        { "value": "portrait", "label": "Portrait" }
+      ],
+      "default": "landscape"
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Centre" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Shop by need"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Start with what they struggle with."
+    },
+    {
+      "type": "textarea",
+      "id": "lede",
+      "label": "Intro"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_count",
+      "label": "Show number of beds",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "finder_prompt",
+      "label": "Bed Finder prompt",
+      "default": "Still not sure where to start?"
+    },
+    {
+      "type": "text",
+      "id": "finder_link_label",
+      "label": "Bed Finder link label",
+      "default": "Answer four questions instead"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    }
+  ],
+  "blocks": [
+    {
+      "type": "tile",
+      "name": "Need",
+      "settings": [
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": "Collection"
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Senior & arthritic",
+          "info": "Defaults to the collection's title."
+        },
+        {
+          "type": "text",
+          "id": "note",
+          "label": "Note",
+          "default": "Firmer support, easier to rise from"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image",
+          "info": "Defaults to the collection's image."
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link",
+          "info": "Overrides the collection link."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Shop by need",
+      "blocks": [
+        { "type": "tile", "settings": { "label": "Orthopaedic", "note": "Memory foam cores for joints under load" } },
+        { "type": "tile", "settings": { "label": "Senior & arthritic", "note": "Firmer support, easier to rise from" } },
+        { "type": "tile", "settings": { "label": "Large breeds", "note": "Sized for dogs that flatten ordinary beds" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

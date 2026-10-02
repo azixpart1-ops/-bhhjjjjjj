@@ -1,0 +1,268 @@
+{%- comment -%}
+  Need chips — "Shop by how they sleep, or what they need".
+
+  A row of one-tap shortcuts that let a shopper describe their dog instead
+  of decoding product names (choice architecture: name the situation, not
+  the SKU). A horizontal swipe row on phones; wraps on desktop.
+
+  Each chip goes to its own link, else its collection. A chip with neither
+  is hidden on the live store (and shown as a hint in the editor), so the
+  row never contains a dead end. The chip for the page you're on is marked
+  aria-current="page".
+
+  Until the store has collections, the template's chips run a search
+  (e.g. /search?q=nest) so they still lead somewhere real.
+{%- endcomment -%}
+{{ 'collection.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign sid = section.id
+  assign cs = section.settings.color_scheme | default: 'bone'
+  assign current_path = request.path | default: ''
+  assign all_url = routes.all_products_collection_url
+
+  comment
+    Work out which chips can render, so an empty row renders nothing.
+  endcomment
+  assign renderable = 0
+  for block in section.blocks
+    if block.settings.link != blank or block.settings.collection != blank
+      assign renderable = renderable | plus: 1
+    endif
+  endfor
+  if section.settings.show_all
+    assign renderable = renderable | plus: 1
+  endif
+-%}
+{%- if renderable > 0 or request.design_mode -%}
+  <div class="section scheme-{{ cs }} need-chips" id="{{ sid }}-wrap">
+    <nav class="page-width need-chips__inner" aria-labelledby="NeedChipsHeading-{{ sid }}">
+      {%- if section.settings.heading != blank -%}
+        <h2 class="need-chips__heading" id="NeedChipsHeading-{{ sid }}">{{ section.settings.heading | escape }}</h2>
+      {%- else -%}
+        <h2 class="visually-hidden" id="NeedChipsHeading-{{ sid }}">{{ 'collection.need_chips.fallback_heading' | t }}</h2>
+      {%- endif -%}
+
+      <ul class="need-chips__list" role="list">
+        {%- if section.settings.show_all -%}
+          {%- liquid
+            assign all_current = false
+            if current_path == all_url
+              assign all_current = true
+            endif
+          -%}
+          <li class="need-chips__item">
+            <a class="chip need-chips__chip" href="{{ all_url }}"{% if all_current %} aria-current="page"{% endif %}>
+              {%- render 'icon', name: 'bed', class: 'need-chips__icon' -%}
+              {%- assign all_label = section.settings.all_label | default: '' -%}
+              {%- if all_label == '' -%}{%- assign all_label = 'collection.need_chips.all' | t -%}{%- endif -%}
+              <span>{{ all_label | escape }}</span>
+            </a>
+          </li>
+        {%- endif -%}
+
+        {%- for block in section.blocks -%}
+          {%- liquid
+            assign chip_collection = block.settings.collection
+            assign chip_url = block.settings.link
+            if chip_url == blank and chip_collection != blank
+              assign chip_url = chip_collection.url
+            endif
+            assign chip_label = block.settings.label | default: chip_collection.title | default: ''
+            assign chip_label = chip_label | split: ' | ' | first | strip
+
+            assign is_current = false
+            if chip_url != blank
+              assign chip_path = chip_url | split: '?' | first | split: '#' | first
+              assign has_query = false
+              if chip_url contains '?'
+                assign has_query = true
+              endif
+              if chip_path == current_path and has_query == false
+                assign is_current = true
+              endif
+              if chip_collection != blank and collection.handle != blank and chip_collection.handle == collection.handle and block.settings.link == blank
+                assign is_current = true
+              endif
+            endif
+
+            assign show_count = false
+            if section.settings.show_counts and chip_collection != blank and block.settings.link == blank
+              if chip_collection.all_products_count > 0
+                assign show_count = true
+              endif
+            endif
+          -%}
+          {%- if chip_url != blank and chip_label != '' -%}
+            <li class="need-chips__item" {{ block.shopify_attributes }}>
+              <a class="chip need-chips__chip" href="{{ chip_url | escape }}"{% if is_current %} aria-current="page"{% endif %}>
+                {%- if block.settings.image != blank -%}
+                  <span class="need-chips__thumb" aria-hidden="true">
+                    {%- render 'image', image: block.settings.image, widths: '64,96', sizes: '32px', class: 'need-chips__img', decorative: true, aspect: 1 -%}
+                  </span>
+                {%- elsif block.settings.icon != 'none' -%}
+                  {%- render 'icon', name: block.settings.icon, class: 'need-chips__icon' -%}
+                {%- endif -%}
+                <span>{{ chip_label | escape }}</span>
+                {%- if show_count -%}
+                  <span class="need-chips__count">
+                    <span aria-hidden="true">{{ chip_collection.all_products_count }}</span>
+                    <span class="visually-hidden">{{ 'collection.hero.count' | t: count: chip_collection.all_products_count }}</span>
+                  </span>
+                {%- endif -%}
+              </a>
+            </li>
+          {%- elsif request.design_mode -%}
+            <li class="need-chips__item" {{ block.shopify_attributes }}>
+              <span class="chip need-chips__chip need-chips__chip--empty">
+                {%- assign hint_label = block.settings.label | default: '' -%}
+                {%- if hint_label == '' -%}{%- assign hint_label = 'collection.need_chips.editor_label' | t -%}{%- endif -%}
+                <span>{{ hint_label | escape }}</span>
+                <span class="need-chips__hint">{{ 'collection.need_chips.editor_hint' | t }}</span>
+              </span>
+            </li>
+          {%- endif -%}
+        {%- endfor -%}
+      </ul>
+    </nav>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Need chips",
+  "tag": "div",
+  "class": "section-need-chips",
+  "max_blocks": 12,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "One-tap shortcuts by how a dog sleeps or what it needs. Each chip goes to its link, or else its collection; chips with neither are hidden from shoppers."
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Shop by how they sleep, or what they need"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_all",
+      "label": "Start with an \"All beds\" chip",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "all_label",
+      "label": "\"All beds\" chip label",
+      "default": "All beds"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_counts",
+      "label": "Show how many beds each collection has",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    }
+  ],
+  "blocks": [
+    {
+      "type": "chip",
+      "name": "Chip",
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Curls up tight",
+          "info": "Leave blank to use the collection's name."
+        },
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": "Collection"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link",
+          "info": "Optional. Overrides the collection — for example a search such as /search?q=nest."
+        },
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "options": [
+            { "value": "none", "label": "None" },
+            { "value": "moon", "label": "Moon" },
+            { "value": "paw", "label": "Paw" },
+            { "value": "bed", "label": "Bed" },
+            { "value": "heart", "label": "Heart" },
+            { "value": "shield", "label": "Shield" },
+            { "value": "snowflake", "label": "Snowflake" },
+            { "value": "ruler", "label": "Ruler" },
+            { "value": "weight", "label": "Weight" },
+            { "value": "sparkle", "label": "Sparkle" },
+            { "value": "leaf", "label": "Leaf" },
+            { "value": "home", "label": "Home" },
+            { "value": "bone", "label": "Bone" }
+          ],
+          "default": "none"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image",
+          "info": "Optional small round photo. Replaces the icon."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Need chips",
+      "blocks": [
+        { "type": "chip", "settings": { "label": "Stiff joints", "icon": "heart" } },
+        { "type": "chip", "settings": { "label": "Curls up tight", "icon": "moon" } },
+        { "type": "chip", "settings": { "label": "Leans on the edge", "icon": "bed" } },
+        { "type": "chip", "settings": { "label": "Sprawls out flat", "icon": "ruler" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

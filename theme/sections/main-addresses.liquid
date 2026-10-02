@@ -1,0 +1,318 @@
+{%- comment -%}
+  Addresses (classic accounts) — customers/addresses.json.
+
+  Add, edit, make default, delete. Each address is a card; edit and add
+  open in place (<details>, so they work without JavaScript and reopen
+  themselves when the server returns an error). Country → county/state
+  select is plain markup ({{ all_country_option_tags }} + data-default);
+  customer.js fills the province list for the chosen country and hides it
+  for countries without one. Delete is a real form (POST _method=delete)
+  that asks for confirmation first when JavaScript is on.
+{%- endcomment -%}
+{{ 'pages.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'customer.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-title'
+  assign list_id = section.id | append: '-list'
+  assign default_country = s.default_country | default: 'United Kingdom'
+-%}
+
+{%- capture new_address_html -%}
+  {%- form 'customer_address', customer.new_address, class: 'customer-form address-form' -%}
+    {%- assign f = 'AddressNew-' | append: section.id -%}
+    {%- if form.errors -%}
+      {%- assign new_open = true -%}
+      <div class="form-errors" role="alert" tabindex="-1" autofocus id="{{ f }}-errors">
+        <h3 class="form-errors__title">
+          {%- render 'icon', name: 'info', size: 20 -%}
+          <span>{{ 'pages.forms.error_heading' | t }}</span>
+        </h3>
+        <ul class="form-errors__list">
+          {%- for field in form.errors -%}
+            <li>
+              {%- if field == 'form' -%}
+                {{ form.errors.messages[field] }}
+              {%- else -%}
+                <a href="#{{ f }}-{{ field }}">{{ form.errors.translated_fields[field] | capitalize }} {{ form.errors.messages[field] }}</a>
+              {%- endif -%}
+            </li>
+          {%- endfor -%}
+        </ul>
+      </div>
+    {%- endif -%}
+    <div class="field-row field-row--2">
+      <div class="field">
+        <label class="field__label" for="{{ f }}-first_name">{{ 'pages.customer.first_name' | t }}</label>
+        <input class="input" type="text" id="{{ f }}-first_name" name="address[first_name]" value="{{ form.first_name | escape }}" autocomplete="given-name">
+      </div>
+      <div class="field">
+        <label class="field__label" for="{{ f }}-last_name">{{ 'pages.customer.last_name' | t }}</label>
+        <input class="input" type="text" id="{{ f }}-last_name" name="address[last_name]" value="{{ form.last_name | escape }}" autocomplete="family-name">
+      </div>
+    </div>
+    <div class="field">
+      <label class="field__label" for="{{ f }}-company">{{ 'pages.customer.addresses.company' | t }} <span class="field__optional">{{ 'pages.forms.optional' | t }}</span></label>
+      <input class="input" type="text" id="{{ f }}-company" name="address[company]" value="{{ form.company | escape }}" autocomplete="organization">
+    </div>
+    <div class="field">
+      <label class="field__label" for="{{ f }}-address1">{{ 'pages.customer.addresses.address1' | t }}</label>
+      <input class="input" type="text" id="{{ f }}-address1" name="address[address1]" value="{{ form.address1 | escape }}" autocomplete="address-line1"{% if form.errors contains 'address1' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}>
+    </div>
+    <div class="field">
+      <label class="field__label" for="{{ f }}-address2">{{ 'pages.customer.addresses.address2' | t }} <span class="field__optional">{{ 'pages.forms.optional' | t }}</span></label>
+      <input class="input" type="text" id="{{ f }}-address2" name="address[address2]" value="{{ form.address2 | escape }}" autocomplete="address-line2">
+    </div>
+    <div class="field-row field-row--2">
+      <div class="field">
+        <label class="field__label" for="{{ f }}-city">{{ 'pages.customer.addresses.city' | t }}</label>
+        <input class="input" type="text" id="{{ f }}-city" name="address[city]" value="{{ form.city | escape }}" autocomplete="address-level2"{% if form.errors contains 'city' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}>
+      </div>
+      <div class="field">
+        <label class="field__label" for="{{ f }}-zip">{{ 'pages.customer.addresses.zip' | t }}</label>
+        <input class="input" type="text" id="{{ f }}-zip" name="address[zip]" value="{{ form.zip | escape }}" autocomplete="postal-code" autocapitalize="characters"{% if form.errors contains 'zip' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}>
+      </div>
+    </div>
+    <div class="field-row field-row--2">
+      <div class="field">
+        <label class="field__label" for="{{ f }}-country">{{ 'pages.customer.addresses.country' | t }}</label>
+        <select class="select" id="{{ f }}-country" name="address[country]" autocomplete="country-name" data-address-country data-default="{{ form.country | default: default_country | escape }}">
+          {{ all_country_option_tags }}
+        </select>
+      </div>
+      <div class="field" data-address-province-wrap>
+        <label class="field__label" for="{{ f }}-province">{{ 'pages.customer.addresses.province' | t }}</label>
+        <select class="select" id="{{ f }}-province" name="address[province]" autocomplete="address-level1" data-address-province data-default="{{ form.province | escape }}">
+          {%- if form.province != blank -%}<option value="{{ form.province | escape }}" selected>{{ form.province | escape }}</option>{%- endif -%}
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field__label" for="{{ f }}-phone">{{ 'pages.customer.addresses.phone' | t }} <span class="field__optional">{{ 'pages.forms.optional' | t }}</span></label>
+      <input class="input" type="tel" id="{{ f }}-phone" name="address[phone]" value="{{ form.phone | escape }}" autocomplete="tel" inputmode="tel">
+    </div>
+    <label class="checkbox" for="{{ f }}-default">
+      <input type="checkbox" id="{{ f }}-default" name="address[default]" value="1">
+      <span>{{ 'pages.customer.addresses.set_default' | t }}</span>
+    </label>
+    <div class="cluster address-form__actions">
+      <button type="submit" class="btn pages-submit">{{ 'pages.customer.addresses.add_submit' | t }}</button>
+    </div>
+  {%- endform -%}
+{%- endcapture -%}
+
+<section class="section customer main-addresses scheme-{{ s.color_scheme | default: 'bone' }}" id="{{ section.id }}-wrap" aria-labelledby="{{ heading_id }}">
+  <div class="page-width">
+    <p class="customer__back">
+      <a class="btn btn--ghost" href="{{ routes.account_url }}">
+        {%- render 'icon', name: 'arrow-left', size: 18 -%}
+        <span>{{ 'pages.customer.order.back' | t }}</span>
+      </a>
+    </p>
+
+    <header class="customer__header">
+      <div>
+        <p class="eyebrow">{{ 'pages.customer.account.eyebrow' | t }}</p>
+        <h1 class="h1 customer__title" id="{{ heading_id }}">{{ 'pages.customer.addresses.heading' | t }}</h1>
+      </div>
+    </header>
+
+    <details class="card card--lg address-new"{% if new_open or customer.addresses_count == 0 %} open{% endif %}>
+      <summary class="address-new__summary">
+        {%- render 'icon', name: 'plus', size: 20 -%}
+        <span>{{ 'pages.customer.addresses.add' | t }}</span>
+      </summary>
+      <div class="address-new__body">
+        {{ new_address_html }}
+      </div>
+    </details>
+
+    {%- if customer.addresses_count > 0 -%}
+      <h2 class="visually-hidden" id="{{ list_id }}">{{ 'pages.customer.addresses.saved' | t }}</h2>
+      {%- paginate customer.addresses by 12 -%}
+        <ul class="address-list" role="list" aria-labelledby="{{ list_id }}">
+          {%- for address in customer.addresses -%}
+            {%- assign edit_open = false -%}
+            {%- capture edit_html -%}
+              {%- form 'customer_address', address, class: 'customer-form address-form' -%}
+                {%- assign f = 'Address-' | append: address.id -%}
+                {%- if form.errors -%}
+                  {%- assign edit_open = true -%}
+                  <div class="form-errors" role="alert" tabindex="-1" autofocus id="{{ f }}-errors">
+                    <h4 class="form-errors__title">
+                      {%- render 'icon', name: 'info', size: 20 -%}
+                      <span>{{ 'pages.forms.error_heading' | t }}</span>
+                    </h4>
+                    <ul class="form-errors__list">
+                      {%- for field in form.errors -%}
+                        <li>
+                          {%- if field == 'form' -%}
+                            {{ form.errors.messages[field] }}
+                          {%- else -%}
+                            <a href="#{{ f }}-{{ field }}">{{ form.errors.translated_fields[field] | capitalize }} {{ form.errors.messages[field] }}</a>
+                          {%- endif -%}
+                        </li>
+                      {%- endfor -%}
+                    </ul>
+                  </div>
+                {%- endif -%}
+                <div class="field-row field-row--2">
+                  <div class="field">
+                    <label class="field__label" for="{{ f }}-first_name">{{ 'pages.customer.first_name' | t }}</label>
+                    <input class="input" type="text" id="{{ f }}-first_name" name="address[first_name]" value="{{ form.first_name | escape }}" autocomplete="given-name">
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="{{ f }}-last_name">{{ 'pages.customer.last_name' | t }}</label>
+                    <input class="input" type="text" id="{{ f }}-last_name" name="address[last_name]" value="{{ form.last_name | escape }}" autocomplete="family-name">
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="{{ f }}-company">{{ 'pages.customer.addresses.company' | t }} <span class="field__optional">{{ 'pages.forms.optional' | t }}</span></label>
+                  <input class="input" type="text" id="{{ f }}-company" name="address[company]" value="{{ form.company | escape }}" autocomplete="organization">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="{{ f }}-address1">{{ 'pages.customer.addresses.address1' | t }}</label>
+                  <input class="input" type="text" id="{{ f }}-address1" name="address[address1]" value="{{ form.address1 | escape }}" autocomplete="address-line1"{% if form.errors contains 'address1' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="{{ f }}-address2">{{ 'pages.customer.addresses.address2' | t }} <span class="field__optional">{{ 'pages.forms.optional' | t }}</span></label>
+                  <input class="input" type="text" id="{{ f }}-address2" name="address[address2]" value="{{ form.address2 | escape }}" autocomplete="address-line2">
+                </div>
+                <div class="field-row field-row--2">
+                  <div class="field">
+                    <label class="field__label" for="{{ f }}-city">{{ 'pages.customer.addresses.city' | t }}</label>
+                    <input class="input" type="text" id="{{ f }}-city" name="address[city]" value="{{ form.city | escape }}" autocomplete="address-level2"{% if form.errors contains 'city' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}>
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="{{ f }}-zip">{{ 'pages.customer.addresses.zip' | t }}</label>
+                    <input class="input" type="text" id="{{ f }}-zip" name="address[zip]" value="{{ form.zip | escape }}" autocomplete="postal-code" autocapitalize="characters"{% if form.errors contains 'zip' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}>
+                  </div>
+                </div>
+                <div class="field-row field-row--2">
+                  <div class="field">
+                    <label class="field__label" for="{{ f }}-country">{{ 'pages.customer.addresses.country' | t }}</label>
+                    <select class="select" id="{{ f }}-country" name="address[country]" autocomplete="country-name" data-address-country data-default="{{ form.country | default: default_country | escape }}">
+                      {{ all_country_option_tags }}
+                    </select>
+                  </div>
+                  <div class="field" data-address-province-wrap>
+                    <label class="field__label" for="{{ f }}-province">{{ 'pages.customer.addresses.province' | t }}</label>
+                    <select class="select" id="{{ f }}-province" name="address[province]" autocomplete="address-level1" data-address-province data-default="{{ form.province | escape }}">
+                      {%- if form.province != blank -%}<option value="{{ form.province | escape }}" selected>{{ form.province | escape }}</option>{%- endif -%}
+                    </select>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="{{ f }}-phone">{{ 'pages.customer.addresses.phone' | t }} <span class="field__optional">{{ 'pages.forms.optional' | t }}</span></label>
+                  <input class="input" type="tel" id="{{ f }}-phone" name="address[phone]" value="{{ form.phone | escape }}" autocomplete="tel" inputmode="tel">
+                </div>
+                {%- unless address == customer.default_address -%}
+                  <label class="checkbox" for="{{ f }}-default">
+                    <input type="checkbox" id="{{ f }}-default" name="address[default]" value="1">
+                    <span>{{ 'pages.customer.addresses.set_default' | t }}</span>
+                  </label>
+                {%- else -%}
+                  <input type="hidden" name="address[default]" value="1">
+                {%- endunless -%}
+                <div class="cluster address-form__actions">
+                  <button type="submit" class="btn pages-submit">{{ 'pages.customer.addresses.update_submit' | t }}</button>
+                </div>
+              {%- endform -%}
+            {%- endcapture -%}
+
+            {%- liquid
+              assign is_default = false
+              if address == customer.default_address
+                assign is_default = true
+              endif
+              assign card_label_id = 'AddressLabel-' | append: address.id
+              assign address_name = address.first_name | append: ' ' | append: address.last_name | strip
+              if address_name == ''
+                assign address_name = address.address1 | default: address.city
+              endif
+            -%}
+            <li class="card card--lg address-card{% if is_default %} address-card--default{% endif %}" aria-labelledby="{{ card_label_id }}">
+              <div class="address-card__head">
+                <h3 class="h4 address-card__title" id="{{ card_label_id }}">{{ address_name | escape }}</h3>
+                {%- if is_default -%}
+                  <span class="badge badge--accent">{{ 'pages.customer.addresses.default' | t }}</span>
+                {%- endif -%}
+              </div>
+              <address class="customer-card__address">{{ address | format_address }}</address>
+              <div class="address-card__actions">
+                <details class="address-card__edit"{% if edit_open %} open{% endif %}>
+                  <summary class="btn btn--secondary btn--sm">
+                    {{- 'pages.customer.addresses.edit' | t -}}
+                    <span class="visually-hidden">: {{ address_name | escape }}</span>
+                  </summary>
+                  <div class="address-card__form">
+                    {{ edit_html }}
+                  </div>
+                </details>
+                <form class="address-card__delete" method="post" action="{{ address.url }}" data-confirm="{{ 'pages.customer.addresses.delete_confirm' | t | escape }}">
+                  <input type="hidden" name="_method" value="delete">
+                  <button type="submit" class="btn btn--ghost btn--sm">
+                    {%- render 'icon', name: 'trash', size: 16 -%}
+                    <span>{{ 'pages.customer.addresses.delete' | t }}<span class="visually-hidden">: {{ address_name | escape }}</span></span>
+                  </button>
+                </form>
+              </div>
+            </li>
+          {%- endfor -%}
+        </ul>
+        <div class="pages-paginate">
+          {%- render 'pagination', paginate: paginate -%}
+        </div>
+      {%- endpaginate -%}
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Addresses",
+  "class": "section-main-addresses",
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "text",
+      "id": "default_country",
+      "label": "Country selected for new addresses",
+      "default": "United Kingdom",
+      "info": "Use the country's name as Shopify spells it."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    }
+  ]
+}
+{% endschema %}

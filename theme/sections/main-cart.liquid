@@ -1,0 +1,460 @@
+{%- comment -%}
+  Basket page (/cart).
+
+  Ordered the way a buyer's doubts arrive:
+    is this mine? (personal line) → how close to free delivery? (goal
+    gradient) → what am I getting → anything that goes with it? → what am
+    I saving / paying (no surprises: VAT and delivery stated plainly) →
+    pay (one terracotta button, express options under it) → what if it's
+    wrong? (risk reversal right under Checkout) → when will it come?
+    (real dispatch countdown) → can I pay my way? (payment marks)
+
+  Works with no JavaScript: a real <form action="/cart"> with updates[],
+  an "Update basket" button, remove links and a checkout submit.
+  With JavaScript, <cart-items> (collection.js) changes lines through
+  /cart/change.js and re-renders this section via the Section Rendering
+  API, so every number on the page comes from Shopify.
+
+  Lines use chrome's cart-line snippet (context: 'page') so the drawer and
+  the page behave and look the same.
+{%- endcomment -%}
+{{ 'collection.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'collection.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign sid = section.id
+  assign cs = section.settings.color_scheme | default: 'bone'
+  assign item_count = cart.item_count
+  assign threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round
+
+  comment
+    Savings = compare-at savings + Shopify discounts. Only real numbers.
+  endcomment
+  assign compare_savings = 0
+  for item in cart.items
+    assign cu = item.variant.compare_at_price | default: 0
+    if cu > item.original_price
+      assign diff = cu | minus: item.original_price | times: item.quantity
+      assign compare_savings = compare_savings | plus: diff
+    endif
+  endfor
+  assign total_savings = compare_savings | plus: cart.total_discount
+
+  assign free_unlocked = false
+  if settings.free_shipping_enable and threshold > 0 and cart.total_price >= threshold
+    assign free_unlocked = true
+  endif
+
+  assign upsell = settings.cart_upsell_product
+  assign show_upsell = false
+  if section.settings.show_upsell and upsell != blank and upsell.available and item_count > 0
+    assign show_upsell = true
+    for item in cart.items
+      if item.product_id == upsell.id
+        assign show_upsell = false
+        break
+      endif
+    endfor
+  endif
+
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign finder_label = settings.finder_cta_label | default: ''
+  if finder_label == ''
+    assign finder_label = 'collection.finder_tile.cta' | t
+  endif
+  assign shop_link = section.settings.shop_link | default: routes.all_products_collection_url
+  assign shop_label = section.settings.shop_link_label | default: ''
+  if shop_label == ''
+    assign shop_label = 'collection.empty.all_beds' | t
+  endif
+
+  assign trial_on = false
+  if settings.trial_enable and settings.trial_nights > 0
+    assign trial_on = true
+  endif
+-%}
+<section class="section scheme-{{ cs }} main-cart" id="{{ sid }}-wrap" aria-labelledby="CartTitle-{{ sid }}">
+  <cart-items
+    class="page-width cart"
+    data-section-id="{{ sid }}"
+    data-str-updating="{{ 'collection.cart.status_updating' | t }}"
+    data-str-updated="{{ 'collection.cart.status_updated' | t }}"
+    data-str-removed="{{ 'collection.cart.status_removed' | t }}"
+    data-str-added="{{ 'collection.cart.status_added' | t }}"
+    data-str-error="{{ 'collection.cart.status_error' | t }}"
+    data-str-personal-named="{{ 'collection.cart.personal_named' | t: name: '[name]' }}"
+    data-str-personal-match="{{ 'collection.cart.personal_match' | t }}"
+    data-str-match-named="{{ 'collection.cart.match_named' | t: name: '[name]' }}"
+    data-str-match="{{ 'collection.cart.match' | t }}"
+  >
+    <div class="cart__root" data-cart-root data-state="{% if item_count > 0 %}filled{% else %}empty{% endif %}" data-count="{{ item_count }}">
+      {%- if item_count > 0 -%}
+        <header class="cart__head">
+          <div class="cart__head-text">
+            <h1 class="h2 cart__title" id="CartTitle-{{ sid }}" tabindex="-1">
+              {{- 'collection.cart.title' | t -}}
+              <span class="cart__title-count" data-cart-swap="title-count">{{ 'collection.cart.title_count' | t: count: item_count }}</span>
+            </h1>
+            <p class="cart__personal" data-cart-personal hidden>
+              {%- render 'icon', name: 'heart', class: 'cart__personal-icon' -%}
+              <span data-cart-personal-text></span>
+            </p>
+          </div>
+          <a class="cart__continue" href="{{ shop_link }}">
+            {%- render 'icon', name: 'arrow-left' -%}
+            <span>{{ 'collection.cart.continue' | t }}</span>
+          </a>
+        </header>
+
+        <form action="{{ routes.cart_url }}" method="post" id="CartForm-{{ sid }}" class="cart__form" novalidate data-cart-form>
+          <div class="cart__layout">
+            <div class="cart__main">
+              <div class="cart__shipping" data-cart-swap="shipping">
+                {%- render 'free-shipping-bar', cart: cart -%}
+              </div>
+
+              <h2 class="visually-hidden">{{ 'collection.cart.items_heading' | t }}</h2>
+              <ul class="cart-lines cart__lines" role="list" data-cart-swap="lines">
+                {%- for item in cart.items -%}
+                  {%- render 'cart-line', item: item, index: forloop.index, context: 'page' -%}
+                {%- endfor -%}
+              </ul>
+
+              <div class="cart__nojs-update">
+                <button type="submit" name="update" class="btn btn--secondary btn--sm">{{ 'collection.cart.update' | t }}</button>
+              </div>
+
+              <div class="cart__upsell-slot" data-cart-swap="upsell">
+                {%- if show_upsell -%}
+                  {%- liquid
+                    assign upsell_variants = upsell.variants | where: 'available'
+                    assign upsell_first = upsell.selected_or_first_available_variant
+                    assign upsell_heading = settings.cart_upsell_heading | default: ''
+                    if upsell_heading == ''
+                      assign upsell_heading = 'collection.cart.upsell_heading' | t
+                    endif
+                  -%}
+                  <div class="cart-offer">
+                    <h2 class="cart-offer__heading">{{ upsell_heading | escape }}</h2>
+                    <div class="cart-offer__card">
+                      <a href="{{ upsell.url }}" class="cart-offer__media" tabindex="-1" aria-hidden="true">
+                        {%- render 'image',
+                          image: upsell.featured_image,
+                          widths: '120,180,240',
+                          sizes: '88px',
+                          class: 'cart-offer__img',
+                          loading: 'lazy',
+                          decorative: true,
+                          aspect: 1
+                        -%}
+                      </a>
+                      <div class="cart-offer__info">
+                        <a href="{{ upsell.url }}" class="cart-offer__title">{{ upsell.title | escape }}</a>
+                        {%- render 'price', product: upsell, show_from: true, show_save: true, size: 'sm' -%}
+                        <div class="cart-offer__controls">
+                          {%- if upsell.has_only_default_variant or upsell_variants.size < 2 -%}
+                            <input type="hidden" name="id" value="{{ upsell_first.id }}" form="CartUpsell-{{ sid }}">
+                          {%- else -%}
+                            <label class="visually-hidden" for="CartUpsellVariant-{{ sid }}">{{ 'collection.cart.upsell_option' | t: title: upsell.title }}</label>
+                            <select id="CartUpsellVariant-{{ sid }}" name="id" class="select cart-offer__select" form="CartUpsell-{{ sid }}" data-upsell-select>
+                              {%- for v in upsell_variants -%}
+                                <option
+                                  value="{{ v.id }}"
+                                  data-options="{{ v.options | join: '|' | escape }}"
+                                  {%- if v.id == upsell_first.id %} selected{% endif %}
+                                >
+                                  {{- v.title | escape }} · {{ v.price | money -}}
+                                </option>
+                              {%- endfor -%}
+                            </select>
+                          {%- endif -%}
+                          <input type="hidden" name="quantity" value="1" form="CartUpsell-{{ sid }}">
+                          <button
+                            type="submit"
+                            class="btn btn--secondary btn--sm cart-offer__add"
+                            form="CartUpsell-{{ sid }}"
+                            data-focus-key="upsell-add"
+                          >
+                            {%- render 'icon', name: 'plus' -%}
+                            <span>{{ 'collection.cart.upsell_add' | t }}</span>
+                            <span class="visually-hidden">{{ upsell.title | escape }}</span>
+                          </button>
+                        </div>
+                        <p class="cart-offer__error" role="alert" data-upsell-error></p>
+                      </div>
+                    </div>
+                  </div>
+                {%- endif -%}
+              </div>
+
+              {%- if settings.cart_show_note -%}
+                <details class="accordion cart__note"{% if cart.note != blank %} open{% endif %}>
+                  <summary>{{ 'collection.cart.note_toggle' | t }}</summary>
+                  <div class="accordion__content">
+                    <label class="field__label cart__note-label" for="CartNote-{{ sid }}">{{ 'collection.cart.note_label' | t }}</label>
+                    <textarea
+                      id="CartNote-{{ sid }}"
+                      class="textarea cart__note-input"
+                      name="note"
+                      rows="3"
+                      data-cart-note
+                    >{{ cart.note }}</textarea>
+                  </div>
+                </details>
+              {%- endif -%}
+            </div>
+
+            <aside class="cart__summary" aria-labelledby="CartSummaryTitle-{{ sid }}">
+              <div class="cart__summary-card">
+                <h2 class="h4 cart__summary-title" id="CartSummaryTitle-{{ sid }}">{{ 'collection.cart.summary_heading' | t }}</h2>
+
+                <div class="cart__totals" data-cart-swap="summary">
+                  {%- if settings.show_compare_savings and total_savings > 0 -%}
+                    <p class="cart__savings">
+                      {%- render 'icon', name: 'tag' -%}
+                      {%- assign savings_money = total_savings | money_without_trailing_zeros -%}
+                      <span>{{ 'collection.cart.savings_html' | t: amount: savings_money }}</span>
+                    </p>
+                  {%- endif -%}
+
+                  {%- if cart.cart_level_discount_applications.size > 0 -%}
+                    <ul class="cart__discounts" role="list">
+                      {%- for discount in cart.cart_level_discount_applications -%}
+                        <li>
+                          <span>{%- render 'icon', name: 'tag' -%}{{ discount.title | escape }}</span>
+                          <span>−{{ discount.total_allocated_amount | money }}</span>
+                        </li>
+                      {%- endfor -%}
+                    </ul>
+                  {%- endif -%}
+
+                  <div class="cart__subtotal">
+                    <span>{{ 'collection.cart.subtotal' | t }}</span>
+                    <span class="cart__subtotal-value">{{ cart.total_price | money }}</span>
+                  </div>
+
+                  <p class="cart__fineprint">
+                    {%- if cart.taxes_included -%}
+                      {%- if free_unlocked -%}{{ 'collection.cart.tax_included_free' | t }}{%- else -%}{{ 'collection.cart.tax_included' | t }}{%- endif -%}
+                    {%- else -%}
+                      {%- if free_unlocked -%}{{ 'collection.cart.tax_excluded_free' | t }}{%- else -%}{{ 'collection.cart.tax_excluded' | t }}{%- endif -%}
+                    {%- endif %}
+                    {{ 'collection.cart.discount_codes' | t -}}
+                  </p>
+                </div>
+
+                <button type="submit" name="checkout" class="btn btn--primary btn--lg btn--block cart__checkout" data-cart-checkout>
+                  {%- render 'icon', name: 'lock' -%}
+                  <span>{{ 'collection.cart.checkout' | t }}</span>
+                </button>
+
+                {%- if section.settings.show_dynamic_checkout and additional_checkout_buttons -%}
+                  <div class="cart__dynamic">
+                    {{ content_for_additional_checkout_buttons }}
+                  </div>
+                {%- endif -%}
+
+                {%- if section.settings.show_trial_line and trial_on -%}
+                  <p class="cart__trial">
+                    {%- render 'icon', name: 'moon', class: 'cart__trial-icon' -%}
+                    <span>{{ 'collection.cart.trial_line' | t: nights: settings.trial_nights }}</span>
+                  </p>
+                {%- endif -%}
+
+                {%- if section.settings.show_delivery -%}
+                  {%- render 'delivery-promise', compact: true, class: 'cart__delivery' -%}
+                {%- endif -%}
+              </div>
+
+              {%- if section.settings.show_trust -%}
+                {%- if trial_on and section.settings.show_trial_line -%}
+                  {%- render 'trust-list', items: 'guarantee,secure,installments', layout: 'stack', size: 'md', class: 'cart__trust' -%}
+                {%- else -%}
+                  {%- render 'trust-list', items: 'trial,guarantee,secure,installments', layout: 'stack', size: 'md', class: 'cart__trust' -%}
+                {%- endif -%}
+              {%- endif -%}
+
+              {%- if section.settings.show_payment_icons -%}
+                {%- render 'payment-icons', class: 'cart__payments' -%}
+              {%- endif -%}
+            </aside>
+          </div>
+        </form>
+
+        <form id="CartUpsell-{{ sid }}" action="{{ routes.cart_add_url }}" method="post" class="cart__upsell-form" data-upsell-form hidden></form>
+
+        {%- if section.settings.sticky_checkout -%}
+          <div class="cart-sticky" data-cart-sticky hidden>
+            <div class="cart-sticky__total">
+              <span class="cart-sticky__label">{{ 'collection.cart.subtotal' | t }}</span>
+              <span class="cart-sticky__value" data-cart-swap="sticky-total">{{ cart.total_price | money }}</span>
+            </div>
+            <button type="submit" form="CartForm-{{ sid }}" name="checkout" class="btn btn--primary cart-sticky__btn">
+              {%- render 'icon', name: 'lock' -%}
+              <span>{{ 'collection.cart.checkout_short' | t }}</span>
+            </button>
+          </div>
+        {%- endif -%}
+
+        <template data-cart-match-template>
+          <span class="badge badge--match cart__match">
+            {%- render 'icon', name: 'paw' -%}
+            <span data-cart-match-text></span>
+          </span>
+        </template>
+      {%- else -%}
+        <div class="cart-empty">
+          <span class="cart-empty__art" aria-hidden="true">{%- render 'icon', name: 'bed' -%}</span>
+          <h1 class="h2 cart-empty__title" id="CartTitle-{{ sid }}" tabindex="-1">{{ section.settings.empty_heading | escape }}</h1>
+          {%- if section.settings.empty_text != blank -%}
+            <div class="rte cart-empty__text">{{ section.settings.empty_text }}</div>
+          {%- endif -%}
+          <div class="cart-empty__actions">
+            {%- if settings.finder_enable -%}
+              <a href="{{ finder_url }}" class="btn btn--secondary btn--lg" data-open-finder>
+                {%- render 'icon', name: 'paw' -%}
+                <span>{{ finder_label | escape }}</span>
+              </a>
+              <a href="{{ shop_link }}" class="cart-empty__link">
+                <span>{{ shop_label | escape }}</span>
+                {%- render 'icon', name: 'arrow-right' -%}
+              </a>
+            {%- else -%}
+              <a href="{{ shop_link }}" class="btn btn--secondary btn--lg">
+                <span>{{ shop_label | escape }}</span>
+                {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+              </a>
+            {%- endif -%}
+          </div>
+          {%- render 'trust-list', items: 'trial,guarantee,delivery', layout: 'row', size: 'sm', class: 'cart-empty__trust' -%}
+        </div>
+      {%- endif -%}
+    </div>
+
+    <p class="visually-hidden" role="status" aria-live="polite" aria-atomic="true" data-cart-status></p>
+  </cart-items>
+</section>
+
+{% schema %}
+{
+  "name": "Basket",
+  "tag": "div",
+  "class": "section-main-cart",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Free-delivery threshold, trial, guarantee and the extra product all come from Theme settings (Promises and Cart), so the basket always matches the rest of the shop."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_upsell",
+      "label": "Show the extra product",
+      "default": true,
+      "info": "Pick it in Theme settings → Cart. Hidden once it's in the basket. Never added automatically."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_dynamic_checkout",
+      "label": "Show express checkout buttons",
+      "default": true,
+      "info": "Shop Pay, Apple Pay, Google Pay and PayPal, when switched on in Settings → Payments."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_trial_line",
+      "label": "Show the sleep-trial promise under Checkout",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_delivery",
+      "label": "Show the dispatch countdown",
+      "default": true,
+      "info": "Uses your real cut-off time and dispatch days from Theme settings → Promises."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_trust",
+      "label": "Show promises",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_payment_icons",
+      "label": "Show payment icons",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "sticky_checkout",
+      "label": "Sticky checkout bar on phones",
+      "default": true,
+      "info": "Appears while the Checkout button is further down the page."
+    },
+    {
+      "type": "header",
+      "content": "Empty basket"
+    },
+    {
+      "type": "text",
+      "id": "empty_heading",
+      "label": "Heading",
+      "default": "Your basket is empty"
+    },
+    {
+      "type": "richtext",
+      "id": "empty_text",
+      "label": "Text",
+      "default": "<p>Four quick questions about how your dog sleeps, and we'll point you to the right bed in the right size.</p>"
+    },
+    {
+      "type": "text",
+      "id": "shop_link_label",
+      "label": "Shop link label",
+      "default": "Shop all beds"
+    },
+    {
+      "type": "url",
+      "id": "shop_link",
+      "label": "Shop link",
+      "default": "/collections/all"
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    }
+  ]
+}
+{% endschema %}

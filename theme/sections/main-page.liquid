@@ -1,0 +1,284 @@
+{%- comment -%}
+  Page — every standard page (page.json), and the head of the FAQ and
+  About templates.
+
+  Breadcrumb, eyebrow, the page title as the one H1, an optional standfirst,
+  then page.content in a readable measure (~68 characters a line).
+
+  Optional side card (choice architecture + risk reversal): the Bed Finder,
+  one tap away from any long read, with the store's promises underneath.
+  On wide screens it sits beside the text and follows the reader down; on
+  phones it comes after the text, never in front of it. Once the shopper has
+  told the finder their dog's name, the heading can use it ("Not sure which
+  bed suits Bella?" — global.js fills [name]).
+
+  Standfirst text can use [trial_nights], [guarantee_years] and [threshold];
+  it hides itself if it names a promise that is switched off.
+{%- endcomment -%}
+{{ 'pages.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-title'
+  assign aside_id = section.id | append: '-aside-title'
+
+  assign nights = settings.trial_nights | default: 0 | plus: 0
+  assign years = settings.guarantee_years | default: 0 | plus: 0
+  assign threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round
+  assign ph_nights = nights | append: ''
+  assign ph_years = years | append: ''
+  assign ph_threshold = threshold | money_without_trailing_zeros
+
+  assign standfirst = s.standfirst | default: '' | strip
+  if standfirst contains '[trial_nights]'
+    unless settings.trial_enable and nights > 0
+      assign standfirst = ''
+    endunless
+  endif
+  if standfirst contains '[guarantee_years]'
+    unless settings.guarantee_enable and years > 0
+      assign standfirst = ''
+    endunless
+  endif
+  if standfirst contains '[threshold]'
+    unless settings.free_shipping_enable and threshold > 0
+      assign standfirst = ''
+    endunless
+  endif
+  assign standfirst = standfirst | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | newline_to_br
+
+  assign has_sidebar = s.show_sidebar
+  assign width_class = ''
+  unless has_sidebar
+    case s.width
+      when 'text'
+        assign width_class = ' page-width--text'
+      when 'narrow'
+        assign width_class = ' page-width--narrow'
+    endcase
+  endunless
+
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign finder_label = s.sidebar_button | default: settings.finder_cta_label | default: '' | strip
+  if finder_label == ''
+    assign finder_label = 'pages.cta.finder_button' | t
+  endif
+  assign named_heading = s.sidebar_heading_named | default: '' | strip
+  unless named_heading contains '[name]'
+    assign named_heading = ''
+  endunless
+-%}
+<section
+  class="section main-page scheme-{{ s.color_scheme | default: 'bone' }} main-page--{{ s.align | default: 'left' }}{% if has_sidebar %} main-page--sidebar{% endif %}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width{{ width_class }}">
+    {%- if s.show_breadcrumbs -%}
+      <nav class="breadcrumbs" aria-label="{{ 'pages.breadcrumb.label' | t }}">
+        <ol class="breadcrumbs__list" role="list">
+          <li class="breadcrumbs__item"><a class="breadcrumbs__link" href="{{ routes.root_url }}">{{ 'general.home' | t }}</a></li>
+          <li class="breadcrumbs__item"><span class="breadcrumbs__current" aria-current="page">{{ page.title | escape }}</span></li>
+        </ol>
+      </nav>
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": {{ 'general.home' | t | json }}, "item": {{ request.origin | append: routes.root_url | json }} },
+            { "@type": "ListItem", "position": 2, "name": {{ page.title | json }}, "item": {{ request.origin | append: page.url | json }} }
+          ]
+        }
+      </script>
+    {%- endif -%}
+
+    <div class="main-page__layout">
+      <div class="main-page__main">
+        <header class="pages-header main-page__header">
+          {%- if s.eyebrow != blank -%}
+            <p class="eyebrow">{{ s.eyebrow | escape }}</p>
+          {%- endif -%}
+          <h1 class="h1 pages-header__title" id="{{ heading_id }}">{{ page.title | escape }}</h1>
+          {%- if standfirst != blank -%}
+            <p class="lede pages-header__lede">{{ standfirst }}</p>
+          {%- endif -%}
+        </header>
+
+        {%- if page.content != blank -%}
+          <div class="rte pages-prose main-page__content">
+            {{ page.content }}
+          </div>
+        {%- elsif request.design_mode -%}
+          <p class="pages-editor-note">{{ 'pages.page.empty_editor' | t }}</p>
+        {%- endif -%}
+      </div>
+
+      {%- if has_sidebar -%}
+        <aside class="main-page__aside" aria-labelledby="{{ aside_id }}">
+          <div class="card card--lg scheme-oat pages-side-card">
+            {%- if s.sidebar_eyebrow != blank -%}
+              <p class="eyebrow">{{ s.sidebar_eyebrow | escape }}</p>
+            {%- endif -%}
+            <h2
+              class="h4 pages-side-card__title"
+              id="{{ aside_id }}"
+              {%- if named_heading != '' and settings.finder_enable %} data-finder-name="{{ named_heading | escape }}"{% endif %}
+            >
+              {{- s.sidebar_heading | default: '' | escape -}}
+            </h2>
+            {%- if s.sidebar_text != blank -%}
+              <p class="pages-side-card__text">{{ s.sidebar_text | escape }}</p>
+            {%- endif -%}
+            {%- if settings.finder_enable -%}
+              <a class="btn btn--secondary btn--block" href="{{ finder_url }}" data-open-finder aria-haspopup="dialog">
+                <span>{{ finder_label | escape }}</span>
+                {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+              </a>
+            {%- else -%}
+              <a class="btn btn--secondary btn--block" href="{{ routes.all_products_collection_url }}">
+                <span>{{ 'pages.cta.shop_all' | t }}</span>
+                {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+              </a>
+            {%- endif -%}
+            {%- if s.sidebar_trust -%}
+              <div class="pages-side-card__trust">
+                {%- render 'trust-list', items: 'trial,guarantee,delivery', layout: 'stack', size: 'md' -%}
+              </div>
+            {%- endif -%}
+          </div>
+        </aside>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Page",
+  "class": "section-main-page",
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_breadcrumbs",
+      "label": "Show breadcrumbs",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Centre" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "info": "A small label above the page title, e.g. \"Answers\" or \"Our story\"."
+    },
+    {
+      "type": "textarea",
+      "id": "standfirst",
+      "label": "Standfirst",
+      "info": "One or two sentences under the title. Can use [trial_nights], [guarantee_years] and [threshold]; it hides itself if that promise is switched off."
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Text width",
+      "options": [
+        { "value": "text", "label": "Narrow (easiest to read)" },
+        { "value": "narrow", "label": "Medium" },
+        { "value": "wide", "label": "Full page width" }
+      ],
+      "default": "text",
+      "info": "Ignored when the side card is on: the text keeps a comfortable line length beside it."
+    },
+    {
+      "type": "header",
+      "content": "Side card"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_sidebar",
+      "label": "Show the Bed Finder card beside the text",
+      "default": false,
+      "info": "On wide screens it sits beside the text and follows the reader down. On phones it comes after the text."
+    },
+    {
+      "type": "text",
+      "id": "sidebar_eyebrow",
+      "label": "Card eyebrow",
+      "default": "Still deciding?"
+    },
+    {
+      "type": "text",
+      "id": "sidebar_heading",
+      "label": "Card heading",
+      "default": "Not sure which bed suits your dog?"
+    },
+    {
+      "type": "text",
+      "id": "sidebar_heading_named",
+      "label": "Heading once we know the dog's name",
+      "default": "Not sure which bed suits [name]?",
+      "info": "Used when the shopper has told the Bed Finder their dog's name; [name] is replaced. Leave blank to always use the heading above."
+    },
+    {
+      "type": "textarea",
+      "id": "sidebar_text",
+      "label": "Card text",
+      "default": "Four quick questions about how they sleep, and we'll suggest one bed in the right size."
+    },
+    {
+      "type": "text",
+      "id": "sidebar_button",
+      "label": "Button label",
+      "info": "Leave blank to use the Bed Finder label from Theme settings. If the finder is switched off, the button links to all beds."
+    },
+    {
+      "type": "checkbox",
+      "id": "sidebar_trust",
+      "label": "Show promises in the card",
+      "default": true,
+      "info": "Trial, guarantee and free delivery, each from Theme settings → Promises."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,349 @@
+{%- comment -%}
+  Cart drawer (static section, id "cart-drawer", rendered once by theme.liquid).
+
+  Everything inside [data-drawer-content] is re-rendered through the Section
+  Rendering API after every change, so prices, discounts and currency always
+  come from Shopify — no money maths in JavaScript. The block after it
+  (accelerated checkout buttons, reassurance) is static and only shown or
+  hidden.
+
+  Order of the panel is the order a buyer's doubts arrive in:
+    did it work? (added moment) → is it for my dog? (personal line)
+    → how close to free delivery? → what I'm getting → anything else?
+    → what I'm saving → what I'll pay → pay → what if it's wrong?
+
+  JS: <cart-drawer> in cart.js.
+{%- endcomment -%}
+{%- liquid
+  assign item_count = cart.item_count
+  assign threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round
+
+  assign compare_savings = 0
+  for item in cart.items
+    assign cu = item.variant.compare_at_price | default: 0
+    if cu > item.original_price
+      assign diff = cu | minus: item.original_price | times: item.quantity
+      assign compare_savings = compare_savings | plus: diff
+    endif
+  endfor
+  assign total_savings = compare_savings | plus: cart.total_discount
+
+  assign upsell = settings.cart_upsell_product
+  assign show_upsell = false
+  if section.settings.show_upsell and upsell != blank and upsell.available and item_count > 0
+    assign show_upsell = true
+    for item in cart.items
+      if item.product_id == upsell.id
+        assign show_upsell = false
+        break
+      endif
+    endfor
+  endif
+
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign shop_link = section.settings.shop_link | default: routes.all_products_collection_url
+-%}
+
+<cart-drawer
+  class="cart-drawer"
+  id="CartDrawer"
+  data-section-id="{{ section.id }}"
+  {% if template.name == 'cart' %}data-disabled{% endif %}
+>
+  <dialog class="chrome-dialog cart-drawer__dialog" aria-labelledby="CartDrawerTitle">
+    <div class="chrome-dialog__scrim" data-close aria-hidden="true"></div>
+    <div class="chrome-panel cart-drawer__panel scheme-{{ section.settings.color_scheme }}">
+      <div class="cart-drawer__content{% if item_count == 0 %} is-empty{% endif %}" data-drawer-content data-count="{{ item_count }}">
+        <div class="chrome-panel__header cart-drawer__header">
+          <h2 class="chrome-panel__title" id="CartDrawerTitle" tabindex="-1" data-dialog-focus>
+            {%- if item_count > 0 -%}
+              {{ 'chrome.cart.title_count' | t: count: item_count }}
+            {%- else -%}
+              {{ 'chrome.cart.title' | t }}
+            {%- endif -%}
+          </h2>
+          <button type="button" class="chrome-panel__close" data-close aria-label="{{ 'chrome.cart.close' | t }}">
+            {%- render 'icon', name: 'close', size: 22 -%}
+          </button>
+        </div>
+
+        {%- if item_count > 0 -%}
+          <div class="chrome-panel__body cart-drawer__body">
+            <div class="cart-drawer__added" data-cart-added hidden>
+              {%- render 'icon', name: 'check-circle', size: 22, class: 'cart-drawer__added-icon' -%}
+              <div>
+                <p class="cart-drawer__added-title" data-cart-added-text></p>
+                {%- if section.settings.show_added_trial and settings.trial_enable and settings.trial_nights > 0 -%}
+                  <p class="cart-drawer__added-trial">{{ 'chrome.cart.added_trial' | t: nights: settings.trial_nights }}</p>
+                {%- endif -%}
+              </div>
+            </div>
+
+            <p class="cart-drawer__personal" data-finder-personal data-finder-name-only hidden>
+              {%- render 'icon', name: 'heart', size: 18 -%}
+              <span>{{ 'chrome.cart.personal_html' | t: name: '<span data-finder-name></span>' }}</span>
+            </p>
+
+            {%- render 'free-shipping-bar', cart: cart, compact: true, class: 'cart-drawer__shipping' -%}
+
+            <h3 class="visually-hidden">{{ 'chrome.cart.items_heading' | t }}</h3>
+            <ul class="cart-lines" role="list">
+              {%- for item in cart.items -%}
+                {%- render 'cart-line', item: item, index: forloop.index, context: 'drawer' -%}
+              {%- endfor -%}
+            </ul>
+
+            {%- if show_upsell -%}
+              {%- liquid
+                assign upsell_variants = upsell.variants | where: 'available'
+                assign upsell_first = upsell.selected_or_first_available_variant
+              -%}
+              <div class="cart-upsell" data-cart-upsell>
+                <h3 class="cart-upsell__heading">{{ settings.cart_upsell_heading | default: 'Complete the set' | escape }}</h3>
+                <div class="cart-upsell__card">
+                  <a href="{{ upsell.url }}" class="cart-upsell__media" tabindex="-1" aria-hidden="true">
+                    {%- render 'image',
+                      image: upsell.featured_image,
+                      widths: '120,180,240',
+                      sizes: '72px',
+                      class: 'cart-upsell__img',
+                      loading: 'lazy',
+                      decorative: true,
+                      aspect: 1
+                    -%}
+                  </a>
+                  <div class="cart-upsell__info">
+                    <a href="{{ upsell.url }}" class="cart-upsell__title">{{ upsell.title | escape }}</a>
+                    {%- render 'price', product: upsell, show_from: true, show_save: true, size: 'sm' -%}
+                    <form action="{{ routes.cart_add_url }}" method="post" class="cart-upsell__form" data-upsell-form>
+                      {%- if upsell.has_only_default_variant or upsell_variants.size < 2 -%}
+                        <input type="hidden" name="id" value="{{ upsell_first.id }}">
+                      {%- else -%}
+                        <label class="visually-hidden" for="CartUpsellVariant">{{ 'chrome.cart.upsell_option' | t: title: upsell.title }}</label>
+                        <select id="CartUpsellVariant" name="id" class="select cart-upsell__select" data-upsell-select>
+                          {%- for v in upsell_variants -%}
+                            <option
+                              value="{{ v.id }}"
+                              data-options="{{ v.options | join: '|' | escape }}"
+                              {% if v.id == upsell_first.id %}selected{% endif %}
+                            >
+                              {{- v.title | escape }} · {{ v.price | money -}}
+                            </option>
+                          {%- endfor -%}
+                        </select>
+                      {%- endif -%}
+                      <input type="hidden" name="quantity" value="1">
+                      <button
+                        type="submit"
+                        class="btn btn--secondary btn--sm cart-upsell__add"
+                        data-focus-key="upsell-add"
+                        aria-label="{{ 'chrome.cart.upsell_add_label' | t: title: upsell.title }}"
+                      >
+                        {%- render 'icon', name: 'plus', size: 16 -%}
+                        <span>{{ 'chrome.cart.upsell_add' | t }}</span>
+                      </button>
+                    </form>
+                    <p class="cart-upsell__error" role="alert" data-upsell-error></p>
+                  </div>
+                </div>
+              </div>
+            {%- endif -%}
+
+            {%- if settings.cart_show_note -%}
+              <details class="cart-drawer__note"{% if cart.note != blank %} open{% endif %}>
+                <summary class="cart-drawer__note-toggle">
+                  <span>{{ 'chrome.cart.note_toggle' | t }}</span>
+                  {%- render 'icon', name: 'chevron-down', size: 16 -%}
+                </summary>
+                <label class="visually-hidden" for="CartDrawerNote">{{ 'chrome.cart.note_label' | t }}</label>
+                <textarea
+                  id="CartDrawerNote"
+                  class="input cart-drawer__note-input"
+                  name="note"
+                  form="CartDrawerForm"
+                  rows="3"
+                  data-cart-note
+                >{{ cart.note }}</textarea>
+              </details>
+            {%- endif -%}
+          </div>
+
+          <div class="chrome-panel__footer cart-drawer__footer">
+            {%- if settings.show_compare_savings and total_savings > 0 -%}
+              <p class="cart-drawer__savings">
+                {%- render 'icon', name: 'tag', size: 16 -%}
+                {%- assign savings_money = total_savings | money_without_trailing_zeros -%}
+                <span>{{ 'chrome.cart.savings_html' | t: amount: savings_money }}</span>
+              </p>
+            {%- endif -%}
+
+            {%- if cart.cart_level_discount_applications.size > 0 -%}
+              <ul class="cart-drawer__discounts" role="list">
+                {%- for discount in cart.cart_level_discount_applications -%}
+                  <li>
+                    <span>{{ 'chrome.cart.discount_label' | t }}: {{ discount.title | escape }}</span>
+                    <span>−{{ discount.total_allocated_amount | money }}</span>
+                  </li>
+                {%- endfor -%}
+              </ul>
+            {%- endif -%}
+
+            <div class="cart-drawer__subtotal">
+              <span>{{ 'chrome.cart.subtotal' | t }}</span>
+              <span class="cart-drawer__subtotal-value">{{ cart.total_price | money }}</span>
+            </div>
+            <p class="cart-drawer__fineprint">
+              {%- if cart.taxes_included -%}{{ 'chrome.cart.vat_included' | t }} {% endif -%}
+              {%- if settings.free_shipping_enable and threshold > 0 and cart.total_price >= threshold -%}
+                {{- 'chrome.cart.delivery_free' | t -}}
+              {%- else -%}
+                {{- 'chrome.cart.delivery_at_checkout' | t -}}
+              {%- endif %}
+              {{ 'chrome.cart.discount_codes' | t -}}
+            </p>
+
+            <form action="{{ routes.cart_url }}" method="post" id="CartDrawerForm" class="cart-drawer__checkout-form" novalidate>
+              <button type="submit" name="checkout" class="btn btn--primary btn--lg btn--block cart-drawer__checkout" data-focus-key="checkout">
+                {%- render 'icon', name: 'lock', size: 18 -%}
+                <span>{{ 'chrome.cart.checkout' | t }}</span>
+              </button>
+            </form>
+          </div>
+        {%- else -%}
+          <div class="chrome-panel__body cart-drawer__empty">
+            <div class="cart-drawer__empty-art" aria-hidden="true">
+              {%- render 'icon', name: 'bed', size: 40 -%}
+            </div>
+            <p class="cart-drawer__empty-heading h3">{{ section.settings.empty_heading | escape }}</p>
+            {%- if section.settings.empty_text != blank -%}
+              <div class="cart-drawer__empty-text rte">{{ section.settings.empty_text }}</div>
+            {%- endif -%}
+            <div class="cart-drawer__empty-actions">
+              {%- if settings.finder_enable -%}
+                <a href="{{ finder_url }}" class="btn btn--secondary btn--lg btn--block" data-open-finder>
+                  {%- render 'icon', name: 'paw', size: 18 -%}
+                  <span>{{ settings.finder_cta_label | default: "Find my dog's bed" | escape }}</span>
+                </a>
+              {%- endif -%}
+              <a href="{{ shop_link }}" class="cart-drawer__empty-link">
+                {{- section.settings.shop_link_label | escape -}}
+                {%- render 'icon', name: 'arrow-right', size: 16 -%}
+              </a>
+            </div>
+            {%- render 'trust-list', items: 'trial,guarantee,delivery', layout: 'stack', size: 'sm', class: 'cart-drawer__empty-trust' -%}
+          </div>
+        {%- endif -%}
+      </div>
+
+      <div class="cart-drawer__after" data-cart-after{% if item_count == 0 %} hidden{% endif %}>
+        {%- if additional_checkout_buttons and section.settings.show_dynamic_checkout -%}
+          <div class="cart-drawer__dynamic">
+            {{ content_for_additional_checkout_buttons }}
+          </div>
+        {%- endif -%}
+        {%- if section.settings.show_trust -%}
+          {%- comment -%} Delivery is already stated by the progress bar and the line above Checkout; two promises keep this to one line on a phone. {%- endcomment -%}
+          {%- render 'trust-list', items: 'trial,secure', layout: 'row', size: 'sm', class: 'cart-drawer__trust' -%}
+        {%- endif -%}
+      </div>
+
+      <p class="visually-hidden" role="status" aria-live="polite" data-cart-status></p>
+    </div>
+  </dialog>
+
+  <script type="application/json" id="LunovaChromeStrings">
+    {
+      "added": {{ 'chrome.cart.added' | t | json }},
+      "addedNamed": {{ 'chrome.cart.added_named' | t | json }},
+      "updating": {{ 'chrome.cart.updating' | t | json }},
+      "updated": {{ 'chrome.cart.updated' | t | json }},
+      "removed": {{ 'chrome.cart.removed' | t | json }},
+      "addedStatus": {{ 'chrome.cart.added_status' | t | json }},
+      "error": {{ 'chrome.cart.error' | t | json }},
+      "quickAddLoading": {{ 'chrome.quick_add.loading' | t | json }},
+      "quickAddError": {{ 'chrome.quick_add.error' | t | json }},
+      "quickAddErrorLink": {{ 'chrome.quick_add.error_link' | t | json }},
+      "item": {{ 'chrome.header.item' | t | json }},
+      "items": {{ 'chrome.header.items' | t | json }}
+    }
+  </script>
+</cart-drawer>
+
+{% schema %}
+{
+  "name": "Cart drawer",
+  "class": "cart-drawer-section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Opens whenever something is added to the basket. Free-delivery threshold, trial and guarantee come from Theme settings → Promises; the extra product comes from Theme settings → Cart."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_added_trial",
+      "label": "Remind shoppers of the sleep trial when something is added",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_upsell",
+      "label": "Show the extra product",
+      "default": true,
+      "info": "Pick it in Theme settings → Cart. Hidden once it's in the basket."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_dynamic_checkout",
+      "label": "Show express checkout buttons",
+      "default": true,
+      "info": "Shop Pay, Apple Pay, Google Pay and PayPal, when they're switched on in Settings → Payments."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_trust",
+      "label": "Show promises under the checkout button",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Empty basket"
+    },
+    {
+      "type": "text",
+      "id": "empty_heading",
+      "label": "Heading",
+      "default": "Nothing in here yet."
+    },
+    {
+      "type": "richtext",
+      "id": "empty_text",
+      "label": "Text",
+      "default": "<p>Four quick questions about how your dog sleeps, and we'll point you to the right bed in the right size.</p>"
+    },
+    {
+      "type": "text",
+      "id": "shop_link_label",
+      "label": "Shop link label",
+      "default": "Shop all beds"
+    },
+    {
+      "type": "url",
+      "id": "shop_link",
+      "label": "Shop link",
+      "default": "/collections/all"
+    }
+  ]
+}
+{% endschema %}

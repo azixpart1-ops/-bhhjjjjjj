@@ -1,0 +1,257 @@
+{%- comment -%}
+  Problem signs — the second beat of the arc: NAME IT.
+
+  Named behaviours the owner can check tonight (circling, choosing the floor,
+  the slower rise). Optional "Sounds familiar" toggles let the visitor
+  self-diagnose — a small, honest commitment (foot-in-the-door) — and the
+  closing line then reflects their own answers ("2 of 3 sound familiar")
+  before handing them to the Bed Finder. Nothing is stored or sent anywhere.
+
+  With no blocks the three default signs render (from the locale file).
+{%- endcomment -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- if section.settings.enable_check -%}
+  <script src="{{ 'sections.js' | asset_url }}" defer="defer"></script>
+{%- endif -%}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-heading'
+  assign use_defaults = false
+  assign total = section.blocks.size
+  if total == 0
+    assign use_defaults = true
+    assign total = 3
+  endif
+  assign cta_label = s.cta_label | default: '' | strip | escape
+  if cta_label == ''
+    assign cta_label = settings.finder_cta_label | default: '' | strip | escape
+  endif
+  if cta_label == ''
+    assign cta_label = 'home.hero.finder_cta' | t
+  endif
+  assign fallback_label = s.fallback_label | default: '' | strip | escape
+  if fallback_label == ''
+    assign fallback_label = 'home.hero.shop_cta' | t
+  endif
+-%}
+<section
+  class="section problem-signs scheme-{{ s.color_scheme }} problem-signs--{{ s.card_style | default: 'card' }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+  {%- if s.enable_check %} data-signs{% endif %}
+>
+  <div class="page-width">
+    <header class="section-head{% if s.align == 'center' %} section-head--center{% endif %}">
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      <h2 id="{{ heading_id }}" class="h2">{{ s.heading | default: shop.name | escape }}</h2>
+      {%- if s.lede != blank -%}<p class="lede muted">{{ s.lede | escape }}</p>{%- endif -%}
+    </header>
+
+    <ol class="problem-signs__list" role="list" style="--cols: {{ total | at_most: 4 }};">
+      {%- if use_defaults -%}
+        {%- for i in (1..3) -%}
+          {%- liquid
+            assign k_title = 'home.signs.default_' | append: i | append: '_title'
+            assign k_text = 'home.signs.default_' | append: i | append: '_text'
+          -%}
+          <li class="problem-signs__item" data-reveal style="--i: {{ forloop.index0 }};" data-sign>
+            <span class="problem-signs__num" aria-hidden="true">{{ forloop.index | prepend: '0' }}</span>
+            <h3 class="problem-signs__title h4">{{ k_title | t }}</h3>
+            <p class="problem-signs__text">{{ k_text | t }}</p>
+            {%- if s.enable_check -%}
+              <button type="button" class="chip problem-signs__check" aria-pressed="false" data-sign-toggle hidden>
+                {%- render 'icon', name: 'check' -%}<span>{{ 'home.signs.familiar' | t }}</span>
+              </button>
+            {%- endif -%}
+          </li>
+        {%- endfor -%}
+      {%- else -%}
+        {%- for block in section.blocks -%}
+          <li class="problem-signs__item" data-reveal style="--i: {{ forloop.index0 }};" data-sign {{ block.shopify_attributes }}>
+            <span class="problem-signs__num" aria-hidden="true">{% if forloop.index < 10 %}0{% endif %}{{ forloop.index }}</span>
+            {%- if block.settings.title != blank -%}
+              <h3 class="problem-signs__title h4">{{ block.settings.title | escape }}</h3>
+            {%- endif -%}
+            {%- if block.settings.text != blank -%}
+              <p class="problem-signs__text">{{ block.settings.text | escape }}</p>
+            {%- endif -%}
+            {%- if s.enable_check -%}
+              <button type="button" class="chip problem-signs__check" aria-pressed="false" data-sign-toggle hidden>
+                {%- render 'icon', name: 'check' -%}<span>{{ 'home.signs.familiar' | t }}</span>
+              </button>
+            {%- endif -%}
+          </li>
+        {%- endfor -%}
+      {%- endif -%}
+    </ol>
+
+    <div class="problem-signs__close{% if s.align == 'center' %} problem-signs__close--center{% endif %}">
+      {%- if s.enable_check -%}
+        <p
+          class="problem-signs__tally"
+          data-sign-tally
+          aria-live="polite"
+          data-template-none="{{ s.note | escape }}"
+          data-template-one="{{ 'home.signs.tally_one' | t: total: total }}"
+          data-template-other="{{ 'home.signs.tally_other' | t: total: total }}"
+          data-template-all="{{ 'home.signs.tally_all' | t: total: total }}"
+        >{{ s.note | escape }}</p>
+      {%- elsif s.note != blank -%}
+        <p class="problem-signs__tally">{{ s.note | escape }}</p>
+      {%- endif -%}
+      <div class="problem-signs__actions">
+        {%- if settings.finder_enable -%}
+          <button type="button" class="btn btn--secondary" data-open-finder aria-haspopup="dialog">
+            <span>{{ cta_label }}</span>{%- render 'icon', name: 'arrow-right' -%}
+          </button>
+        {%- elsif s.fallback_link != blank -%}
+          <a class="btn btn--secondary" href="{{ s.fallback_link }}">
+            <span>{{ fallback_label }}</span>{%- render 'icon', name: 'arrow-right' -%}
+          </a>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Problem signs",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 4,
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Centre" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "card_style",
+      "label": "Sign style",
+      "options": [
+        { "value": "card", "label": "Cards" },
+        { "value": "rule", "label": "Lines" }
+      ],
+      "default": "card"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Before you replace it"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Three signs their bed has stopped working."
+    },
+    {
+      "type": "textarea",
+      "id": "lede",
+      "label": "Intro"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_check",
+      "label": "Let visitors tick the signs they recognise",
+      "default": true,
+      "info": "Adds a \"Sounds familiar\" button to each sign; the closing line then reflects their answers. Nothing is stored."
+    },
+    {
+      "type": "textarea",
+      "id": "note",
+      "label": "Closing line",
+      "default": "A bed cannot undo ageing. What it can change is how much effort goes into lying down, and how much goes into getting back up."
+    },
+    {
+      "type": "text",
+      "id": "cta_label",
+      "label": "Bed Finder button label",
+      "default": "Find the right bed",
+      "info": "Opens the Bed Finder."
+    },
+    {
+      "type": "text",
+      "id": "fallback_label",
+      "label": "Button label when the finder is off",
+      "default": "Shop all beds"
+    },
+    {
+      "type": "url",
+      "id": "fallback_link",
+      "label": "Button link when the finder is off",
+      "default": "/collections/all"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sign",
+      "name": "Sign",
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Sign",
+          "default": "They keep circling after they have lain down."
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "What it means",
+          "default": "A few turns before settling is just what dogs do. Turning, resettling, then shifting again ten minutes later usually means no position on that bed takes the weight off."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Problem signs",
+      "blocks": [
+        { "type": "sign", "settings": { "title": "They keep circling after they have lain down.", "text": "A few turns before settling is just what dogs do. Turning, resettling, then shifting again ten minutes later usually means no position on that bed takes the weight off." } },
+        { "type": "sign", "settings": { "title": "They have started choosing the floor.", "text": "Once foam has bottomed out, hard tiles genuinely are the firmer, flatter option. A dog picking the kitchen floor over their own bed has done the comparison and reached a conclusion." } },
+        { "type": "sign", "settings": { "title": "Standing up has become a two-stage job.", "text": "Front end first, then a pause, then the back end. It comes on slowly enough that most owners only spot it in an old photograph." } }
+      ]
+    }
+  ]
+}
+{% endschema %}

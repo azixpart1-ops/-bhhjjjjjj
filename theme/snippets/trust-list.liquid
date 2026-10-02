@@ -1,0 +1,148 @@
+{%- comment -%}
+  Store promises, driven entirely by theme settings so every claim can be
+  made to match reality (and disappears when switched off).
+
+  Parameters
+    items     comma list, in display order. Default 'trial,guarantee,delivery,secure'.
+              Available: trial, guarantee, delivery, secure, origin, rating, installments
+    layout    'row' (default; wraps, or scrolls on mobile with scroll: true) | 'stack'
+    size      'sm' (default; title only) | 'md' (title + supporting line)
+    show_sub  override whether supporting lines show (default: size == 'md')
+    scroll    true → single swipeable row on mobile (layout row only)
+    class     extra classes
+    label     accessible name for the list (default "Our promises")
+
+  Each item hides itself when its setting is off:
+    trial        trial_enable + trial_nights > 0
+    guarantee    guarantee_enable + guarantee_years > 0
+    delivery     free_shipping_enable + threshold > 0 (sub-line needs delivery_promise_enable)
+    secure       always
+    origin       origin_line not blank
+    rating       store_rating + store_review_count both filled
+    installments show_installments + provider set
+{%- endcomment -%}
+{%- capture cut_time_raw -%}{%- render 'delivery-promise', mode: 'time' -%}{%- endcapture -%}
+{%- capture cut_days_raw -%}{%- render 'delivery-promise', mode: 'days' -%}{%- endcapture -%}
+{%- liquid
+  assign list = items | default: 'trial,guarantee,delivery,secure' | split: ','
+  assign lay = layout | default: 'row'
+  assign sz = size | default: 'sm'
+  assign subs = false
+  if sz == 'md'
+    assign subs = true
+  endif
+  if show_sub == true
+    assign subs = true
+  elsif show_sub == false
+    assign subs = false
+  endif
+
+  assign nights = settings.trial_nights | default: 0 | plus: 0
+  assign years = settings.guarantee_years | default: 0 | plus: 0
+  assign threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round
+  assign threshold_money = threshold | money_without_trailing_zeros
+  assign store_rating = settings.store_rating | default: '' | strip
+  assign store_count = settings.store_review_count | default: '' | strip
+  assign origin = settings.origin_line | default: '' | strip
+  assign provider = settings.installments_provider | default: '' | strip
+
+  assign cut_time = cut_time_raw | strip
+  assign cut_days = cut_days_raw | strip
+
+  assign list_label = label | default: ''
+  if list_label == ''
+    assign list_label = 'core.trust.label' | t
+  endif
+
+  comment
+    Build the visible items first, so an all-off list renders no empty <ul>.
+  endcomment
+  assign visible = ''
+  for raw in list
+    assign key = raw | strip
+    case key
+      when 'trial'
+        if settings.trial_enable and nights > 0
+          assign visible = visible | append: key | append: ','
+        endif
+      when 'guarantee'
+        if settings.guarantee_enable and years > 0
+          assign visible = visible | append: key | append: ','
+        endif
+      when 'delivery'
+        if settings.free_shipping_enable and threshold > 0
+          assign visible = visible | append: key | append: ','
+        endif
+      when 'secure'
+        assign visible = visible | append: key | append: ','
+      when 'origin'
+        if origin != ''
+          assign visible = visible | append: key | append: ','
+        endif
+      when 'rating'
+        if store_rating != '' and store_count != ''
+          assign visible = visible | append: key | append: ','
+        endif
+      when 'installments'
+        if settings.show_installments and provider != ''
+          assign visible = visible | append: key | append: ','
+        endif
+    endcase
+  endfor
+  assign visible_list = visible | split: ','
+-%}
+{%- if visible_list.size > 0 -%}
+  <ul
+    class="trust-list trust-list--{{ lay }} trust-list--{{ sz }}{% if scroll %} trust-list--scroll{% endif %}{% if class %} {{ class }}{% endif %}"
+    role="list"
+    aria-label="{{ list_label | escape }}"
+  >
+    {%- for key in visible_list -%}
+      {%- liquid
+        assign icon_name = ''
+        assign title = ''
+        assign sub = ''
+        case key
+          when 'trial'
+            assign icon_name = 'moon'
+            assign title = 'core.trust.trial_title' | t: nights: nights
+            assign sub = 'core.trust.trial_sub' | t
+          when 'guarantee'
+            assign icon_name = 'shield'
+            assign title = 'core.trust.guarantee_title' | t: years: years
+            assign sub = 'core.trust.guarantee_sub' | t
+          when 'delivery'
+            assign icon_name = 'truck'
+            assign title = 'core.trust.delivery_title' | t: amount: threshold_money
+            if settings.delivery_promise_enable and cut_days != '' and cut_time != ''
+              assign sub = 'core.trust.delivery_sub' | t: time: cut_time, days: cut_days
+            endif
+          when 'secure'
+            assign icon_name = 'lock'
+            assign title = 'core.trust.secure_title' | t
+            assign sub = 'core.trust.secure_sub' | t
+          when 'origin'
+            assign icon_name = 'home'
+            assign title = origin | escape
+          when 'rating'
+            assign icon_name = 'star'
+            assign title = 'core.trust.rating_title' | t: rating: store_rating
+            assign sub = 'core.trust.rating_sub' | t: count: store_count
+          when 'installments'
+            assign icon_name = 'calendar'
+            assign title = 'core.trust.installments_title' | t: count: settings.installments_count, provider: provider
+            assign sub = 'core.trust.installments_sub' | t
+        endcase
+      -%}
+      <li class="trust-list__item trust-list__item--{{ key }}">
+        {%- render 'icon', name: icon_name, class: 'trust-list__icon' -%}
+        <span class="trust-list__text">
+          <span class="trust-list__title">{{ title }}</span>
+          {%- if subs and sub != '' -%}
+            <span class="trust-list__sub">{{ sub }}</span>
+          {%- endif -%}
+        </span>
+      </li>
+    {%- endfor -%}
+  </ul>
+{%- endif -%}

@@ -1,0 +1,748 @@
+{%- comment -%}
+  Bed Finder — static section, rendered once on every page by layout/theme.liquid
+  ({% section 'bed-finder' %}, section id "bed-finder").
+
+  Why it exists (choice architecture): a wall of similar beds paralyses. Four
+  taps — how the dog sleeps, how their joints are, how big they are, their
+  name — end on ONE bed in the right size, addable from the result.
+
+  What it renders
+    1. <script type="application/json" id="finder-config"> — everything the
+       client needs: step copy, size hints, the merchant's Match blocks with full
+       product data, and fallback candidates (max 50) for answer combinations no
+       block covers. The <bed-finder> element renders its UI from this island,
+       so the same component works in the modal, inline on the dedicated page
+       (main-finder-page) and when resumed from the homepage teaser.
+    2. <template id="finder-icons"> — the theme's own icons, cloned by finder.js.
+    3. <dialog class="modal finder-modal"> holding <bed-finder mode="modal">,
+       opened by `lunova:finder:open`. Not rendered on the dedicated finder
+       page, where the inline finder answers that event instead.
+    4. In the theme editor only: a setup panel listing every Match block with
+       warnings (no style ticked, unknown sizes, sold out…).
+
+  Matching (finder.js): strict Match blocks first (priority, then order) →
+  fallback candidates scored by tags finder:curl|lean|sprawl and
+  finder:fine|slowing|diagnosed (+ orthopaedic / memory foam in title or tags)
+  → blocks that match on style or stage only. The size is resolved per bed
+  from its size option; if that size is sold out the next size up is offered,
+  and the result says so.
+
+  Fallback payload: candidates are only emitted when some style × stage pair
+  is not covered by an available, all-sizes Match block — so a fully set-up
+  finder keeps every page light. Products tagged finder:exclude and gift
+  cards are never fallback candidates.
+
+  Renders nothing when Theme settings → Bed Finder is switched off.
+{%- endcomment -%}
+{%- if settings.finder_enable -%}
+  {{ 'finder.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'finder.js' | asset_url }}" defer="defer"></script>
+  {%- render 'section-styles', section: section -%}
+
+  {%- liquid
+    assign cs = section.settings.color_scheme | default: 'bone'
+    assign show_modal = true
+    if template.suffix == 'bed-finder'
+      assign show_modal = false
+    endif
+
+    assign fb_coll = section.settings.fallback_collection
+    if fb_coll == blank
+      assign fb_coll = collections.all
+    endif
+
+    comment
+      Is every style × stage pair covered by an available Match block that
+      takes every size? If so, fallback candidates are never needed.
+    endcomment
+    assign style_keys = 'curl,lean,sprawl' | split: ','
+    assign stage_keys = 'fine,slowing,diagnosed' | split: ','
+    assign need_fallback = false
+    for st in style_keys
+      for sg in stage_keys
+        assign covered = false
+        assign sk = 'style_' | append: st
+        assign gk = 'stage_' | append: sg
+        for block in section.blocks
+          if block.type != 'match'
+            continue
+          endif
+          assign bp = block.settings.product
+          if bp == blank or bp.available != true
+            continue
+          endif
+          assign bsizes = block.settings.sizes | default: '' | strip
+          if bsizes != ''
+            continue
+          endif
+          if block.settings[sk] and block.settings[gk]
+            assign covered = true
+            break
+          endif
+        endfor
+        unless covered
+          assign need_fallback = true
+        endunless
+      endfor
+    endfor
+
+    assign nb = section.blocks.size
+    assign nf = 0
+    if need_fallback
+      assign nf = fb_coll.products.size | default: 0
+      if nf > 50
+        assign nf = 50
+      endif
+    endif
+    assign total = nb | plus: nf
+
+    capture hints_json
+      render 'size-hints', mode: 'json'
+    endcapture
+    assign hints_json = hints_json | strip
+    if hints_json == ''
+      assign hints_json = '[]'
+    endif
+
+    assign finder_page_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+
+    assign string_keys = 'dialog_label,close,back,next,step_of,your_match,browse_all,your_dog,options.curl_title,options.curl_text,options.curl_short,options.curl_phrase,options.lean_title,options.lean_text,options.lean_short,options.lean_phrase,options.sprawl_title,options.sprawl_text,options.sprawl_short,options.sprawl_phrase,options.fine_title,options.fine_text,options.fine_short,options.slowing_title,options.slowing_text,options.slowing_short,options.diagnosed_title,options.diagnosed_text,options.diagnosed_short,size.meta,size.measure_icon_label,name.label,name.placeholder,name.submit,name.submit_named,name.skip,name.privacy,matching.heading,matching.heading_named,matching.style,matching.stage,matching.size' | split: ','
+    assign result_keys = 'heading,heading_named,answers,change,why_heading,why_heading_named,why_style,why_style_miss,material_both,material_foam,material_ortho,why_ortho_diagnosed,why_ortho_slowing,why_ortho_fine,why_fine,why_slowing,why_diagnosed,why_size,why_size_plain,why_size_label,why_size_larger_sold,why_size_larger_missing,why_size_approx,why_size_one,why_trial,size_line,size_one,stock_in,stock_low,stock_low_one,stock_backorder,per_night,per_night_basis,per_night_hint,was,now,save,rating,rating_count,add,add_named,add_short_named,add_price,mini_trial,adding,add_error,details,alt_heading,alt_line,alt_switch,alt_view,alt_view_label,diff_cheaper,diff_support,diff_curl,diff_lean,diff_sprawl,diff_other,restart,empty_heading,empty_text,nofit_heading,nofit_text,try_size,setup_note' | split: ','
+  -%}
+
+  {%- comment -%} ---------------- 1. Config island ---------------- {%- endcomment -%}
+  <script type="application/json" id="finder-config">
+    {
+      "v": 1,
+      "sectionId": {{ section.id | json }},
+      "designMode": {{ request.design_mode | json }},
+      "urls": {
+        "allProducts": {{ routes.all_products_collection_url | json }},
+        "finderPage": {{ finder_page_url | json }},
+        "cart": {{ routes.cart_url | json }}
+      },
+      "copy": {
+        "styleHeading": {{ section.settings.style_heading | default: '' | json }},
+        "styleText": {{ section.settings.style_text | default: '' | json }},
+        "stageHeading": {{ section.settings.stage_heading | default: '' | json }},
+        "stageText": {{ section.settings.stage_text | default: '' | json }},
+        "sizeHeading": {{ section.settings.size_heading | default: '' | json }},
+        "sizeText": {{ section.settings.size_text | default: '' | json }},
+        "measureTitle": {{ section.settings.measure_title | default: '' | json }},
+        "measureText": {{ section.settings.measure_text | default: '' | json }},
+        "nameHeading": {{ section.settings.name_heading | default: '' | json }},
+        "nameText": {{ section.settings.name_text | default: '' | json }},
+        "resultEyebrow": {{ section.settings.result_eyebrow | default: '' | json }},
+        "riskText": {{ section.settings.risk_text | default: '' | json }},
+        "guaranteeText": {{ section.settings.guarantee_text | default: '' | json }}
+      },
+      "options": {
+        "showAlternative": {{ section.settings.show_alternative | json }},
+        "showDelivery": {{ section.settings.show_delivery | json }},
+        "showPerNight": {{ section.settings.show_per_night | json }},
+        "showRating": {{ settings.show_product_ratings | json }},
+        "matchingMoment": {{ section.settings.matching_moment | json }}
+      },
+      "strings": {
+        {%- for k in string_keys -%}
+          {%- assign full = 'finder.' | append: k -%}
+          {{ k | json }}: {{ full | t | json }},
+        {%- endfor -%}
+        {%- for k in result_keys -%}
+          {%- assign full = 'finder.result.' | append: k -%}
+          {%- assign jk = 'result.' | append: k -%}
+          {{ jk | json }}: {{ full | t | json }}{%- unless forloop.last -%},{%- endunless -%}
+        {%- endfor -%}
+      },
+      "sizeHints": {{ hints_json }},
+      "products": {
+        {%- liquid
+          assign emitted = '|'
+          assign fallback_handles = ''
+          assign first_p = true
+        -%}
+        {%- if total > 0 -%}
+          {%- for i in (1..total) -%}
+            {%- liquid
+              assign p = nil
+              assign from_fallback = false
+              if i <= nb
+                assign bi = i | minus: 1
+                assign blk = section.blocks[bi]
+                if blk.type == 'match'
+                  assign p = blk.settings.product
+                endif
+              else
+                assign fi = i | minus: nb | minus: 1
+                assign p = fb_coll.products[fi]
+                assign from_fallback = true
+              endif
+              if p == blank
+                continue
+              endif
+              if from_fallback
+                if p.gift_card?
+                  continue
+                endif
+                assign tags_lc = p.tags | join: '|' | downcase
+                if tags_lc contains 'finder:exclude'
+                  continue
+                endif
+                if p.available != true
+                  continue
+                endif
+                unless fallback_handles contains p.handle
+                  assign fallback_handles = fallback_handles | append: p.handle | append: ','
+                endunless
+              endif
+              assign key = '|' | append: p.handle | append: '|'
+              if emitted contains key
+                continue
+              endif
+              assign emitted = emitted | append: p.handle | append: '|'
+
+              comment
+                Reason line falls back to the product's own words: its tagline
+                metafield, else the first sentence of its description. Nothing
+                has to be written twice to add a bed to the finder.
+              endcomment
+              assign blurb = p.metafields.custom.tagline.value | default: '' | strip
+              if blurb == ''
+                assign plain = p.description | default: '' | strip_html | strip_newlines | replace: '  ', ' ' | strip
+                assign blurb = plain | split: '. ' | first | default: '' | strip
+                if blurb != '' and blurb != plain
+                  assign blurb = blurb | append: '.'
+                endif
+                assign blurb = blurb | truncate: 220
+              endif
+
+              comment
+                A dimensions line from custom.specs ("Dimensions: 90 × 65cm"),
+                shown for one-size beds so the shopper can check the fit.
+              endcomment
+              assign dims = ''
+              assign specs = p.metafields.custom.specs.value | default: ''
+              if specs != ''
+                assign spec_lines = specs | newline_to_br | split: '<br />'
+                for sl in spec_lines
+                  assign sll = sl | strip | downcase
+                  if sll contains 'dimension' or sll contains 'measurement' or sll contains 'external' or sll contains 'size'
+                    assign dims = sl | split: ':' | last | strip_html | strip
+                    break
+                  endif
+                endfor
+              endif
+
+              assign img = p.featured_image
+              assign rating = p.metafields.reviews.rating.value.rating
+              assign rating_count = p.metafields.reviews.rating_count.value
+            -%}
+            {%- unless first_p -%},{%- endunless -%}
+            {%- assign first_p = false -%}
+            {{ p.handle | json }}: {
+              "id": {{ p.id | json }},
+              "handle": {{ p.handle | json }},
+              "title": {{ p.title | json }},
+              "url": {{ p.url | json }},
+              "type": {{ p.type | default: '' | json }},
+              "image": {% if img != blank %}{{ img | image_url: width: 600 | json }}{% else %}null{% endif %},
+              "imageAlt": {{ img.alt | default: p.title | json }},
+              "imageRatio": {% if img != blank and img.aspect_ratio %}{{ img.aspect_ratio | json }}{% else %}1{% endif %},
+              "price": {{ p.price | default: 0 | json }},
+              "compare_at_price": {% if p.compare_at_price > 0 %}{{ p.compare_at_price | json }}{% else %}null{% endif %},
+              "available": {{ p.available | json }},
+              "tags": {{ p.tags | json }},
+              "options": {{ p.options | json }},
+              "rating": {% if rating != blank %}{{ rating | json }}{% else %}null{% endif %},
+              "ratingCount": {% if rating_count != blank %}{{ rating_count | json }}{% else %}null{% endif %},
+              "blurb": {{ blurb | json }},
+              "dims": {{ dims | json }},
+              "variants": [
+                {%- for v in p.variants limit: 60 -%}
+                  {
+                    "id": {{ v.id | json }},
+                    "title": {{ v.title | json }},
+                    "options": {{ v.options | json }},
+                    "price": {{ v.price | default: 0 | json }},
+                    "compare_at_price": {% if v.compare_at_price > 0 %}{{ v.compare_at_price | json }}{% else %}null{% endif %},
+                    "available": {{ v.available | json }}
+                    {%- if v.inventory_management == 'shopify' -%}
+                      {%- if v.inventory_policy == 'deny' -%}
+                        ,"inventory_quantity": {{ v.inventory_quantity | default: 0 | json }}
+                      {%- elsif v.inventory_quantity <= 0 -%}
+                        ,"backorder": true
+                      {%- endif -%}
+                    {%- endif -%}
+                    {%- if v.metafields.custom.most_chosen.value == true -%},"mc": true{%- endif -%}
+                    {%- if v.featured_image != blank -%},"image": {{ v.featured_image | image_url: width: 600 | json }}{%- endif -%}
+                  }{%- unless forloop.last -%},{%- endunless -%}
+                {%- endfor -%}
+              ]
+            }
+          {%- endfor -%}
+        {%- endif -%}
+      },
+      "matches": [
+        {%- assign first_m = true -%}
+        {%- for block in section.blocks -%}
+          {%- liquid
+            if block.type != 'match'
+              continue
+            endif
+            assign bp = block.settings.product
+            if bp == blank
+              continue
+            endif
+            assign b_styles = ''
+            for st in style_keys
+              assign sk = 'style_' | append: st
+              if block.settings[sk]
+                assign b_styles = b_styles | append: st | append: ','
+              endif
+            endfor
+            assign b_stages = ''
+            for sg in stage_keys
+              assign gk = 'stage_' | append: sg
+              if block.settings[gk]
+                assign b_stages = b_stages | append: sg | append: ','
+              endif
+            endfor
+            assign b_styles_arr = b_styles | split: ','
+            assign b_stages_arr = b_stages | split: ','
+          -%}
+          {%- unless first_m -%},{%- endunless -%}
+          {%- assign first_m = false -%}
+          {
+            "block": {{ block.id | json }},
+            "handle": {{ bp.handle | json }},
+            "styles": {{ b_styles_arr | json }},
+            "stages": {{ b_stages_arr | json }},
+            "sizes": {{ block.settings.sizes | default: '' | json }},
+            "reason": {{ block.settings.reason | default: '' | json }},
+            "difference": {{ block.settings.difference | default: '' | json }},
+            "priority": {{ block.settings.priority | default: 5 | json }}
+          }
+        {%- endfor -%}
+      ],
+      "fallback": {{ fallback_handles | split: ',' | json }}
+    }
+  </script>
+
+  {%- comment -%} ---------------- 2. Icons for finder.js ---------------- {%- endcomment -%}
+  <template id="finder-icons">
+    {%- assign icon_names = 'check,check-circle,arrow-left,arrow-right,chevron-down,close,truck,shield,moon,info,ruler,paw,return,bed,clock,basket' | split: ',' -%}
+    {%- for n in icon_names -%}
+      <span data-icon="{{ n }}">{%- render 'icon', name: n -%}</span>
+    {%- endfor -%}
+  </template>
+
+  {%- comment -%} ---------------- 3. The modal ---------------- {%- endcomment -%}
+  {%- if show_modal -%}
+    <dialog
+      class="modal modal--sheet finder-modal scheme-{{ cs }}"
+      id="bed-finder"
+      aria-label="{{ 'finder.dialog_label' | t }}"
+      data-finder-modal
+    >
+      {%- if request.design_mode -%}
+        {%- comment -%} 4. Editor-only setup panel. Each block's root carries shopify_attributes. {%- endcomment -%}
+        <details class="finder-setup" open>
+          <summary class="finder-setup__summary">{{ 'finder.setup.heading' | t }}</summary>
+          <div class="finder-setup__body">
+            <p class="finder-setup__intro">{{ 'finder.setup.intro' | t }}</p>
+            {%- liquid
+              assign hint_tokens = '|'
+              assign raw_hints = settings.size_hints | default: '' | newline_to_br | split: '<br />'
+              for line in raw_hints
+                assign parts = line | strip | split: '|'
+                assign hv = parts[0] | default: '' | strip | downcase
+                assign hl = parts[1] | default: '' | strip | downcase
+                if hv != ''
+                  assign hint_tokens = hint_tokens | append: hv | append: '|' | append: hl | append: '|'
+                endif
+              endfor
+              assign hint_tokens = hint_tokens | append: '2xl|xxl|3xl|xxxl|'
+            -%}
+            <p class="finder-setup__label">{{ 'finder.setup.blocks' | t }}</p>
+            {%- if section.blocks.size == 0 -%}
+              <p class="finder-setup__empty">{{ 'finder.setup.none' | t }}</p>
+            {%- else -%}
+              <ol class="finder-setup__list" role="list">
+                {%- for block in section.blocks -%}
+                  {%- liquid
+                    assign bp = block.settings.product
+                    assign warns = ''
+                    if bp == blank
+                      assign w = 'finder.setup.warn_product' | t
+                      assign warns = warns | append: w | append: '||'
+                    elsif bp.available != true
+                      assign w = 'finder.setup.warn_unavailable' | t
+                      assign warns = warns | append: w | append: '||'
+                    endif
+                    unless block.settings.style_curl or block.settings.style_lean or block.settings.style_sprawl
+                      assign w = 'finder.setup.warn_style' | t
+                      assign warns = warns | append: w | append: '||'
+                    endunless
+                    unless block.settings.stage_fine or block.settings.stage_slowing or block.settings.stage_diagnosed
+                      assign w = 'finder.setup.warn_stage' | t
+                      assign warns = warns | append: w | append: '||'
+                    endunless
+                    assign bad_sizes = ''
+                    assign size_list = block.settings.sizes | default: '' | split: ','
+                    for s in size_list
+                      assign sv = s | strip | downcase
+                      if sv == ''
+                        continue
+                      endif
+                      assign needle = '|' | append: sv | append: '|'
+                      unless hint_tokens contains needle
+                        if bad_sizes != ''
+                          assign bad_sizes = bad_sizes | append: ', '
+                        endif
+                        assign bad_sizes = bad_sizes | append: s | strip
+                      endunless
+                    endfor
+                    if bad_sizes != ''
+                      assign bad_esc = bad_sizes | escape
+                      assign w = 'finder.setup.warn_sizes' | t | replace: '[sizes]', bad_esc
+                      assign warns = warns | append: w | append: '||'
+                    endif
+                    assign b_flags = ''
+                    for st in style_keys
+                      assign sk = 'style_' | append: st
+                      if block.settings[sk]
+                        assign lk = 'finder.options.' | append: st | append: '_short'
+                        assign lbl = lk | t
+                        assign b_flags = b_flags | append: lbl | append: ' · '
+                      endif
+                    endfor
+                    for sg in stage_keys
+                      assign gk = 'stage_' | append: sg
+                      if block.settings[gk]
+                        assign lk = 'finder.options.' | append: sg | append: '_short'
+                        assign lbl = lk | t
+                        assign b_flags = b_flags | append: lbl | append: ' · '
+                      endif
+                    endfor
+                    assign size_txt = block.settings.sizes | default: '' | strip
+                    if size_txt == ''
+                      assign size_txt = 'finder.setup.all_sizes' | t
+                    endif
+                    assign warn_list = warns | split: '||'
+                  -%}
+                  <li class="finder-setup__item{% if warn_list.size > 0 %} has-warning{% endif %}" {{ block.shopify_attributes }}>
+                    <span class="finder-setup__title">{% if bp != blank %}{{ bp.title | escape }}{% else %}—{% endif %}</span>
+                    <span class="finder-setup__meta">{{ b_flags | escape }}{{ size_txt | escape }} · {{ 'finder.setup.priority' | t | replace: '[n]', block.settings.priority }}</span>
+                    {%- for w in warn_list -%}
+                      <span class="finder-setup__warn">{{ w }}</span>
+                    {%- endfor -%}
+                  </li>
+                {%- endfor -%}
+              </ol>
+            {%- endif -%}
+            <p class="finder-setup__label">
+              {%- if need_fallback -%}
+                {%- assign fb_count = fallback_handles | split: ',' | size -%}
+                {%- assign fb_title = fb_coll.title | default: '' | escape -%}
+                {{ 'finder.setup.fallback' | t | replace: '[count]', fb_count | replace: '[collection]', fb_title }}
+              {%- else -%}
+                {{ 'finder.setup.fallback_skipped' | t }}
+              {%- endif -%}
+            </p>
+            {%- if collections.all.products_count == 0 -%}
+              <p class="finder-setup__empty">{{ 'finder.setup.no_products' | t }}</p>
+            {%- endif -%}
+          </div>
+        </details>
+      {%- endif -%}
+
+      <bed-finder class="finder finder--modal" mode="modal" data-section-id="{{ section.id }}">
+        <div class="finder__boot">
+          <p class="finder__boot-text">{{ 'finder.loading' | t }}</p>
+          <a class="btn btn--secondary" href="{{ routes.all_products_collection_url }}">{{ 'finder.browse_all' | t }}</a>
+        </div>
+      </bed-finder>
+    </dialog>
+  {%- endif -%}
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Bed Finder",
+  "class": "section-bed-finder",
+  "max_blocks": 30,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Four taps to one bed in the right size: how the dog sleeps, their joints, their size, their name. Add a Match block for each bed, or tag products finder:curl / finder:lean / finder:sprawl and finder:fine / finder:slowing / finder:diagnosed and the finder chooses for you."
+    },
+    {
+      "type": "header",
+      "content": "Question 1 · How they sleep"
+    },
+    {
+      "type": "text",
+      "id": "style_heading",
+      "label": "Question",
+      "default": "How does your dog sleep?"
+    },
+    {
+      "type": "text",
+      "id": "style_text",
+      "label": "Helper text",
+      "default": "Think of how you find them at 2am, not how they settle at 9pm."
+    },
+    {
+      "type": "header",
+      "content": "Question 2 · Joints"
+    },
+    {
+      "type": "text",
+      "id": "stage_heading",
+      "label": "Question",
+      "default": "How are their joints?"
+    },
+    {
+      "type": "text",
+      "id": "stage_text",
+      "label": "Helper text",
+      "default": "This decides how much support they need, so go with what you see day to day."
+    },
+    {
+      "type": "header",
+      "content": "Question 3 · Size"
+    },
+    {
+      "type": "text",
+      "id": "size_heading",
+      "label": "Question",
+      "default": "How big are they?"
+    },
+    {
+      "type": "text",
+      "id": "size_text",
+      "label": "Helper text",
+      "default": "Pick the breeds closest to yours. No need to know their weight."
+    },
+    {
+      "type": "text",
+      "id": "measure_title",
+      "label": "Measuring tip title",
+      "default": "Between sizes? How to measure"
+    },
+    {
+      "type": "textarea",
+      "id": "measure_text",
+      "label": "Measuring tip",
+      "default": "Wait until they're asleep and stretched out. Measure from nose to the base of the tail, then add 20cm. Between sizes, or a puppy still growing? Go up one: a bed a little too big is fine, one too small isn't."
+    },
+    {
+      "type": "header",
+      "content": "Question 4 · Name"
+    },
+    {
+      "type": "text",
+      "id": "name_heading",
+      "label": "Question",
+      "default": "Last thing — what's their name?"
+    },
+    {
+      "type": "text",
+      "id": "name_text",
+      "label": "Helper text",
+      "default": "So we can make this about them. You can skip it."
+    },
+    {
+      "type": "header",
+      "content": "Result"
+    },
+    {
+      "type": "text",
+      "id": "result_eyebrow",
+      "label": "Small label above the match",
+      "default": "Based on your answers"
+    },
+    {
+      "type": "text",
+      "id": "risk_text",
+      "label": "Trial line under the button",
+      "default": "Sleep on it for [nights] nights. If it isn't right, we collect it free and refund every penny.",
+      "info": "[nights] becomes the trial length from Theme settings → Promises. Hidden when the trial is switched off."
+    },
+    {
+      "type": "text",
+      "id": "guarantee_text",
+      "label": "Guarantee line",
+      "default": "Backed by our [years]-year guarantee.",
+      "info": "[years] comes from Theme settings → Promises. Hidden when the guarantee is switched off."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_alternative",
+      "label": "Show an alternative pick",
+      "default": true,
+      "info": "A second bed with one clear difference (price, shape or support), so a shopper who doesn't fancy the first has somewhere to go."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_delivery",
+      "label": "Show the delivery estimate",
+      "default": true,
+      "info": "Worked out from your real dispatch cut-off in Theme settings → Promises."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_per_night",
+      "label": "Show the per-night cost",
+      "default": true,
+      "info": "Only shows when Theme settings → Pricing → per-night is on and the guarantee is enabled."
+    },
+    {
+      "type": "checkbox",
+      "id": "matching_moment",
+      "label": "Show a short \"finding your bed\" moment",
+      "default": true,
+      "info": "Under a second, ticking off the three answers that were used. Skipped for anyone who prefers reduced motion."
+    },
+    {
+      "type": "header",
+      "content": "When no Match block fits"
+    },
+    {
+      "type": "collection",
+      "id": "fallback_collection",
+      "label": "Choose from this collection",
+      "info": "Blank uses all products (up to 50). Beds are scored by their finder: tags, and orthopaedic / memory foam in the title or tags. Tag a product finder:exclude to leave it out."
+    },
+    {
+      "type": "header",
+      "content": "Pop-up"
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "white", "label": "White" },
+        { "value": "moss", "label": "Moss" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Space above questions",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Space below questions",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    }
+  ],
+  "blocks": [
+    {
+      "type": "match",
+      "name": "Match",
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Bed"
+        },
+        {
+          "type": "paragraph",
+          "content": "Untick the answers this bed isn't right for."
+        },
+        {
+          "type": "header",
+          "content": "Sleeping style"
+        },
+        {
+          "type": "checkbox",
+          "id": "style_curl",
+          "label": "Curls up",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "style_lean",
+          "label": "Leans on things",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "style_sprawl",
+          "label": "Sprawls out",
+          "default": true
+        },
+        {
+          "type": "header",
+          "content": "Joints"
+        },
+        {
+          "type": "checkbox",
+          "id": "stage_fine",
+          "label": "Young and bouncy",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "stage_slowing",
+          "label": "Starting to slow down",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "stage_diagnosed",
+          "label": "Stiff, older or diagnosed",
+          "default": true
+        },
+        {
+          "type": "header",
+          "content": "Fit"
+        },
+        {
+          "type": "text",
+          "id": "sizes",
+          "label": "Sizes",
+          "info": "Comma list of size values from Theme settings → Sizing, e.g. S,M. Blank = every size. A bed with no size option is treated as one size."
+        },
+        {
+          "type": "text",
+          "id": "reason",
+          "label": "Why this bed suits",
+          "info": "One or two sentences shown with the match. Blank uses the product's tagline metafield, or the first sentence of its description."
+        },
+        {
+          "type": "text",
+          "id": "difference",
+          "label": "As the alternative pick: \"if you'd prefer…\"",
+          "info": "e.g. \"a lower wall to step over\". Blank works it out from price, shape and support."
+        },
+        {
+          "type": "range",
+          "id": "priority",
+          "label": "Priority",
+          "min": 0,
+          "max": 10,
+          "step": 1,
+          "default": 5,
+          "info": "When several blocks fit the same answers, the highest priority is the match and the next becomes the alternative."
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

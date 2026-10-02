@@ -1,0 +1,204 @@
+{%- comment -%}
+  Account (classic accounts) — customers/account.json.
+
+  A greeting, the order history (a real table on wide screens; each order
+  becomes a labelled card on phones), the default address with a link to
+  manage the rest, and a help card. No orders yet → a calm empty state that
+  points at the Bed Finder rather than a blank table.
+{%- endcomment -%}
+{{ 'pages.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-title'
+  assign orders_id = section.id | append: '-orders'
+  assign address_id = section.id | append: '-address'
+  assign help_id = section.id | append: '-help'
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign finder_label = settings.finder_cta_label | default: '' | strip
+  if finder_label == ''
+    assign finder_label = 'pages.cta.finder_button' | t
+  endif
+  assign contact_url = s.contact_page.url | default: ''
+  if contact_url == ''
+    assign contact_url = routes.root_url | append: '/pages/contact' | replace: '//', '/'
+  endif
+  assign first_name = customer.first_name | default: '' | strip
+-%}
+<section class="section customer main-account scheme-{{ s.color_scheme | default: 'bone' }}" id="{{ section.id }}-wrap" aria-labelledby="{{ heading_id }}">
+  <div class="page-width">
+    <header class="customer__header">
+      <div>
+        <p class="eyebrow">{{ 'pages.customer.account.eyebrow' | t }}</p>
+        <h1 class="h1 customer__title" id="{{ heading_id }}">
+          {%- if first_name != '' -%}
+            {{ 'pages.customer.account.hello_name' | t: name: first_name }}
+          {%- else -%}
+            {{ 'pages.customer.account.hello' | t }}
+          {%- endif -%}
+        </h1>
+      </div>
+      <a class="btn btn--secondary btn--sm" href="{{ routes.account_logout_url }}">
+        {%- render 'icon', name: 'user', size: 18 -%}
+        <span>{{ 'pages.customer.account.log_out' | t }}</span>
+      </a>
+    </header>
+
+    <div class="customer__grid">
+      <div class="customer__main" role="region" aria-labelledby="{{ orders_id }}">
+        <h2 class="h3 customer__section-title" id="{{ orders_id }}">{{ 'pages.customer.account.orders' | t }}</h2>
+        {%- paginate customer.orders by 20 -%}
+          {%- if customer.orders.size > 0 -%}
+            <table class="order-table" role="table">
+              <caption class="visually-hidden">{{ 'pages.customer.account.orders_caption' | t }}</caption>
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col" role="columnheader">{{ 'pages.customer.account.col_order' | t }}</th>
+                  <th scope="col" role="columnheader">{{ 'pages.customer.account.col_date' | t }}</th>
+                  <th scope="col" role="columnheader">{{ 'pages.customer.account.col_payment' | t }}</th>
+                  <th scope="col" role="columnheader">{{ 'pages.customer.account.col_fulfilment' | t }}</th>
+                  <th scope="col" role="columnheader" class="order-table__num">{{ 'pages.customer.account.col_total' | t }}</th>
+                </tr>
+              </thead>
+              <tbody role="rowgroup">
+                {%- for order in customer.orders -%}
+                  <tr role="row">
+                    <th scope="row" role="rowheader" data-label="{{ 'pages.customer.account.col_order' | t | escape }}">
+                      <a class="order-table__link" href="{{ order.customer_url }}" aria-label="{{ 'pages.customer.account.view_order' | t: name: order.name | escape }}">{{ order.name }}</a>
+                    </th>
+                    <td role="cell" data-label="{{ 'pages.customer.account.col_date' | t | escape }}">
+                      <time datetime="{{ order.created_at | date: '%Y-%m-%d' }}">{{ order.created_at | date: '%-d %b %Y' }}</time>
+                    </td>
+                    <td role="cell" data-label="{{ 'pages.customer.account.col_payment' | t | escape }}">{{ order.financial_status_label }}</td>
+                    <td role="cell" data-label="{{ 'pages.customer.account.col_fulfilment' | t | escape }}">
+                      {%- if order.cancelled -%}
+                        <span class="status-pill status-pill--muted">{{ 'pages.customer.order.cancelled_short' | t }}</span>
+                      {%- elsif order.fulfillment_status == 'fulfilled' -%}
+                        <span class="status-pill status-pill--success">{%- render 'icon', name: 'check', size: 14 -%}{{ order.fulfillment_status_label }}</span>
+                      {%- else -%}
+                        <span class="status-pill">{{ order.fulfillment_status_label }}</span>
+                      {%- endif -%}
+                    </td>
+                    <td role="cell" class="order-table__num" data-label="{{ 'pages.customer.account.col_total' | t | escape }}">{{ order.total_price | money_with_currency }}</td>
+                  </tr>
+                {%- endfor -%}
+              </tbody>
+            </table>
+            <div class="pages-paginate">
+              {%- render 'pagination', paginate: paginate -%}
+            </div>
+          {%- else -%}
+            <div class="pages-empty card card--lg">
+              {%- render 'icon', name: 'bed', size: 36, class: 'pages-empty__icon' -%}
+              <h3 class="h4">{{ 'pages.customer.account.no_orders' | t }}</h3>
+              <p class="muted">{{ 'pages.customer.account.no_orders_text' | t }}</p>
+              <div class="cluster pages-empty__actions">
+                {%- if settings.finder_enable -%}
+                  <a class="btn btn--secondary" href="{{ finder_url }}" data-open-finder aria-haspopup="dialog">
+                    <span>{{ finder_label | escape }}</span>
+                    {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+                  </a>
+                {%- endif -%}
+                <a class="btn btn--ghost" href="{{ routes.all_products_collection_url }}">{{ 'pages.cta.shop_all' | t }}</a>
+              </div>
+            </div>
+          {%- endif -%}
+        {%- endpaginate -%}
+      </div>
+
+      <div class="customer__side">
+        <section class="card card--lg customer-card" aria-labelledby="{{ address_id }}">
+          <h2 class="h4" id="{{ address_id }}">{{ 'pages.customer.account.default_address' | t }}</h2>
+          {%- if customer.default_address -%}
+            <address class="customer-card__address">{{ customer.default_address | format_address }}</address>
+          {%- else -%}
+            <p class="muted">{{ 'pages.customer.account.no_address' | t }}</p>
+          {%- endif -%}
+          <a class="customer-card__link" href="{{ routes.account_addresses_url }}">
+            <span>{{ 'pages.customer.account.manage_addresses' | t: count: customer.addresses_count }}</span>
+            {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+          </a>
+        </section>
+
+        {%- if s.show_help -%}
+          <section class="card card--lg scheme-oat customer-card" aria-labelledby="{{ help_id }}">
+            <h2 class="h4" id="{{ help_id }}">{{ s.help_heading | default: '' | escape }}</h2>
+            {%- if s.help_text != blank -%}
+              <p class="muted">{{ s.help_text | escape }}</p>
+            {%- endif -%}
+            {%- render 'trust-list', items: 'trial,guarantee', layout: 'stack', size: 'md' -%}
+            <a class="customer-card__link" href="{{ contact_url }}">
+              <span>{{ 'pages.customer.account.contact_us' | t }}</span>
+              {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+            </a>
+          </section>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Account",
+  "class": "section-main-account",
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_help",
+      "label": "Show the help card",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "help_heading",
+      "label": "Help card heading",
+      "default": "Something not right?"
+    },
+    {
+      "type": "textarea",
+      "id": "help_text",
+      "label": "Help card text",
+      "default": "Sizing, delivery or a bed your dog hasn't taken to: tell us and we'll sort it."
+    },
+    {
+      "type": "page",
+      "id": "contact_page",
+      "label": "Contact page",
+      "info": "Leave blank to use /pages/contact."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    }
+  ]
+}
+{% endschema %}

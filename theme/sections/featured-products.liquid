@@ -1,0 +1,355 @@
+{%- comment -%}
+  Featured products — a curated few, each framed as an answer.
+
+  Source, in order:
+    1. Product blocks (up to 8), each with an optional role label override
+       ("For stiff mornings") and an optional "Most chosen" flag.
+    2. The chosen collection.
+    3. Nothing chosen (e.g. reused on the cart page with "settings": {}):
+       the store's all-products collection.
+  On the cart page, beds already in the basket are skipped.
+
+  Psychology: roles turn similar beds into a set of answers (choice
+  architecture); "Most chosen" is a merchant-set default cue — only use it
+  when sales say so; per-night reframe on the cards is opt-in and honest
+  (core per-night snippet). Phones get a swipeable row; desktop a grid.
+
+  No products at all → placeholder cards in the editor, nothing on the live
+  store.
+{%- endcomment -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-heading'
+  assign limit = s.products_to_show | default: 4 | plus: 0
+  assign cols = s.columns_desktop | default: '4' | plus: 0
+
+  assign in_cart = ''
+  if template.name == 'cart'
+    for item in cart.items
+      assign in_cart = in_cart | append: '|' | append: item.product_id | append: '|'
+    endfor
+  endif
+
+  assign product_blocks = section.blocks | where: 'type', 'product'
+  assign use_blocks = false
+  for block in product_blocks
+    if block.settings.product != blank
+      assign use_blocks = true
+      break
+    endif
+  endfor
+
+  assign source = s.collection
+  if source == blank
+    assign source = collections['all']
+  endif
+
+  comment
+    Count what will actually render so an empty section can stay hidden.
+  endcomment
+  assign count = 0
+  if use_blocks
+    for block in product_blocks
+      if block.settings.product != blank
+        assign pid = '|' | append: block.settings.product.id | append: '|'
+        unless in_cart contains pid
+          assign count = count | plus: 1
+        endunless
+      endif
+    endfor
+  elsif source != blank
+    for p in source.products limit: 24
+      assign pid = '|' | append: p.id | append: '|'
+      unless in_cart contains pid
+        assign count = count | plus: 1
+      endunless
+      if count >= limit
+        break
+      endif
+    endfor
+  endif
+
+  assign view_all_url = s.view_all_link
+  if view_all_url == blank
+    if s.collection != blank
+      assign view_all_url = s.collection.url
+    else
+      assign view_all_url = routes.all_products_collection_url
+    endif
+  endif
+
+  assign heading_text = s.heading | default: '' | strip | escape
+  if heading_text == ''
+    assign heading_text = 'home.featured.heading_fallback' | t
+  endif
+
+  assign most_label = s.most_chosen_label | default: '' | strip
+  if most_label == ''
+    assign most_label = 'home.featured.most_chosen' | t
+  endif
+-%}
+{%- if count > 0 or request.design_mode -%}
+  <section
+    class="section featured-products scheme-{{ s.color_scheme }}"
+    id="{{ section.id }}-wrap"
+    aria-labelledby="{{ heading_id }}"
+  >
+    <div class="page-width">
+      <header class="section-head section-head--split featured-products__head">
+        <div class="stack stack--sm">
+          {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+          <h2 id="{{ heading_id }}" class="h2">{{ heading_text }}</h2>
+          {%- if s.lede != blank -%}<p class="lede muted">{{ s.lede | escape }}</p>{%- endif -%}
+        </div>
+        {%- if s.view_all_label != blank and count > 0 -%}
+          <a class="btn btn--ghost featured-products__all" href="{{ view_all_url }}">
+            <span>{{ s.view_all_label | escape }}</span>{%- render 'icon', name: 'arrow-right' -%}
+          </a>
+        {%- endif -%}
+      </header>
+
+      <slider-row class="featured-products__slider" id="Slider-{{ section.id }}">
+        <ul
+          class="slider-row slider-row--grid-desktop featured-products__list"
+          data-slider-track
+          role="list"
+          aria-label="{{ heading_text }}"
+          style="--slider-cols: {{ cols }};"
+        >
+          {%- if count > 0 and use_blocks -%}
+            {%- assign n = 0 -%}
+            {%- for block in product_blocks -%}
+              {%- assign p = block.settings.product -%}
+              {%- if p != blank -%}
+                {%- assign pid = '|' | append: p.id | append: '|' -%}
+                {%- unless in_cart contains pid -%}
+                  {%- assign n = n | plus: 1 -%}
+                  <li class="featured-products__item{% if block.settings.most_chosen %} is-most-chosen{% endif %}" {{ block.shopify_attributes }}>
+                    {%- if block.settings.most_chosen -%}
+                      <span class="featured-products__flag">
+                        {%- render 'badge', text: most_label, style: 'accent' -%}
+                      </span>
+                    {%- endif -%}
+                    {%- render 'product-card',
+                      product: p,
+                      role_label: block.settings.role,
+                      show_per_night: s.show_per_night,
+                      show_quick_add: s.show_quick_add,
+                      lazy: true,
+                      heading_level: 'h3',
+                      index: n,
+                      reveal: true
+                    -%}
+                  </li>
+                {%- endunless -%}
+              {%- endif -%}
+            {%- endfor -%}
+          {%- elsif count > 0 -%}
+            {%- assign n = 0 -%}
+            {%- for p in source.products limit: 24 -%}
+              {%- assign pid = '|' | append: p.id | append: '|' -%}
+              {%- unless in_cart contains pid -%}
+                {%- assign n = n | plus: 1 -%}
+                <li class="featured-products__item">
+                  {%- render 'product-card',
+                    product: p,
+                    show_per_night: s.show_per_night,
+                    show_quick_add: s.show_quick_add,
+                    lazy: true,
+                    heading_level: 'h3',
+                    index: n,
+                    reveal: true
+                  -%}
+                </li>
+                {%- if n >= limit -%}{%- break -%}{%- endif -%}
+              {%- endunless -%}
+            {%- endfor -%}
+          {%- else -%}
+            {%- for i in (1..limit) -%}
+              <li class="featured-products__item">
+                {%- render 'product-card', product: blank, placeholder_index: i, heading_level: 'h3' -%}
+              </li>
+            {%- endfor -%}
+          {%- endif -%}
+        </ul>
+        <div class="slider-row__nav">
+          <button type="button" class="slider-row__btn" data-slider-prev aria-label="{{ 'accessibility.previous' | t }}">
+            {%- render 'icon', name: 'chevron-left' -%}
+          </button>
+          <button type="button" class="slider-row__btn" data-slider-next aria-label="{{ 'accessibility.next' | t }}">
+            {%- render 'icon', name: 'chevron-right' -%}
+          </button>
+        </div>
+      </slider-row>
+
+      {%- if count == 0 and request.design_mode -%}
+        <p class="editor-note">{{ 'home.editor.featured_empty' | t }}</p>
+      {%- endif -%}
+      {%- comment -%} Keep empty product blocks selectable in the editor. {%- endcomment -%}
+      {%- if request.design_mode -%}
+        {%- for block in section.blocks -%}
+          {%- if block.settings.product == blank -%}<span hidden {{ block.shopify_attributes }}></span>{%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+    </div>
+  </section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Featured beds",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 8,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Pick up to 8 beds with blocks (each can carry a role like \"For stiff mornings\"), or choose a collection. With neither, it shows beds from all products."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Our beds"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "A good place to start."
+    },
+    {
+      "type": "textarea",
+      "id": "lede",
+      "label": "Intro"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection",
+      "info": "Used when no product blocks are set."
+    },
+    {
+      "type": "range",
+      "id": "products_to_show",
+      "label": "Beds to show from a collection",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "select",
+      "id": "columns_desktop",
+      "label": "Columns on desktop",
+      "options": [
+        { "value": "2", "label": "2" },
+        { "value": "3", "label": "3" },
+        { "value": "4", "label": "4" }
+      ],
+      "default": "4"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_per_night",
+      "label": "Show per-night price on cards",
+      "default": false,
+      "info": "\"About 9p a night over the 5-year guarantee\", worked out from the price. Needs Theme settings → Pricing → per-night and the guarantee switched on."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_quick_add",
+      "label": "Show quick add",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "most_chosen_label",
+      "label": "\"Most chosen\" badge text",
+      "default": "Most chosen",
+      "info": "Shown on product blocks you flag. Only flag a bed when your sales figures say it is."
+    },
+    {
+      "type": "text",
+      "id": "view_all_label",
+      "label": "Link label",
+      "default": "Shop all beds"
+    },
+    {
+      "type": "url",
+      "id": "view_all_link",
+      "label": "Link",
+      "info": "Defaults to the chosen collection, or all products."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    }
+  ],
+  "blocks": [
+    {
+      "type": "product",
+      "name": "Bed",
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Product"
+        },
+        {
+          "type": "text",
+          "id": "role",
+          "label": "Role",
+          "info": "What this bed is for, e.g. \"Stiff mornings\" or \"For burrowers\". Leave blank to use the product's Best for metafield."
+        },
+        {
+          "type": "checkbox",
+          "id": "most_chosen",
+          "label": "Flag as most chosen",
+          "default": false
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Featured beds",
+      "blocks": [
+        { "type": "product", "settings": { "role": "Stiff mornings" } },
+        { "type": "product", "settings": { "role": "Two beds in one" } },
+        { "type": "product", "settings": { "role": "For burrowers" } },
+        { "type": "product", "settings": { "role": "Widest size range" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

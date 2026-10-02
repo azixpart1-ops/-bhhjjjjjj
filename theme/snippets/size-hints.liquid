@@ -1,0 +1,127 @@
+{%- comment -%}
+  Size hints from settings.size_hints — one size per line:
+    VALUE|Label|Weight|Breeds
+    M|Medium|10–25kg|Cocker, Springer, Border Collie, Staffie
+
+  Modes
+    (no args)                → <script type="application/json" id="size-hints">[{value,label,weight,breeds}, …]</script>
+                               Render it once per page that needs it (it carries an id).
+    mode: 'json'             → the bare JSON array (used by layout/theme.liquid for Lunova.settings.sizeHints)
+    value: 'M', mode: 'inline' → "Cocker, Springer · 10–25kg" for that option value
+    value: 'M', mode: 'weight' | 'breeds' | 'label' → just that part
+    breeds: 2                → how many breeds the inline text lists (default 2; 0 = all)
+
+  Matching an option value to a line (case-insensitive):
+    - equals VALUE or Label ("Medium" ≡ "M");
+    - "2XL", "XXL", "3XL", "XXXL", "X-Large", "Extra extra large" fall into XL;
+      "X-Small" into XS;
+    - otherwise the first word is tried, so "Medium (75 × 60cm)" or
+      "M / Grey" still match.
+  Outputs nothing when there is no match.
+{%- endcomment -%}
+{%- liquid
+  assign raw = settings.size_hints | default: '' | newline_to_br | split: '<br />'
+  assign out_mode = mode | default: 'script'
+  if value != blank and mode == blank
+    assign out_mode = 'inline'
+  endif
+-%}
+{%- if out_mode == 'script' or out_mode == 'json' -%}
+  {%- capture json -%}
+    [
+    {%- assign first = true -%}
+    {%- for line in raw -%}
+      {%- assign l = line | strip -%}
+      {%- if l == '' -%}{%- continue -%}{%- endif -%}
+      {%- assign parts = l | split: '|' -%}
+      {%- assign v = parts[0] | strip -%}
+      {%- if v == '' -%}{%- continue -%}{%- endif -%}
+      {%- unless first -%},{%- endunless -%}
+      {%- assign first = false -%}
+      {"value":{{ v | json }},"label":{{ parts[1] | default: '' | strip | json }},"weight":{{ parts[2] | default: '' | strip | json }},"breeds":{{ parts[3] | default: '' | strip | json }}}
+    {%- endfor -%}
+    ]
+  {%- endcapture -%}
+  {%- if out_mode == 'json' -%}
+    {{- json | strip -}}
+  {%- else -%}
+    <script type="application/json" id="size-hints">{{ json | strip }}</script>
+  {%- endif -%}
+{%- else -%}
+  {%- liquid
+    assign q = value | default: '' | downcase | replace: '-', ' ' | strip
+    case q
+      when '2xl', 'xxl', '3xl', 'xxxl', 'x large', 'extra extra large', 'xx large'
+        assign q = 'xl'
+      when 'x small', 'extra extra small', 'xxs', 'xx small'
+        assign q = 'xs'
+    endcase
+    assign q_first = q | split: ' ' | first | split: '/' | first | split: '(' | first | strip
+    case q_first
+      when '2xl', 'xxl', '3xl', 'xxxl'
+        assign q_first = 'xl'
+      when 'xxs'
+        assign q_first = 'xs'
+    endcase
+
+    assign hit = ''
+    assign hit_first = ''
+    for line in raw
+      assign l = line | strip
+      if l == ''
+        continue
+      endif
+      assign lparts = l | split: '|'
+      assign v = lparts[0] | default: '' | downcase | strip
+      assign lbl = lparts[1] | default: '' | downcase | strip
+      if hit == ''
+        if q == v or q == lbl
+          assign hit = l
+        endif
+      endif
+      if hit_first == '' and q_first != ''
+        if q_first == v or q_first == lbl
+          assign hit_first = l
+        endif
+      endif
+    endfor
+    if hit == ''
+      assign hit = hit_first
+    endif
+  -%}
+  {%- if hit != '' -%}
+    {%- liquid
+      assign parts = hit | split: '|'
+      assign h_label = parts[1] | default: '' | strip
+      assign h_weight = parts[2] | default: '' | strip
+      assign h_breeds = parts[3] | default: '' | strip
+      assign limit = breeds | default: 2 | plus: 0
+      if limit > 0 and h_breeds != ''
+        assign b_list = h_breeds | split: ','
+        assign b_out = ''
+        for b in b_list limit: limit
+          assign bs = b | strip
+          if bs == ''
+            continue
+          endif
+          if b_out != ''
+            assign b_out = b_out | append: ', '
+          endif
+          assign b_out = b_out | append: bs
+        endfor
+        assign h_breeds = b_out
+      endif
+    -%}
+    {%- case out_mode -%}
+      {%- when 'weight' -%}{{- h_weight | escape -}}
+      {%- when 'breeds' -%}{{- h_breeds | escape -}}
+      {%- when 'label' -%}{{- h_label | escape -}}
+      {%- else -%}
+        {%- if h_breeds != '' and h_weight != '' -%}
+          {{- h_breeds | escape }} · {{ h_weight | escape -}}
+        {%- else -%}
+          {{- h_breeds | append: h_weight | escape -}}
+        {%- endif -%}
+    {%- endcase -%}
+  {%- endif -%}
+{%- endif -%}

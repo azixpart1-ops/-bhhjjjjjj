@@ -1,0 +1,404 @@
+{%- comment -%}
+  Collection hero — the first screen of a collection page.
+
+  Job: tell the shopper in one glance that they're in the right place and
+  that it's safe to choose here, then get out of the way of the grid.
+    - One clean H1. Old store titles were SEO strings ("Orthopaedic Dog Beds
+      UK | Memory Foam Joint Support | Pawlunova"), so everything from the
+      first " | ", " – " or " — " onward is dropped. The full description
+      (with its own headings demoted) sits below the grid in main-collection.
+    - A short intro: the section's own text if set, otherwise the opening of
+      the collection description (first sentence or two, ~160 characters).
+    - Product count ("27 beds") — a sense of the size of the choice.
+    - Store rating line only when the merchant has filled in BOTH
+      store_rating and store_review_count (no invented proof).
+    - Trust chips from theme settings (trial, guarantee, delivery) — each
+      hides itself when switched off.
+    - "Not sure? Find my dog's bed" — a secondary, ink-outline action that
+      opens the Bed Finder (choice architecture: one recommendation
+      instead of 27 similar beds).
+{%- endcomment -%}
+{{ 'collection.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign sid = section.id
+  assign cs = section.settings.color_scheme | default: 'oat'
+
+  comment
+    Heading: strip SEO suffixes. Titles that *start* with a separator keep
+    their full text.
+  endcomment
+  assign raw_title = collection.title | default: ''
+  assign title = raw_title | split: ' | ' | first | split: ' – ' | first | split: ' — ' | first | strip
+  if title == ''
+    assign title = raw_title | strip
+  endif
+  if collection.handle == 'all' and section.settings.all_title != blank
+    assign title = section.settings.all_title
+  endif
+  if title == ''
+    assign title = 'collection.hero.fallback_title' | t
+  endif
+
+  comment
+    Intro: section text → description opening → (for /collections/all) the
+    all-beds intro. Sentences are kept whole where they fit.
+  endcomment
+  assign intro = section.settings.intro | default: '' | strip
+  assign intro_is_html = false
+  if intro != ''
+    assign intro_is_html = true
+  endif
+  if intro == ''
+    comment
+      Drop headings from the excerpt (they usually repeat the title), turn
+      block ends into spaces so paragraphs do not run together, then strip
+      tags and collapse whitespace.
+    endcomment
+    assign src = collection.description | default: ''
+    for lvl in (1..6)
+      assign open_tag = '<h' | append: lvl
+      assign close_tag = '</h' | append: lvl | append: '>'
+      if src contains close_tag
+        assign chunks = src | split: open_tag
+        assign rebuilt = chunks.first | default: ''
+        for chunk in chunks offset: 1
+          assign after = chunk | append: ' ' | split: close_tag | last
+          assign rebuilt = rebuilt | append: ' ' | append: after
+        endfor
+        assign src = rebuilt
+      endif
+    endfor
+    assign desc_text = src | replace: '</p>', ' ' | replace: '</li>', ' ' | replace: '</div>', ' ' | replace: '<br>', ' ' | replace: '<br/>', ' ' | replace: '<br />', ' ' | strip_html | replace: '&nbsp;', ' ' | split: ' ' | join: ' ' | strip
+    if desc_text != ''
+      assign sentences = desc_text | split: '. '
+      assign built = ''
+      for s in sentences
+        assign s_clean = s | strip
+        if s_clean == ''
+          continue
+        endif
+        if built == ''
+          assign candidate = s_clean
+        else
+          assign candidate = built | append: '. ' | append: s_clean
+        endif
+        if candidate.size > 180 and built != ''
+          break
+        endif
+        assign built = candidate
+        if built.size >= 120
+          break
+        endif
+      endfor
+      if built.size > 200
+        assign words = built | slice: 0, 170 | split: ' '
+        assign keep = words.size | minus: 1
+        assign built = ''
+        for w in words limit: keep
+          assign built = built | append: w | append: ' '
+        endfor
+        assign built = built | strip | append: '…'
+      else
+        assign last_char = built | slice: -1, 1
+        unless last_char == '.' or last_char == '!' or last_char == '?' or last_char == '…'
+          assign built = built | append: '.'
+        endunless
+      endif
+      assign intro = built
+    elsif collection.handle == 'all'
+      assign intro = section.settings.all_intro | default: '' | strip
+      assign intro_is_html = true
+    endif
+  endif
+
+  assign count = collection.all_products_count | default: 0 | plus: 0
+
+  assign show_image = false
+  assign hero_image = collection.image
+  if section.settings.show_image and hero_image != blank
+    assign show_image = true
+  endif
+
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign finder_label = settings.finder_cta_label | default: ''
+  if finder_label == ''
+    assign finder_label = 'collection.finder_tile.cta' | t
+  endif
+-%}
+<section
+  class="section scheme-{{ cs }} collection-hero{% if show_image %} collection-hero--image{% endif %}{% unless section.settings.show_image_mobile %} collection-hero--hide-image-mobile{% endunless %}"
+  id="{{ sid }}-wrap"
+  aria-labelledby="CollectionTitle-{{ sid }}"
+>
+  <div class="page-width collection-hero__inner">
+    <div class="collection-hero__text">
+      {%- if section.settings.show_breadcrumbs -%}
+        <nav class="collection-hero__crumbs" aria-label="{{ 'collection.hero.breadcrumb' | t }}">
+          <ol class="collection-hero__crumb-list" role="list">
+            <li><a href="{{ routes.root_url }}">{{ 'general.home' | t }}</a></li>
+            {%- if collection.handle != 'all' -%}
+              <li><a href="{{ routes.all_products_collection_url }}">{{ 'collection.hero.all_beds' | t }}</a></li>
+            {%- endif -%}
+            <li><span aria-current="page">{{ title | escape }}</span></li>
+          </ol>
+        </nav>
+      {%- endif -%}
+
+      {%- if section.settings.eyebrow != blank -%}
+        <p class="eyebrow collection-hero__eyebrow">{{ section.settings.eyebrow | escape }}</p>
+      {%- endif -%}
+
+      <h1 class="h1 collection-hero__title" id="CollectionTitle-{{ sid }}">{{ title | escape }}</h1>
+
+      {%- if intro != '' -%}
+        <div class="lede collection-hero__intro">
+          {%- if intro_is_html -%}{{ intro }}{%- else -%}<p>{{ intro }}</p>{%- endif -%}
+        </div>
+      {%- endif -%}
+
+      {%- liquid
+        assign show_count = false
+        if section.settings.show_count and count > 0
+          assign show_count = true
+        endif
+        assign rating_html = ''
+        if section.settings.show_rating
+          capture rating_html
+            render 'rating', rating: settings.store_rating, count: settings.store_review_count, size: 'md', class: 'collection-hero__rating'
+          endcapture
+          assign rating_html = rating_html | strip
+        endif
+      -%}
+      {%- if show_count or rating_html != '' -%}
+        <div class="collection-hero__meta">
+          {%- if show_count -%}
+            <p class="collection-hero__count">
+              {%- render 'icon', name: 'bed', class: 'collection-hero__count-icon' -%}
+              <span>{{ 'collection.hero.count' | t: count: count }}</span>
+            </p>
+          {%- endif -%}
+          {{ rating_html }}
+        </div>
+      {%- endif -%}
+
+      {%- if section.settings.show_trust -%}
+        {%- render 'trust-list', items: 'trial,guarantee,delivery', layout: 'row', size: 'sm', scroll: true, class: 'collection-hero__trust' -%}
+      {%- endif -%}
+
+      {%- if section.settings.show_finder and settings.finder_enable -%}
+        <div class="collection-hero__finder" data-finder-only>
+          <span class="collection-hero__finder-lead">{{ section.settings.finder_lead | escape }}</span>
+          <a href="{{ finder_url }}" class="btn btn--secondary btn--sm collection-hero__finder-btn" data-open-finder>
+            {%- render 'icon', name: 'paw' -%}
+            <span>{{ finder_label | escape }}</span>
+          </a>
+        </div>
+      {%- endif -%}
+    </div>
+
+    {%- if show_image -%}
+      {%- liquid
+        comment
+          Hidden on phones by default, so only fetch it eagerly when it shows
+          everywhere; otherwise lazy (still in view on desktop at load).
+        endcomment
+        assign img_loading = 'lazy'
+        assign img_priority = 'auto'
+        if section.settings.show_image_mobile
+          assign img_loading = 'eager'
+          assign img_priority = 'high'
+        endif
+      -%}
+      <div class="collection-hero__media media">
+        {%- render 'image',
+          image: hero_image,
+          widths: '480,640,800,1000,1200',
+          sizes: '(min-width: 990px) 40vw, 100vw',
+          class: 'collection-hero__img',
+          loading: img_loading,
+          fetchpriority: img_priority,
+          alt: hero_image.alt
+        -%}
+      </div>
+    {%- endif -%}
+  </div>
+
+  {%- if section.settings.show_breadcrumbs -%}
+    {%- liquid
+      assign crumb_pos = 2
+      assign origin = request.origin | default: shop.url
+    -%}
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": {{ 'general.home' | t | json }},
+            "item": {{ origin | append: routes.root_url | json }}
+          },
+          {%- if collection.handle != 'all' -%}
+          {%- assign crumb_pos = 3 -%}
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": {{ 'collection.hero.all_beds' | t | json }},
+            "item": {{ origin | append: routes.all_products_collection_url | json }}
+          },
+          {%- endif -%}
+          {
+            "@type": "ListItem",
+            "position": {{ crumb_pos }},
+            "name": {{ title | json }},
+            "item": {{ origin | append: collection.url | json }}
+          }
+        ]
+      }
+    </script>
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Collection hero",
+  "tag": "div",
+  "class": "section-collection-hero",
+  "enabled_on": {
+    "templates": ["collection"]
+  },
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "The heading is the collection's title with anything after a \" | \" or \" – \" removed, so long SEO titles read cleanly. The full description is shown under the product grid."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "oat"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Small line above the heading",
+      "info": "Optional, e.g. \"Orthopaedic memory foam\"."
+    },
+    {
+      "type": "richtext",
+      "id": "intro",
+      "label": "Intro",
+      "info": "Leave blank to use the opening of the collection description. Text here shows on every collection using this template."
+    },
+    {
+      "type": "text",
+      "id": "all_title",
+      "label": "Heading on the all-products page",
+      "default": "All our beds"
+    },
+    {
+      "type": "richtext",
+      "id": "all_intro",
+      "label": "Intro on the all-products page",
+      "default": "<p>Every bed we make, in one place. Filter by size or by how your dog sleeps — or let the finder narrow it down to one.</p>"
+    },
+    {
+      "type": "header",
+      "content": "Reassurance"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_count",
+      "label": "Show how many beds are in the collection",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_rating",
+      "label": "Show the store rating",
+      "default": true,
+      "info": "Only appears when both the store rating and review count are filled in under Theme settings → Proof."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_trust",
+      "label": "Show promises (trial, guarantee, delivery)",
+      "default": true,
+      "info": "Each promise follows Theme settings → Promises and hides when switched off there."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_finder",
+      "label": "Show the Bed Finder button",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "finder_lead",
+      "label": "Text before the Bed Finder button",
+      "default": "Not sure?"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_breadcrumbs",
+      "label": "Show breadcrumbs",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Image"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_image",
+      "label": "Show the collection image",
+      "default": true,
+      "info": "Set in Products → Collections → Collection image."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_image_mobile",
+      "label": "Show the image on phones",
+      "default": false,
+      "info": "Off keeps the beds closer to the top of the screen."
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    }
+  ],
+  "presets": [
+    {
+      "name": "Collection hero"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,1399 @@
+/* ==========================================================================
+   Lunova — finder.css
+   Bed Finder (modal + inline), the homepage teaser and the finder page.
+   Builds on base.css tokens and components (.btn, .chip, .modal, .progress,
+   .price, .per-night, .delivery-promise, .accordion, .field/.input). The
+   terracotta accent appears once: the result's "Add … to basket".
+
+   1. Modal shell        5. Size + name steps     9. Teaser
+   2. Finder frame       6. Matching moment      10. Finder page
+   3. Step heads         7. Result               11. Editor setup panel
+   4. Answer cards       8. Alternative pick     12. Motion
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Modal shell — a bottom sheet on phones, a centred panel above
+   -------------------------------------------------------------------------- */
+.finder-modal {
+  --modal-width: 800px;
+  transition:
+    opacity var(--dur-fade) linear,
+    transform var(--dur) var(--ease-out);
+}
+
+@media (min-width: 750px) {
+  .finder-modal {
+    max-height: min(90vh, 900px);
+    max-height: min(90dvh, 900px);
+  }
+}
+
+.finder-modal.is-closing {
+  opacity: 0;
+  transform: translateY(12px) scale(0.985);
+}
+
+.finder-modal::backdrop {
+  transition: opacity var(--dur-fade) linear;
+}
+
+.finder-modal.is-closing::backdrop {
+  opacity: 0;
+}
+
+@media (max-width: 749px) {
+  .finder-modal {
+    min-height: min(560px, 92vh);
+    min-height: min(560px, 92dvh);
+  }
+  .finder-modal.is-closing {
+    transform: translateY(40px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   2. Finder frame — top bar (back · progress · close) and the stage
+   -------------------------------------------------------------------------- */
+.finder {
+  --finder-pad: 20px;
+  position: relative;
+  display: block;
+  color: var(--fg);
+}
+
+@media (min-width: 750px) {
+  .finder {
+    --finder-pad: 36px;
+  }
+}
+
+.finder__top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 8px;
+  background: var(--bg);
+}
+
+.finder__back {
+  grid-column: 1;
+}
+
+.finder__progress {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.finder__close {
+  grid-column: 3;
+}
+
+.finder__progress-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.finder__bar {
+  --progress-fill: var(--fg);
+  width: min(100%, 240px);
+}
+
+.finder__top.is-done .finder__bar {
+  --progress-fill: var(--success);
+}
+
+.finder__stage {
+  padding: var(--section-pt, 8px) var(--finder-pad) var(--section-pb, 32px);
+}
+
+.finder--inline .finder__top {
+  position: relative;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  padding: 12px 12px 4px;
+  background: transparent;
+}
+
+.finder--inline .finder__stage {
+  padding: 20px var(--finder-pad) 32px;
+}
+
+.finder__boot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--fg-muted);
+}
+
+/* --------------------------------------------------------------------------
+   3. Step heads
+   -------------------------------------------------------------------------- */
+.finder__head {
+  max-width: 34rem;
+  margin: 0 auto clamp(1.25rem, 1rem + 1vw, 1.75rem);
+  text-align: center;
+}
+
+.finder__heading {
+  scroll-margin-top: 80px;
+}
+
+/* Headings take focus only so screen readers start in the right place. */
+.finder__heading:focus,
+.finder__heading:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.finder__sub {
+  margin-top: 0.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.finder__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.finder__actions:empty {
+  display: none;
+}
+
+/* Solid ink: the "carry on" action. Terracotta stays reserved for buying. */
+.finder-btn-ink {
+  --btn-bg: var(--fg);
+  --btn-fg: var(--bg);
+  --btn-line: var(--fg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .finder-btn-ink:hover {
+    --btn-bg: color-mix(in srgb, var(--fg) 84%, var(--bg));
+    --btn-line: color-mix(in srgb, var(--fg) 84%, var(--bg));
+  }
+}
+
+.finder__next {
+  min-width: 160px;
+}
+
+/* --------------------------------------------------------------------------
+   4. Answer cards — one radiogroup per question
+   -------------------------------------------------------------------------- */
+.finder-opts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.finder-opts--text,
+.finder-opts--size {
+  max-width: 36rem;
+  margin-inline: auto;
+}
+
+.finder-opt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 64px;
+  margin: 0;
+  padding: 14px 52px 14px 16px;
+  border: 1.5px solid var(--control-line);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.finder-opt[aria-checked="true"],
+.finder-opt.is-chosen {
+  border-color: var(--fg);
+  background: color-mix(in srgb, var(--fg) 5%, var(--card-bg));
+  box-shadow: inset 0 0 0 1px var(--fg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .finder-opt:hover {
+    border-color: var(--fg);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-2px);
+  }
+  .finder-opt[aria-checked="true"]:hover,
+  .finder-opt.is-chosen:hover {
+    box-shadow: inset 0 0 0 1px var(--fg), var(--shadow-sm);
+  }
+}
+
+.finder-opt:active {
+  transform: scale(0.985);
+}
+
+.finder-opt__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.finder-opt__title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.finder-opt__text {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+/* The circle reads as a radio button; it fills when chosen. */
+.finder-opt__tick {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: -12px;
+  border: 1.5px solid var(--control-line);
+  border-radius: 50%;
+  color: var(--bg);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.finder-opt__tick .icon {
+  font-size: 14px;
+  opacity: 0;
+  transform: scale(0.5);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur) var(--ease-out);
+}
+
+.finder-opt[aria-checked="true"] .finder-opt__tick,
+.finder-opt.is-chosen .finder-opt__tick {
+  border-color: var(--fg);
+  background: var(--fg);
+}
+
+.finder-opt[aria-checked="true"] .finder-opt__tick .icon,
+.finder-opt.is-chosen .finder-opt__tick .icon {
+  opacity: 1;
+  transform: none;
+}
+
+/* Picture cards (question 1): row on phones, column from 600px */
+.finder-opt--art {
+  padding: 10px 52px 10px 10px;
+}
+
+.finder-opt__art {
+  flex: none;
+  display: block;
+  width: clamp(84px, 27vw, 116px);
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: max(6px, calc(var(--radius) - 4px));
+  background: var(--surface);
+}
+
+@media (min-width: 600px) {
+  .finder-opts--art {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .finder-opt--art {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 12px 12px 20px;
+    text-align: center;
+  }
+  .finder-opt--art .finder-opt__art {
+    width: 100%;
+  }
+  .finder-opt--art .finder-opt__tick {
+    top: 20px;
+    right: 20px;
+    margin-top: 0;
+    background: var(--card-bg);
+  }
+  .finder-opt--art[aria-checked="true"] .finder-opt__tick {
+    background: var(--fg);
+  }
+  .finder-opt--art .finder-opt__body {
+    align-items: center;
+    padding-inline: 6px;
+  }
+}
+
+/* The drawings: ink lines, the dog filled with the card colour */
+.finder-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.finder-art__bed {
+  fill: color-mix(in srgb, var(--fg) 13%, var(--surface));
+}
+
+.finder-art__soft {
+  fill: none;
+  stroke: color-mix(in srgb, var(--fg) 28%, transparent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.finder-art__dog {
+  fill: var(--card-bg);
+  stroke: var(--fg);
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+}
+
+.finder-art__line {
+  fill: none;
+  stroke: var(--fg);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.finder-art__z {
+  fill: none;
+  stroke: var(--highlight);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --------------------------------------------------------------------------
+   5. Size + name steps
+   -------------------------------------------------------------------------- */
+.finder-opt__scale {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.finder-opt__scale .icon {
+  font-size: calc(12px + var(--i, 0) * 14px);
+}
+
+.finder-opt--size .finder-opt__title {
+  font-size: 0.9688rem;
+}
+
+.finder__measure {
+  max-width: 36rem;
+  margin: 14px auto 0;
+  padding-inline: 4px;
+  border-bottom: 0;
+}
+
+.finder__measure > summary.finder__measure-summary {
+  justify-content: flex-start;
+  min-height: 48px;
+  padding-block: 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.finder__measure > summary.finder__measure-summary::after {
+  margin-left: auto;
+}
+
+.finder__measure-icon {
+  font-size: 1.25rem;
+  color: var(--fg-muted);
+}
+
+.finder__measure-text {
+  padding: 0 0 0.75rem;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+.finder-name {
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+.finder-name__input {
+  min-height: 56px;
+  font-size: max(16px, 1.125rem);
+}
+
+.finder__actions--name {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.finder__actions--name .finder-name__skip {
+  align-self: center;
+  min-width: 88px;
+}
+
+/* --------------------------------------------------------------------------
+   6. Matching moment
+   -------------------------------------------------------------------------- */
+.finder-matching {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding-block: 28px 12px;
+  text-align: center;
+}
+
+.finder-matching__halo {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 30px;
+}
+
+.finder-matching .finder-matching__halo {
+  animation: finder-breathe 1.4s var(--ease-out) infinite;
+}
+
+.finder-matching__list {
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+
+.finder-matching__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0.4;
+  transition: opacity var(--dur) var(--ease-out);
+}
+
+.finder-matching__item.is-done {
+  opacity: 1;
+}
+
+.finder-matching__tick {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--control-line);
+  border-radius: 50%;
+  color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.finder-matching__tick .icon {
+  font-size: 14px;
+}
+
+.finder-matching__item.is-done .finder-matching__tick {
+  border-color: var(--success);
+  background: var(--success);
+  color: var(--bg);
+}
+
+.finder-matching__label {
+  min-width: 7.5rem;
+  font-size: 0.875rem;
+  color: var(--fg-muted);
+}
+
+.finder-matching__value {
+  font-weight: 600;
+}
+
+@keyframes finder-breathe {
+  50% {
+    transform: scale(1.07);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   7. Result
+   -------------------------------------------------------------------------- */
+.finder-result__head {
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+.finder-result__head .eyebrow {
+  margin-bottom: 6px;
+}
+
+.finder-result__heading {
+  font-size: calc(clamp(1.75rem, 1.35rem + 1.5vw, 2.5rem) * var(--heading-scale));
+}
+
+.finder-result__answers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finder-chip {
+  padding: 0.375rem 0.875rem;
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 419px) {
+  .finder-chip {
+    padding-inline: 0.75rem;
+  }
+  .finder-chip::after {
+    display: none;
+  }
+}
+
+.finder-chip::after {
+  content: "";
+  width: 0.875em;
+  height: 0.875em;
+  margin-left: 0.125rem;
+  background: currentColor;
+  opacity: 0.6;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19 9l-4-4L4 16z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19 9l-4-4L4 16z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.finder-result__card {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-areas:
+    "media id"
+    "info info";
+  gap: 14px 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.finder-result__media {
+  grid-area: media;
+  min-width: 0;
+}
+
+.finder-result__id {
+  grid-area: id;
+  align-self: center;
+  min-width: 0;
+}
+
+.finder-result__info {
+  grid-area: info;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (min-width: 750px) {
+  .finder-result__card {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "media id"
+      "media info";
+    gap: 12px 28px;
+    padding: 24px;
+  }
+  .finder-result__id {
+    align-self: end;
+  }
+  .finder-result__media {
+    align-self: start;
+  }
+}
+
+.finder-result__img,
+.finder-media-ph {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--media-bg);
+}
+
+.finder-media-ph {
+  display: grid;
+  place-items: center;
+  color: var(--fg-muted);
+  font-size: 34px;
+}
+
+.finder-result__title {
+  font-size: calc(clamp(1.125rem, 1.05rem + 0.4vw, 1.375rem) * var(--heading-scale));
+  line-height: 1.25;
+}
+
+.finder-result__link {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .finder-result__link:hover {
+    text-decoration: underline;
+  }
+}
+
+.finder-result__rating {
+  margin-top: 6px;
+}
+
+.finder-result__size {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 8px;
+  font-size: 0.9375rem;
+}
+
+.finder-result__size-icon {
+  font-size: 1.125rem;
+  color: var(--fg-muted);
+}
+
+.finder-result__size-label {
+  color: var(--fg-muted);
+}
+
+.finder-result__why {
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.finder-result__why-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.finder-result__reason {
+  margin-top: 8px;
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+
+.finder-result__bullets {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finder-result__bullets li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.finder-result__bullet-icon {
+  margin-top: 0.2em;
+  font-size: 1.05em;
+  color: var(--success);
+}
+
+.finder-result__offer {
+  display: grid;
+  gap: 6px;
+}
+
+.finder-result__offer > .per-night {
+  margin-top: -4px;
+}
+
+.finder-result__stock {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.finder-result__stock-icon {
+  font-size: 1.15em;
+}
+
+.finder-result__stock--in {
+  color: var(--success);
+}
+
+.finder-result__stock--low {
+  color: var(--alert);
+}
+
+.finder-result__stock--backorder {
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.finder-result__buy {
+  display: grid;
+  gap: 10px;
+}
+
+.finder-result__add .icon {
+  font-size: 1.25em;
+}
+
+/* Long or unbroken names must never push the layout sideways. */
+.finder-result,
+.finder-alt,
+.finder-teaser__welcome,
+.finder-result__add span,
+.finder-mini__add span,
+.finder-name__submit span,
+.finder-result__heading,
+.finder-teaser__match,
+.finder-matching .finder__heading {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.finder-result__risk {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.finder-result__risk-icon {
+  margin-top: 0.05em;
+  font-size: 1.25rem;
+  color: var(--success);
+}
+
+.finder-result__details {
+  justify-self: start;
+}
+
+/* Phones, in the pop-up: a slim price + Add bar slides up whenever the
+   main button is out of view (finder.js toggles .is-visible). It keeps its
+   space, so showing it never moves the content. */
+.finder-mini {
+  display: none;
+}
+
+@media (max-width: 749px) {
+  .finder--modal .finder-mini {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 18px calc(var(--finder-pad) * -1) calc(var(--section-pb, 32px) * -1);
+    padding: 10px var(--finder-pad) calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+    box-shadow: 0 -12px 22px -18px rgba(23, 21, 15, 0.4);
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(100%);
+    transition:
+      opacity var(--dur-fast) linear,
+      transform var(--dur) var(--ease-out),
+      visibility 0s linear var(--dur);
+  }
+  .finder--modal .finder-mini.is-visible {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition-delay: 0s;
+  }
+}
+
+.finder-mini__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.finder-mini__price {
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: lining-nums;
+}
+
+.finder-mini__meta {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.finder-mini__add {
+  flex: none;
+  max-width: 62%;
+  padding-inline: 1.25rem;
+  font-size: 0.9375rem;
+}
+
+.finder-result__foot {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.finder-result__restart .icon {
+  font-size: 1.125rem;
+}
+
+.finder-result--empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-block: 20px 4px;
+  text-align: center;
+}
+
+.finder-result--empty .finder__sub {
+  max-width: 32rem;
+}
+
+.finder-result__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.finder-result__setup {
+  max-width: 34rem;
+  padding: 10px 14px;
+  border: 1px dashed var(--control-line);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------------------------------
+   8. Alternative pick
+   -------------------------------------------------------------------------- */
+.finder-alt {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px 14px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+}
+
+@media (min-width: 750px) {
+  .finder-alt {
+    grid-template-columns: 96px minmax(0, 1fr);
+    padding: 16px 20px;
+  }
+}
+
+.finder-alt__img,
+.finder-alt .finder-media-ph {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: max(6px, calc(var(--radius) - 4px));
+  background: var(--media-bg);
+  font-size: 24px;
+}
+
+.finder-alt__eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.finder-alt__line {
+  margin-top: 4px;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.finder-alt__line strong {
+  font-weight: 600;
+}
+
+.finder-alt__meta {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  color: var(--fg-muted);
+}
+
+.finder-alt__meta strong {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.finder-alt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   9. Teaser (homepage) — question 1 inline
+   -------------------------------------------------------------------------- */
+.finder-teaser__inner {
+  display: grid;
+  gap: 24px;
+  align-items: center;
+}
+
+@media (min-width: 990px) {
+  .finder-teaser__inner {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 56px;
+  }
+}
+
+.finder-teaser__intro > * + * {
+  margin-top: 12px;
+}
+
+.finder-teaser__intro > .finder-teaser__notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finder-teaser__note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+
+.finder-teaser__note .icon {
+  font-size: 1.1em;
+  color: var(--success);
+}
+
+.finder-teaser__panel {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-md);
+}
+
+@media (min-width: 750px) {
+  .finder-teaser__panel {
+    padding: 28px;
+  }
+}
+
+.finder-teaser__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.finder-teaser__segs {
+  display: flex;
+  gap: 4px;
+}
+
+.finder-teaser__seg {
+  width: 22px;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--line);
+}
+
+.finder-teaser__seg.is-active {
+  background: var(--fg);
+}
+
+.finder-teaser__q {
+  margin: 10px 0 16px;
+}
+
+.finder-opts--teaser {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finder-opts--teaser > li {
+  display: flex;
+  min-width: 0;
+}
+
+.finder-opts--teaser .finder-opt {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  min-height: 0;
+  padding: 8px 8px 12px;
+  text-align: center;
+}
+
+.finder-opts--teaser .finder-opt__art {
+  width: 100%;
+}
+
+.finder-opts--teaser .finder-opt__body {
+  align-items: center;
+}
+
+.finder-opts--teaser .finder-opt__title {
+  font-size: 0.875rem;
+}
+
+.finder-opts--teaser .finder-opt__text,
+.finder-opts--teaser .finder-opt__go {
+  display: none;
+}
+
+@media (min-width: 600px) {
+  .finder-opts--teaser {
+    gap: 14px;
+  }
+  .finder-opts--teaser .finder-opt {
+    gap: 14px;
+    padding: 12px 12px 18px;
+  }
+  .finder-opts--teaser .finder-opt__title {
+    font-size: 1rem;
+  }
+  .finder-opts--teaser .finder-opt__text {
+    display: block;
+  }
+  .finder-opts--teaser .finder-opt__go {
+    display: inline-grid;
+    place-items: center;
+    align-self: center;
+    width: 32px;
+    height: 32px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background: var(--surface);
+    transition: transform var(--dur) var(--ease-out);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .finder-opts--teaser .finder-opt:hover .finder-opt__go {
+    transform: translateX(3px);
+  }
+}
+
+.finder-teaser__foot {
+  margin-top: 14px;
+  font-size: 0.8125rem;
+  text-align: center;
+  color: var(--fg-muted);
+}
+
+.finder-teaser__welcome {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px 18px;
+}
+
+.finder-teaser__welcome:not(:has(.finder-teaser__media:not([hidden]))) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 750px) {
+  .finder-teaser__welcome {
+    grid-template-columns: 120px minmax(0, 1fr);
+  }
+}
+
+.finder-teaser__media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--media-bg);
+}
+
+.finder-teaser__match {
+  margin-top: 4px;
+}
+
+.finder-teaser__match strong {
+  font-weight: var(--font-heading-weight-bold);
+}
+
+.finder-teaser__size {
+  margin-top: 4px;
+}
+
+.finder-teaser__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  grid-column: 1 / -1;
+}
+
+.finder-teaser__editor-note {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px dashed var(--control-line);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+}
+
+/* --------------------------------------------------------------------------
+   10. Finder page
+   -------------------------------------------------------------------------- */
+.finder-page__head {
+  margin-bottom: clamp(1.25rem, 1rem + 1vw, 2rem);
+}
+
+.finder-page__intro {
+  margin-top: 0.75rem;
+  color: var(--fg-muted);
+}
+
+.finder-page .finder--inline {
+  min-height: 420px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-md);
+}
+
+.finder-page .finder--inline .finder__top {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.finder-page__trust {
+  margin-top: 24px;
+}
+
+.finder-page__trust .trust-list {
+  justify-content: center;
+}
+
+.finder-page__fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+/* Inline finder on a light card: the sticky buy bar is a phone-modal thing only. */
+@media (max-width: 749px) {
+  .finder-page .finder--inline {
+    margin-inline: calc(var(--gutter) * -0.5);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   11. Editor setup panel (theme editor only)
+   -------------------------------------------------------------------------- */
+.finder-setup {
+  margin: 12px 16px 0;
+  padding: 0 14px;
+  border: 1px dashed var(--control-line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.finder-setup__summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.finder-setup__body {
+  padding-bottom: 12px;
+}
+
+.finder-setup__intro {
+  color: var(--fg-muted);
+}
+
+.finder-setup__label {
+  margin-top: 10px;
+  font-weight: 600;
+}
+
+.finder-setup__list {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.finder-setup__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+
+.finder-setup__item.has-warning {
+  box-shadow: inset 3px 0 0 var(--alert);
+}
+
+.finder-setup__title {
+  font-weight: 600;
+}
+
+.finder-setup__meta {
+  color: var(--fg-muted);
+}
+
+.finder-setup__warn {
+  color: var(--alert);
+}
+
+.finder-setup__empty {
+  margin-top: 4px;
+  color: var(--fg-muted);
+}
+
+/* --------------------------------------------------------------------------
+   12. Motion — steps slide in the direction of travel; nothing moves for
+   anyone who prefers reduced motion (base.css collapses the durations).
+   -------------------------------------------------------------------------- */
+.finder__panel {
+  transition:
+    opacity var(--dur) var(--ease-out),
+    transform var(--dur) var(--ease-out);
+}
+
+.finder__panel.is-entering {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
+.finder__panel.is-entering[data-dir="back"] {
+  transform: translateX(-18px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finder__panel,
+  .finder__panel.is-entering {
+    transform: none;
+  }
+  .finder-matching .finder-matching__halo {
+    animation: none;
+  }
+  .finder-opt:hover,
+  .finder-opt:active {
+    transform: none;
+  }
+}
+
+.no-motion .finder-matching .finder-matching__halo {
+  animation: none;
+}
+
+@media print {
+  .finder-modal {
+    display: none;
+  }
+}

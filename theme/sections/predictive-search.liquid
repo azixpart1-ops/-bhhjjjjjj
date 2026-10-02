@@ -1,0 +1,160 @@
+{%- comment -%}
+  Predictive search results. Never placed on a page: search.js requests it
+  through the Section Rendering API,
+    /search/suggest?q=…&section_id=predictive-search&resources[type]=product,collection,article,page
+  and moves [data-predictive-root] into the search panel.
+
+  ARIA: one listbox; groups labelled by their headings; every result is an
+  option (search.js moves aria-activedescendant through them). A search with
+  no matches doesn't dead-end — it offers the bed finder instead.
+{%- endcomment -%}
+{%- liquid
+  assign ps_products = predictive_search.resources.products
+  assign ps_collections = predictive_search.resources.collections
+  assign ps_pages = predictive_search.resources.pages
+  assign ps_articles = predictive_search.resources.articles
+  assign total = 0
+  assign total = total | plus: ps_products.size | plus: ps_collections.size | plus: ps_pages.size | plus: ps_articles.size
+  assign n = 0
+  assign terms = predictive_search.terms
+  assign terms_html = terms | escape
+-%}
+{%- capture search_href -%}{{ routes.search_url }}?q={{ terms | url_encode }}&amp;options%5Bprefix%5D=last{%- endcapture -%}
+{%- capture status_text -%}
+  {%- if total > 0 -%}{{ 'chrome.search.results_count' | t: count: total }}{%- else -%}{{ 'chrome.search.no_results_status' | t }}{%- endif -%}
+{%- endcapture -%}
+<div
+  class="predictive"
+  data-predictive-root
+  data-results-count="{{ total }}"
+  data-status="{{ status_text | strip | escape }}"
+>
+  {%- if predictive_search.performed -%}
+    <div id="predictive-search-listbox" class="predictive__listbox" role="listbox" aria-label="{{ 'chrome.search.results_label' | t }}">
+      {%- if ps_products.size > 0 -%}
+        <div class="predictive__group predictive__group--products">
+          <h3 class="predictive__heading" id="predictive-search-products">{{ 'chrome.search.products' | t }}</h3>
+          <ul class="predictive__list" role="group" aria-labelledby="predictive-search-products">
+            {%- for product in ps_products -%}
+              {%- assign n = n | plus: 1 -%}
+              <li class="predictive__option" id="predictive-search-option-{{ n }}" role="option" aria-selected="false">
+                <a href="{{ product.url }}" class="predictive__product" tabindex="-1">
+                  <span class="predictive__thumb">
+                    {%- render 'image',
+                      image: product.featured_image,
+                      widths: '96,144,192',
+                      sizes: '56px',
+                      class: 'predictive__img',
+                      loading: 'lazy',
+                      decorative: true,
+                      aspect: 1
+                    -%}
+                  </span>
+                  <span class="predictive__product-info">
+                    <span class="predictive__title">{{ product.title | escape }}</span>
+                    {%- liquid
+                      assign role_label = product.metafields.custom.best_for.value | default: ''
+                      if role_label == ''
+                        for tag in product.tags
+                          if tag contains 'best-for:'
+                            assign role_label = tag | remove_first: 'best-for:' | strip
+                            break
+                          endif
+                        endfor
+                      endif
+                    -%}
+                    {%- if role_label != '' -%}
+                      <span class="predictive__role">{{ role_label | escape }}</span>
+                    {%- endif -%}
+                    {%- render 'price', product: product, show_from: true, show_save: false, size: 'sm', class: 'predictive__price' -%}
+                  </span>
+                </a>
+              </li>
+            {%- endfor -%}
+          </ul>
+        </div>
+      {%- endif -%}
+
+      {%- if ps_collections.size > 0 -%}
+        <div class="predictive__group">
+          <h3 class="predictive__heading" id="predictive-search-collections">{{ 'chrome.search.collections' | t }}</h3>
+          <ul class="predictive__list" role="group" aria-labelledby="predictive-search-collections">
+            {%- for collection in ps_collections -%}
+              {%- assign n = n | plus: 1 -%}
+              <li class="predictive__option" id="predictive-search-option-{{ n }}" role="option" aria-selected="false">
+                <a href="{{ collection.url }}" class="predictive__link" tabindex="-1">
+                  <span>{{ collection.title | escape }}</span>
+                  {%- render 'icon', name: 'arrow-right', size: 14 -%}
+                </a>
+              </li>
+            {%- endfor -%}
+          </ul>
+        </div>
+      {%- endif -%}
+
+      {%- if ps_articles.size > 0 -%}
+        <div class="predictive__group">
+          <h3 class="predictive__heading" id="predictive-search-articles">{{ 'chrome.search.articles' | t }}</h3>
+          <ul class="predictive__list" role="group" aria-labelledby="predictive-search-articles">
+            {%- for article in ps_articles -%}
+              {%- assign n = n | plus: 1 -%}
+              <li class="predictive__option" id="predictive-search-option-{{ n }}" role="option" aria-selected="false">
+                <a href="{{ article.url }}" class="predictive__link" tabindex="-1">
+                  <span>{{ article.title | escape }}</span>
+                  {%- render 'icon', name: 'arrow-right', size: 14 -%}
+                </a>
+              </li>
+            {%- endfor -%}
+          </ul>
+        </div>
+      {%- endif -%}
+
+      {%- if ps_pages.size > 0 -%}
+        <div class="predictive__group">
+          <h3 class="predictive__heading" id="predictive-search-pages">{{ 'chrome.search.pages' | t }}</h3>
+          <ul class="predictive__list" role="group" aria-labelledby="predictive-search-pages">
+            {%- for page in ps_pages -%}
+              {%- assign n = n | plus: 1 -%}
+              <li class="predictive__option" id="predictive-search-option-{{ n }}" role="option" aria-selected="false">
+                <a href="{{ page.url }}" class="predictive__link" tabindex="-1">
+                  <span>{{ page.title | escape }}</span>
+                  {%- render 'icon', name: 'arrow-right', size: 14 -%}
+                </a>
+              </li>
+            {%- endfor -%}
+          </ul>
+        </div>
+      {%- endif -%}
+
+      {%- assign n = n | plus: 1 -%}
+      <div class="predictive__option predictive__search-for" id="predictive-search-option-{{ n }}" role="option" aria-selected="false">
+        <a href="{{ search_href }}" class="predictive__search-link" tabindex="-1">
+          {%- render 'icon', name: 'search', size: 16 -%}
+          <span>{{ 'chrome.search.search_for_html' | t: terms: terms_html }}</span>
+        </a>
+      </div>
+    </div>
+
+    {%- if total == 0 -%}
+      <div class="predictive__empty">
+        <p class="predictive__empty-title">{{ 'chrome.search.no_results_html' | t: terms: terms_html }}</p>
+        <p class="predictive__empty-text">{{ 'chrome.search.no_results_text' | t }}</p>
+        {%- if settings.finder_enable -%}
+          {%- assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/' -%}
+          <a href="{{ finder_url }}" class="btn btn--secondary predictive__finder" data-open-finder>
+            {%- render 'icon', name: 'paw', size: 18 -%}
+            <span>{{ settings.finder_cta_label | default: "Find my dog's bed" | escape }}</span>
+          </a>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+  {%- endif -%}
+</div>
+
+{% schema %}
+{
+  "name": "Predictive search",
+  "class": "predictive-search-section",
+  "settings": []
+}
+{% endschema %}

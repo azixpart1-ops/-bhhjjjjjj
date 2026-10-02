@@ -1,0 +1,396 @@
+{%- comment -%}
+  FAQ — the top objections, answered in the order people buy: size →
+  foam → washing → delivery → trial & returns → guarantee → "will it help
+  their arthritis?" (truthfully: a bed isn't a treatment; keep talking to
+  your vet). Uncertainty reduction, plus FAQPage structured data (toggle).
+
+  Blocks: question + answer (rich text) + "hide when this promise is off".
+  Text can use [trial_nights], [guarantee_years], [threshold], [cutoff],
+  [delivery_min], [delivery_max], [origin], [shop]. A question naming a
+  promise that is switched off hides itself.
+
+  With no blocks (e.g. product / collection templates with "settings": {})
+  the default questions render from the locale file, each one gated on its
+  Theme setting.
+
+  Uses native <details> (core .accordion) — keyboard and screen-reader
+  friendly with no JS.
+{%- endcomment -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- capture ph_cutoff -%}{%- render 'delivery-promise', mode: 'time' -%}{%- endcapture -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-heading'
+  assign ph_cutoff = ph_cutoff | strip
+  assign ph_nights = settings.trial_nights | default: 0 | plus: 0 | append: ''
+  assign ph_years = settings.guarantee_years | default: 0 | plus: 0 | append: ''
+  assign ph_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round | money_without_trailing_zeros
+  assign dmin = settings.delivery_min_days | default: 0 | plus: 0
+  assign dmax = settings.delivery_max_days | default: 0 | plus: 0
+  if dmax < dmin
+    assign dmax = dmin
+  endif
+  assign ph_dmin = dmin | append: ''
+  assign ph_dmax = dmax | append: ''
+  assign ph_origin = settings.origin_line | default: '' | strip | escape
+  assign ph_shop = shop.name | escape
+  assign policy_url = shop.refund_policy.url | default: '/policies/refund-policy'
+
+  assign on_trial = false
+  if settings.trial_enable and settings.trial_nights > 0
+    assign on_trial = true
+  endif
+  assign on_guarantee = false
+  if settings.guarantee_enable and settings.guarantee_years > 0
+    assign on_guarantee = true
+  endif
+  assign on_free = false
+  if settings.free_shipping_enable and settings.free_shipping_threshold > 0
+    assign on_free = true
+  endif
+  assign on_dispatch = false
+  if settings.delivery_promise_enable and ph_cutoff != ''
+    assign on_dispatch = true
+  endif
+  assign on_origin = false
+  if ph_origin != ''
+    assign on_origin = true
+  endif
+
+  comment
+    Pass 1: which questions render, as a list of keys (block indexes "b:N", or
+    default keys prefixed "d:").
+  endcomment
+  assign keys = ''
+  if section.blocks.size > 0
+    for block in section.blocks
+      assign b = block.settings
+      assign raw = b.question | append: ' ' | append: b.answer
+      assign keep = true
+      if b.question == blank or b.answer == blank
+        assign keep = false
+      endif
+      if raw contains '[trial_nights]' and on_trial == false
+        assign keep = false
+      endif
+      if raw contains '[guarantee_years]' and on_guarantee == false
+        assign keep = false
+      endif
+      if raw contains '[threshold]' and on_free == false
+        assign keep = false
+      endif
+      if raw contains '[cutoff]' and on_dispatch == false
+        assign keep = false
+      endif
+      if raw contains '[origin]' and on_origin == false
+        assign keep = false
+      endif
+      case b.promise
+        when 'trial'
+          if on_trial == false
+            assign keep = false
+          endif
+        when 'guarantee'
+          if on_guarantee == false
+            assign keep = false
+          endif
+        when 'free_delivery'
+          if on_free == false
+            assign keep = false
+          endif
+        when 'dispatch'
+          if on_dispatch == false
+            assign keep = false
+          endif
+        when 'origin'
+          if on_origin == false
+            assign keep = false
+          endif
+      endcase
+      if keep
+        assign keys = keys | append: 'b:' | append: forloop.index0 | append: ','
+      endif
+    endfor
+  else
+    assign keys = 'd:size,d:density,d:wash,d:delivery,'
+    if on_trial
+      assign keys = keys | append: 'd:trial,'
+    endif
+    if on_guarantee
+      assign keys = keys | append: 'd:guarantee,'
+    endif
+    assign keys = keys | append: 'd:arthritis,'
+  endif
+  assign key_list = keys | split: ','
+  assign total = key_list.size
+  assign half = total | plus: 1 | divided_by: 2
+
+  assign layout = s.layout | default: 'split'
+
+  assign contact_url = s.contact_link
+  if contact_url == blank
+    assign contact_url = pages.contact.url
+  endif
+
+  assign ld = ''
+-%}
+{%- if total > 0 or request.design_mode -%}
+<section
+  class="section faq scheme-{{ s.color_scheme }} faq--{{ layout }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width faq__inner">
+    <header class="faq__head section-head{% if layout != 'split' %} section-head--center{% endif %}">
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      <h2 id="{{ heading_id }}" class="h2">{{ s.heading | default: shop.name | escape }}</h2>
+      {%- if s.lede != blank -%}<p class="lede muted">{{ s.lede | escape | replace: '[trial_nights]', ph_nights }}</p>{%- endif -%}
+      {%- if s.contact_label != blank and contact_url != blank -%}
+        <p class="faq__contact">
+          {%- render 'icon', name: 'chat' -%}
+          <span>{{ s.contact_prompt | escape }} <a href="{{ contact_url }}">{{ s.contact_label | escape }}</a></span>
+        </p>
+      {%- endif -%}
+    </header>
+
+    <div class="faq__list">
+      {%- if total == 0 -%}
+        <p class="editor-note">{{ 'home.editor.faq_empty' | t }}</p>
+      {%- endif -%}
+      {%- liquid
+        assign split_at = total
+        if layout == 'two' and total > 1
+          assign split_at = half
+        endif
+        assign col_1 = ''
+        assign col_2 = ''
+      -%}
+        {%- for key in key_list -%}
+          {%- liquid
+            assign q = ''
+            assign a = ''
+            assign attrs = ''
+            assign first2 = key | slice: 0, 2
+            if first2 == 'd:'
+              assign dk = key | remove_first: 'd:'
+              assign k_q = 'home.faq.' | append: dk | append: '_q'
+              assign q = k_q | t: nights: ph_nights, years: ph_years
+              case dk
+                when 'delivery'
+                  if on_dispatch
+                    if dmax <= 1
+                      assign a = 'home.faq.delivery_cutoff_next_html' | t: cutoff: ph_cutoff
+                    else
+                      assign range = ph_dmax
+                      if dmin != dmax
+                        assign range = ph_dmin | append: '–' | append: ph_dmax
+                      endif
+                      assign a = 'home.faq.delivery_cutoff_html' | t: cutoff: ph_cutoff, days: range
+                    endif
+                  else
+                    assign a = 'home.faq.delivery_plain_html' | t
+                  endif
+                  if on_free
+                    assign a_free = 'home.faq.delivery_free_html' | t: amount: ph_threshold
+                    assign a = a | append: a_free
+                  endif
+                when 'trial'
+                  assign a = 'home.faq.trial_a_html' | t: nights: ph_nights, policy_url: policy_url
+                when 'guarantee'
+                  assign a = 'home.faq.guarantee_a_html' | t: years: ph_years, policy_url: policy_url
+                else
+                  assign k_a = 'home.faq.' | append: dk | append: '_a_html'
+                  assign a = k_a | t: nights: ph_nights, years: ph_years
+              endcase
+            else
+              assign bi = key | remove_first: 'b:' | plus: 0
+              assign block = section.blocks[bi]
+              if block
+                  assign q = block.settings.question | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop
+                  assign a = block.settings.answer | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop
+                  assign attrs = block.shopify_attributes
+              endif
+            endif
+
+            if s.show_schema
+              assign q_json = q | strip_html | replace: '&#39;', "'" | replace: '&quot;', '"' | replace: '&amp;', '&' | strip | json
+              assign a_json = a | strip_newlines | strip | json
+              if ld != ''
+                assign ld = ld | append: ','
+              endif
+              assign ld = ld | append: '{"@type":"Question","name":' | append: q_json | append: ',"acceptedAnswer":{"@type":"Answer","text":' | append: a_json | append: '}}'
+            endif
+          -%}
+          {%- capture item_html -%}
+            <details class="accordion faq__item"{% if s.open_first and forloop.first %} open{% endif %} {{ attrs }}>
+              <summary class="faq__question">{{ q }}</summary>
+              <div class="accordion__content rte faq__answer">{{ a }}</div>
+            </details>
+          {%- endcapture -%}
+          {%- if forloop.index0 < split_at -%}
+            {%- assign col_1 = col_1 | append: item_html -%}
+          {%- else -%}
+            {%- assign col_2 = col_2 | append: item_html -%}
+          {%- endif -%}
+        {%- endfor -%}
+      <div class="faq__col">{{ col_1 }}</div>
+      {%- if col_2 != '' -%}
+        <div class="faq__col">{{ col_2 }}</div>
+      {%- endif -%}
+    </div>
+  </div>
+  {%- if s.show_schema and ld != '' -%}
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{{ ld }}]}</script>
+  {%- endif -%}
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "FAQ",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 20,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Order questions the way people buy: size, foam, washing, delivery, trial, guarantee, health. Text can use [trial_nights], [guarantee_years], [threshold], [cutoff], [delivery_min], [delivery_max], [origin] and [shop]. With no questions added, sensible defaults show."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "options": [
+        { "value": "split", "label": "Heading beside questions" },
+        { "value": "one", "label": "One column" },
+        { "value": "two", "label": "Two columns of questions" }
+      ],
+      "default": "split"
+    },
+    {
+      "type": "checkbox",
+      "id": "open_first",
+      "label": "Open the first question",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_schema",
+      "label": "Add FAQ structured data for search engines",
+      "default": true,
+      "info": "Use on one FAQ section per page."
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Before you decide"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "The questions we get asked most."
+    },
+    {
+      "type": "textarea",
+      "id": "lede",
+      "label": "Intro"
+    },
+    {
+      "type": "text",
+      "id": "contact_prompt",
+      "label": "Contact prompt",
+      "default": "Something we haven't covered?"
+    },
+    {
+      "type": "text",
+      "id": "contact_label",
+      "label": "Contact link label",
+      "default": "Ask us"
+    },
+    {
+      "type": "url",
+      "id": "contact_link",
+      "label": "Contact link",
+      "info": "Defaults to your page with the handle \"contact\", when there is one."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    }
+  ],
+  "blocks": [
+    {
+      "type": "question",
+      "name": "Question",
+      "settings": [
+        {
+          "type": "text",
+          "id": "question",
+          "label": "Question",
+          "default": "How do I know which size to get?"
+        },
+        {
+          "type": "richtext",
+          "id": "answer",
+          "label": "Answer",
+          "default": "<p>Measure nose to base of tail while they are lying down, then add 15–20cm. Where a dog falls between two sizes, go up: sprawlers need the length more than you would think.</p>"
+        },
+        {
+          "type": "select",
+          "id": "promise",
+          "label": "Hide when this promise is off",
+          "options": [
+            { "value": "none", "label": "Never hide" },
+            { "value": "trial", "label": "Sleep trial" },
+            { "value": "guarantee", "label": "Guarantee" },
+            { "value": "free_delivery", "label": "Free delivery" },
+            { "value": "dispatch", "label": "Dispatch cut-off" },
+            { "value": "origin", "label": "Origin line" }
+          ],
+          "default": "none"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "FAQ",
+      "blocks": [
+        { "type": "question" },
+        { "type": "question", "settings": { "question": "What does 50kg/m³ actually mean?", "answer": "<p>It is how much foam is packed into every cubic metre. Density and firmness are not the same thing: a low-density foam can feel firm on day one and still collapse by month six. High-density foam keeps its structure under repeated weight, which is why a 50kg/m³ core is still supporting hips and elbows years later.</p>" } },
+        { "type": "question", "settings": { "question": "What if my dog just won't use it?", "answer": "<p>Then it goes back and you are not out of pocket. Let your dog sleep on it for up to [trial_nights] nights. If it isn't the bed for them, contact us inside that window and we will collect it and refund every penny.</p>", "promise": "trial" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

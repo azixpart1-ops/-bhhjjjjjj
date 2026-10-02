@@ -1,0 +1,434 @@
+{%- comment -%}
+  Mechanism — "Density isn't firmness". Specificity beats adjectives: the
+  50kg/m³ core is explained in words and drawn as a cross-section, layer by
+  layer, so the price stops being compared with a supermarket bed.
+
+  Blocks
+    layer  name, spec (e.g. 50kg/m³), description, colour, texture, thickness
+    proof  icon, title, supporting line (+ hide when its promise is off)
+  No layer blocks → the four default layers. No proof blocks → proof points
+  built from Theme settings (trial, guarantee) plus the waterproof liner.
+
+  On product pages ("Show on" = auto) the section only renders for beds whose
+  title, type or tags mention orthopaedic / memory foam, so a fibre-filled
+  nest bed is never shown a foam diagram it doesn't have. Tag a product
+  "mechanism:show" or "mechanism:hide" to override.
+
+  Text can use [trial_nights] and [guarantee_years].
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign render_it = true
+  if template.name == 'product' and product != blank and s.product_filter != 'always'
+    assign tags_down = product.tags | join: ',' | downcase
+    assign hay = product.title | append: ' ' | append: product.type | append: ' ' | append: tags_down | downcase
+    assign render_it = false
+    if hay contains 'orthopaedic' or hay contains 'orthopedic' or hay contains 'memory foam' or hay contains 'memory-foam'
+      assign render_it = true
+    endif
+    if tags_down contains 'mechanism:show'
+      assign render_it = true
+    endif
+    if tags_down contains 'mechanism:hide'
+      assign render_it = false
+    endif
+  endif
+-%}
+{%- if render_it or request.design_mode -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign heading_id = section.id | append: '-heading'
+  assign ph_nights = settings.trial_nights | default: 0 | plus: 0 | append: ''
+  assign ph_years = settings.guarantee_years | default: 0 | plus: 0 | append: ''
+  assign on_trial = false
+  if settings.trial_enable and settings.trial_nights > 0
+    assign on_trial = true
+  endif
+  assign on_guarantee = false
+  if settings.guarantee_enable and settings.guarantee_years > 0
+    assign on_guarantee = true
+  endif
+
+  assign layer_blocks = section.blocks | where: 'type', 'layer'
+  assign proof_blocks = section.blocks | where: 'type', 'proof'
+  assign body = s.body | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years
+-%}
+<section
+  class="section mechanism scheme-{{ s.color_scheme }} mechanism--media-{{ s.diagram_side | default: 'right' }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  {%- if render_it == false -%}
+    <p class="page-width editor-note">{{ 'home.editor.mechanism_hidden' | t }}</p>
+  {%- endif -%}
+  <div class="page-width">
+    <div class="mechanism__inner">
+      <div class="mechanism__copy">
+        {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        <h2 id="{{ heading_id }}" class="h2 mechanism__heading">{{ s.heading | default: shop.name | escape }}</h2>
+        {%- if body != blank -%}
+          <div class="rte mechanism__body">{{ body }}</div>
+        {%- endif -%}
+        {%- if s.stat_number != blank -%}
+          <p class="mechanism__stat">
+            <span class="mechanism__stat-figure">
+              <span class="mechanism__stat-number">{{ s.stat_number | escape }}</span>
+              {%- if s.stat_unit != blank -%}<span class="mechanism__stat-unit">{{ s.stat_unit | escape }}</span>{%- endif -%}
+            </span>
+            {%- if s.stat_caption != blank -%}
+              <span class="mechanism__stat-caption">{{ s.stat_caption | escape }}</span>
+            {%- endif -%}
+          </p>
+        {%- endif -%}
+      </div>
+
+      <figure class="mechanism__diagram" data-reveal>
+        <ol class="mechanism__layers" role="list" aria-label="{{ 'home.mechanism.layers_label' | t }}">
+          {%- if layer_blocks.size > 0 -%}
+            {%- for block in layer_blocks -%}
+              {%- assign b = block.settings -%}
+              <li
+                class="mechanism__layer mechanism__layer--{{ b.texture | default: 'none' }}"
+                style="--layer-color: {{ b.colour | default: '#C98B63' }}; --layer-h: {{ b.thickness | default: 2 }}; --i: {{ forloop.index0 }};"
+                {{ block.shopify_attributes }}
+              >
+                <span class="mechanism__slab" aria-hidden="true"></span>
+                <div class="mechanism__label">
+                  {%- if b.spec != blank -%}<span class="mechanism__spec">{{ b.spec | escape }}</span>{%- endif -%}
+                  <h3 class="mechanism__name">{{ b.title | escape }}</h3>
+                  {%- if b.text != blank -%}<p class="mechanism__text">{{ b.text | escape }}</p>{%- endif -%}
+                </div>
+              </li>
+            {%- endfor -%}
+          {%- else -%}
+            {%- liquid
+              assign d_colours = '#DED3BF,#B8C6BC,#C98B63,#4A4A46' | split: ','
+              assign d_textures = 'fabric,liner,foam,grip' | split: ','
+              assign d_heights = '1,1,5,1' | split: ','
+              assign d_keys = 'cover,liner,core,base' | split: ','
+            -%}
+            {%- for key in d_keys -%}
+              {%- liquid
+                assign idx = forloop.index0
+                assign k_title = 'home.mechanism.default_' | append: key | append: '_title'
+                assign k_text = 'home.mechanism.default_' | append: key | append: '_text'
+              -%}
+              <li
+                class="mechanism__layer mechanism__layer--{{ d_textures[idx] }}"
+                style="--layer-color: {{ d_colours[idx] }}; --layer-h: {{ d_heights[idx] }}; --i: {{ idx }};"
+              >
+                <span class="mechanism__slab" aria-hidden="true"></span>
+                <div class="mechanism__label">
+                  {%- if key == 'core' -%}<span class="mechanism__spec">50kg/m³</span>{%- endif -%}
+                  <h3 class="mechanism__name">{{ k_title | t }}</h3>
+                  <p class="mechanism__text">{{ k_text | t }}</p>
+                </div>
+              </li>
+            {%- endfor -%}
+          {%- endif -%}
+        </ol>
+        {%- if s.diagram_caption != blank -%}
+          <figcaption class="mechanism__caption">{{ s.diagram_caption | escape }}</figcaption>
+        {%- endif -%}
+      </figure>
+    </div>
+
+    {%- if s.show_proof -%}
+      {%- capture proof_items -%}
+        {%- if proof_blocks.size > 0 -%}
+          {%- for block in proof_blocks -%}
+            {%- liquid
+              assign b = block.settings
+              assign raw = b.title | append: ' ' | append: b.text
+              assign show = true
+              if raw contains '[trial_nights]' and on_trial == false
+                assign show = false
+              endif
+              if raw contains '[guarantee_years]' and on_guarantee == false
+                assign show = false
+              endif
+              if b.promise == 'trial' and on_trial == false
+                assign show = false
+              endif
+              if b.promise == 'guarantee' and on_guarantee == false
+                assign show = false
+              endif
+              if b.title == blank
+                assign show = false
+              endif
+            -%}
+            {%- if show -%}
+              <li class="mechanism__proof-item" {{ block.shopify_attributes }}>
+                <span class="mechanism__proof-icon">{%- render 'icon', name: b.icon -%}</span>
+                <span class="mechanism__proof-text">
+                  <span class="mechanism__proof-title">{{ b.title | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years }}</span>
+                  {%- if b.text != blank -%}
+                    <span class="mechanism__proof-sub">{{ b.text | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years }}</span>
+                  {%- endif -%}
+                </span>
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        {%- else -%}
+          {%- if on_trial -%}
+            <li class="mechanism__proof-item">
+              <span class="mechanism__proof-icon">{%- render 'icon', name: 'moon' -%}</span>
+              <span class="mechanism__proof-text">
+                <span class="mechanism__proof-title">{{ 'home.trust.trial_title' | t: nights: ph_nights }}</span>
+                <span class="mechanism__proof-sub">{{ 'home.trust.trial_text' | t }}</span>
+              </span>
+            </li>
+          {%- endif -%}
+          {%- if on_guarantee -%}
+            <li class="mechanism__proof-item">
+              <span class="mechanism__proof-icon">{%- render 'icon', name: 'shield' -%}</span>
+              <span class="mechanism__proof-text">
+                <span class="mechanism__proof-title">{{ 'home.trust.guarantee_title' | t: years: ph_years }}</span>
+                <span class="mechanism__proof-sub">{{ 'home.mechanism.default_guarantee_text' | t }}</span>
+              </span>
+            </li>
+          {%- endif -%}
+          <li class="mechanism__proof-item">
+            <span class="mechanism__proof-icon">{%- render 'icon', name: 'check-circle' -%}</span>
+            <span class="mechanism__proof-text">
+              <span class="mechanism__proof-title">{{ 'home.mechanism.default_liner_proof_title' | t }}</span>
+              <span class="mechanism__proof-sub">{{ 'home.mechanism.default_liner_proof_text' | t }}</span>
+            </span>
+          </li>
+        {%- endif -%}
+      {%- endcapture -%}
+      {%- if proof_items contains '<li' -%}
+        <ul class="mechanism__proof" role="list">{{ proof_items }}</ul>
+      {%- endif -%}
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Foam explained",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 10,
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "select",
+      "id": "diagram_side",
+      "label": "Diagram side (desktop)",
+      "options": [
+        { "value": "right", "label": "Right" },
+        { "value": "left", "label": "Left" }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "select",
+      "id": "product_filter",
+      "label": "Show on product pages",
+      "options": [
+        { "value": "auto", "label": "Only foam / orthopaedic beds" },
+        { "value": "always", "label": "Always" }
+      ],
+      "default": "auto",
+      "info": "Auto shows it when the product's title, type or tags mention orthopaedic or memory foam. Tag a product mechanism:show or mechanism:hide to override."
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "What 50kg/m³ actually means"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Density isn't firmness."
+    },
+    {
+      "type": "richtext",
+      "id": "body",
+      "label": "Text",
+      "default": "<p>Density is the weight of a cubic metre of foam. It is not the same thing as firmness, which is why a cheap bed can feel reassuringly solid in the shop and still be flat by March. Firmness is how it feels on day one. Density is how much foam is in there to keep feeling that way.</p><p>Our orthopaedic cores are 50kg/m³, dense enough to hold hips, elbows and spine off the floor and still be doing it years from now. The fibre-filled nest beds are made differently, and each product page says which is which.</p>"
+    },
+    {
+      "type": "text",
+      "id": "stat_number",
+      "label": "Figure",
+      "default": "50"
+    },
+    {
+      "type": "text",
+      "id": "stat_unit",
+      "label": "Unit",
+      "default": "kg/m³"
+    },
+    {
+      "type": "text",
+      "id": "stat_caption",
+      "label": "Figure caption",
+      "default": "High-density memory foam core, used across the orthopaedic range."
+    },
+    {
+      "type": "text",
+      "id": "diagram_caption",
+      "label": "Diagram caption",
+      "default": "Cross-section of an orthopaedic bed, top to bottom."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_proof",
+      "label": "Show proof points",
+      "default": true,
+      "info": "Uses proof blocks, or the trial and guarantee from Theme settings when there are none."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    }
+  ],
+  "blocks": [
+    {
+      "type": "layer",
+      "name": "Layer",
+      "limit": 6,
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Layer name",
+          "default": "50kg/m³ memory foam core"
+        },
+        {
+          "type": "text",
+          "id": "spec",
+          "label": "Spec",
+          "info": "A number worth seeing, e.g. 50kg/m³ or 10cm."
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "What it does",
+          "default": "Takes the weight of hip and shoulder, then comes back to shape by morning."
+        },
+        {
+          "type": "color",
+          "id": "colour",
+          "label": "Colour",
+          "default": "#C98B63"
+        },
+        {
+          "type": "select",
+          "id": "texture",
+          "label": "Texture",
+          "options": [
+            { "value": "fabric", "label": "Woven fabric" },
+            { "value": "liner", "label": "Smooth liner" },
+            { "value": "foam", "label": "Dense foam" },
+            { "value": "fibre", "label": "Fibre fill" },
+            { "value": "grip", "label": "Grip base" },
+            { "value": "none", "label": "Plain" }
+          ],
+          "default": "foam"
+        },
+        {
+          "type": "range",
+          "id": "thickness",
+          "label": "Drawn thickness",
+          "min": 1,
+          "max": 6,
+          "step": 1,
+          "default": 2
+        }
+      ]
+    },
+    {
+      "type": "proof",
+      "name": "Proof point",
+      "limit": 4,
+      "settings": [
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "options": [
+            { "value": "moon", "label": "Moon" },
+            { "value": "shield", "label": "Shield" },
+            { "value": "medal", "label": "Medal" },
+            { "value": "check-circle", "label": "Tick" },
+            { "value": "leaf", "label": "Leaf" },
+            { "value": "truck", "label": "Delivery van" },
+            { "value": "return", "label": "Return" },
+            { "value": "ruler", "label": "Ruler" },
+            { "value": "weight", "label": "Weight" },
+            { "value": "bed", "label": "Bed" }
+          ],
+          "default": "check-circle"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Waterproof-lined core"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Supporting line",
+          "default": "On the orthopaedic range"
+        },
+        {
+          "type": "select",
+          "id": "promise",
+          "label": "Hide when this promise is off",
+          "options": [
+            { "value": "none", "label": "Never hide" },
+            { "value": "trial", "label": "Sleep trial" },
+            { "value": "guarantee", "label": "Guarantee" }
+          ],
+          "default": "none"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Foam explained",
+      "blocks": [
+        { "type": "layer", "settings": { "title": "Machine-washable cover", "text": "Unzips fully, 30°C, back on the bed inside a couple of hours.", "colour": "#DED3BF", "texture": "fabric", "thickness": 1 } },
+        { "type": "layer", "settings": { "title": "Waterproof inner liner", "text": "The layer that keeps a wet dog from ever reaching the foam.", "colour": "#B8C6BC", "texture": "liner", "thickness": 1 } },
+        { "type": "layer", "settings": { "title": "Memory foam core", "spec": "50kg/m³", "text": "Takes the weight of hip and shoulder, then comes back to shape by morning.", "colour": "#C98B63", "texture": "foam", "thickness": 5 } },
+        { "type": "layer", "settings": { "title": "Non-slip base", "text": "Stays put on wood and tile, so the bed does not travel across the kitchen.", "colour": "#4A4A46", "texture": "grip", "thickness": 1 } }
+      ]
+    }
+  ]
+}
+{% endschema %}

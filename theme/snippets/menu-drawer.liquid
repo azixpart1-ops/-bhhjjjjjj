@@ -1,0 +1,115 @@
+{%- comment -%}
+  Mobile menu drawer (chrome). A native <dialog> on the left, opened by any
+  button with aria-controls="MenuDrawer". JS: <menu-drawer> in cart.js.
+
+  Built for thumbs: 56px rows, one level of accordion, and the two things a
+  hesitant buyer most needs sitting above the links — search and the bed
+  finder — with the store's promises at the bottom.
+
+  Parameters
+    menu         link list object (required)
+    finder_url   fallback URL for the bed finder link
+    show_finder  boolean — render the finder card (also needs settings.finder_enable)
+    scheme       colour scheme value (bone | oat | moss | white)
+
+  Usage
+    {% render 'menu-drawer', menu: section.settings.menu, finder_url: finder_url, show_finder: true, scheme: 'bone' %}
+{%- endcomment -%}
+<menu-drawer class="menu-drawer" id="MenuDrawer">
+  <dialog class="chrome-dialog chrome-dialog--left menu-drawer__dialog" aria-labelledby="MenuDrawerTitle">
+    <div class="chrome-dialog__scrim" data-close aria-hidden="true"></div>
+    <div class="chrome-panel menu-drawer__panel scheme-{{ scheme | default: 'bone' }}">
+      <div class="chrome-panel__header">
+        <h2 class="chrome-panel__title" id="MenuDrawerTitle" tabindex="-1" data-dialog-focus>{{ 'chrome.menu_drawer.title' | t }}</h2>
+        <button type="button" class="chrome-panel__close" data-close aria-label="{{ 'chrome.menu_drawer.close' | t }}">
+          {%- render 'icon', name: 'close', size: 22 -%}
+        </button>
+      </div>
+
+      <div class="chrome-panel__body menu-drawer__body">
+        <a href="{{ routes.search_url }}" class="menu-drawer__search" data-search-open>
+          {%- render 'icon', name: 'search', size: 20 -%}
+          <span>{{ 'chrome.menu_drawer.search' | t }}</span>
+        </a>
+
+        {%- if show_finder and settings.finder_enable -%}
+          <a href="{{ finder_url }}" class="menu-drawer__finder" data-open-finder>
+            <span class="menu-drawer__finder-icon">{%- render 'icon', name: 'paw', size: 24 -%}</span>
+            <span class="menu-drawer__finder-copy">
+              <span class="menu-drawer__finder-title">{{ 'chrome.menu_drawer.finder_title' | t }}</span>
+              <span class="menu-drawer__finder-text">{{ 'chrome.menu_drawer.finder_text' | t }}</span>
+              <span class="menu-drawer__finder-cta">
+                {{- settings.finder_cta_label | default: "Find my dog's bed" | escape -}}
+                {%- render 'icon', name: 'arrow-right', size: 16 -%}
+              </span>
+            </span>
+          </a>
+        {%- endif -%}
+
+        {%- if menu.links.size > 0 -%}
+          <nav class="menu-drawer__nav" aria-label="{{ 'chrome.header.nav_label' | t }}">
+            <ul class="menu-drawer__list" role="list">
+              {%- for link in menu.links -%}
+                <li class="menu-drawer__item">
+                  {%- if link.links.size > 0 -%}
+                    <details class="menu-drawer__details"{% if link.child_active %} open{% endif %}>
+                      <summary class="menu-drawer__link menu-drawer__summary{% if link.child_active or link.active %} is-active{% endif %}">
+                        <span>{{ link.title | escape }}</span>
+                        {%- render 'icon', name: 'chevron-down', size: 18, class: 'menu-drawer__chevron' -%}
+                      </summary>
+                      <ul class="menu-drawer__sublist" role="list">
+                        {%- if link.url != blank and link.url != '#' -%}
+                          <li>
+                            <a href="{{ link.url }}" class="menu-drawer__sublink menu-drawer__sublink--all"{% if link.current %} aria-current="page"{% endif %}>
+                              {{- 'chrome.menu_drawer.view_all' | t: title: link.title -}}
+                            </a>
+                          </li>
+                        {%- endif -%}
+                        {%- for child in link.links -%}
+                          <li>
+                            <a href="{{ child.url }}" class="menu-drawer__sublink{% if child.links.size > 0 %} menu-drawer__sublink--group{% endif %}"{% if child.current %} aria-current="page"{% endif %}>
+                              {{- child.title | escape -}}
+                            </a>
+                            {%- if child.links.size > 0 -%}
+                              <ul class="menu-drawer__grandlist" role="list">
+                                {%- for grandchild in child.links -%}
+                                  <li>
+                                    <a href="{{ grandchild.url }}" class="menu-drawer__grandlink"{% if grandchild.current %} aria-current="page"{% endif %}>
+                                      {{- grandchild.title | escape -}}
+                                    </a>
+                                  </li>
+                                {%- endfor -%}
+                              </ul>
+                            {%- endif -%}
+                          </li>
+                        {%- endfor -%}
+                      </ul>
+                    </details>
+                  {%- else -%}
+                    <a href="{{ link.url }}" class="menu-drawer__link{% if link.active %} is-active{% endif %}"{% if link.current %} aria-current="page"{% endif %}>
+                      <span>{{ link.title | escape }}</span>
+                    </a>
+                  {%- endif -%}
+                </li>
+              {%- endfor -%}
+            </ul>
+          </nav>
+        {%- endif -%}
+
+        {%- if shop.customer_accounts_enabled -%}
+          <a href="{{ routes.account_url }}" class="menu-drawer__account">
+            {%- render 'icon', name: 'user', size: 20 -%}
+            <span>
+              {%- if customer -%}{{ 'chrome.menu_drawer.account' | t }}{%- else -%}{{ 'chrome.menu_drawer.log_in' | t }}{%- endif -%}
+            </span>
+          </a>
+        {%- endif -%}
+
+        <div class="menu-drawer__promises">
+          <p class="menu-drawer__promises-title">{{ 'chrome.menu_drawer.promises' | t }}</p>
+          {%- render 'trust-list', items: 'trial,guarantee,delivery,secure', layout: 'stack', size: 'sm' -%}
+        </div>
+      </div>
+    </div>
+  </dialog>
+</menu-drawer>

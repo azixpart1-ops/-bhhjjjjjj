@@ -1,0 +1,171 @@
+{%- comment -%}
+  Rich text — a short passage, a statement, or a pull quote. Optional
+  button (secondary, or the Bed Finder). Text can use [trial_nights],
+  [guarantee_years] and [threshold].
+{%- endcomment -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-heading'
+  assign ph_nights = settings.trial_nights | default: 0 | plus: 0 | append: ''
+  assign ph_years = settings.guarantee_years | default: 0 | plus: 0 | append: ''
+  assign ph_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round | money_without_trailing_zeros
+  assign heading = s.heading | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | newline_to_br
+  assign body = s.body | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold
+-%}
+<section
+  class="section rich-text scheme-{{ s.color_scheme }} rich-text--{{ s.align | default: 'center' }} rich-text--{{ s.width | default: 'narrow' }}"
+  id="{{ section.id }}-wrap"
+  {%- if heading != blank %} aria-labelledby="{{ heading_id }}"{% endif %}
+>
+  <div class="page-width">
+    <div class="rich-text__inner">
+      {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      {%- if heading != blank -%}
+        <h2 id="{{ heading_id }}" class="{{ s.heading_size | default: 'h2' }} rich-text__heading">{{ heading }}</h2>
+      {%- endif -%}
+      {%- if body != blank -%}
+        <div class="rte rich-text__body{% if s.body_style == 'large' %} rich-text__body--large{% endif %}">{{ body }}</div>
+      {%- endif -%}
+      {%- if s.button_label != blank -%}
+        <div class="rich-text__actions">
+          {%- if s.button_action == 'finder' and settings.finder_enable -%}
+            <button type="button" class="btn btn--secondary" data-open-finder aria-haspopup="dialog">
+              <span>{{ s.button_label | escape }}</span>{%- render 'icon', name: 'arrow-right' -%}
+            </button>
+          {%- elsif s.button_link != blank -%}
+            <a class="btn btn--secondary" href="{{ s.button_link }}">
+              <span>{{ s.button_label | escape }}</span>{%- render 'icon', name: 'arrow-right' -%}
+            </a>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Rich text",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Alignment",
+      "options": [
+        { "value": "center", "label": "Centre" },
+        { "value": "left", "label": "Left" }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Width",
+      "options": [
+        { "value": "narrow", "label": "Narrow" },
+        { "value": "wide", "label": "Wide" }
+      ],
+      "default": "narrow"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow"
+    },
+    {
+      "type": "textarea",
+      "id": "heading",
+      "label": "Heading",
+      "default": "A bed cannot undo ageing."
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "Heading size",
+      "options": [
+        { "value": "h0", "label": "Extra large" },
+        { "value": "h1", "label": "Large" },
+        { "value": "h2", "label": "Medium" },
+        { "value": "h3", "label": "Small" }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "richtext",
+      "id": "body",
+      "label": "Text",
+      "default": "<p>What it can change is how much effort goes into lying down, and how much goes into getting back up.</p>"
+    },
+    {
+      "type": "select",
+      "id": "body_style",
+      "label": "Text size",
+      "options": [
+        { "value": "normal", "label": "Normal" },
+        { "value": "large", "label": "Large" }
+      ],
+      "default": "large"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label"
+    },
+    {
+      "type": "select",
+      "id": "button_action",
+      "label": "Button opens",
+      "options": [
+        { "value": "link", "label": "The link below" },
+        { "value": "finder", "label": "The Bed Finder" }
+      ],
+      "default": "link"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button link"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    }
+  ],
+  "presets": [
+    {
+      "name": "Rich text"
+    }
+  ]
+}
+{% endschema %}

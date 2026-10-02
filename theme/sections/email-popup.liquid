@@ -1,0 +1,289 @@
+{%- comment -%}
+  Email pop-up — reciprocity done politely. OFF by default: add it to the
+  footer group in the theme editor to switch it on.
+
+  Gives something first (the size guide, and optionally a code shown on the
+  spot after signing up), asks once, and takes "No thanks" for an answer:
+    - desktop: when the pointer leaves the page (exit intent), or after the
+      delay if exit intent is off; mobile: after the delay
+    - at most once every N days, never again after signing up
+    - never on the cart, account, password or bed finder pages, never to
+      someone with something in their basket (setting), never on top of
+      another dialog, never to customers already subscribed
+  JS: <email-popup> in popup.js.
+{%- endcomment -%}
+{%- liquid
+  assign excluded = false
+  case template.name
+    when 'cart', 'password', 'gift_card', 'captcha', 'challenge'
+      assign excluded = true
+  endcase
+  if template.directory == 'customers'
+    assign excluded = true
+  endif
+  if template.suffix == 'bed-finder'
+    assign excluded = true
+  endif
+  if customer and customer.accepts_marketing
+    assign excluded = true
+  endif
+  if request.design_mode
+    assign excluded = false
+  endif
+  assign heading_id = 'EmailPopupHeading-' | append: section.id
+  assign text_id = 'EmailPopupText-' | append: section.id
+-%}
+{%- unless excluded -%}
+  <email-popup
+    class="email-popup"
+    data-section-id="{{ section.id }}"
+    data-delay="{{ section.settings.delay }}"
+    data-exit-intent="{{ section.settings.exit_intent }}"
+    data-days="{{ section.settings.frequency_days }}"
+    data-hide-if-cart="{{ section.settings.hide_if_cart }}"
+    data-cart-count="{{ cart.item_count }}"
+    {% if request.design_mode %}data-design-mode{% endif %}
+  >
+    <dialog class="chrome-dialog email-popup__dialog" aria-labelledby="{{ heading_id }}" aria-describedby="{{ text_id }}">
+      <div class="chrome-dialog__scrim" data-close aria-hidden="true"></div>
+      <div class="email-popup__panel scheme-{{ section.settings.color_scheme }}{% if section.settings.image != blank %} email-popup__panel--media{% endif %}">
+        <button type="button" class="email-popup__close" data-close aria-label="{{ 'chrome.popup.close' | t }}">
+          {%- render 'icon', name: 'close', size: 20 -%}
+        </button>
+
+        {%- if section.settings.image != blank -%}
+          <div class="email-popup__media">
+            {%- render 'image',
+              image: section.settings.image,
+              widths: '360,540,720',
+              sizes: '(min-width: 750px) 300px, 100vw',
+              class: 'email-popup__img',
+              loading: 'lazy',
+              decorative: true
+            -%}
+          </div>
+        {%- endif -%}
+
+        <div class="email-popup__body">
+          {%- if request.design_mode -%}
+            <p class="email-popup__editor-note">{{ 'chrome.popup.editor_note' | t }}</p>
+          {%- endif -%}
+          {%- form 'customer', id: 'EmailPopupForm', class: 'email-popup__form' -%}
+            <input type="hidden" name="contact[tags]" value="newsletter,popup">
+            {%- if form.posted_successfully? -%}
+              <div class="email-popup__state" data-popup-state="success">
+                {%- render 'icon', name: 'check-circle', size: 32, class: 'email-popup__success-icon' -%}
+                <h2 class="email-popup__heading h3" id="{{ heading_id }}" tabindex="-1" data-dialog-focus>{{ section.settings.success_heading | escape }}</h2>
+                <div class="email-popup__text rte" id="{{ text_id }}">{{ section.settings.success_text }}</div>
+                {%- if section.settings.discount_code != blank -%}
+                  <div class="email-popup__code">
+                    <span class="email-popup__code-label">{{ 'chrome.popup.code_label' | t }}</span>
+                    <span class="email-popup__code-value" data-code>{{ section.settings.discount_code | escape }}</span>
+                    <button
+                      type="button"
+                      class="email-popup__copy"
+                      data-copy-code
+                      data-copied-text="{{ 'chrome.popup.copied' | t }}"
+                    >
+                      {{- 'chrome.popup.copy' | t -}}
+                    </button>
+                    {%- if section.settings.code_note != blank -%}
+                      <p class="email-popup__code-note">{{ section.settings.code_note | escape }}</p>
+                    {%- endif -%}
+                  </div>
+                {%- endif -%}
+                <button type="button" class="email-popup__done" data-close>{{ section.settings.success_button | escape }}</button>
+              </div>
+            {%- else -%}
+              <div class="email-popup__state" data-popup-state="{% if form.errors %}error{% else %}idle{% endif %}">
+                {%- if section.settings.eyebrow != blank -%}
+                  <p class="eyebrow email-popup__eyebrow">{{ section.settings.eyebrow | escape }}</p>
+                {%- endif -%}
+                <h2 class="email-popup__heading h3" id="{{ heading_id }}" tabindex="-1" data-dialog-focus>{{ section.settings.heading | escape }}</h2>
+                <div class="email-popup__text rte" id="{{ text_id }}">{{ section.settings.text }}</div>
+
+                <label class="email-popup__label" for="EmailPopupEmail-{{ section.id }}">{{ 'chrome.popup.email_label' | t }}</label>
+                <div class="email-popup__row">
+                  <input
+                    type="email"
+                    id="EmailPopupEmail-{{ section.id }}"
+                    class="email-popup__input"
+                    name="contact[email]"
+                    value="{{ form.email | escape }}"
+                    placeholder="{{ 'chrome.popup.placeholder' | t }}"
+                    autocomplete="email"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    required
+                    {% if form.errors %}aria-invalid="true" aria-describedby="EmailPopupError-{{ section.id }}"{% endif %}
+                  >
+                  <button type="submit" class="email-popup__submit">{{ section.settings.button_label | escape }}</button>
+                </div>
+                {%- if form.errors -%}
+                  <div class="email-popup__error" id="EmailPopupError-{{ section.id }}" role="alert">{{ form.errors | default_errors }}</div>
+                {%- endif -%}
+                {%- if section.settings.small_print != blank -%}
+                  <p class="email-popup__small">{{ section.settings.small_print | escape }}</p>
+                {%- endif -%}
+                <button type="button" class="email-popup__dismiss" data-close>{{ section.settings.dismiss_label | escape }}</button>
+              </div>
+            {%- endif -%}
+          {%- endform -%}
+        </div>
+      </div>
+    </dialog>
+  </email-popup>
+  <script src="{{ 'popup.js' | asset_url }}" defer></script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Email pop-up",
+  "class": "email-popup-section",
+  "enabled_on": {
+    "groups": ["footer"]
+  },
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Offer something useful first. Shown at most once every few days, never after someone signs up, and never on the basket, account or bed finder pages."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    },
+    {
+      "type": "header",
+      "content": "Offer"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Small heading",
+      "default": "Free sizing help"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Get the size right first time"
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text",
+      "default": "<p>Pop your email in and we'll send the size guide for your breed, plus care tips for large and senior dogs.</p>",
+      "info": "Only promise what your welcome email actually sends."
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Send me the guide"
+    },
+    {
+      "type": "text",
+      "id": "small_print",
+      "label": "Small print",
+      "default": "No spam. Unsubscribe any time."
+    },
+    {
+      "type": "text",
+      "id": "dismiss_label",
+      "label": "Dismiss label",
+      "default": "No thanks",
+      "info": "Keep it neutral — no guilt-tripping (\"No thanks, I don't love my dog\")."
+    },
+    {
+      "type": "header",
+      "content": "After signing up"
+    },
+    {
+      "type": "text",
+      "id": "success_heading",
+      "label": "Heading",
+      "default": "Thank you — you're on the list."
+    },
+    {
+      "type": "richtext",
+      "id": "success_text",
+      "label": "Text",
+      "default": "<p>Keep an eye on your inbox. If nothing's arrived in a few minutes, it's worth checking your promotions folder.</p>"
+    },
+    {
+      "type": "text",
+      "id": "discount_code",
+      "label": "Discount code to show",
+      "info": "Optional. Create the code first in Discounts — it's shown with a copy button straight after signing up. Mention it in the offer text if you use one."
+    },
+    {
+      "type": "text",
+      "id": "code_note",
+      "label": "Code note",
+      "default": "Pop it in at checkout."
+    },
+    {
+      "type": "text",
+      "id": "success_button",
+      "label": "Close button label",
+      "default": "Back to the beds"
+    },
+    {
+      "type": "header",
+      "content": "When to show it"
+    },
+    {
+      "type": "checkbox",
+      "id": "exit_intent",
+      "label": "On desktop, wait until the visitor is about to leave",
+      "default": true,
+      "info": "When off, desktop uses the delay below too."
+    },
+    {
+      "type": "range",
+      "id": "delay",
+      "label": "Delay on mobile",
+      "min": 5,
+      "max": 60,
+      "step": 5,
+      "unit": "s",
+      "default": 25
+    },
+    {
+      "type": "range",
+      "id": "frequency_days",
+      "label": "Show again after",
+      "min": 1,
+      "max": 60,
+      "step": 1,
+      "unit": "d",
+      "default": 14
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_if_cart",
+      "label": "Don't show to visitors with something in their basket",
+      "default": true,
+      "info": "They're already buying — don't interrupt."
+    }
+  ],
+  "presets": [
+    {
+      "name": "Email pop-up"
+    }
+  ]
+}
+{% endschema %}

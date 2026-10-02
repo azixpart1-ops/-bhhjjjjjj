@@ -1,0 +1,318 @@
+{%- comment -%}
+  Variant picker — big, honest, decision-friendly option buttons.
+
+  Parameters
+    product     product object (required)
+    section     section object (required; ids are scoped to section.id)
+    variant     the variant to show as selected (required — buy-box works it out:
+                ?variant= > merchant's "most chosen" > first available)
+    block       optional main-product block (variant_picker) for its settings
+    compact     true inside the quick-add drawer
+    update_url  true → <variant-picker> writes ?variant= to the address bar
+
+  How each option renders
+    size-like   (name contains "size", any case) → a size ladder: one row per
+                value with the breed/weight hint from settings.size_hints, the
+                price of that size (only when sizes are priced differently),
+                a "Most chosen" chip (variant metafield custom.most_chosen or the
+                section's most_chosen_value) and a hidden "Recommended for Bella"
+                chip that product.js reveals from the Bed Finder result.
+    colour-like (colour / color) → swatches from the option value's swatch
+                (colour or image), else text pills.
+    anything else → text pills.
+
+  Combinations that don't exist or are sold out stay selectable (you might want
+  that colour in another size) but are struck through and announced as such.
+
+  Without JavaScript the whole picker is hidden (.no-js) and buy-box renders a
+  plain <select name="id"> inside the product form instead.
+{%- endcomment -%}
+{%- liquid
+  assign current = variant | default: product.selected_or_first_available_variant
+  assign has_block = false
+  if block.id != blank
+    assign has_block = true
+  endif
+
+  assign show_hints = true
+  assign show_prices = true
+  assign show_guide = true
+  assign size_style = 'rows'
+  if has_block
+    if block.settings.show_size_hints == false
+      assign show_hints = false
+    endif
+    if block.settings.show_size_prices == false
+      assign show_prices = false
+    endif
+    if block.settings.show_size_guide_link == false
+      assign show_guide = false
+    endif
+    if block.settings.size_style == 'grid'
+      assign size_style = 'grid'
+    endif
+  endif
+  if product.price_varies == false
+    assign show_prices = false
+  endif
+
+  comment
+    The option that carries the "Most chosen" / "Recommended" chips: the size
+    option, else the first one.
+  endcomment
+  assign size_idx = -1
+  for option in product.options_with_values
+    assign oname = option.name | downcase
+    if oname contains 'size'
+      assign size_idx = forloop.index0
+      break
+    endif
+  endfor
+  assign chip_idx = size_idx
+  if chip_idx < 0
+    assign chip_idx = 0
+  endif
+
+  assign mc_list = '|'
+  for v in product.variants
+    if v.metafields.custom.most_chosen.value == true
+      assign mcv = v.options[chip_idx] | downcase | strip
+      assign mc_key = '|' | append: mcv | append: '|'
+      unless mc_list contains mc_key
+        assign mc_list = mc_list | append: mcv | append: '|'
+      endunless
+    endif
+  endfor
+  assign mc_setting = section.settings.most_chosen_value | default: '' | downcase | strip
+  if mc_setting != ''
+    assign mc_list = mc_list | append: mc_setting | append: '|'
+  endif
+
+  assign uid = section.id | append: '-vp'
+  if compact
+    assign uid = uid | append: '-c'
+  endif
+-%}
+{%- unless product.has_only_default_variant or product == blank -%}
+  <variant-picker
+    class="variant-picker{% if compact %} variant-picker--compact{% endif %}"
+    data-section-id="{{ section.id }}"
+    data-current-id="{{ current.id }}"
+    data-chip-index="{{ chip_idx }}"
+    {%- if update_url %} data-update-url{% endif %}
+  >
+    {%- for option in product.options_with_values -%}
+      {%- liquid
+        assign idx = forloop.index0
+        assign oname = option.name | downcase
+        assign kind = 'pill'
+        if oname contains 'size'
+          assign kind = 'size'
+        elsif oname contains 'colour' or oname contains 'color'
+          assign kind = 'colour'
+        endif
+        assign current_value = current.options[idx]
+        assign values_class = 'variant-picker__values variant-picker__values--' | append: kind
+        if kind == 'size'
+          assign values_class = values_class | append: ' variant-picker__values--' | append: size_style
+        endif
+      -%}
+      <div class="variant-picker__group{% if kind == 'size' and show_guide %} variant-picker__group--guide{% endif %}">
+      {%- if kind == 'size' and show_guide -%}
+        <button type="button" class="variant-picker__guide link" data-size-guide-open aria-haspopup="dialog">
+          {%- render 'icon', name: 'ruler' -%}
+          <span>{{ 'product.picker.size_guide' | t }}</span>
+        </button>
+      {%- endif -%}
+      <fieldset
+        class="variant-picker__option variant-picker__option--{{ kind }}"
+        data-option-index="{{ idx }}"
+        data-option-kind="{{ kind }}"
+      >
+        <legend class="variant-picker__legend">
+          <span class="variant-picker__name">{{ option.name | escape }}</span>
+          <span class="variant-picker__selected" data-selected-value>{{ current_value | escape }}</span>
+        </legend>
+
+        <div class="{{ values_class }}">
+          {%- for value in option.values -%}
+            {%- liquid
+              assign val = value.name | default: value | append: ''
+              assign input_id = uid | append: '-' | append: idx | append: '-' | append: forloop.index0
+
+              comment
+                The variant this value would select, keeping the other options
+                as they are; else any variant with this value (an available one
+                if there is one).
+              endcomment
+              assign match_v = nil
+              assign any_v = nil
+              for v in product.variants
+                if v.options[idx] == val
+                  if any_v == nil
+                    assign any_v = v
+                  elsif any_v.available == false and v.available
+                    assign any_v = v
+                  endif
+                  assign same = true
+                  for o in v.options
+                    if forloop.index0 != idx
+                      assign co = current.options[forloop.index0]
+                      if o != co
+                        assign same = false
+                        break
+                      endif
+                    endif
+                  endfor
+                  if same
+                    assign match_v = v
+                    break
+                  endif
+                endif
+              endfor
+              if match_v
+                assign row_v = match_v
+              else
+                assign row_v = any_v
+              endif
+
+              assign state = 'available'
+              if match_v == nil
+                assign state = 'unavailable'
+              elsif match_v.available == false
+                assign state = 'sold-out'
+              endif
+
+              assign is_mc = false
+              if idx == chip_idx
+                assign vkey = '|' | append: val | downcase | strip | append: '|'
+                if mc_list contains vkey
+                  assign is_mc = true
+                endif
+              endif
+            -%}
+            <input
+              type="radio"
+              class="variant-picker__input visually-hidden"
+              id="{{ input_id }}"
+              name="{{ uid }}-{{ idx }}"
+              value="{{ val | escape }}"
+              data-value-input
+              {%- if val == current_value %} checked{% endif %}
+            >
+            {%- case kind -%}
+              {%- when 'size' -%}
+                {%- liquid
+                  assign h_breeds = ''
+                  assign h_weight = ''
+                  if show_hints
+                    capture h_breeds
+                      render 'size-hints', value: val, mode: 'breeds'
+                    endcapture
+                    capture h_weight
+                      render 'size-hints', value: val, mode: 'weight'
+                    endcapture
+                    assign h_breeds = h_breeds | strip
+                    assign h_weight = h_weight | strip
+                  endif
+                -%}
+                <label
+                  class="size-option{% if state != 'available' %} is-unavailable{% endif %}"
+                  for="{{ input_id }}"
+                  data-value-label
+                  data-value="{{ val | escape }}"
+                >
+                  <span class="size-option__main">
+                    <span class="size-option__top">
+                      <span class="size-option__value">{{ val | escape }}</span>
+                      {%- if idx == chip_idx -%}
+                        {%- if is_mc -%}
+                          <span class="size-option__chip size-option__chip--popular" data-most-chosen-chip>{{ 'product.picker.most_chosen' | t }}</span>
+                        {%- endif -%}
+                        <span class="size-option__chip size-option__chip--match" data-recommended-chip hidden>
+                          {%- render 'icon', name: 'paw' -%}
+                          <span data-finder-name="{{ 'product.picker.recommended' | t }}">{{ 'product.picker.recommended_default' | t }}</span>
+                        </span>
+                      {%- endif -%}
+                    </span>
+                    {%- if h_breeds != '' or h_weight != '' -%}
+                      <span class="size-option__hint">
+                        {{- h_breeds -}}
+                        {%- if h_breeds != '' and h_weight != '' %} · {% endif -%}
+                        <span class="size-option__weight">{{ h_weight }}</span>
+                      </span>
+                    {%- endif -%}
+                  </span>
+                  <span class="size-option__end">
+                    {%- if show_prices and row_v -%}
+                      <span class="size-option__price" data-value-price>{{ row_v.price | money }}</span>
+                    {%- endif -%}
+                    <span class="size-option__state" data-value-state data-visible-state>
+                      {%- if state == 'sold-out' %}{{ 'product.buy.sold_out' | t }}{% elsif state == 'unavailable' %}{{ 'product.buy.unavailable' | t }}{% endif -%}
+                    </span>
+                  </span>
+                </label>
+              {%- when 'colour' -%}
+                {%- liquid
+                  assign swatch_style = ''
+                  assign has_swatch = false
+                  if value.swatch.image
+                    assign sw_url = value.swatch.image | image_url: width: 96
+                    assign swatch_style = 'background-image: url(' | append: sw_url | append: ');'
+                    assign has_swatch = true
+                  elsif value.swatch.color
+                    assign swatch_style = 'background-color: ' | append: value.swatch.color | append: ';'
+                    assign has_swatch = true
+                  endif
+                -%}
+                {%- if has_swatch -%}
+                  <label
+                    class="swatch-option{% if state != 'available' %} is-unavailable{% endif %}"
+                    for="{{ input_id }}"
+                    data-value-label
+                    data-value="{{ val | escape }}"
+                    title="{{ val | escape }}"
+                  >
+                    <span class="swatch-option__swatch" style="{{ swatch_style }}" aria-hidden="true"></span>
+                    <span class="visually-hidden">{{ val | escape }}</span>
+                    <span class="visually-hidden" data-value-state>
+                      {%- if state == 'sold-out' %}, {{ 'product.picker.sold_out' | t }}{% elsif state == 'unavailable' %}, {{ 'product.picker.unavailable' | t }}{% endif -%}
+                    </span>
+                  </label>
+                {%- else -%}
+                  <label
+                    class="chip pill-option{% if state != 'available' %} is-unavailable{% endif %}"
+                    for="{{ input_id }}"
+                    data-value-label
+                    data-value="{{ val | escape }}"
+                  >
+                    <span class="pill-option__text">{{ val | escape }}</span>
+                    <span class="visually-hidden" data-value-state>
+                      {%- if state == 'sold-out' %}, {{ 'product.picker.sold_out' | t }}{% elsif state == 'unavailable' %}, {{ 'product.picker.unavailable' | t }}{% endif -%}
+                    </span>
+                  </label>
+                {%- endif -%}
+              {%- else -%}
+                <label
+                  class="chip pill-option{% if state != 'available' %} is-unavailable{% endif %}"
+                  for="{{ input_id }}"
+                  data-value-label
+                  data-value="{{ val | escape }}"
+                >
+                  <span class="pill-option__text">{{ val | escape }}</span>
+                  {%- if idx == chip_idx and is_mc -%}
+                    <span class="pill-option__chip" data-most-chosen-chip>{{ 'product.picker.most_chosen' | t }}</span>
+                  {%- endif -%}
+                  <span class="visually-hidden" data-value-state>
+                    {%- if state == 'sold-out' %}, {{ 'product.picker.sold_out' | t }}{% elsif state == 'unavailable' %}, {{ 'product.picker.unavailable' | t }}{% endif -%}
+                  </span>
+                </label>
+            {%- endcase -%}
+          {%- endfor -%}
+        </div>
+      </fieldset>
+      </div>
+    {%- endfor -%}
+    <p class="visually-hidden" aria-live="polite" data-variant-status></p>
+  </variant-picker>
+{%- endunless -%}

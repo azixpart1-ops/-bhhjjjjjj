@@ -1,0 +1,678 @@
+{%- comment -%}
+  Article — article.json.
+
+  Reading first: one H1, a hero image, honest meta (date, author, reading
+  time at ≈200 words a minute), the body in a readable measure.
+
+  Then the conversion lever for content readers: a Bed Finder card placed
+  where interest peaks — mid-article by default. The card is slotted after a
+  top-level paragraph near the middle (never inside a list, quote, table or
+  wrapper: the opening/closing tag counts before the slot must balance); short
+  articles, or ones with no safe slot, get it at the end instead. Uses the
+  dog's name once the finder knows it ("Not sure which bed suits Bella?").
+
+  Also: tags, share links (copy link and the native share sheet appear with
+  JavaScript), comments with moderation messaging when the blog has them on,
+  previous/next articles, and BlogPosting + BreadcrumbList JSON-LD.
+{%- endcomment -%}
+{{ 'pages.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'customer.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-title'
+  assign cta_id = section.id | append: '-cta-title'
+  assign comments_id = section.id | append: '-comments'
+
+  assign words = article.content | strip_html | split: ' ' | size
+  assign minutes = words | plus: 199 | divided_by: 200 | floor
+  if minutes < 1
+    assign minutes = 1
+  endif
+
+  case s.image_ratio
+    when 'landscape'
+      assign img_ratio = 1.7778
+    when 'wide'
+      assign img_ratio = 2.0
+    else
+      assign img_ratio = nil
+  endcase
+
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign finder_label = s.cta_button | default: settings.finder_cta_label | default: '' | strip
+  if finder_label == ''
+    assign finder_label = 'pages.cta.finder_button' | t
+  endif
+  assign named_heading = s.cta_heading_named | default: '' | strip
+  unless named_heading contains '[name]'
+    assign named_heading = ''
+  endunless
+
+  assign cta_mode = s.cta_position | default: 'middle'
+  unless settings.finder_enable
+    assign cta_mode = 'none'
+  endunless
+
+  assign share_url = canonical_url | default: ''
+  if share_url == ''
+    assign share_url = request.origin | append: article.url
+  endif
+
+  comment
+    Mid-article slot. Split on </p>; walk forward from the middle looking for
+    a boundary that is followed by a new top-level element and where every
+    container opened before it has closed. Rebuilds the HTML exactly.
+  endcomment
+  assign content = article.content | default: ''
+  assign content_before = content
+  assign content_after = ''
+  assign cta_mid = false
+  if cta_mode == 'middle'
+    assign chunks = content | split: '</p>'
+    assign n = chunks.size
+    if n >= 6
+      assign tail = content | slice: -4, 4
+      assign ends_p = false
+      if tail == '</p>'
+        assign ends_p = true
+      endif
+      assign target = n | divided_by: 2
+      assign last_i = n | minus: 1
+      assign containers = 'div,blockquote,ul,ol,table,figure,section,details,aside' | split: ','
+      assign acc_before = ''
+      assign acc_after = ''
+      for chunk in chunks
+        assign i = forloop.index0
+        assign piece = chunk
+        if i < last_i or ends_p
+          assign piece = piece | append: '</p>'
+        endif
+        if cta_mid
+          assign acc_after = acc_after | append: piece
+        else
+          assign acc_before = acc_before | append: piece
+          if i >= target and i < last_i
+            assign j = i | plus: 1
+            assign next_start = chunks[j] | strip | slice: 0, 2
+            if next_start != '</' and next_start contains '<'
+              assign balanced = true
+              assign len_all = acc_before.size
+              for tag in containers
+                assign open_tag = '<' | append: tag
+                assign close_tag = '</' | append: tag | append: '>'
+                assign len_open = acc_before | remove: open_tag | size
+                assign len_close = acc_before | remove: close_tag | size
+                assign open_count = len_all | minus: len_open | divided_by: open_tag.size
+                assign close_count = len_all | minus: len_close | divided_by: close_tag.size
+                if open_count != close_count
+                  assign balanced = false
+                  break
+                endif
+              endfor
+              if balanced
+                assign cta_mid = true
+              endif
+            endif
+          endif
+        endif
+      endfor
+      if cta_mid
+        assign content_before = acc_before
+        assign content_after = acc_after
+      endif
+    endif
+  endif
+
+  assign cta_end = false
+  if cta_mode == 'end'
+    assign cta_end = true
+  elsif cta_mode == 'middle' and cta_mid == false
+    assign cta_end = true
+  endif
+-%}
+
+{%- capture cta_card -%}
+  <aside class="pages-cta scheme-moss article-cta" aria-labelledby="{{ cta_id }}">
+    <div class="article-cta__body">
+      {%- render 'icon', name: 'paw', size: 28, class: 'pages-cta__icon' -%}
+      {%- if s.cta_eyebrow != blank -%}
+        <p class="eyebrow">{{ s.cta_eyebrow | escape }}</p>
+      {%- endif -%}
+      <h2
+        class="h3 pages-cta__title"
+        id="{{ cta_id }}"
+        {%- if named_heading != '' %} data-finder-name="{{ named_heading | escape }}"{% endif %}
+      >
+        {{- s.cta_heading | default: '' | escape -}}
+      </h2>
+      {%- if s.cta_text != blank -%}
+        <p class="pages-cta__text">{{ s.cta_text | escape }}</p>
+      {%- endif -%}
+    </div>
+    <div class="article-cta__actions">
+      <a class="btn btn--secondary" href="{{ finder_url }}" data-open-finder aria-haspopup="dialog">
+        <span>{{ finder_label | escape }}</span>
+        {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+      </a>
+      {%- if s.cta_trust -%}
+        {%- render 'trust-list', items: 'trial,guarantee', layout: 'row', size: 'sm' -%}
+      {%- endif -%}
+    </div>
+  </aside>
+{%- endcapture -%}
+
+<article
+  class="section main-article scheme-{{ s.color_scheme | default: 'bone' }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width page-width--narrow">
+    {%- if s.show_breadcrumbs -%}
+      <nav class="breadcrumbs" aria-label="{{ 'pages.breadcrumb.label' | t }}">
+        <ol class="breadcrumbs__list" role="list">
+          <li class="breadcrumbs__item"><a class="breadcrumbs__link" href="{{ routes.root_url }}">{{ 'general.home' | t }}</a></li>
+          <li class="breadcrumbs__item"><a class="breadcrumbs__link" href="{{ blog.url }}">{{ blog.title | escape }}</a></li>
+          <li class="breadcrumbs__item"><span class="breadcrumbs__current" aria-current="page">{{ article.title | escape }}</span></li>
+        </ol>
+      </nav>
+    {%- endif -%}
+
+    <header class="pages-header article__header">
+      {%- if article.tags.size > 0 -%}
+        <p class="eyebrow">{{ article.tags.first | escape }}</p>
+      {%- endif -%}
+      <h1 class="h1 pages-header__title article__title" id="{{ heading_id }}">{{ article.title | escape }}</h1>
+      {%- if article.excerpt != blank -%}
+        <p class="lede pages-header__lede article__lede">{{ article.excerpt | replace: '</p>', ' </p>' | strip_html | truncatewords: 45 }}</p>
+      {%- endif -%}
+      {%- if s.show_date or s.show_author or s.show_reading_time -%}
+        <p class="article__meta">
+          {%- if s.show_author and article.author != blank -%}
+            <span class="article__meta-item">{{ 'pages.article.by_author' | t: author: article.author }}</span>
+          {%- endif -%}
+          {%- if s.show_date -%}
+            <span class="article__meta-item">
+              {%- render 'icon', name: 'calendar', size: 16 -%}
+              <time datetime="{{ article.published_at | date: '%Y-%m-%d' }}">{{ article.published_at | date: '%-d %B %Y' }}</time>
+            </span>
+          {%- endif -%}
+          {%- if s.show_reading_time -%}
+            <span class="article__meta-item">
+              {%- render 'icon', name: 'clock', size: 16 -%}
+              <span>{{ 'pages.blog.reading_time' | t: count: minutes }}</span>
+            </span>
+          {%- endif -%}
+        </p>
+      {%- endif -%}
+    </header>
+  </div>
+
+  {%- if s.show_image and article.image -%}
+    <div class="page-width article__hero-wrap">
+      <figure class="article__hero media{% if img_ratio == nil %} article__hero--natural{% endif %}"{% if img_ratio %} style="--ratio: {{ img_ratio }};"{% endif %}>
+        {%- render 'image',
+          image: article.image,
+          widths: '360,540,720,960,1200,1600,2000',
+          sizes: '(min-width: 1400px) 1320px, 100vw',
+          aspect: img_ratio,
+          loading: 'eager',
+          fetchpriority: 'high',
+          alt: article.image.alt,
+          class: 'article__hero-img'
+        -%}
+      </figure>
+    </div>
+  {%- endif -%}
+
+  <div class="page-width page-width--narrow">
+    <div class="rte pages-prose article__content">
+      {{ content_before }}
+    </div>
+
+    {%- if cta_mid -%}
+      {{ cta_card }}
+      <div class="rte pages-prose article__content article__content--after">
+        {{ content_after }}
+      </div>
+    {%- endif -%}
+
+    {%- if s.show_tags and article.tags.size > 0 -%}
+      <div class="article__tags">
+        <h2 class="visually-hidden">{{ 'pages.article.tags_heading' | t }}</h2>
+        <ul class="cluster article__tag-list" role="list">
+          {%- for tag in article.tags -%}
+            <li><a class="chip" href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag | escape }}</a></li>
+          {%- endfor -%}
+        </ul>
+      </div>
+    {%- endif -%}
+
+    {%- if cta_end -%}
+      {{ cta_card }}
+    {%- endif -%}
+
+    {%- if s.show_share -%}
+      {%- liquid
+        assign share_title = article.title | url_param_escape
+        assign share_link = share_url | url_param_escape
+        assign mail_body = article.title | append: ' — ' | append: share_url | url_param_escape
+      -%}
+      <div class="article-share" data-share-root>
+        <h2 class="article-share__title">{{ 'pages.share.heading' | t }}</h2>
+        <ul class="article-share__list" role="list">
+          <li hidden data-share-native-item>
+            <button
+              type="button"
+              class="chip article-share__btn"
+              data-share-native
+              data-share-title="{{ article.title | escape }}"
+              data-share-url="{{ share_url | escape }}"
+            >
+              {%- render 'icon', name: 'external', size: 18 -%}
+              <span>{{ 'pages.share.native' | t }}</span>
+            </button>
+          </li>
+          <li hidden data-copy-item>
+            <button
+              type="button"
+              class="chip article-share__btn"
+              data-copy-text="{{ share_url | escape }}"
+              data-copy-done="{{ 'pages.share.copied' | t | escape }}"
+            >
+              {%- render 'icon', name: 'check', size: 18, class: 'article-share__done' -%}
+              <span data-copy-label>{{ 'pages.share.copy' | t }}</span>
+            </button>
+          </li>
+          <li>
+            <a class="chip article-share__btn" href="mailto:?subject={{ share_title }}&amp;body={{ mail_body }}">
+              {%- render 'icon', name: 'mail', size: 18 -%}
+              <span>{{ 'pages.share.email' | t }}</span>
+            </a>
+          </li>
+          <li>
+            <a class="chip article-share__btn" href="https://wa.me/?text={{ mail_body }}" target="_blank" rel="noopener">
+              {%- render 'icon', name: 'chat', size: 18 -%}
+              <span>{{ 'pages.share.whatsapp' | t }}</span>
+              <span class="visually-hidden">({{ 'accessibility.new_window' | t }})</span>
+            </a>
+          </li>
+          <li>
+            <a class="chip article-share__btn" href="https://www.facebook.com/sharer/sharer.php?u={{ share_link }}" target="_blank" rel="noopener">
+              {%- render 'icon', name: 'facebook', size: 18 -%}
+              <span>{{ 'pages.share.facebook' | t }}</span>
+              <span class="visually-hidden">({{ 'accessibility.new_window' | t }})</span>
+            </a>
+          </li>
+          {%- if article.image -%}
+            <li>
+              <a
+                class="chip article-share__btn"
+                href="https://pinterest.com/pin/create/button/?url={{ share_link }}&amp;media={{ article.image | image_url: width: 1200 | prepend: 'https:' | url_param_escape }}&amp;description={{ share_title }}"
+                target="_blank"
+                rel="noopener"
+              >
+                {%- render 'icon', name: 'pinterest', size: 18 -%}
+                <span>{{ 'pages.share.pinterest' | t }}</span>
+                <span class="visually-hidden">({{ 'accessibility.new_window' | t }})</span>
+              </a>
+            </li>
+          {%- endif -%}
+        </ul>
+        <p class="visually-hidden" role="status" data-copy-status></p>
+      </div>
+    {%- endif -%}
+
+    {%- if s.show_prev_next -%}
+      {%- liquid
+        assign prev_a = blog.previous_article
+        assign next_a = blog.next_article
+        assign has_prev = false
+        assign has_next = false
+        if prev_a.url != blank and prev_a.title != blank
+          assign has_prev = true
+        endif
+        if next_a.url != blank and next_a.title != blank
+          assign has_next = true
+        endif
+      -%}
+      {%- if has_prev or has_next -%}
+        <nav class="article-nav" aria-label="{{ 'pages.article.more_label' | t }}">
+          {%- if has_prev -%}
+            <a class="article-nav__link article-nav__link--prev" href="{{ prev_a.url }}" rel="prev">
+              <span class="article-nav__dir">{%- render 'icon', name: 'arrow-left', size: 16 -%}{{ 'pages.article.newer' | t }}</span>
+              <span class="article-nav__title">{{ prev_a.title | escape }}</span>
+            </a>
+          {%- endif -%}
+          {%- if has_next -%}
+            <a class="article-nav__link article-nav__link--next" href="{{ next_a.url }}" rel="next">
+              <span class="article-nav__dir">{{ 'pages.article.older' | t }}{%- render 'icon', name: 'arrow-right', size: 16 -%}</span>
+              <span class="article-nav__title">{{ next_a.title | escape }}</span>
+            </a>
+          {%- endif -%}
+        </nav>
+      {%- endif -%}
+    {%- endif -%}
+
+    {%- if blog.comments_enabled? -%}
+      <section class="article-comments" id="comments" aria-labelledby="{{ comments_id }}">
+        <h2 class="h3 article-comments__title" id="{{ comments_id }}">
+          {%- if article.comments_count > 0 -%}
+            {{ 'pages.article.comments_count' | t: count: article.comments_count }}
+          {%- else -%}
+            {{ 'pages.article.comments_heading' | t }}
+          {%- endif -%}
+        </h2>
+
+        {%- if article.comments_count > 0 -%}
+          {%- paginate article.comments by 20 -%}
+            <ol class="comment-list" role="list">
+              {%- for comment in article.comments -%}
+                <li class="comment" id="comment-{{ comment.id }}">
+                  <article class="comment__inner" aria-label="{{ 'pages.article.comment_by' | t: author: comment.author | escape }}">
+                    <p class="comment__head">
+                      <span class="comment__author">{{ comment.author | escape }}</span>
+                      <time class="comment__date" datetime="{{ comment.created_at | date: '%Y-%m-%d' }}">{{ comment.created_at | date: '%-d %B %Y' }}</time>
+                    </p>
+                    <div class="rte comment__body">{{ comment.content }}</div>
+                  </article>
+                </li>
+              {%- endfor -%}
+            </ol>
+            <div class="pages-paginate">
+              {%- render 'pagination', paginate: paginate, anchor: '#comments' -%}
+            </div>
+          {%- endpaginate -%}
+        {%- endif -%}
+
+        {%- form 'new_comment', article, class: 'card card--lg comment-form' -%}
+          {%- assign cf = 'CommentForm-' | append: section.id -%}
+          <h3 class="h4 comment-form__title">{{ 'pages.article.comment_form_heading' | t }}</h3>
+          {%- if form.posted_successfully? -%}
+            <div class="form-success form-success--compact" role="status" tabindex="-1" autofocus>
+              <span class="form-success__icon">{%- render 'icon', name: 'check-circle', size: 24 -%}</span>
+              <p class="form-success__text">
+                {%- if blog.moderated? -%}
+                  {{ 'pages.article.comment_moderated' | t }}
+                {%- else -%}
+                  {{ 'pages.article.comment_posted' | t }}
+                {%- endif -%}
+              </p>
+            </div>
+          {%- endif -%}
+          {%- if form.errors -%}
+            <div class="form-errors" role="alert" tabindex="-1" autofocus id="{{ cf }}-errors">
+              <h4 class="form-errors__title">
+                {%- render 'icon', name: 'info', size: 20 -%}
+                <span>{{ 'pages.forms.error_heading' | t }}</span>
+              </h4>
+              <ul class="form-errors__list">
+                {%- for field in form.errors -%}
+                  <li>
+                    {%- if field == 'form' -%}
+                      {{ form.errors.messages[field] }}
+                    {%- else -%}
+                      <a href="#{{ cf }}-{{ field }}">{{ form.errors.translated_fields[field] | capitalize }} {{ form.errors.messages[field] }}</a>
+                    {%- endif -%}
+                  </li>
+                {%- endfor -%}
+              </ul>
+            </div>
+          {%- endif -%}
+          <div class="field-row field-row--2">
+            <div class="field">
+              <label class="field__label" for="{{ cf }}-author">{{ 'pages.article.comment_name' | t }}</label>
+              <input
+                class="input"
+                type="text"
+                id="{{ cf }}-author"
+                name="comment[author]"
+                value="{{ form.author | escape }}"
+                autocomplete="name"
+                required
+                {%- if form.errors contains 'author' %} aria-invalid="true" aria-describedby="{{ cf }}-errors"{% endif %}
+              >
+            </div>
+            <div class="field">
+              <label class="field__label" for="{{ cf }}-email">{{ 'pages.article.comment_email' | t }}</label>
+              <input
+                class="input"
+                type="email"
+                id="{{ cf }}-email"
+                name="comment[email]"
+                value="{{ form.email | escape }}"
+                autocomplete="email"
+                autocapitalize="off"
+                spellcheck="false"
+                required
+                aria-describedby="{{ cf }}-email-hint{% if form.errors contains 'email' %} {{ cf }}-errors{% endif %}"
+                {%- if form.errors contains 'email' %} aria-invalid="true"{% endif %}
+              >
+              <p class="field__hint" id="{{ cf }}-email-hint">{{ 'pages.article.comment_email_hint' | t }}</p>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field__label" for="{{ cf }}-body">{{ 'pages.article.comment_body' | t }}</label>
+            <textarea
+              class="textarea"
+              id="{{ cf }}-body"
+              name="comment[body]"
+              rows="5"
+              required
+              {%- if form.errors contains 'body' %} aria-invalid="true" aria-describedby="{{ cf }}-errors"{% endif %}
+            >{{ form.body | escape }}</textarea>
+          </div>
+          <div class="comment-form__submit">
+            <button type="submit" class="btn pages-submit">{{ 'pages.article.comment_submit' | t }}</button>
+            {%- if blog.moderated? -%}
+              <p class="small muted">{{ 'pages.article.comment_moderation_note' | t }}</p>
+            {%- endif -%}
+          </div>
+        {%- endform -%}
+      </section>
+    {%- endif -%}
+
+    <p class="article__back">
+      <a class="btn btn--ghost" href="{{ blog.url }}">
+        {%- render 'icon', name: 'arrow-left', size: 18 -%}
+        <span>{{ 'pages.article.back_to_blog' | t: blog: blog.title }}</span>
+      </a>
+    </p>
+  </div>
+</article>
+
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "mainEntityOfPage": { "@type": "WebPage", "@id": {{ share_url | json }} },
+    "headline": {{ article.title | truncate: 110 | json }},
+    "description": {{ article.excerpt_or_content | replace: '</p>', ' </p>' | strip_html | truncatewords: 40 | json }},
+    {%- if article.image %}
+    "image": [{{ article.image | image_url: width: 1600 | prepend: 'https:' | json }}],
+    {%- endif %}
+    "datePublished": {{ article.published_at | date: '%Y-%m-%dT%H:%M:%S%z' | json }},
+    "dateModified": {{ article.updated_at | default: article.published_at | date: '%Y-%m-%dT%H:%M:%S%z' | json }},
+    "wordCount": {{ words | json }},
+    "articleSection": {{ blog.title | json }},
+    {%- if article.tags.size > 0 %}
+    "keywords": {{ article.tags | join: ', ' | json }},
+    {%- endif %}
+    "author": { "@type": "Person", "name": {{ article.author | default: shop.name | json }} },
+    "publisher": {
+      "@type": "Organization",
+      "name": {{ shop.name | json }}
+      {%- if settings.logo %},
+      "logo": { "@type": "ImageObject", "url": {{ settings.logo | image_url: width: 600 | prepend: 'https:' | json }} }
+      {%- endif %}
+    }
+  }
+</script>
+{%- if s.show_breadcrumbs -%}
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": {{ 'general.home' | t | json }}, "item": {{ request.origin | append: routes.root_url | json }} },
+        { "@type": "ListItem", "position": 2, "name": {{ blog.title | json }}, "item": {{ request.origin | append: blog.url | json }} },
+        { "@type": "ListItem", "position": 3, "name": {{ article.title | json }}, "item": {{ share_url | json }} }
+      ]
+    }
+  </script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Article",
+  "class": "section-main-article",
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_breadcrumbs",
+      "label": "Show breadcrumbs",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_image",
+      "label": "Show featured image",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Image shape",
+      "options": [
+        { "value": "original", "label": "As uploaded" },
+        { "value": "landscape", "label": "Landscape (16:9)" },
+        { "value": "wide", "label": "Wide (2:1)" }
+      ],
+      "default": "landscape"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_author",
+      "label": "Show author",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_date",
+      "label": "Show date",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_reading_time",
+      "label": "Show reading time",
+      "default": true,
+      "info": "Estimated at 200 words a minute."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_tags",
+      "label": "Show tags",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_share",
+      "label": "Show share links",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_prev_next",
+      "label": "Show previous and next articles",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Bed Finder card"
+    },
+    {
+      "type": "select",
+      "id": "cta_position",
+      "label": "Position",
+      "options": [
+        { "value": "middle", "label": "Middle of the article" },
+        { "value": "end", "label": "End of the article" },
+        { "value": "none", "label": "Don't show" }
+      ],
+      "default": "middle",
+      "info": "Middle needs at least five paragraphs and a safe spot between them; otherwise the card goes at the end. Hidden when the finder is switched off."
+    },
+    {
+      "type": "text",
+      "id": "cta_eyebrow",
+      "label": "Eyebrow",
+      "default": "Four quick questions"
+    },
+    {
+      "type": "text",
+      "id": "cta_heading",
+      "label": "Heading",
+      "default": "Not sure which bed suits your dog?"
+    },
+    {
+      "type": "text",
+      "id": "cta_heading_named",
+      "label": "Heading once we know the dog's name",
+      "default": "Not sure which bed suits [name]?",
+      "info": "[name] is replaced with the dog's name from the Bed Finder. Leave blank to always use the heading above."
+    },
+    {
+      "type": "textarea",
+      "id": "cta_text",
+      "label": "Text",
+      "default": "Tell us how they sleep and roughly how big they are, and we'll suggest one bed in the right size."
+    },
+    {
+      "type": "text",
+      "id": "cta_button",
+      "label": "Button label",
+      "info": "Leave blank to use the Bed Finder label from Theme settings."
+    },
+    {
+      "type": "checkbox",
+      "id": "cta_trust",
+      "label": "Show trial and guarantee in the card",
+      "default": true,
+      "info": "From Theme settings → Promises; each hides when switched off."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    }
+  ]
+}
+{% endschema %}

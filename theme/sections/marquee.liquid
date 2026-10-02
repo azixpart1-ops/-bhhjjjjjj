@@ -1,0 +1,297 @@
+{%- comment -%}
+  Marquee — continuous, low-cost repetition of the proof points (mere
+  exposure). Concrete specifics only; no hype, no invented numbers.
+
+  Accessibility: the first group of items is real text for screen readers;
+  every copy used to make the loop seamless is aria-hidden. The loop pauses on
+  hover and keyboard focus, has a visible pause/play button (WCAG 2.2.2), and
+  stops entirely — becoming a static, wrapped row — with prefers-reduced-motion
+  or when animations are switched off in Theme settings.
+
+  Text can use [trial_nights], [guarantee_years], [threshold], [cutoff],
+  [origin]; an item naming a promise that is switched off is dropped.
+{%- endcomment -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'sections.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- capture ph_cutoff -%}{%- render 'delivery-promise', mode: 'time' -%}{%- endcapture -%}
+{%- liquid
+  assign s = section.settings
+  assign ph_cutoff = ph_cutoff | strip
+  assign ph_nights = settings.trial_nights | default: 0 | plus: 0 | append: ''
+  assign ph_years = settings.guarantee_years | default: 0 | plus: 0 | append: ''
+  assign ph_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round | money_without_trailing_zeros
+  assign ph_origin = settings.origin_line | default: '' | strip | escape
+
+  assign on_trial = false
+  if settings.trial_enable and settings.trial_nights > 0
+    assign on_trial = true
+  endif
+  assign on_guarantee = false
+  if settings.guarantee_enable and settings.guarantee_years > 0
+    assign on_guarantee = true
+  endif
+  assign on_free = false
+  if settings.free_shipping_enable and settings.free_shipping_threshold > 0
+    assign on_free = true
+  endif
+  assign on_dispatch = false
+  if settings.delivery_promise_enable and ph_cutoff != ''
+    assign on_dispatch = true
+  endif
+
+  comment
+    Collect the visible items as one '|'-separated string first, so the
+    repeated groups are byte-identical and an all-hidden bar renders nothing.
+  endcomment
+  assign items = ''
+  if section.blocks.size > 0
+    for block in section.blocks
+      assign raw = block.settings.text | default: '' | strip
+      assign keep = true
+      if raw == ''
+        assign keep = false
+      endif
+      if raw contains '[trial_nights]' and on_trial == false
+        assign keep = false
+      endif
+      if raw contains '[guarantee_years]' and on_guarantee == false
+        assign keep = false
+      endif
+      if raw contains '[threshold]' and on_free == false
+        assign keep = false
+      endif
+      if raw contains '[cutoff]' and on_dispatch == false
+        assign keep = false
+      endif
+      if raw contains '[origin]' and ph_origin == ''
+        assign keep = false
+      endif
+      if keep
+        assign txt = raw | remove: '|' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[origin]', ph_origin
+        assign items = items | append: txt | append: '|'
+      endif
+    endfor
+  else
+    assign d1 = 'home.marquee.default_density' | t
+    assign d2 = 'home.marquee.default_liner' | t
+    assign d3 = 'home.marquee.default_wash' | t
+    assign d4 = 'home.marquee.default_styles' | t
+    assign items = d1 | append: '|' | append: d2 | append: '|' | append: d3 | append: '|' | append: d4 | append: '|'
+    if on_trial
+      assign d5 = 'home.marquee.default_trial' | t: nights: ph_nights
+      assign items = items | append: d5 | append: '|'
+    endif
+    if on_guarantee
+      assign d6 = 'home.marquee.default_guarantee' | t: years: ph_years
+      assign items = items | append: d6 | append: '|'
+    endif
+    if on_free
+      assign d7 = 'home.marquee.default_delivery' | t: amount: ph_threshold
+      assign items = items | append: d7 | append: '|'
+    endif
+  endif
+  assign item_list = items | split: '|'
+  assign marquee_label = s.label | default: '' | strip | escape
+  if marquee_label == ''
+    assign marquee_label = 'home.marquee.label' | t
+  endif
+
+  comment
+    Short lists are repeated more so the band is always wider than the
+    screen and the loop never shows a gap.
+  endcomment
+  assign groups = 2
+  if item_list.size < 4
+    assign groups = 4
+  endif
+  assign speed = s.speed | default: 45 | plus: 0
+  assign duration = speed | times: item_list.size | divided_by: 6.0 | round
+  if duration < 16
+    assign duration = 16
+  endif
+  if groups == 4
+    assign duration = duration | times: 2
+  endif
+-%}
+{%- if item_list.size > 0 -%}
+  <div
+    class="section marquee scheme-{{ s.color_scheme }} marquee--{{ s.text_size | default: 'md' }}{% if s.uppercase %} marquee--caps{% endif %}{% if s.direction == 'right' %} marquee--reverse{% endif %}"
+    id="{{ section.id }}-wrap"
+    data-marquee
+    style="--marquee-duration: {{ duration }}s;"
+  >
+    <div class="marquee__viewport">
+      <div class="marquee__rail" data-marquee-rail>
+        {%- for g in (1..groups) -%}
+          <ul class="marquee__group" role="list"{% unless forloop.first %} aria-hidden="true"{% else %} aria-label="{{ marquee_label }}"{% endunless %}>
+            {%- for item in item_list -%}
+              <li class="marquee__item">
+                <span class="marquee__sep" aria-hidden="true">
+                  {%- case s.separator -%}
+                    {%- when 'moon' -%}{%- render 'icon', name: 'moon' -%}
+                    {%- when 'paw' -%}{%- render 'icon', name: 'paw' -%}
+                    {%- when 'sparkle' -%}{%- render 'icon', name: 'sparkle' -%}
+                    {%- else -%}<span class="marquee__dot"></span>
+                  {%- endcase -%}
+                </span>
+                <span class="marquee__text">{{ item }}</span>
+              </li>
+            {%- endfor -%}
+          </ul>
+        {%- endfor -%}
+      </div>
+    </div>
+    <button
+      type="button"
+      class="marquee__toggle"
+      data-marquee-toggle
+      aria-pressed="false"
+      data-label-pause="{{ 'home.marquee.pause' | t }}"
+      data-label-play="{{ 'home.marquee.play' | t }}"
+      hidden
+    >
+      <svg class="icon marquee__icon-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6.5" y="5" width="3.5" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="3.5" height="14" rx="1" fill="currentColor"/></svg>
+      <svg class="icon marquee__icon-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5.5v13a.75.75 0 0 0 1.14.64l10.4-6.5a.75.75 0 0 0 0-1.28L9.14 4.86A.75.75 0 0 0 8 5.5z" fill="currentColor"/></svg>
+      <span class="visually-hidden" data-marquee-toggle-label>{{ 'home.marquee.pause' | t }}</span>
+    </button>
+    {%- if section.blocks.size > 0 -%}
+      {%- comment -%} Keep blocks selectable in the editor. {%- endcomment -%}
+      {%- for block in section.blocks -%}<span hidden {{ block.shopify_attributes }}></span>{%- endfor -%}
+    {%- endif -%}
+  </div>
+{%- elsif request.design_mode -%}
+  <div class="section marquee scheme-{{ s.color_scheme }}" id="{{ section.id }}-wrap">
+    <p class="page-width editor-note">{{ 'home.editor.marquee_empty' | t }}</p>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Scrolling proof points",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 12,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Text can use [trial_nights], [guarantee_years], [threshold], [cutoff] and [origin]. Points naming a promise that is switched off in Theme settings are dropped. The band pauses on hover, has a pause button, and stays still for visitors who prefer reduced motion."
+    },
+    {
+      "type": "text",
+      "id": "label",
+      "label": "Accessible name",
+      "default": "Why owners choose us",
+      "info": "Read by screen readers before the list."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "moss"
+    },
+    {
+      "type": "range",
+      "id": "speed",
+      "label": "Speed (seconds per six points)",
+      "min": 20,
+      "max": 90,
+      "step": 5,
+      "unit": "s",
+      "default": 45,
+      "info": "Higher is slower."
+    },
+    {
+      "type": "select",
+      "id": "direction",
+      "label": "Direction",
+      "options": [
+        { "value": "left", "label": "Right to left" },
+        { "value": "right", "label": "Left to right" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "separator",
+      "label": "Separator",
+      "options": [
+        { "value": "dot", "label": "Dot" },
+        { "value": "moon", "label": "Moon" },
+        { "value": "paw", "label": "Paw" },
+        { "value": "sparkle", "label": "Sparkle" }
+      ],
+      "default": "moon"
+    },
+    {
+      "type": "select",
+      "id": "text_size",
+      "label": "Text size",
+      "options": [
+        { "value": "sm", "label": "Small" },
+        { "value": "md", "label": "Medium" },
+        { "value": "lg", "label": "Large (serif)" }
+      ],
+      "default": "md"
+    },
+    {
+      "type": "checkbox",
+      "id": "uppercase",
+      "label": "Capitals",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    }
+  ],
+  "blocks": [
+    {
+      "type": "item",
+      "name": "Proof point",
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "50kg/m³ memory foam on the orthopaedic range"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Scrolling proof points",
+      "blocks": [
+        { "type": "item", "settings": { "text": "50kg/m³ memory foam on the orthopaedic range" } },
+        { "type": "item", "settings": { "text": "Waterproof-lined cores on the orthopaedic beds" } },
+        { "type": "item", "settings": { "text": "Most covers zip off and machine-wash" } },
+        { "type": "item", "settings": { "text": "Beds grouped by how your dog actually sleeps" } },
+        { "type": "item", "settings": { "text": "Free UK delivery over [threshold]" } },
+        { "type": "item", "settings": { "text": "[trial_nights]-night sleep trial" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

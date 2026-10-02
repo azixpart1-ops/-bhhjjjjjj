@@ -1,0 +1,416 @@
+{%- comment -%}
+  Blog — blog.json. The guides are reciprocity: genuinely useful sizing and
+  sleep advice, given away. Every card carries a reading-time estimate
+  (≈200 words a minute) so the commitment is known before the click.
+
+  Optional first-article feature on page one, tag filter chips, and a Bed
+  Finder card inside the grid (after the third card) for the reader who is
+  ready to stop reading and choose. Paginated with the collection area's
+  pagination snippet (styled here, scoped, so collection.css isn't loaded).
+
+  Renders cleanly with no articles (a friendly empty state with the finder)
+  and with no images (a quiet branded panel instead of a broken image).
+{%- endcomment -%}
+{{ 'pages.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-title'
+  assign per_page = s.per_page | default: 12 | plus: 0
+  case s.image_ratio
+    when 'square'
+      assign ratio = 1
+      assign ratio_css = '1 / 1'
+    when 'portrait'
+      assign ratio = 0.8
+      assign ratio_css = '4 / 5'
+    else
+      assign ratio = 1.5
+      assign ratio_css = '3 / 2'
+  endcase
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign finder_label = s.finder_button | default: settings.finder_cta_label | default: '' | strip
+  if finder_label == ''
+    assign finder_label = 'pages.cta.finder_button' | t
+  endif
+  assign named_heading = s.finder_heading_named | default: '' | strip
+  unless named_heading contains '[name]'
+    assign named_heading = ''
+  endunless
+  assign show_finder_card = false
+  if s.show_finder_card and settings.finder_enable
+    assign show_finder_card = true
+  endif
+  assign current_tag = current_tags.first | default: ''
+-%}
+<section
+  class="section main-blog scheme-{{ s.color_scheme | default: 'bone' }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+  style="--blog-ratio: {{ ratio_css }};"
+>
+  <div class="page-width">
+    {%- if s.show_breadcrumbs -%}
+      <nav class="breadcrumbs" aria-label="{{ 'pages.breadcrumb.label' | t }}">
+        <ol class="breadcrumbs__list" role="list">
+          <li class="breadcrumbs__item"><a class="breadcrumbs__link" href="{{ routes.root_url }}">{{ 'general.home' | t }}</a></li>
+          {%- if current_tag != '' -%}
+            <li class="breadcrumbs__item"><a class="breadcrumbs__link" href="{{ blog.url }}">{{ blog.title | escape }}</a></li>
+            <li class="breadcrumbs__item"><span class="breadcrumbs__current" aria-current="page">{{ current_tag | escape }}</span></li>
+          {%- else -%}
+            <li class="breadcrumbs__item"><span class="breadcrumbs__current" aria-current="page">{{ blog.title | escape }}</span></li>
+          {%- endif -%}
+        </ol>
+      </nav>
+    {%- endif -%}
+
+    <header class="pages-header main-blog__header">
+      {%- if s.eyebrow != blank -%}
+        <p class="eyebrow">{{ s.eyebrow | escape }}</p>
+      {%- endif -%}
+      <h1 class="h1 pages-header__title" id="{{ heading_id }}">
+        {{- blog.title | escape -}}
+        {%- if current_tag != '' -%}<span class="visually-hidden">: {{ current_tag | escape }}</span>{%- endif -%}
+      </h1>
+      {%- if s.standfirst != blank -%}
+        <p class="lede pages-header__lede">{{ s.standfirst | escape }}</p>
+      {%- endif -%}
+    </header>
+
+    {%- if s.show_tags and blog.all_tags.size > 0 -%}
+      <nav class="blog-tags" aria-label="{{ 'pages.blog.tags_label' | t }}">
+        <ul class="blog-tags__list" role="list">
+          <li>
+            <a class="chip" href="{{ blog.url }}"{% if current_tag == '' %} aria-current="page"{% endif %}>{{ 'pages.blog.all_tags' | t }}</a>
+          </li>
+          {%- for tag in blog.all_tags -%}
+            <li>
+              <a
+                class="chip"
+                href="{{ blog.url }}/tagged/{{ tag | handleize }}"
+                {%- if current_tags contains tag %} aria-current="page"{% endif %}
+              >
+                {{- tag | escape -}}
+              </a>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </nav>
+    {%- endif -%}
+
+    {%- paginate blog.articles by per_page -%}
+      {%- if blog.articles.size > 0 -%}
+        {%- if current_tag != '' -%}
+          <p class="small muted main-blog__status" role="status">
+            {{ 'pages.blog.showing_tag' | t: count: paginate.items, tag: current_tag }}
+            <a href="{{ blog.url }}">{{ 'pages.blog.clear_tag' | t }}</a>
+          </p>
+        {%- endif -%}
+
+        <ul class="blog-grid" role="list">
+          {%- for article in blog.articles -%}
+            {%- liquid
+              assign featured = false
+              if forloop.first and s.feature_first and paginate.current_page == 1 and current_tag == ''
+                assign featured = true
+              endif
+              assign words = article.content | strip_html | split: ' ' | size
+              assign minutes = words | plus: 199 | divided_by: 200 | floor
+              if minutes < 1
+                assign minutes = 1
+              endif
+              assign card_title_id = section.id | append: '-article-' | append: article.id
+              assign excerpt_words = 26
+              if featured
+                assign excerpt_words = 40
+              endif
+            -%}
+            <li class="blog-card{% if featured %} blog-card--featured{% endif %}">
+              <article class="blog-card__inner" aria-labelledby="{{ card_title_id }}">
+                {%- if s.show_image -%}
+                  <div class="blog-card__media media">
+                    {%- if article.image -%}
+                      {%- liquid
+                        if featured
+                          assign img_sizes = '(min-width: 990px) 60vw, (min-width: 750px) 100vw, 100vw'
+                        else
+                          assign img_sizes = '(min-width: 1200px) 400px, (min-width: 990px) 33vw, (min-width: 750px) 50vw, 100vw'
+                        endif
+                        assign img_loading = 'lazy'
+                        if forloop.index <= 2 and paginate.current_page == 1
+                          assign img_loading = 'eager'
+                        endif
+                      -%}
+                      {%- render 'image',
+                        image: article.image,
+                        widths: '360,540,720,960,1200',
+                        sizes: img_sizes,
+                        aspect: ratio,
+                        loading: img_loading,
+                        decorative: true,
+                        class: 'blog-card__img'
+                      -%}
+                    {%- else -%}
+                      <div class="blog-card__fallback" aria-hidden="true">
+                        {%- render 'icon', name: 'moon', size: 40 -%}
+                      </div>
+                    {%- endif -%}
+                  </div>
+                {%- endif -%}
+                <div class="blog-card__body">
+                  {%- if article.tags.size > 0 -%}
+                    <p class="eyebrow blog-card__tag">{{ article.tags.first | escape }}</p>
+                  {%- endif -%}
+                  <h2 class="{% if featured %}h3{% else %}h4{% endif %} blog-card__title" id="{{ card_title_id }}">
+                    <a class="blog-card__link" href="{{ article.url }}">{{ article.title | escape }}</a>
+                  </h2>
+                  {%- if s.show_excerpt -%}
+                    {%- assign excerpt = article.excerpt_or_content | replace: '</p>', ' </p>' | replace: '<br>', ' ' | replace: '<br />', ' ' | strip_html | truncatewords: excerpt_words -%}
+                    {%- if excerpt != blank -%}
+                      <p class="blog-card__excerpt">{{ excerpt }}</p>
+                    {%- endif -%}
+                  {%- endif -%}
+                  <p class="blog-card__meta">
+                    {%- if s.show_date -%}
+                      <time datetime="{{ article.published_at | date: '%Y-%m-%d' }}">{{ article.published_at | date: '%-d %B %Y' }}</time>
+                    {%- endif -%}
+                    {%- if s.show_date and s.show_reading_time -%}<span aria-hidden="true"> · </span>{%- endif -%}
+                    {%- if s.show_reading_time -%}
+                      <span>{{ 'pages.blog.reading_time' | t: count: minutes }}</span>
+                    {%- endif -%}
+                  </p>
+                </div>
+              </article>
+            </li>
+
+            {%- liquid
+              assign finder_slot = false
+              if show_finder_card and paginate.current_page == 1
+                if forloop.index == 3
+                  assign finder_slot = true
+                elsif forloop.last and forloop.length < 3
+                  assign finder_slot = true
+                endif
+              endif
+            -%}
+            {%- if finder_slot -%}
+              <li class="blog-card blog-card--finder">
+                <aside class="pages-cta scheme-moss blog-finder" aria-labelledby="{{ section.id }}-finder-title">
+                  {%- render 'icon', name: 'paw', size: 28, class: 'pages-cta__icon' -%}
+                  {%- if s.finder_eyebrow != blank -%}
+                    <p class="eyebrow">{{ s.finder_eyebrow | escape }}</p>
+                  {%- endif -%}
+                  <h2
+                    class="h3 pages-cta__title"
+                    id="{{ section.id }}-finder-title"
+                    {%- if named_heading != '' %} data-finder-name="{{ named_heading | escape }}"{% endif %}
+                  >
+                    {{- s.finder_heading | default: '' | escape -}}
+                  </h2>
+                  {%- if s.finder_text != blank -%}
+                    <p class="pages-cta__text">{{ s.finder_text | escape }}</p>
+                  {%- endif -%}
+                  <a class="btn btn--secondary" href="{{ finder_url }}" data-open-finder aria-haspopup="dialog">
+                    <span>{{ finder_label | escape }}</span>
+                    {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+                  </a>
+                </aside>
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+
+        <div class="pages-paginate">
+          {%- render 'pagination', paginate: paginate -%}
+        </div>
+      {%- else -%}
+        <div class="pages-empty card card--lg">
+          {%- render 'icon', name: 'moon', size: 36, class: 'pages-empty__icon' -%}
+          <h2 class="h3">
+            {%- if current_tag != '' -%}
+              {{ 'pages.blog.empty_tag_heading' | t }}
+            {%- else -%}
+              {{ 'pages.blog.empty_heading' | t }}
+            {%- endif -%}
+          </h2>
+          <p class="muted">{{ 'pages.blog.empty_text' | t }}</p>
+          <div class="cluster pages-empty__actions">
+            {%- if current_tag != '' -%}
+              <a class="btn btn--secondary" href="{{ blog.url }}">{{ 'pages.blog.clear_tag' | t }}</a>
+            {%- endif -%}
+            {%- if settings.finder_enable -%}
+              <a class="btn btn--secondary" href="{{ finder_url }}" data-open-finder aria-haspopup="dialog">
+                <span>{{ finder_label | escape }}</span>
+                {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+              </a>
+            {%- endif -%}
+            <a class="btn btn--ghost" href="{{ routes.all_products_collection_url }}">{{ 'pages.cta.shop_all' | t }}</a>
+          </div>
+        </div>
+      {%- endif -%}
+    {%- endpaginate -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Blog",
+  "class": "section-main-blog",
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_breadcrumbs",
+      "label": "Show breadcrumbs",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Guides"
+    },
+    {
+      "type": "textarea",
+      "id": "standfirst",
+      "label": "Standfirst",
+      "default": "Everything we've learned about how dogs actually sleep, and what to do about it."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_tags",
+      "label": "Show tag filter",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "feature_first",
+      "label": "Feature the newest article",
+      "default": true,
+      "info": "Shown large on the first page when no tag is selected."
+    },
+    {
+      "type": "range",
+      "id": "per_page",
+      "label": "Articles per page",
+      "min": 6,
+      "max": 24,
+      "step": 3,
+      "default": 12
+    },
+    {
+      "type": "header",
+      "content": "Cards"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_image",
+      "label": "Show images",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Image shape",
+      "options": [
+        { "value": "landscape", "label": "Landscape" },
+        { "value": "square", "label": "Square" },
+        { "value": "portrait", "label": "Portrait" }
+      ],
+      "default": "landscape"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_excerpt",
+      "label": "Show excerpt",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_date",
+      "label": "Show date",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_reading_time",
+      "label": "Show reading time",
+      "default": true,
+      "info": "Estimated at 200 words a minute."
+    },
+    {
+      "type": "header",
+      "content": "Bed Finder card"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_finder_card",
+      "label": "Show the Bed Finder card in the grid",
+      "default": true,
+      "info": "Sits after the third article on the first page. Hidden when the finder is switched off in Theme settings."
+    },
+    {
+      "type": "text",
+      "id": "finder_eyebrow",
+      "label": "Eyebrow",
+      "default": "Ready to choose?"
+    },
+    {
+      "type": "text",
+      "id": "finder_heading",
+      "label": "Heading",
+      "default": "Not sure which bed suits your dog?"
+    },
+    {
+      "type": "text",
+      "id": "finder_heading_named",
+      "label": "Heading once we know the dog's name",
+      "default": "Not sure which bed suits [name]?",
+      "info": "[name] is replaced with the dog's name from the Bed Finder. Leave blank to always use the heading above."
+    },
+    {
+      "type": "textarea",
+      "id": "finder_text",
+      "label": "Text",
+      "default": "Four quick questions about how they sleep, and we'll suggest one bed in the right size."
+    },
+    {
+      "type": "text",
+      "id": "finder_button",
+      "label": "Button label",
+      "info": "Leave blank to use the Bed Finder label from Theme settings."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    }
+  ]
+}
+{% endschema %}

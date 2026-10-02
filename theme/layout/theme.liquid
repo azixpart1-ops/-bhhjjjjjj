@@ -1,0 +1,303 @@
+<!doctype html>
+<html class="no-js{% unless settings.animations %} no-motion{% endunless %}{% if request.design_mode %} is-design-mode{% endif %}" lang="{{ request.locale.iso_code }}">
+  <head>
+    {%- render 'meta-tags' -%}
+
+    <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
+
+    {%- if settings.favicon != blank %}
+      <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 64, height: 64 }}">
+      <link rel="apple-touch-icon" href="{{ settings.favicon | image_url: width: 180, height: 180 }}">
+    {%- endif %}
+
+    {%- liquid
+      assign heading_font = settings.type_heading_font
+      assign body_font = settings.type_body_font
+      assign heading_font_bold = heading_font | font_modify: 'weight', 'bolder'
+      assign heading_font_italic = heading_font | font_modify: 'style', 'italic'
+      assign body_font_medium = body_font | font_modify: 'weight', '500'
+      assign body_font_bold = body_font | font_modify: 'weight', 'bold'
+      assign body_font_italic = body_font | font_modify: 'style', 'italic'
+
+      assign c_bg = settings.color_bg | default: '#FAF6EF'
+      assign c_surface = settings.color_surface | default: '#F1E9DB'
+      assign c_sand = settings.color_sand | default: '#E3D7C3'
+      assign c_ink = settings.color_ink | default: '#17150F'
+      assign c_muted = settings.color_muted | default: '#5E5442'
+      assign c_control = settings.color_control_line | default: '#8C7F66'
+      assign c_dark = settings.color_dark | default: '#1A2B24'
+      assign c_on_dark = settings.color_on_dark | default: '#F1E9DB'
+      assign c_on_dark_muted = settings.color_on_dark_muted | default: '#A9BBB1'
+      assign c_accent = settings.color_accent | default: '#B4532A'
+      assign c_accent_text = settings.color_accent_text | default: '#FFFFFF'
+      assign c_highlight = settings.color_highlight | default: '#A87821'
+      assign c_alert = settings.color_alert | default: '#A8340E'
+      assign c_success = settings.color_success | default: '#2E6B4F'
+
+      assign radius = settings.radius | default: 0 | plus: 0
+      assign radius_lg = radius | times: 1.57 | round
+      assign radius_sm = radius | divided_by: 2.0 | round
+      if radius_sm < 4 and radius > 0
+        assign radius_sm = 4
+      endif
+      case settings.button_shape
+        when 'soft'
+          assign radius_btn = radius | times: 0.7 | round | append: 'px'
+          if radius == 0
+            assign radius_btn = '8px'
+          endif
+        when 'square'
+          assign radius_btn = '2px'
+        else
+          assign radius_btn = '999px'
+      endcase
+    -%}
+
+    {%- if body_font != blank %}
+      <link rel="preload" as="font" href="{{ body_font | font_url }}" type="font/woff2" crossorigin>
+    {%- endif %}
+
+    <style>
+      {{ heading_font | font_face: font_display: 'swap' }}
+      {{ heading_font_bold | font_face: font_display: 'swap' }}
+      {{ heading_font_italic | font_face: font_display: 'swap' }}
+      {{ body_font | font_face: font_display: 'swap' }}
+      {{ body_font_medium | font_face: font_display: 'swap' }}
+      {{ body_font_bold | font_face: font_display: 'swap' }}
+      {{ body_font_italic | font_face: font_display: 'swap' }}
+
+      :root {
+        --c-bg: {{ c_bg }};
+        --c-surface: {{ c_surface }};
+        --c-sand: {{ c_sand }};
+        --c-ink: {{ c_ink }};
+        --c-muted: {{ c_muted }};
+        --c-control-line: {{ c_control }};
+        --c-dark: {{ c_dark }};
+        --c-on-dark: {{ c_on_dark }};
+        --c-on-dark-muted: {{ c_on_dark_muted }};
+        --c-accent: {{ c_accent }};
+        --c-accent-text: {{ c_accent_text }};
+        --c-accent-hover: {{ c_accent | color_darken: 6 }};
+        --c-accent-shadow: {{ c_accent | color_modify: 'alpha', 0.45 }};
+        --c-highlight: {{ c_highlight }};
+        --c-alert: {{ c_alert }};
+        --c-success: {{ c_success }};
+
+        --c-raised: {{ c_bg | color_mix: '#ffffff', 50 }};
+        --c-dark-raised: {{ c_dark | color_lighten: 6 }};
+        --c-highlight-on-dark: {{ c_highlight | color_lighten: 15 }};
+        --c-alert-on-dark: {{ c_alert | color_lighten: 32 }};
+        --c-success-on-dark: {{ c_success | color_lighten: 28 }};
+        --c-on-dark-line: {{ c_on_dark | color_modify: 'alpha', 0.18 }};
+        --c-ink-line: {{ c_ink | color_modify: 'alpha', 0.12 }};
+        --c-overlay: {{ c_ink | color_modify: 'alpha', 0.48 }};
+
+        --shadow-sm: 0 1px 2px {{ c_ink | color_modify: 'alpha', 0.05 }}, 0 2px 8px {{ c_ink | color_modify: 'alpha', 0.04 }};
+        --shadow-md: 0 2px 4px {{ c_ink | color_modify: 'alpha', 0.05 }}, 0 12px 32px -8px {{ c_ink | color_modify: 'alpha', 0.14 }};
+        --shadow-lg: 0 4px 8px {{ c_ink | color_modify: 'alpha', 0.05 }}, 0 28px 60px -16px {{ c_ink | color_modify: 'alpha', 0.22 }};
+
+        --font-heading: {{ heading_font.family }}, {{ heading_font.fallback_families }};
+        --font-heading-weight: {{ heading_font.weight | default: 400 }};
+        --font-heading-weight-bold: {{ heading_font_bold.weight | default: 700 }};
+        --font-heading-style: {{ heading_font.style | default: 'normal' }};
+        --font-body: {{ body_font.family }}, {{ body_font.fallback_families }};
+        --font-body-weight: {{ body_font.weight | default: 400 }};
+        --font-body-weight-medium: {{ body_font_medium.weight | default: 500 }};
+        --font-body-weight-bold: {{ body_font_bold.weight | default: 700 }};
+        --font-body-style: {{ body_font.style | default: 'normal' }};
+        --fs-body: {{ settings.body_size | default: 16 }}px;
+        --heading-scale: {{ settings.heading_scale | default: 100 | divided_by: 100.0 }};
+
+        --page-width: {{ settings.page_width | default: '1320' }}px;
+        --radius: {{ radius }}px;
+        --radius-lg: {{ radius_lg }}px;
+        --radius-sm: {{ radius_sm }}px;
+        --radius-btn: {{ radius_btn }};
+        --logo-width: {{ settings.logo_width | default: 140 }}px;
+      }
+    </style>
+
+    {{ 'base.css' | asset_url | stylesheet_tag }}
+    {{ 'chrome.css' | asset_url | stylesheet_tag }}
+
+    {%- liquid
+      comment
+        Settings for JS. Every store claim the scripts use comes from here,
+        so switching a promise off in the editor switches it off everywhere.
+      endcomment
+      assign fs_threshold = 'null'
+      if settings.free_shipping_enable and settings.free_shipping_threshold > 0
+        assign fs_threshold = settings.free_shipping_threshold | times: 100 | round
+      endif
+
+      assign trial_nights = 0
+      if settings.trial_enable
+        assign trial_nights = settings.trial_nights | default: 0 | plus: 0
+      endif
+      assign guarantee_years = 0
+      if settings.guarantee_enable
+        assign guarantee_years = settings.guarantee_years | default: 0 | plus: 0
+      endif
+
+      assign per_night = false
+      if settings.show_per_night and guarantee_years > 0
+        assign per_night = true
+      endif
+
+      assign low_stock = 0
+      if settings.low_stock_enable
+        assign low_stock = settings.low_stock_threshold | default: 0 | plus: 0
+      endif
+
+      assign raw_days = settings.dispatch_days | default: '' | split: ','
+      assign days_json = ''
+      for r in raw_days
+        assign rn = r | strip
+        if rn.size == 1 and '0123456' contains rn
+          unless days_json contains rn
+            if days_json != ''
+              assign days_json = days_json | append: ','
+            endif
+            assign days_json = days_json | append: rn
+          endunless
+        endif
+      endfor
+
+      assign raw_holidays = settings.holiday_dates | default: '' | newline_to_br | replace: ',', '<br />' | split: '<br />'
+      assign holidays_json = ''
+      for h in raw_holidays
+        assign hd = h | strip
+        assign dash1 = hd | slice: 4, 1
+        assign dash2 = hd | slice: 7, 1
+        if hd.size == 10 and dash1 == '-' and dash2 == '-'
+          if holidays_json != ''
+            assign holidays_json = holidays_json | append: ','
+          endif
+          assign holidays_json = holidays_json | append: '"' | append: hd | append: '"'
+        endif
+      endfor
+
+      assign delivery_min = settings.delivery_min_days | default: 0 | plus: 0
+      assign delivery_max = settings.delivery_max_days | default: 0 | plus: 0
+      if delivery_max < delivery_min
+        assign delivery_max = delivery_min
+      endif
+
+      assign cutoff = settings.dispatch_cutoff_hour | default: 15 | plus: 0
+      assign tz = settings.store_timezone | default: 'Europe/London' | strip
+      if tz == ''
+        assign tz = 'Europe/London'
+      endif
+    -%}
+    {%- capture size_hints_json -%}{%- render 'size-hints', mode: 'json' -%}{%- endcapture -%}
+    {%- assign size_hints_json = size_hints_json | strip -%}
+    {%- if size_hints_json == '' -%}{%- assign size_hints_json = '[]' -%}{%- endif -%}
+
+    <script>
+      document.documentElement.className = document.documentElement.className.replace('no-js', 'js');
+      window.Lunova = window.Lunova || {};
+      Lunova.routes = {
+        root: {{ routes.root_url | json }},
+        cart: {{ routes.cart_url | json }},
+        cartAdd: {{ routes.cart_add_url | json }},
+        cartChange: {{ routes.cart_change_url | json }},
+        cartUpdate: {{ routes.cart_update_url | json }},
+        cartUrl: {{ routes.cart_url | json }},
+        search: {{ routes.search_url | json }},
+        predictiveSearch: {{ routes.predictive_search_url | json }},
+        productRecommendations: {{ routes.product_recommendations_url | json }},
+        collections: {{ routes.collections_url | json }},
+        allProducts: {{ routes.all_products_collection_url | json }}
+      };
+      Lunova.moneyFormat = {{ shop.money_format | json }};
+      Lunova.currency = {{ cart.currency.iso_code | json }};
+      Lunova.locale = {{ request.locale.iso_code | json }};
+      Lunova.template = {{ template.name | json }};
+      Lunova.templateSuffix = {{ template.suffix | json }};
+      Lunova.designMode = {{ request.design_mode | json }};
+      Lunova.settings = {
+        freeShippingThreshold: {{ fs_threshold }},
+        trialEnabled: {{ settings.trial_enable | json }},
+        trialNights: {{ trial_nights }},
+        guaranteeEnabled: {{ settings.guarantee_enable | json }},
+        guaranteeYears: {{ guarantee_years }},
+        deliveryEnabled: {{ settings.delivery_promise_enable | json }},
+        timezone: {{ tz | json }},
+        cutoffHour: {{ cutoff }},
+        dispatchDays: [{{ days_json }}],
+        deliveryMin: {{ delivery_min }},
+        deliveryMax: {{ delivery_max }},
+        holidays: [{{ holidays_json }}],
+        lowStockEnabled: {{ settings.low_stock_enable | json }},
+        lowStockThreshold: {{ low_stock }},
+        cartType: {{ settings.cart_type | default: 'drawer' | json }},
+        perNight: {{ per_night | json }},
+        installments: {
+          enabled: {{ settings.show_installments | json }},
+          count: {{ settings.installments_count | default: 3 }},
+          provider: {{ settings.installments_provider | default: '' | json }}
+        },
+        finderEnabled: {{ settings.finder_enable | json }},
+        finderCtaLabel: {{ settings.finder_cta_label | default: '' | json }},
+        predictiveSearch: {{ settings.predictive_search_enable | json }},
+        showCompareSavings: {{ settings.show_compare_savings | json }},
+        savingsFormat: {{ settings.savings_format | default: 'amount' | json }},
+        showProductRatings: {{ settings.show_product_ratings | json }},
+        animations: {{ settings.animations | json }},
+        sizeHints: {{ size_hints_json }}
+      };
+      Lunova.strings = {
+        addToBasket: {{ 'core.js.add_to_basket' | t | json }},
+        addToBasketPrice: {{ 'core.js.add_to_basket_price' | t | json }},
+        adding: {{ 'core.js.adding' | t | json }},
+        added: {{ 'core.js.added' | t | json }},
+        addedNamed: {{ 'core.js.added_named' | t | json }},
+        soldOut: {{ 'core.js.sold_out' | t | json }},
+        unavailable: {{ 'core.js.unavailable' | t | json }},
+        error: {{ 'core.js.error' | t | json }},
+        quantityError: {{ 'core.js.quantity_error' | t | json }},
+        loading: {{ 'core.js.loading' | t | json }},
+        close: {{ 'core.js.close' | t | json }},
+        finderMatch: {{ 'core.js.finder_match' | t | json }},
+        finderMatchDefault: {{ 'core.js.finder_match_default' | t | json }},
+        pence: {{ 'core.js.pence' | t | json }},
+        perNight: {{ 'core.js.per_night' | t | json }},
+        freeShippingRemaining: {{ 'core.js.free_shipping_remaining' | t | json }},
+        freeShippingUnlocked: {{ 'core.js.free_shipping_unlocked' | t | json }},
+        orderWithin: {{ 'core.delivery.order_within' | t | json }},
+        orderNow: {{ 'core.delivery.order_now' | t | json }},
+        dispatchTomorrow: {{ 'core.delivery.dispatch_tomorrow' | t | json }},
+        dispatchOn: {{ 'core.delivery.dispatch_on' | t | json }},
+        arrivalRange: {{ 'core.delivery.arrival_range' | t | json }},
+        hoursMinutes: {{ 'core.delivery.hours_minutes' | t | json }},
+        minutes: {{ 'core.delivery.minutes' | t | json }}
+      };
+    </script>
+
+    <script src="{{ 'global.js' | asset_url }}" defer="defer"></script>
+    <script src="{{ 'cart.js' | asset_url }}" defer="defer"></script>
+
+    {{ content_for_header }}
+
+    {%- if template.name == 'index' -%}
+      {%- render 'structured-data-org' -%}
+    {%- endif -%}
+  </head>
+
+  <body class="template-{{ template.name | handle }}{% if template.suffix != blank %} template-suffix-{{ template.suffix | handle }}{% endif %}{% unless settings.finder_enable %} finder-disabled{% endunless %} cart-type-{{ settings.cart_type | default: 'drawer' }}">
+    <a class="skip-link" href="#MainContent">{{ 'general.skip_to_content' | t }}</a>
+
+    {% sections 'header-group' %}
+
+    <main id="MainContent" class="content-for-layout" tabindex="-1">
+      {{ content_for_layout }}
+    </main>
+
+    {% sections 'footer-group' %}
+
+    {% section 'cart-drawer' %}
+    {% section 'quick-add' %}
+    {% section 'bed-finder' %}
+  </body>
+</html>

@@ -1,0 +1,231 @@
+{%- comment -%}
+  One basket line. Used by the cart drawer (chrome) and can be used by the
+  cart page (collection area) — everything it needs is passed in, and its JS
+  hooks are plain data attributes, not tied to either script.
+
+  Renders an <li>; wrap lines in <ul class="cart-lines" role="list">.
+
+  Parameters
+    item      line_item (required)
+    index     1-based line number (forloop.index) (required)
+    context   'drawer' (default) | 'page' — only used to keep ids unique
+
+  JS hooks
+    [data-line-key]              root; also data-line-index, data-quantity
+    [data-qty-step="-1" | "1"]   stepper buttons
+    [data-qty-input]             number input, name="updates[]" so a
+                                 <form action="/cart" method="post"> around
+                                 the lines works with no JavaScript
+    [data-line-remove]           remove link (its href works without JS)
+    [data-line-error]            empty live region for a failed update
+    [data-focus-key]             stable keys so focus survives a re-render
+
+  Honest numbers only: "Only 3 left" appears when the variant tracks stock,
+  won't oversell (policy deny) and is at or under the low-stock threshold.
+{%- endcomment -%}
+{%- liquid
+  assign ctx = context | default: 'drawer'
+  assign line_id = ctx | append: '-' | append: index
+  assign title = item.product.title | default: item.title
+  assign has_options = true
+  if item.product.has_only_default_variant or item.variant.title == blank
+    assign has_options = false
+  endif
+  assign full_title = title
+  if has_options
+    assign full_title = title | append: ' – ' | append: item.variant.title
+  endif
+
+  assign tracks = false
+  if item.variant.inventory_management == 'shopify' and item.variant.inventory_policy == 'deny'
+    assign tracks = true
+  endif
+  assign stock = item.variant.inventory_quantity | default: 0
+  assign at_max = false
+  if tracks and item.quantity >= stock
+    assign at_max = true
+  endif
+  assign low_stock = false
+  if settings.low_stock_enable and tracks and stock > 0 and stock <= settings.low_stock_threshold
+    assign low_stock = true
+  endif
+
+  assign compare_unit = item.variant.compare_at_price | default: 0
+  assign compare_line = 0
+  assign compare_saving = 0
+  if compare_unit > item.original_price
+    assign compare_line = compare_unit | times: item.quantity
+    assign compare_saving = compare_line | minus: item.original_line_price
+  endif
+  assign discounted = false
+  if item.original_line_price != item.final_line_price
+    assign discounted = true
+  endif
+-%}
+<li
+  class="cart-line"
+  id="CartLine-{{ line_id }}"
+  data-line-key="{{ item.key }}"
+  data-line-index="{{ index }}"
+  data-quantity="{{ item.quantity }}"
+  data-variant-id="{{ item.variant_id }}"
+  data-product-handle="{{ item.product.handle }}"
+>
+  <a href="{{ item.url }}" class="cart-line__media" tabindex="-1" aria-hidden="true">
+    {%- render 'image',
+      image: item.image,
+      widths: '120,180,240',
+      sizes: '(min-width: 750px) 96px, 80px',
+      class: 'cart-line__img',
+      loading: 'lazy',
+      decorative: true,
+      aspect: 1
+    -%}
+  </a>
+
+  <div class="cart-line__info">
+    <a href="{{ item.url }}" class="cart-line__title">{{ title | escape }}</a>
+
+    {%- if has_options -%}
+      <p class="cart-line__variant">
+        {%- for option in item.options_with_values -%}
+          <span class="cart-line__option">{{ option.name | escape }}: {{ option.value | escape }}</span>
+        {%- endfor -%}
+      </p>
+    {%- endif -%}
+
+    {%- if item.selling_plan_allocation -%}
+      <p class="cart-line__meta">{{ item.selling_plan_allocation.selling_plan.name | escape }}</p>
+    {%- endif -%}
+
+    {%- liquid
+      assign visible_props = 0
+      for p in item.properties
+        assign p_first = p.first | slice: 0
+        if p.last != blank and p_first != '_'
+          assign visible_props = visible_props | plus: 1
+        endif
+      endfor
+    -%}
+    {%- if visible_props > 0 -%}
+      <dl class="cart-line__props">
+        {%- for p in item.properties -%}
+          {%- assign p_first = p.first | slice: 0 -%}
+          {%- if p.last != blank and p_first != '_' -%}
+            <div class="cart-line__prop">
+              <dt>{{ p.first | escape }}:</dt>
+              <dd>
+                {%- if p.last contains '/uploads/' -%}
+                  <a href="{{ p.last }}" target="_blank" rel="noopener">{{ p.last | split: '/' | last | escape }}</a>
+                {%- else -%}
+                  {{ p.last | escape }}
+                {%- endif -%}
+              </dd>
+            </div>
+          {%- endif -%}
+        {%- endfor -%}
+      </dl>
+    {%- endif -%}
+
+    {%- if item.line_level_discount_allocations.size > 0 -%}
+      <ul class="cart-line__discounts" role="list">
+        {%- for allocation in item.line_level_discount_allocations -%}
+          <li>
+            {%- render 'icon', name: 'tag', size: 14 -%}
+            <span>{{ allocation.discount_application.title | escape }} (−{{ allocation.amount | money }})</span>
+          </li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+
+    {%- if low_stock -%}
+      <p class="cart-line__stock">
+        {%- if has_options -%}
+          {{ 'chrome.cart.low_stock_variant' | t: count: stock, variant: item.variant.title }}
+        {%- else -%}
+          {{ 'chrome.cart.low_stock' | t: count: stock }}
+        {%- endif -%}
+      </p>
+    {%- endif -%}
+
+    <div class="cart-line__controls">
+      <div class="cart-qty">
+        <button
+          type="button"
+          class="cart-qty__btn"
+          data-qty-step="-1"
+          data-focus-key="minus-{{ item.key }}"
+          aria-label="{{ 'chrome.cart.decrease' | t: title: full_title }}"
+          {% if item.quantity <= 1 %}disabled{% endif %}
+        >
+          {%- render 'icon', name: 'minus', size: 16 -%}
+        </button>
+        <label class="visually-hidden" for="Qty-{{ line_id }}">{{ 'chrome.cart.quantity_label' | t: title: full_title }}</label>
+        <input
+          class="cart-qty__input"
+          type="number"
+          id="Qty-{{ line_id }}"
+          name="updates[]"
+          value="{{ item.quantity }}"
+          min="0"
+          {% if tracks %}max="{{ stock }}"{% endif %}
+          step="1"
+          inputmode="numeric"
+          data-qty-input
+          data-focus-key="input-{{ item.key }}"
+        >
+        <button
+          type="button"
+          class="cart-qty__btn"
+          data-qty-step="1"
+          data-focus-key="plus-{{ item.key }}"
+          aria-label="{{ 'chrome.cart.increase' | t: title: full_title }}"
+          {% if at_max %}disabled{% endif %}
+        >
+          {%- render 'icon', name: 'plus', size: 16 -%}
+        </button>
+      </div>
+
+      <a
+        href="{{ item.url_to_remove }}"
+        class="cart-line__remove"
+        data-line-remove
+        data-focus-key="remove-{{ item.key }}"
+        aria-label="{{ 'chrome.cart.remove_label' | t: title: full_title }}"
+      >
+        {%- render 'icon', name: 'trash', size: 16 -%}
+        <span>{{ 'chrome.cart.remove' | t }}</span>
+      </a>
+    </div>
+
+    {%- if at_max and tracks -%}
+      <p class="cart-line__note">{{ 'chrome.cart.max_stock' | t }}</p>
+    {%- endif -%}
+
+    <p class="cart-line__error" role="alert" data-line-error></p>
+  </div>
+
+  <div class="cart-line__prices">
+    {%- if discounted -%}
+      <span class="visually-hidden">{{ 'accessibility.was_price' | t }}</span>
+      <s class="cart-line__was">{{ item.original_line_price | money }}</s>
+      <span class="visually-hidden">{{ 'accessibility.sale_price' | t }}</span>
+    {%- elsif compare_line > item.final_line_price -%}
+      <span class="visually-hidden">{{ 'accessibility.was_price' | t }}</span>
+      <s class="cart-line__was">{{ compare_line | money }}</s>
+      <span class="visually-hidden">{{ 'accessibility.sale_price' | t }}</span>
+    {%- endif -%}
+    <span class="cart-line__price">{{ item.final_line_price | money }}</span>
+    {%- if compare_saving > 0 and settings.show_compare_savings -%}
+      {%- liquid
+        if settings.savings_format == 'percent'
+          assign save_pct = compare_saving | times: 100 | divided_by: compare_line
+          assign save_text = save_pct | append: '%'
+        else
+          assign save_text = compare_saving | money_without_trailing_zeros
+        endif
+      -%}
+      <span class="cart-line__save">{{ 'general.save' | t: amount: save_text }}</span>
+    {%- endif -%}
+  </div>
+</li>

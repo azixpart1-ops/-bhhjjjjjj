@@ -1,0 +1,340 @@
+{%- comment -%}
+  Risk reversal — the sleep trial as a full section, not a footnote
+  (loss aversion: the cost of being wrong drops to nothing).
+
+  "Try it for [trial_nights] nights. At our risk, not yours." A three-step
+  night timeline drawn as phases of the moon (Night 1 → Night 30 → Night
+  [trial_nights]: not right? We collect it free and refund every penny),
+  the objection pre-empted ("It doesn't need to be unused"), and fine print
+  linking the real refund policy.
+
+  Every number comes from Theme settings. The whole section hides itself on
+  the live store when the trial is switched off (and says why in the editor),
+  so it can never promise a trial the shop isn't running. The guarantee line
+  hides when the guarantee is off.
+
+  Personalisation: if the Bed Finder knows the dog's name, a line reads
+  "Bella gets the final say: 100 nights of it." (global.js fills [name]).
+
+  Text can use [trial_nights], [guarantee_years], [threshold], [trial_mid].
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign nights = settings.trial_nights | default: 0 | plus: 0
+  assign trial_on = false
+  if settings.trial_enable and nights > 0
+    assign trial_on = true
+  endif
+-%}
+{%- if trial_on or request.design_mode -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign heading_id = section.id | append: '-heading'
+  assign years = settings.guarantee_years | default: 0 | plus: 0
+  assign guarantee_on = false
+  if settings.guarantee_enable and years > 0
+    assign guarantee_on = true
+  endif
+
+  comment
+    The middle step: night 30 for a long trial, otherwise half-way.
+  endcomment
+  assign mid = 30
+  if nights <= 45
+    assign mid = nights | divided_by: 2
+    if mid < 2
+      assign mid = 2
+    endif
+  endif
+
+  assign ph_nights = nights | append: ''
+  assign ph_years = years | append: ''
+  assign ph_mid = mid | append: ''
+  assign ph_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round | money_without_trailing_zeros
+
+  assign heading = s.heading | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[trial_mid]', ph_mid | newline_to_br
+  assign pull = s.pull | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years
+  assign reassure = s.reassurance | default: '' | escape | replace: '[trial_nights]', ph_nights
+
+  assign policy_url = shop.refund_policy.url | default: '/policies/refund-policy'
+
+  assign step_blocks = section.blocks | where: 'type', 'step'
+  assign step_count = step_blocks.size
+  if step_count == 0
+    assign step_count = 3
+  endif
+
+  assign has_image = false
+  if s.image != blank
+    assign has_image = true
+  endif
+-%}
+<section
+  class="section risk-reversal scheme-{{ s.color_scheme }}{% if has_image %} risk-reversal--with-image risk-reversal--media-{{ s.media_side | default: 'left' }}{% endif %}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width">
+    {%- unless trial_on -%}
+      <p class="editor-note">{{ 'home.editor.trial_off' | t }}</p>
+    {%- endunless -%}
+    <div class="risk-reversal__inner">
+      {%- if has_image -%}
+        <div class="risk-reversal__media media" style="--ratio: 4 / 5;">
+          {%- render 'image',
+            image: s.image,
+            widths: '360,540,720,900,1100',
+            sizes: '(min-width: 990px) 40vw, 100vw',
+            alt: s.image_alt,
+            aspect: 0.8,
+            class: 'risk-reversal__img'
+          -%}
+        </div>
+      {%- endif -%}
+
+      <div class="risk-reversal__content">
+        <header class="risk-reversal__head">
+          {%- if s.eyebrow != blank -%}
+            <p class="eyebrow risk-reversal__eyebrow">
+              {%- render 'icon', name: 'moon' -%}<span>{{ s.eyebrow | escape | replace: '[trial_nights]', ph_nights }}</span>
+            </p>
+          {%- endif -%}
+          <h2 id="{{ heading_id }}" class="h1 risk-reversal__heading">{{ heading | default: shop.name }}</h2>
+          {%- if pull != blank -%}
+            <p class="lede risk-reversal__pull">{{ pull }}</p>
+          {%- endif -%}
+          {%- if s.show_personal and settings.finder_enable -%}
+            <p class="risk-reversal__personal" data-finder-name="{{ 'home.risk.personal' | t: nights: ph_nights }}" data-finder-name-only hidden></p>
+          {%- endif -%}
+        </header>
+
+        <ol class="risk-reversal__steps" role="list" style="--steps: {{ step_count }};">
+          {%- if step_blocks.size > 0 -%}
+            {%- for block in step_blocks -%}
+              {%- liquid
+                assign b = block.settings
+                assign pos = forloop.index
+                assign phase = 'half'
+                if forloop.first
+                  assign phase = 'crescent'
+                elsif forloop.last
+                  assign phase = 'full'
+                elsif pos > 2
+                  assign phase = 'gibbous'
+                endif
+                assign label = b.night | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_mid]', ph_mid
+                assign title = b.title | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_mid]', ph_mid
+                assign text = b.text | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[trial_mid]', ph_mid
+              -%}
+              <li class="risk-reversal__step risk-reversal__step--{{ phase }}" data-reveal style="--i: {{ forloop.index0 }};" {{ block.shopify_attributes }}>
+                <span class="risk-reversal__moon" aria-hidden="true">
+                  <svg viewBox="0 0 40 40" focusable="false">
+                    <circle class="risk-reversal__moon-disc" cx="20" cy="20" r="15"/>
+                    {%- case phase -%}
+                      {%- when 'crescent' -%}<path class="risk-reversal__moon-lit" d="M20 5a15 15 0 0 1 0 30a9 15 0 0 0 0-30z"/>
+                      {%- when 'half' -%}<path class="risk-reversal__moon-lit" d="M20 5a15 15 0 0 1 0 30z"/>
+                      {%- when 'gibbous' -%}<path class="risk-reversal__moon-lit" d="M20 5a15 15 0 0 1 0 30a8 15 0 0 1 0-30z"/>
+                      {%- else -%}<circle class="risk-reversal__moon-lit" cx="20" cy="20" r="15"/>
+                    {%- endcase -%}
+                  </svg>
+                </span>
+                {%- if label != blank -%}<span class="risk-reversal__night">{{ label }}</span>{%- endif -%}
+                {%- if title != blank -%}<h3 class="risk-reversal__step-title">{{ title }}</h3>{%- endif -%}
+                {%- if text != blank -%}<p class="risk-reversal__step-text">{{ text }}</p>{%- endif -%}
+              </li>
+            {%- endfor -%}
+          {%- else -%}
+            {%- assign default_phases = 'crescent,half,full' | split: ',' -%}
+            {%- for phase in default_phases -%}
+              {%- liquid
+                assign k = 'home.risk.step_' | append: forloop.index
+                assign k_night = k | append: '_night'
+                assign k_title = k | append: '_title'
+                assign k_text = k | append: '_text'
+              -%}
+              <li class="risk-reversal__step risk-reversal__step--{{ phase }}" data-reveal style="--i: {{ forloop.index0 }};">
+                <span class="risk-reversal__moon" aria-hidden="true">
+                  <svg viewBox="0 0 40 40" focusable="false">
+                    <circle class="risk-reversal__moon-disc" cx="20" cy="20" r="15"/>
+                    {%- case phase -%}
+                      {%- when 'crescent' -%}<path class="risk-reversal__moon-lit" d="M20 5a15 15 0 0 1 0 30a9 15 0 0 0 0-30z"/>
+                      {%- when 'half' -%}<path class="risk-reversal__moon-lit" d="M20 5a15 15 0 0 1 0 30z"/>
+                      {%- else -%}<circle class="risk-reversal__moon-lit" cx="20" cy="20" r="15"/>
+                    {%- endcase -%}
+                  </svg>
+                </span>
+                <span class="risk-reversal__night">{{ k_night | t: nights: ph_nights, mid: ph_mid }}</span>
+                <h3 class="risk-reversal__step-title">{{ k_title | t: nights: ph_nights }}</h3>
+                <p class="risk-reversal__step-text">{{ k_text | t: nights: ph_nights }}</p>
+              </li>
+            {%- endfor -%}
+          {%- endif -%}
+        </ol>
+
+        {%- if reassure != blank -%}
+          <p class="risk-reversal__reassure">
+            {%- render 'icon', name: 'check-circle' -%}<span>{{ reassure }}</span>
+          </p>
+        {%- endif -%}
+
+        <div class="risk-reversal__fine">
+          {%- if guarantee_on and s.guarantee_note != blank -%}
+            <p>{{ s.guarantee_note | escape | replace: '[guarantee_years]', ph_years }}</p>
+          {%- endif -%}
+          {%- if s.policy_label != blank -%}
+            <p><a class="risk-reversal__policy" href="{{ policy_url }}">{{ s.policy_label | escape }}</a></p>
+          {%- endif -%}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sleep trial",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 4,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Numbers come from Theme settings → Promises. Text can use [trial_nights], [trial_mid] (night 30, or half-way on a short trial), [guarantee_years] and [threshold]. The section hides itself when the trial is switched off."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "moss"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "The [trial_nights]-night trial"
+    },
+    {
+      "type": "textarea",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Try it for [trial_nights] nights.\nAt our risk, not yours."
+    },
+    {
+      "type": "textarea",
+      "id": "pull",
+      "label": "Intro",
+      "default": "If your dog isn't visibly more comfortable on it, tell us. We collect it free of charge and refund every penny."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_personal",
+      "label": "Use the dog's name from the Bed Finder",
+      "default": true,
+      "info": "Adds \"Bella gets the final say: 100 nights of it.\" for visitors who told the finder their dog's name."
+    },
+    {
+      "type": "text",
+      "id": "reassurance",
+      "label": "Reassurance",
+      "default": "It doesn't need to be unused. Send it back slept-on, hair and all."
+    },
+    {
+      "type": "text",
+      "id": "guarantee_note",
+      "label": "Guarantee line",
+      "default": "Every memory foam bed also carries the [guarantee_years]-year foam guarantee.",
+      "info": "Hidden when the guarantee is switched off."
+    },
+    {
+      "type": "text",
+      "id": "policy_label",
+      "label": "Policy link label",
+      "default": "Read the full returns policy",
+      "info": "Links to your refund policy (Settings → Policies)."
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image (optional)"
+    },
+    {
+      "type": "text",
+      "id": "image_alt",
+      "label": "Image description (alt text)"
+    },
+    {
+      "type": "select",
+      "id": "media_side",
+      "label": "Image side (desktop)",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "right", "label": "Right" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    }
+  ],
+  "blocks": [
+    {
+      "type": "step",
+      "name": "Night",
+      "settings": [
+        {
+          "type": "text",
+          "id": "night",
+          "label": "Night label",
+          "default": "Night 1"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "It arrives"
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Text",
+          "default": "Put it where they already sleep, with a blanket that smells of home on top."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Sleep trial",
+      "blocks": [
+        { "type": "step", "settings": { "night": "Night 1", "title": "It arrives", "text": "Put it where they already sleep, with a blanket that smells of home on top." } },
+        { "type": "step", "settings": { "night": "Night [trial_mid]", "title": "Give them time", "text": "Plenty of dogs claim a new bed the first evening. Some take a fortnight and a familiar blanket on top. Both are normal." } },
+        { "type": "step", "settings": { "night": "Night [trial_nights]", "title": "Not right? Tell us", "text": "Any time inside the [trial_nights] nights. We collect it free and refund every penny. You are not paying to send it back." } }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,516 @@
+{%- comment -%}
+  Collection grid with Shopify storefront filtering and sorting.
+
+  Conversion levers here, all honest:
+    - Choice architecture: a Bed Finder tile sits *inside* the grid at
+      position N (default 3) on page 1 — help offered where the choice feels
+      biggest, without leaving the page. Personalised once the finder knows
+      the dog's name; finder-matched cards get their "Bella's match" chip
+      from global.js.
+    - Friction removal: filters apply instantly (Section Rendering, no page
+      load), state lives in the URL (shareable, back button works), quick
+      add on every card, a sticky "Filter & sort (n)" bar on phones.
+    - Recovery, never a dead end: empty / over-filtered states offer
+      "Clear all" and the finder.
+    - SEO without clutter: the collection description sits under the grid,
+      its headings demoted one level so the page keeps a single H1.
+
+  JS: <facet-filters> in collection.js (progressive enhancement — every
+  control is a real link or GET form first).
+{%- endcomment -%}
+{{ 'collection.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'collection.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign sid = section.id
+  assign cs = section.settings.color_scheme | default: 'bone'
+  assign per_page = section.settings.products_per_page | default: 24
+  assign fx_layout = section.settings.filter_layout | default: 'sidebar'
+  assign cols = section.settings.columns_desktop | default: '4'
+
+  assign ratio_key = section.settings.image_ratio
+  if ratio_key == 'theme' or ratio_key == blank
+    assign ratio_key = settings.card_image_ratio | default: 'square'
+  endif
+  case ratio_key
+    when 'portrait'
+      assign ratio_css = '4 / 5'
+    when 'landscape'
+      assign ratio_css = '4 / 3'
+    else
+      assign ratio_css = '1 / 1'
+  endcase
+
+  assign raw_title = collection.title | default: ''
+  assign title = raw_title | split: ' | ' | first | split: ' – ' | first | split: ' — ' | first | strip
+  if title == ''
+    assign title = raw_title | strip
+  endif
+
+  assign has_filters = false
+  if section.settings.enable_filtering and collection.filters.size > 0
+    assign has_filters = true
+  endif
+
+  assign active_count = 0
+  if has_filters
+    for filter in collection.filters
+      if filter.type == 'price_range'
+        if filter.min_value.value != nil or filter.max_value.value != nil
+          assign active_count = active_count | plus: 1
+        endif
+      else
+        assign active_count = active_count | plus: filter.active_values.size
+      endif
+    endfor
+  endif
+
+  assign clear_url = collection.url
+  if collection.sort_by != blank
+    assign clear_url = collection.url | append: '?sort_by=' | append: collection.sort_by
+  endif
+
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign finder_label = settings.finder_cta_label | default: ''
+  if finder_label == ''
+    assign finder_label = 'collection.finder_tile.cta' | t
+  endif
+
+  assign total_in_collection = collection.all_products_count | default: 0 | plus: 0
+  assign shop_total = collections.all.products_count | default: 0 | plus: 0
+-%}
+
+{%- paginate collection.products by per_page -%}
+  {%- liquid
+    assign results_count = collection.products_count | default: 0 | plus: 0
+    assign show_tile = false
+    if section.settings.show_finder_tile and settings.finder_enable and paginate.current_page == 1
+      assign show_tile = true
+    endif
+    assign tile_pos = section.settings.finder_tile_position | default: 3 | plus: 0
+  -%}
+  <section
+    class="section scheme-{{ cs }} main-collection"
+    id="{{ sid }}-wrap"
+    aria-labelledby="ResultsHeading-{{ sid }}"
+  >
+    <div class="page-width">
+      <facet-filters
+        class="facets-layout facets-layout--{{ fx_layout }}{% if has_filters %} has-filters{% endif %}"
+        data-section-id="{{ sid }}"
+        data-results-url="{{ collection.url }}"
+      >
+        <h2 class="visually-hidden" id="ResultsHeading-{{ sid }}" tabindex="-1" data-results-heading>{{ 'collection.grid.heading' | t: title: title }}</h2>
+
+        {%- render 'facets',
+          part: 'bar',
+          results: collection,
+          section_id: sid,
+          action_url: collection.url,
+          layout: fx_layout,
+          enable_filtering: section.settings.enable_filtering,
+          enable_sorting: section.settings.enable_sorting,
+          results_count: results_count,
+          noun: 'beds'
+        -%}
+        {%- render 'facets',
+          part: 'panel',
+          results: collection,
+          section_id: sid,
+          action_url: collection.url,
+          layout: fx_layout,
+          enable_filtering: section.settings.enable_filtering,
+          enable_sorting: section.settings.enable_sorting,
+          results_count: results_count,
+          noun: 'beds'
+        -%}
+
+        <div class="facets-layout__main">
+          {%- if total_in_collection > 0 or active_count > 0 -%}
+            {%- render 'facets',
+              part: 'toolbar',
+              results: collection,
+              section_id: sid,
+              action_url: collection.url,
+              layout: fx_layout,
+              enable_filtering: section.settings.enable_filtering,
+              enable_sorting: section.settings.enable_sorting,
+              results_count: results_count,
+              noun: 'beds'
+            -%}
+          {%- endif -%}
+
+          <div class="collection-results" id="Results-{{ sid }}" data-swap="results" data-results>
+            {%- if results_count > 0 -%}
+              <ul
+                class="grid collection-grid collection-grid--{{ cols }}{% if has_filters and fx_layout == 'sidebar' %} collection-grid--beside-filters{% endif %}"
+                role="list"
+                style="--card-ratio: {{ ratio_css }};"
+              >
+                {%- assign tile_done = false -%}
+                {%- for product in collection.products -%}
+                  {%- if show_tile and tile_done == false and forloop.index == tile_pos -%}
+                    {%- render 'finder-tile',
+                      heading: section.settings.finder_tile_heading,
+                      text: section.settings.finder_tile_text,
+                      ratio: ratio_css,
+                      class: 'collection-grid__tile',
+                      index: forloop.index
+                    -%}
+                    {%- assign tile_done = true -%}
+                  {%- endif -%}
+                  {%- liquid
+                    assign card_lazy = true
+                    if forloop.index <= 2
+                      assign card_lazy = false
+                    endif
+                    assign stagger = forloop.index0 | modulo: 4 | plus: 1
+                  -%}
+                  <li class="collection-grid__item">
+                    {%- render 'product-card',
+                      product: product,
+                      image_ratio: ratio_key,
+                      show_quick_add: section.settings.show_quick_add,
+                      show_per_night: section.settings.show_per_night,
+                      lazy: card_lazy,
+                      heading_level: 'h3',
+                      index: stagger,
+                      reveal: true
+                    -%}
+                  </li>
+                {%- endfor -%}
+                {%- if show_tile and tile_done == false -%}
+                  {%- render 'finder-tile',
+                    heading: section.settings.finder_tile_heading,
+                    text: section.settings.finder_tile_text,
+                    ratio: ratio_css,
+                    class: 'collection-grid__tile'
+                  -%}
+                {%- endif -%}
+              </ul>
+
+              {%- render 'pagination', paginate: paginate, anchor: '', show_summary: true, class: 'collection-results__pagination' -%}
+
+            {%- elsif total_in_collection == 0 and active_count == 0 and request.design_mode -%}
+              <p class="collection-results__editor-note">{{ 'collection.empty.editor_note' | t }}</p>
+              <ul class="grid collection-grid collection-grid--{{ cols }}" role="list" style="--card-ratio: {{ ratio_css }};">
+                {%- for i in (1..8) -%}
+                  {%- if show_tile and forloop.index == tile_pos -%}
+                    {%- render 'finder-tile',
+                      heading: section.settings.finder_tile_heading,
+                      text: section.settings.finder_tile_text,
+                      ratio: ratio_css,
+                      class: 'collection-grid__tile'
+                    -%}
+                  {%- endif -%}
+                  <li class="collection-grid__item">
+                    {%- render 'product-card', product: blank, image_ratio: ratio_key, placeholder_index: i, heading_level: 'h3' -%}
+                  </li>
+                {%- endfor -%}
+              </ul>
+
+            {%- elsif total_in_collection == 0 and active_count == 0 -%}
+              <div class="collection-empty">
+                <span class="collection-empty__art" aria-hidden="true">{%- render 'icon', name: 'bed' -%}</span>
+                <h3 class="h3 collection-empty__heading">{{ section.settings.empty_heading | escape }}</h3>
+                {%- if section.settings.empty_text != blank -%}
+                  <div class="collection-empty__text rte">{{ section.settings.empty_text }}</div>
+                {%- endif -%}
+                <div class="collection-empty__actions">
+                  {%- if settings.finder_enable -%}
+                    <a href="{{ finder_url }}" class="btn btn--secondary" data-open-finder>
+                      {%- render 'icon', name: 'paw' -%}
+                      <span>{{ finder_label | escape }}</span>
+                    </a>
+                  {%- endif -%}
+                  {%- if collection.handle != 'all' and shop_total > 0 -%}
+                    <a href="{{ routes.all_products_collection_url }}" class="collection-empty__link">
+                      <span>{{ 'collection.empty.all_beds' | t }}</span>
+                      {%- render 'icon', name: 'arrow-right' -%}
+                    </a>
+                  {%- endif -%}
+                </div>
+                {%- render 'trust-list', items: 'trial,guarantee,delivery', layout: 'row', size: 'sm', class: 'collection-empty__trust' -%}
+              </div>
+
+            {%- else -%}
+              <div class="collection-empty collection-empty--filtered">
+                <span class="collection-empty__art" aria-hidden="true">{%- render 'icon', name: 'filter' -%}</span>
+                <h3 class="h3 collection-empty__heading">{{ 'collection.empty.filtered_heading' | t }}</h3>
+                <p class="collection-empty__text">{{ 'collection.empty.filtered_text' | t: title: title }}</p>
+                <div class="collection-empty__actions">
+                  <a href="{{ clear_url }}" class="btn btn--secondary" data-facets-link>{{ 'collection.facets.clear_all' | t }}</a>
+                  {%- if settings.finder_enable -%}
+                    <a href="{{ finder_url }}" class="btn btn--ghost" data-open-finder>
+                      {%- render 'icon', name: 'paw' -%}
+                      <span>{{ 'collection.empty.filtered_finder' | t }}</span>
+                    </a>
+                  {%- endif -%}
+                </div>
+              </div>
+            {%- endif -%}
+          </div>
+        </div>
+
+        <p class="visually-hidden" role="status" aria-live="polite" aria-atomic="true" data-facets-live></p>
+      </facet-filters>
+    </div>
+
+    {%- if section.settings.show_description and collection.description != blank -%}
+      {%- liquid
+        assign about = collection.description
+        assign about = about | replace: '<h5', '<h6' | replace: '</h5>', '</h6>'
+        assign about = about | replace: '<h4', '<h5' | replace: '</h4>', '</h5>'
+        assign about = about | replace: '<h3', '<h4' | replace: '</h3>', '</h4>'
+        assign about = about | replace: '<h2', '<h3' | replace: '</h2>', '</h3>'
+        assign about = about | replace: '<h1', '<h2' | replace: '</h1>', '</h2>'
+        assign about_has_heading = false
+        if about contains '<h2'
+          assign about_first = about | strip | slice: 0, 3
+          if about_first == '<h2'
+            assign about_has_heading = true
+          endif
+        endif
+      -%}
+      <div class="page-width collection-about" data-collection-about>
+        <div class="collection-about__inner">
+          {%- unless about_has_heading -%}
+            <h2 class="h3 collection-about__heading">{{ 'collection.about.heading' | t: title: title }}</h2>
+          {%- endunless -%}
+          <div class="rte collection-about__body" id="CollectionAbout-{{ sid }}" data-about-body>
+            {{ about }}
+          </div>
+          <button
+            type="button"
+            class="link collection-about__toggle"
+            aria-controls="CollectionAbout-{{ sid }}"
+            aria-expanded="false"
+            data-about-toggle
+            data-label-more="{{ 'collection.about.read_more' | t }}"
+            data-label-less="{{ 'collection.about.read_less' | t }}"
+            hidden
+          >
+            {{- 'collection.about.read_more' | t -}}
+          </button>
+        </div>
+      </div>
+    {%- endif -%}
+
+    {%- if section.settings.enable_schema and results_count > 0 -%}
+      {%- assign origin = request.origin | default: shop.url -%}
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": {{ title | json }},
+          "url": {{ origin | append: collection.url | json }},
+          {%- if collection.description != blank -%}
+          "description": {{ collection.description | strip_html | strip | truncate: 300 | json }},
+          {%- endif -%}
+          "mainEntity": {
+            "@type": "ItemList",
+            "numberOfItems": {{ results_count }},
+            "itemListElement": [
+              {%- for product in collection.products -%}
+              {
+                "@type": "ListItem",
+                "position": {{ paginate.current_offset | plus: forloop.index }},
+                "url": {{ origin | append: product.url | json }},
+                "name": {{ product.title | json }}
+              }{%- unless forloop.last -%},{%- endunless -%}
+              {%- endfor -%}
+            ]
+          }
+        }
+      </script>
+    {%- endif -%}
+  </section>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Collection grid",
+  "tag": "div",
+  "class": "section-main-collection",
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "range",
+      "id": "products_per_page",
+      "label": "Beds per page",
+      "min": 12,
+      "max": 48,
+      "step": 4,
+      "default": 24
+    },
+    {
+      "type": "select",
+      "id": "columns_desktop",
+      "label": "Columns on desktop",
+      "options": [
+        { "value": "3", "label": "3" },
+        { "value": "4", "label": "4" }
+      ],
+      "default": "4",
+      "info": "Phones always show 2."
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "Card image shape",
+      "options": [
+        { "value": "theme", "label": "Theme default" },
+        { "value": "square", "label": "Square" },
+        { "value": "portrait", "label": "Portrait" },
+        { "value": "landscape", "label": "Landscape" }
+      ],
+      "default": "theme"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_quick_add",
+      "label": "Show quick add on cards",
+      "default": true,
+      "info": "Also needs Theme settings → Cards → Quick add."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_per_night",
+      "label": "Show the per-night price on cards",
+      "default": false,
+      "info": "\"About 9p a night over the 5-year guarantee\". Follows Theme settings → Pricing."
+    },
+    {
+      "type": "header",
+      "content": "Filtering and sorting"
+    },
+    {
+      "type": "paragraph",
+      "content": "Filters come from the Shopify Search & Discovery app. Add size, colour, price or availability there and they appear here."
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_filtering",
+      "label": "Enable filtering",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "filter_layout",
+      "label": "Filters on desktop",
+      "options": [
+        { "value": "sidebar", "label": "Sidebar" },
+        { "value": "topbar", "label": "Top bar" }
+      ],
+      "default": "sidebar",
+      "info": "On phones, filters always open in a drawer from a sticky bar."
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_sorting",
+      "label": "Enable sorting",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Bed Finder tile"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_finder_tile",
+      "label": "Show the Bed Finder tile in the grid",
+      "default": true,
+      "info": "Shown on the first page only. Hidden when the Bed Finder is switched off in Theme settings."
+    },
+    {
+      "type": "range",
+      "id": "finder_tile_position",
+      "label": "Position in the grid",
+      "min": 1,
+      "max": 12,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "text",
+      "id": "finder_tile_heading",
+      "label": "Heading",
+      "default": "Not sure which bed?"
+    },
+    {
+      "type": "text",
+      "id": "finder_tile_text",
+      "label": "Text",
+      "default": "Answer 4 quick questions and we'll match one to your dog."
+    },
+    {
+      "type": "header",
+      "content": "Empty collection"
+    },
+    {
+      "type": "text",
+      "id": "empty_heading",
+      "label": "Heading",
+      "default": "Nothing here just yet."
+    },
+    {
+      "type": "richtext",
+      "id": "empty_text",
+      "label": "Text",
+      "default": "<p>We're still filling this collection. Tell us how your dog sleeps and we'll point you to the right bed in the meantime.</p>"
+    },
+    {
+      "type": "header",
+      "content": "Below the grid"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "label": "Show the collection description",
+      "default": true,
+      "info": "Long descriptions fold to a few lines with a \"Read more\" button. Headings inside it move down a level so the page keeps one main heading."
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_schema",
+      "label": "Add structured data for search engines",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    }
+  ]
+}
+{% endschema %}

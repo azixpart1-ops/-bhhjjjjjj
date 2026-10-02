@@ -1,0 +1,914 @@
+{%- comment -%}
+  Buy box — every part of the product page's buy column, in one place, so the
+  product page and the quick-add drawer behave identically.
+
+  Three ways to call it
+    1. One main-product block (main-product loops its blocks):
+         {% render 'buy-box', product: product, section: section, block: block, variant: current %}
+    2. Compact, for chrome's quick-add-product section (Section Rendering):
+         {% render 'buy-box', product: product, section: section, compact: true %}
+       → variant picker, stock, Add button, one-line risk reversal. The drawer
+         already shows the title and price above it, so those are off unless
+         show_title: true / show_price: true are passed.
+    3. A single named part: part: 'data' → the product JSON island product.js
+       reads (main-product renders it once, outside the blocks).
+
+  Parameters
+    product, section   required
+    block              a main-product block
+    compact            true → the compact box (see above)
+    variant            the variant to show; else ?variant= > most chosen > first available
+    part               'data'
+    show_title         compact only
+    show_price         compact only
+
+  Psychology (all honest, all switchable)
+    - Price anchoring: compare-at struck through + "Save £X" (price snippet),
+      per-night reframe with its basis one tap away, price inside the button.
+    - Default effect: the merchant's most-chosen size is pre-selected server
+      side; product.js upgrades that to the Bed Finder size when there is one.
+    - Honest scarcity: "Only 3 left in Medium" ONLY when Shopify tracks the
+      variant, it can't oversell (policy deny) and stock ≤ the low-stock setting.
+    - Honest urgency: the dispatch countdown comes from the real cut-off.
+    - Risk reversal sits directly under the button.
+{%- endcomment -%}
+{%- if product != blank and product.id != blank -%}
+{%- liquid
+  comment
+    ---- The selected variant (same rule as main-product) ----
+  endcomment
+  assign current = variant
+  if current == blank or current.id == blank
+    assign current = product.selected_or_first_available_variant
+    if product.selected_variant == blank and product.has_only_default_variant == false
+      assign mc_found = false
+      for v in product.variants
+        if v.available and v.metafields.custom.most_chosen.value == true
+          assign current = v
+          assign mc_found = true
+          break
+        endif
+      endfor
+      assign mc_value = section.settings.most_chosen_value | default: '' | downcase | strip
+      if mc_found == false and mc_value != ''
+        for v in product.variants
+          if v.available
+            for o in v.options
+              assign od = o | downcase | strip
+              if od == mc_value
+                assign current = v
+                assign mc_found = true
+                break
+              endif
+            endfor
+          endif
+          if mc_found
+            break
+          endif
+        endfor
+      endif
+    endif
+  endif
+
+  comment
+    ---- Shared facts ----
+  endcomment
+  assign size_idx = -1
+  for option in product.options_with_values
+    assign oname = option.name | downcase
+    if oname contains 'size'
+      assign size_idx = forloop.index0
+      break
+    endif
+  endfor
+
+  assign nights = settings.trial_nights | default: 0 | plus: 0
+  assign years = settings.guarantee_years | default: 0 | plus: 0
+  assign trial_on = false
+  if settings.trial_enable and nights > 0
+    assign trial_on = true
+  endif
+  assign guarantee_on = false
+  if settings.guarantee_enable and years > 0
+    assign guarantee_on = true
+  endif
+  assign threshold_cents = 0
+  if settings.free_shipping_enable and settings.free_shipping_threshold > 0
+    assign threshold_cents = settings.free_shipping_threshold | times: 100 | round
+  endif
+  assign threshold_money = threshold_cents | money_without_trailing_zeros
+  assign nights_s = nights | append: ''
+  assign years_s = years | append: ''
+  assign low_limit = 0
+  if settings.low_stock_enable
+    assign low_limit = settings.low_stock_threshold | default: 0 | plus: 0
+  endif
+
+  comment
+    ---- Stock state of the selected variant ----
+    in | low | backorder | out
+  endcomment
+  assign stock_state = 'in'
+  assign stock_qty = current.inventory_quantity | default: 0 | plus: 0
+  if current.available == false
+    assign stock_state = 'out'
+  elsif current.inventory_management == 'shopify' and current.inventory_policy == 'continue' and stock_qty <= 0
+    assign stock_state = 'backorder'
+  elsif low_limit > 0 and current.inventory_management == 'shopify' and current.inventory_policy == 'deny' and stock_qty > 0 and stock_qty <= low_limit
+    assign stock_state = 'low'
+  endif
+
+  assign form_id = 'product-form-' | append: section.id
+  if compact
+    assign form_id = form_id | append: '-compact'
+  endif
+
+  comment
+    ---- Which parts to render ----
+  endcomment
+  if part != blank
+    assign parts = part | split: ','
+  elsif compact
+    assign parts_str = 'data'
+    if show_title
+      assign parts_str = parts_str | append: ',title'
+    endif
+    if show_price
+      assign parts_str = parts_str | append: ',price'
+    endif
+    assign parts_str = parts_str | append: ',variant_picker,stock,buy_buttons,risk_reversal'
+    assign parts = parts_str | split: ','
+  else
+    assign parts = block.type | split: ','
+  endif
+
+  assign bs = block.settings
+-%}
+{%- if compact -%}
+  <div class="buy-box buy-box--compact" data-product-scope data-section-id="{{ section.id }}" data-buy-box>
+{%- endif -%}
+{%- for p in parts -%}
+  {%- case p -%}
+
+    {%- comment -%} ---------- JSON island for product.js ---------- {%- endcomment -%}
+    {%- when 'data' -%}
+      {%- liquid
+        assign colour_idx = -1
+        for option in product.options_with_values
+          assign oname = option.name | downcase
+          if oname contains 'colour' or oname contains 'color'
+            assign colour_idx = forloop.index0
+            break
+          endif
+        endfor
+        assign fallback_img = product.featured_media.preview_image
+      -%}
+      <script type="application/json" data-product-json>
+        {
+          "id": {{ product.id | json }},
+          "handle": {{ product.handle | json }},
+          "title": {{ product.title | json }},
+          "url": {{ product.url | json }},
+          "options": {{ product.options | json }},
+          "sizeIndex": {{ size_idx }},
+          "colourIndex": {{ colour_idx }},
+          "onlyDefault": {{ product.has_only_default_variant | json }},
+          "currentId": {{ current.id | json }},
+          "image": {% if fallback_img %}{{ fallback_img | image_url: width: 160 | json }}{% else %}null{% endif %},
+          "variants": [
+            {%- for v in product.variants -%}
+              {%- liquid
+                assign v_state = 'in'
+                assign v_qty = v.inventory_quantity | default: 0 | plus: 0
+                assign v_low = 'null'
+                if v.available == false
+                  assign v_state = 'out'
+                elsif v.inventory_management == 'shopify' and v.inventory_policy == 'continue' and v_qty <= 0
+                  assign v_state = 'backorder'
+                elsif low_limit > 0 and v.inventory_management == 'shopify' and v.inventory_policy == 'deny' and v_qty > 0 and v_qty <= low_limit
+                  assign v_state = 'low'
+                  assign v_low = v_qty
+                endif
+                assign v_img = v.featured_media.preview_image
+              -%}
+              {
+                "id": {{ v.id | json }},
+                "title": {{ v.title | json }},
+                "options": {{ v.options | json }},
+                "available": {{ v.available | json }},
+                "price": {{ v.price | json }},
+                "compare_at_price": {{ v.compare_at_price | default: 0 | json }},
+                "sku": {{ v.sku | default: '' | json }},
+                "featured_media": {% if v.featured_media %}{"id": {{ v.featured_media.id | json }}, "src": {{ v_img | image_url: width: 160 | json }}}{% else %}null{% endif %},
+                "most_chosen": {{ v.metafields.custom.most_chosen.value | default: false | json }},
+                "stock": {"state": {{ v_state | json }}, "qty": {{ v_low }}}
+              }{%- unless forloop.last -%},{%- endunless -%}
+            {%- endfor -%}
+          ],
+          "strings": {
+            "addPrice": {{ 'product.buy.add_price' | t: price: '[price]' | json }},
+            "add": {{ 'product.buy.add' | t | json }},
+            "preorderPrice": {{ 'product.buy.preorder_price' | t: price: '[price]' | json }},
+            "preorder": {{ 'product.buy.preorder' | t | json }},
+            "soldOut": {{ 'product.buy.sold_out' | t | json }},
+            "unavailable": {{ 'product.buy.unavailable' | t | json }},
+            "added": {{ 'product.buy.added' | t | json }},
+            "viewBasket": {{ 'product.buy.view_basket' | t | json }},
+            "error": {{ 'product.buy.error' | t | json }},
+            "inStock": {{ 'product.stock.in_stock' | t | json }},
+            "low": {{ 'product.stock.low' | t: count: '[count]', size: '[size]' | json }},
+            "lowSingle": {{ 'product.stock.low_single' | t: count: '[count]' | json }},
+            "backorder": {{ 'product.stock.backorder' | t | json }},
+            "soldOutIn": {{ 'product.stock.sold_out' | t: size: '[size]' | json }},
+            "soldOutSingle": {{ 'product.stock.sold_out_single' | t | json }},
+            "valueSoldOut": {{ 'product.picker.sold_out' | t | json }},
+            "valueUnavailable": {{ 'product.picker.unavailable' | t | json }},
+            "status": {{ 'product.picker.status' | t | json }},
+            "installments": {{ 'product.price.installments' | t: count: '[count]', amount: '[amount]', provider: '[provider]' | json }},
+            "qualifies": {{ 'product.delivery.qualifies' | t | json }},
+            "threshold": {{ 'product.delivery.threshold' | t: amount: '[amount]' | json }},
+            "finderResult": {{ 'product.finder.result' | t | json }},
+            "finderResultDefault": {{ 'product.finder.result_default' | t | json }},
+            "wasPrice": {{ 'accessibility.was_price' | t | json }},
+            "salePrice": {{ 'accessibility.sale_price' | t | json }},
+            "regularPrice": {{ 'accessibility.regular_price' | t | json }},
+            "save": {{ 'general.save' | t: amount: '[amount]' | json }},
+            "priceSoldOut": {{ 'general.sold_out' | t | json }}
+          }
+        }
+      </script>
+
+    {%- comment -%} ---------- Title + badges ---------- {%- endcomment -%}
+    {%- when 'title' -%}
+      {%- liquid
+        assign h_class = bs.heading_size | default: 'h2'
+        if compact
+          assign h_class = 'h3'
+        endif
+        assign display_title = product.title
+        unless bs.trim_title == false
+          assign display_title = product.title | split: ' | ' | first
+        endunless
+        assign badge_list = ''
+        unless bs.show_badges == false
+          for tag in product.tags
+            assign tl = tag | downcase
+            assign p6 = tl | slice: 0, 6
+            if p6 == 'badge:'
+              assign b_txt = tag | slice: 6, 60 | strip | remove: '|'
+              if b_txt != ''
+                assign badge_list = badge_list | append: b_txt | append: '|'
+              endif
+            endif
+          endfor
+        endunless
+        assign badges = badge_list | split: '|'
+      -%}
+      <div class="pblock pblock--title"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+        {%- if badges.size > 0 or settings.finder_enable -%}
+          <div class="buy-box__badges" data-finder-match-handle="{{ product.handle }}">
+            {%- if settings.finder_enable -%}
+              <span class="badge badge--match" data-finder-match-badge hidden>
+                {%- render 'icon', name: 'paw' -%}
+                <span data-finder-name="{{ 'product.title.match' | t }}">{{ 'product.title.match_default' | t }}</span>
+              </span>
+            {%- endif -%}
+            {%- for b in badges limit: 3 -%}
+              {%- if forloop.first -%}
+                {%- render 'badge', text: b, style: 'accent' -%}
+              {%- else -%}
+                {%- render 'badge', text: b -%}
+              {%- endif -%}
+            {%- endfor -%}
+          </div>
+        {%- endif -%}
+        {%- if compact -%}
+          <h2 class="buy-box__title {{ h_class }}">{{ display_title | escape }}</h2>
+        {%- else -%}
+          <h1 class="buy-box__title {{ h_class }}" id="ProductTitle-{{ section.id }}">{{ display_title | escape }}</h1>
+        {%- endif -%}
+      </div>
+
+    {%- comment -%} ---------- Rating (real reviews only) ---------- {%- endcomment -%}
+    {%- when 'rating' -%}
+      {%- liquid
+        assign show_count = true
+        if bs.show_count == false
+          assign show_count = false
+        endif
+      -%}
+      {%- capture rating_html -%}{%- render 'rating', product: product, size: 'md', show_count: show_count -%}{%- endcapture -%}
+      {%- if rating_html != blank -%}
+        <div class="pblock pblock--rating"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          {%- if bs.link_to_reviews == false -%}
+            {{ rating_html }}
+          {%- else -%}
+            <a href="#reviews" class="buy-box__rating-link" data-reviews-link>
+              {{ rating_html }}
+              <span class="buy-box__rating-cta">{{ 'product.rating.link' | t }}</span>
+            </a>
+          {%- endif -%}
+        </div>
+      {%- elsif request.design_mode and block -%}
+        <div class="pblock pblock--rating pblock--editor-note" {{ block.shopify_attributes }}>
+          <p class="small muted">{{ 'product.rating.editor_note' | t }}</p>
+        </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Tagline ---------- {%- endcomment -%}
+    {%- when 'tagline' -%}
+      {%- liquid
+        assign tagline = product.metafields.custom.tagline.value | default: '' | strip
+        if tagline == ''
+          assign tagline = bs.text | default: '' | strip
+        endif
+        assign tagline = tagline | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money
+      -%}
+      {%- if tagline != '' -%}
+        <div class="pblock pblock--tagline"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          <p class="buy-box__tagline buy-box__tagline--{{ bs.style | default: 'serif' }}">{{ tagline | escape }}</p>
+        </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Price, per-night, instalments ---------- {%- endcomment -%}
+    {%- when 'price' -%}
+      {%- liquid
+        assign show_pn = true
+        if bs.show_per_night == false
+          assign show_pn = false
+        endif
+        assign show_inst = false
+        assign provider = settings.installments_provider | default: '' | strip
+        if settings.show_installments and provider != ''
+          unless bs.show_installments == false
+            assign show_inst = true
+          endunless
+        endif
+        assign inst_count = settings.installments_count | default: 3 | plus: 0
+        if inst_count < 2
+          assign inst_count = 2
+        endif
+      -%}
+      <div class="pblock pblock--price"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+        <div class="buy-box__price" data-price-wrap>
+          {%- render 'price', product: product, variant: current, size: 'lg', show_from: false, show_save: true, show_sold_out: false -%}
+        </div>
+        {%- if show_pn -%}
+          {%- render 'per-night', price: current.price, class: 'buy-box__per-night' -%}
+        {%- endif -%}
+        {%- if show_inst -%}
+          {%- assign inst_amount = current.price | divided_by: inst_count | money -%}
+          <p class="buy-box__installments" data-installments data-count="{{ inst_count }}" data-provider="{{ provider | escape }}">
+            {{- 'product.price.installments' | t: count: inst_count, amount: inst_amount, provider: provider -}}
+          </p>
+        {%- endif -%}
+        {%- if bs.show_tax_note -%}
+          <p class="buy-box__tax">{{ 'product.price.tax_included' | t }}</p>
+        {%- endif -%}
+      </div>
+
+    {%- comment -%} ---------- Variant picker ---------- {%- endcomment -%}
+    {%- when 'variant_picker' -%}
+      {%- unless product.has_only_default_variant -%}
+        <div class="pblock pblock--variant_picker"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          {%- liquid
+            assign update_url = true
+            if compact
+              assign update_url = false
+            endif
+            render 'variant-picker', product: product, section: section, variant: current, block: block, compact: compact, update_url: update_url
+          -%}
+        </div>
+      {%- endunless -%}
+
+    {%- comment -%} ---------- Honest stock line ---------- {%- endcomment -%}
+    {%- when 'stock' -%}
+      {%- liquid
+        assign show_in = true
+        if bs.show_in_stock == false
+          assign show_in = false
+        endif
+        assign in_text = bs.in_stock_text | default: '' | strip
+        if in_text == ''
+          assign in_text = 'product.stock.in_stock' | t
+        endif
+
+        assign size_label = ''
+        if size_idx >= 0
+          assign size_val = current.options[size_idx]
+          capture size_label
+            render 'size-hints', value: size_val, mode: 'label'
+          endcapture
+          assign size_label = size_label | strip | default: size_val
+        elsif product.has_only_default_variant == false
+          assign size_label = current.title
+        endif
+
+        case stock_state
+          when 'low'
+            if size_label != ''
+              assign stock_text = 'product.stock.low' | t: count: stock_qty, size: size_label
+            else
+              assign stock_text = 'product.stock.low_single' | t: count: stock_qty
+            endif
+          when 'backorder'
+            assign stock_text = 'product.stock.backorder' | t
+          when 'out'
+            if size_label != ''
+              assign stock_text = 'product.stock.sold_out' | t: size: size_label
+            else
+              assign stock_text = 'product.stock.sold_out_single' | t
+            endif
+          else
+            assign stock_text = in_text | escape
+        endcase
+      -%}
+      <div class="pblock pblock--stock"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+        <p
+          class="stock stock--{{ stock_state }}"
+          data-stock
+          data-in-stock-text="{{ in_text | escape }}"
+          data-show-in-stock="{{ show_in }}"
+          {%- if stock_state == 'in' and show_in == false %} hidden{% endif %}
+        >
+          <span class="stock__dot" aria-hidden="true"></span>
+          <span class="stock__text" data-stock-text>{{ stock_text }}</span>
+        </p>
+      </div>
+
+    {%- comment -%} ---------- Delivery promise (live countdown) ---------- {%- endcomment -%}
+    {%- when 'delivery' -%}
+      {%- capture promise_html -%}{%- render 'delivery-promise', variant: current -%}{%- endcapture -%}
+      {%- liquid
+        assign show_free = false
+        if threshold_cents > 0
+          unless bs.show_free_delivery_note == false
+            assign show_free = true
+          endunless
+        endif
+        assign hide_delivery = false
+        if stock_state == 'out' or stock_state == 'backorder'
+          assign hide_delivery = true
+        endif
+      -%}
+      {%- if promise_html != blank or show_free -%}
+        <div class="pblock pblock--delivery"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          <div class="buy-box__delivery" data-delivery-wrap{% if hide_delivery %} hidden{% endif %}>
+            {{ promise_html }}
+            {%- if show_free -%}
+              {%- liquid
+                assign qualifies = false
+                if current.price >= threshold_cents
+                  assign qualifies = true
+                endif
+              -%}
+              <p class="buy-box__free-delivery{% if qualifies %} is-qualified{% endif %}" data-free-delivery data-threshold="{{ threshold_cents }}">
+                {%- render 'icon', name: 'check-circle', class: 'buy-box__free-icon' -%}
+                <span data-free-delivery-text>
+                  {%- if qualifies -%}{{ 'product.delivery.qualifies' | t }}{%- else -%}{{ 'product.delivery.threshold' | t: amount: threshold_money }}{%- endif -%}
+                </span>
+              </p>
+            {%- endif -%}
+          </div>
+        </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Product form ---------- {%- endcomment -%}
+    {%- when 'buy_buttons' -%}
+      {%- liquid
+        assign show_qty = false
+        if bs.show_quantity
+          assign show_qty = true
+        endif
+        assign price_in_button = true
+        if bs.show_price_in_button == false
+          assign price_in_button = false
+        endif
+        assign show_dynamic = true
+        if bs.show_dynamic_checkout == false or compact
+          assign show_dynamic = false
+        endif
+        assign show_terms = true
+        if bs.show_payment_terms == false or compact
+          assign show_terms = false
+        endif
+
+        assign price_money = current.price | money
+        if current.available == false
+          assign btn_label = 'product.buy.sold_out' | t
+        elsif stock_state == 'backorder'
+          if price_in_button
+            assign btn_label = 'product.buy.preorder_price' | t: price: price_money
+          else
+            assign btn_label = 'product.buy.preorder' | t
+          endif
+        elsif price_in_button
+          assign btn_label = 'product.buy.add_price' | t: price: price_money
+        else
+          assign btn_label = 'product.buy.add' | t
+        endif
+      -%}
+      <div class="pblock pblock--buy_buttons"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+        <product-form
+          class="product-form"
+          data-section-id="{{ section.id }}"
+          data-price-in-button="{{ price_in_button }}"
+          {%- if compact %} data-compact{% endif %}
+        >
+          {%- form 'product', product, id: form_id, class: 'product-form__form', novalidate: 'novalidate', data-product-form: '' -%}
+            <input type="hidden" name="id" value="{{ current.id }}" data-variant-id-input>
+            {%- unless product.has_only_default_variant -%}
+              <noscript>
+                <div class="product-form__noscript field">
+                  <label class="field__label" for="{{ form_id }}-select">{{ 'product.picker.noscript_label' | t }}</label>
+                  <select class="select" id="{{ form_id }}-select" name="id">
+                    {%- for v in product.variants -%}
+                      <option value="{{ v.id }}"{% if v.id == current.id %} selected{% endif %}{% unless v.available %} disabled{% endunless %}>
+                        {{- v.title | escape }} — {{ v.price | money -}}
+                        {%- unless v.available %} ({{ 'product.buy.sold_out' | t }}){% endunless -%}
+                      </option>
+                    {%- endfor -%}
+                  </select>
+                </div>
+              </noscript>
+            {%- endunless -%}
+
+            {%- if show_qty -%}
+              <div class="product-form__qty field">
+                <label class="field__label" for="{{ form_id }}-qty">{{ 'product.buy.quantity' | t }}</label>
+                <div class="qty" data-qty>
+                  <button type="button" class="qty__btn" data-qty-step="-1" aria-label="{{ 'product.buy.decrease' | t }}">
+                    {%- render 'icon', name: 'minus' -%}
+                  </button>
+                  <input
+                    class="qty__input"
+                    type="number"
+                    id="{{ form_id }}-qty"
+                    name="quantity"
+                    value="1"
+                    min="1"
+                    inputmode="numeric"
+                    data-qty-input
+                  >
+                  <button type="button" class="qty__btn" data-qty-step="1" aria-label="{{ 'product.buy.increase' | t }}">
+                    {%- render 'icon', name: 'plus' -%}
+                  </button>
+                </div>
+              </div>
+            {%- endif -%}
+
+            <div class="product-form__buttons">
+              <button
+                type="submit"
+                name="add"
+                class="btn btn--primary btn--lg btn--block product-form__submit"
+                data-add-button
+                {%- unless current.available %} disabled{% endunless %}
+              >
+                <span data-add-label>{{ btn_label }}</span>
+              </button>
+              {%- if show_dynamic -%}
+                <div class="product-form__dynamic" data-dynamic-checkout{% unless current.available %} hidden{% endunless %}>
+                  {{ form | payment_button }}
+                </div>
+              {%- endif -%}
+            </div>
+
+            <div class="product-form__message" data-form-message role="status" aria-live="polite"></div>
+            <p class="product-form__error" data-form-error role="alert" hidden></p>
+
+            {%- if show_terms -%}
+              <div class="product-form__terms">{{ form | payment_terms }}</div>
+            {%- endif -%}
+          {%- endform -%}
+        </product-form>
+      </div>
+
+    {%- comment -%} ---------- Risk reversal, directly under the button ---------- {%- endcomment -%}
+    {%- when 'risk_reversal' -%}
+      {%- if compact -%}
+        {%- if trial_on -%}
+          <p class="buy-box__risk-line">
+            {%- render 'icon', name: 'moon' -%}
+            <span>{{ 'core.trust.trial_title' | t: nights: nights }} · {{ 'core.trust.trial_sub' | t }}</span>
+          </p>
+        {%- endif -%}
+      {%- else -%}
+        {%- liquid
+          assign rr_heading = bs.heading | default: '' | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money
+          assign rr_text = bs.text | default: '' | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money
+          assign show_g = false
+          if guarantee_on and bs.show_guarantee
+            assign show_g = true
+          endif
+          assign returns_url = shop.refund_policy.url | default: ''
+        -%}
+        {%- if trial_on or show_g -%}
+          <div class="pblock pblock--risk_reversal"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+            <div class="risk-reversal">
+              {%- if trial_on -%}
+                <div class="risk-reversal__main">
+                  {%- render 'icon', name: 'moon', class: 'risk-reversal__icon' -%}
+                  <p class="risk-reversal__text">
+                    {%- if rr_heading != '' -%}<strong class="risk-reversal__heading">{{ rr_heading | escape }}</strong> {% endif -%}
+                    {{- rr_text | escape -}}
+                    {%- if returns_url != '' and bs.link_label != blank %}
+                      <a class="risk-reversal__link" href="{{ returns_url }}">{{ bs.link_label | escape }}</a>
+                    {%- endif -%}
+                  </p>
+                </div>
+              {%- endif -%}
+              {%- if show_g -%}
+                <p class="risk-reversal__guarantee">
+                  {%- render 'icon', name: 'shield', class: 'risk-reversal__g-icon' -%}
+                  <span>{{ 'product.risk.guarantee' | t: years: years }}</span>
+                </p>
+              {%- endif -%}
+            </div>
+          </div>
+        {%- endif -%}
+      {%- endif -%}
+
+    {%- comment -%} ---------- Trust row + payment marks ---------- {%- endcomment -%}
+    {%- when 'trust' -%}
+      {%- liquid
+        assign t_items = bs.items | default: 'secure' | remove: ' '
+        capture trust_html
+          render 'trust-list', items: t_items, layout: 'row', size: 'sm', class: 'buy-box__trust-list'
+        endcapture
+        assign show_pay = true
+        if bs.show_payment_icons == false
+          assign show_pay = false
+        endif
+        if show_pay
+          capture pay_html
+            render 'payment-icons', class: 'buy-box__payments', limit: 8
+          endcapture
+        else
+          assign pay_html = ''
+        endif
+      -%}
+      {%- if trust_html != blank or pay_html != blank -%}
+        <div class="pblock pblock--trust"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          <div class="buy-box__trust">
+            {{ trust_html }}
+            {{ pay_html }}
+          </div>
+        </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Benefits ---------- {%- endcomment -%}
+    {%- when 'benefits' -%}
+      {%- liquid
+        assign mf = product.metafields.custom.benefits
+        assign lines = ''
+        if mf != blank and mf.value != blank
+          if mf.type contains 'list.'
+            assign lines = mf.value | join: '<<>>'
+          else
+            assign lines = mf.value | newline_to_br | replace: '<br />', '<<>>' | replace: '<br>', '<<>>'
+          endif
+        endif
+        assign line_list = lines | split: '<<>>'
+        assign fallback = bs.content | default: ''
+      -%}
+      {%- if line_list.size > 0 or fallback != blank -%}
+        <div class="pblock pblock--benefits"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          {%- if bs.heading != blank -%}
+            <p class="buy-box__benefits-heading">{{ bs.heading | escape }}</p>
+          {%- endif -%}
+          {%- if line_list.size > 0 -%}
+            <ul class="benefits" role="list">
+              {%- for line in line_list -%}
+                {%- assign l = line | strip -%}
+                {%- if l != '' -%}
+                  <li class="benefits__item">
+                    {%- render 'icon', name: 'check', class: 'benefits__icon' -%}
+                    <span>{{ l | escape }}</span>
+                  </li>
+                {%- endif -%}
+              {%- endfor -%}
+            </ul>
+          {%- else -%}
+            <div class="benefits benefits--rte rte">
+              {{- fallback | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money -}}
+            </div>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Bed Finder prompt / recommendation ---------- {%- endcomment -%}
+    {%- when 'finder_prompt' -%}
+      {%- if settings.finder_enable -%}
+        {%- liquid
+          assign fp_heading = bs.heading | default: ''
+          if fp_heading == ''
+            assign fp_heading = 'product.finder.prompt_default' | t
+          endif
+          assign fp_cta = bs.cta_label | default: ''
+          if fp_cta == ''
+            assign fp_cta = 'product.finder.cta' | t
+          endif
+        -%}
+        <div class="pblock pblock--finder_prompt"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          <div class="finder-prompt" data-finder-prompt>
+            {%- render 'icon', name: 'paw', class: 'finder-prompt__icon' -%}
+            <div class="finder-prompt__body" data-finder-prompt-default>
+              <p class="finder-prompt__heading">
+                <span data-finder-name="{{ 'product.finder.prompt' | t }}">{{ fp_heading | escape }}</span>
+              </p>
+              <button type="button" class="finder-prompt__cta link" data-open-finder>
+                {{- fp_cta | escape -}}
+                {%- render 'icon', name: 'arrow-right' -%}
+              </button>
+            </div>
+            <div class="finder-prompt__body" data-finder-prompt-result hidden>
+              <p class="finder-prompt__heading" data-finder-result-text></p>
+              <p class="finder-prompt__note">
+                {{ 'product.finder.result_note' | t }}
+                <button type="button" class="link finder-prompt__retake" data-open-finder>{{ 'product.finder.retake' | t }}</button>
+              </p>
+            </div>
+          </div>
+        </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Size guide trigger (dialog: size-guide snippet) ---------- {%- endcomment -%}
+    {%- when 'size_guide' -%}
+      {%- liquid
+        assign sg_label = bs.label | default: ''
+        if sg_label == ''
+          assign sg_label = 'product.size_guide.open' | t
+        endif
+      -%}
+      <div class="pblock pblock--size_guide"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+        <div class="size-guide-trigger">
+          {%- render 'icon', name: 'ruler', class: 'size-guide-trigger__icon' -%}
+          <p class="size-guide-trigger__text">
+            {%- if bs.teaser != blank -%}<span class="size-guide-trigger__teaser">{{ bs.teaser | escape }}</span> {% endif -%}
+            <button type="button" class="link size-guide-trigger__btn" data-size-guide-open aria-haspopup="dialog">{{ sg_label | escape }}</button>
+          </p>
+        </div>
+      </div>
+
+    {%- comment -%} ---------- Accordion row ---------- {%- endcomment -%}
+    {%- when 'accordion' -%}
+      {%- liquid
+        assign src = bs.source | default: 'custom'
+        assign extra = bs.content | default: ''
+      -%}
+      {%- capture acc_body -%}
+        {%- case src -%}
+          {%- when 'description' -%}
+            {{- product.description -}}
+          {%- when 'specs' -%}
+            {%- liquid
+              assign spec_mf = product.metafields.custom.specs
+              assign spec_raw = ''
+              if spec_mf != blank and spec_mf.value != blank
+                if spec_mf.type contains 'list.'
+                  assign spec_raw = spec_mf.value | join: '<<>>'
+                else
+                  assign spec_raw = spec_mf.value | newline_to_br | replace: '<br />', '<<>>' | replace: '<br>', '<<>>'
+                endif
+              endif
+              assign spec_lines = spec_raw | split: '<<>>'
+            -%}
+            {%- if spec_lines.size > 0 -%}
+              <dl class="spec-list">
+                {%- for line in spec_lines -%}
+                  {%- assign l = line | strip -%}
+                  {%- if l == '' -%}{%- continue -%}{%- endif -%}
+                  {%- if l contains ':' -%}
+                    {%- assign s_label = l | split: ':' | first | strip -%}
+                    {%- assign s_value = l | remove_first: s_label | remove_first: ':' | strip -%}
+                    <div class="spec-list__row">
+                      <dt>{{ s_label | escape }}</dt>
+                      <dd>{{ s_value | escape }}</dd>
+                    </div>
+                  {%- else -%}
+                    <div class="spec-list__row spec-list__row--note"><dd>{{ l | escape }}</dd></div>
+                  {%- endif -%}
+                {%- endfor -%}
+                {%- if current.sku != blank -%}
+                  <div class="spec-list__row"><dt>SKU</dt><dd>{{ current.sku | escape }}</dd></div>
+                {%- endif -%}
+              </dl>
+            {%- endif -%}
+            {{- extra -}}
+          {%- when 'delivery' -%}
+            {%- capture d_time -%}{%- render 'delivery-promise', mode: 'time' -%}{%- endcapture -%}
+            {%- capture d_days -%}{%- render 'delivery-promise', mode: 'days' -%}{%- endcapture -%}
+            {%- liquid
+              assign d_time = d_time | strip
+              assign d_days = d_days | strip
+              assign d_min = settings.delivery_min_days | default: 0 | plus: 0
+              assign d_max = settings.delivery_max_days | default: 0 | plus: 0
+              if d_max < d_min
+                assign d_max = d_min
+              endif
+            -%}
+            <ul class="delivery-facts" role="list">
+              {%- if settings.delivery_promise_enable and d_days != '' -%}
+                <li>
+                  {%- render 'icon', name: 'clock', class: 'delivery-facts__icon' -%}
+                  <span>
+                    {%- if d_time != '' -%}
+                      {{- 'product.accordion.delivery_dispatch' | t: time: d_time, days: d_days -}}
+                    {%- else -%}
+                      {{- 'product.accordion.delivery_dispatch_days' | t: days: d_days -}}
+                    {%- endif -%}
+                  </span>
+                </li>
+              {%- endif -%}
+              {%- if settings.delivery_promise_enable and d_max > 0 -%}
+                <li>
+                  {%- render 'icon', name: 'truck', class: 'delivery-facts__icon' -%}
+                  <span>
+                    {%- if d_max == d_min -%}
+                      {{- 'product.accordion.delivery_time_single' | t: min: d_min -}}
+                    {%- else -%}
+                      {{- 'product.accordion.delivery_time' | t: min: d_min, max: d_max -}}
+                    {%- endif -%}
+                  </span>
+                </li>
+              {%- endif -%}
+              {%- if threshold_cents > 0 -%}
+                <li>{%- render 'icon', name: 'check-circle', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_free' | t: amount: threshold_money }}</span></li>
+              {%- endif -%}
+              {%- if trial_on -%}
+                <li>{%- render 'icon', name: 'moon', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_trial' | t: nights: nights }}</span></li>
+              {%- endif -%}
+              {%- if guarantee_on -%}
+                <li>{%- render 'icon', name: 'shield', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_guarantee' | t: years: years }}</span></li>
+              {%- endif -%}
+            </ul>
+            {{- extra -}}
+            {%- if shop.shipping_policy.url != blank or shop.refund_policy.url != blank -%}
+              <p class="delivery-facts__links">
+                {%- if shop.shipping_policy.url != blank -%}
+                  <a href="{{ shop.shipping_policy.url }}">{{ 'product.accordion.shipping_policy' | t }}</a>
+                {%- endif -%}
+                {%- if shop.refund_policy.url != blank -%}
+                  <a href="{{ shop.refund_policy.url }}">{{ 'product.accordion.refund_policy' | t }}</a>
+                {%- endif -%}
+              </p>
+            {%- endif -%}
+          {%- when 'care' -%}
+            {%- liquid
+              assign care_mf = product.metafields.custom.care
+            -%}
+            {%- if care_mf != blank and care_mf.value != blank -%}
+              {%- if care_mf.type == 'rich_text_field' -%}
+                {{- care_mf | metafield_tag -}}
+              {%- elsif care_mf.type contains 'list.' -%}
+                <ul>{%- for c in care_mf.value -%}<li>{{ c | escape }}</li>{%- endfor -%}</ul>
+              {%- else -%}
+                <p>{{ care_mf.value | escape | newline_to_br }}</p>
+              {%- endif -%}
+            {%- else -%}
+              {{- extra -}}
+            {%- endif -%}
+          {%- when 'page' -%}
+            {%- if bs.page != blank -%}{{- bs.page.content -}}{%- endif -%}
+          {%- else -%}
+            {{- extra -}}
+        {%- endcase -%}
+      {%- endcapture -%}
+      {%- assign acc_body = acc_body | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money -%}
+      {%- if acc_body != blank -%}
+        <div class="pblock pblock--accordion"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          <details class="accordion product-accordion"{% if bs.open %} open{% endif %}>
+            <summary>
+              <span class="product-accordion__title">
+                {%- if bs.icon != blank and bs.icon != 'none' -%}
+                  {%- render 'icon', name: bs.icon, class: 'product-accordion__icon' -%}
+                {%- endif -%}
+                <span>{{ bs.heading | default: product.title | escape }}</span>
+              </span>
+            </summary>
+            <div class="accordion__content rte">
+              {{- acc_body -}}
+            </div>
+          </details>
+        </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Free text ---------- {%- endcomment -%}
+    {%- when 'text' -%}
+      {%- if bs.text != blank -%}
+        <div class="pblock pblock--text"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          <div class="rte buy-box__text buy-box__text--{{ bs.style | default: 'body' }}">
+            {{- bs.text | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money -}}
+          </div>
+        </div>
+      {%- endif -%}
+  {%- endcase -%}
+{%- endfor -%}
+{%- if compact -%}
+  {%- if size_idx >= 0 -%}
+    {%- render 'size-guide', product: product, section: section, variant: current, compact: true -%}
+  {%- endif -%}
+  </div>
+{%- endif -%}
+{%- endif -%}

@@ -1,0 +1,736 @@
+{%- comment -%}
+  Contact — page.contact.json.
+
+  Psychology, all honest:
+    - Uncertainty reduction: a response-time promise (a setting, so it can be
+      made true) beside the heading and again at the button.
+    - Deflection that helps: "Quick answers" (blocks) for the questions that
+      usually arrive here — sizing, delivery, where's my order, the trial —
+      each with a one-line answer and the next step (Bed Finder, delivery
+      policy, returns policy, account). Faster for the shopper than waiting
+      for a reply, and quieter for the inbox.
+    - Friction removal: only name, email and message are required. The topic
+      select reveals just the fields that matter (order number for orders and
+      returns; the dog's name and breed/weight for sizing). Without :has()
+      support every field simply shows.
+    - Personalisation: the dog's name is pre-filled from the Bed Finder;
+      ?topic=order&order=%231001 (from an order page) pre-selects the topic
+      and fills the order number (customer.js). Logged-in customers get their
+      name and email filled in.
+
+  Quick-answer text can use [trial_nights], [guarantee_years], [threshold],
+  [cutoff], [delivery_min] and [delivery_max]. An answer naming a promise
+  that is switched off hides itself, as does one whose "Hide when" promise
+  is off.
+{%- endcomment -%}
+{{ 'pages.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'customer.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- capture ph_cutoff -%}{%- render 'delivery-promise', mode: 'time' -%}{%- endcapture -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-title'
+  assign answers_id = section.id | append: '-answers'
+  assign reach_id = section.id | append: '-reach'
+  assign form_id = 'ContactForm-' | append: section.id
+  assign f = form_id
+
+  assign nights = settings.trial_nights | default: 0 | plus: 0
+  assign years = settings.guarantee_years | default: 0 | plus: 0
+  assign threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round
+  assign dmin = settings.delivery_min_days | default: 0 | plus: 0
+  assign dmax = settings.delivery_max_days | default: 0 | plus: 0
+  if dmax < dmin
+    assign dmax = dmin
+  endif
+  assign ph_nights = nights | append: ''
+  assign ph_years = years | append: ''
+  assign ph_threshold = threshold | money_without_trailing_zeros
+  assign ph_cutoff = ph_cutoff | strip
+  assign ph_dmin = dmin | append: ''
+  assign ph_dmax = dmax | append: ''
+
+  assign on_trial = false
+  if settings.trial_enable and nights > 0
+    assign on_trial = true
+  endif
+  assign on_guarantee = false
+  if settings.guarantee_enable and years > 0
+    assign on_guarantee = true
+  endif
+  assign on_free = false
+  if settings.free_shipping_enable and threshold > 0
+    assign on_free = true
+  endif
+  assign on_dispatch = false
+  if settings.delivery_promise_enable and ph_cutoff != ''
+    assign on_dispatch = true
+  endif
+
+  assign heading = s.heading | default: page.title | default: '' | strip
+  if heading == ''
+    assign heading = 'pages.contact.heading_fallback' | t
+  endif
+
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign finder_label = settings.finder_cta_label | default: '' | strip
+  if finder_label == ''
+    assign finder_label = 'pages.cta.finder_button' | t
+  endif
+
+  assign contact_email = s.contact_email | default: '' | strip
+  assign contact_phone = s.contact_phone | default: '' | strip
+  assign contact_hours = s.contact_hours | default: '' | strip
+  assign phone_href = contact_phone | remove: ' ' | remove: '(' | remove: ')' | remove: '-' | remove: '.'
+
+  comment
+    Which quick answers render: a block is kept unless it is empty, names a
+    promise that is switched off, or its "Hide when" promise is off.
+  endcomment
+  assign answer_keys = ''
+  for block in section.blocks
+    assign b = block.settings
+    if b.question == blank
+      continue
+    endif
+    assign raw = b.question | append: ' ' | append: b.answer
+    assign keep = true
+    if raw contains '[trial_nights]' and on_trial == false
+      assign keep = false
+    endif
+    if raw contains '[guarantee_years]' and on_guarantee == false
+      assign keep = false
+    endif
+    if raw contains '[threshold]' and on_free == false
+      assign keep = false
+    endif
+    if raw contains '[cutoff]' and on_dispatch == false
+      assign keep = false
+    endif
+    case b.promise
+      when 'trial'
+        if on_trial == false
+          assign keep = false
+        endif
+      when 'guarantee'
+        if on_guarantee == false
+          assign keep = false
+        endif
+      when 'free_delivery'
+        if on_free == false
+          assign keep = false
+        endif
+      when 'dispatch'
+        if on_dispatch == false
+          assign keep = false
+        endif
+    endcase
+    if keep
+      assign answer_keys = answer_keys | append: block.id | append: ','
+    endif
+  endfor
+  assign has_answers = false
+  if answer_keys != ''
+    assign has_answers = true
+  endif
+
+  assign has_reach = false
+  if contact_email != '' or contact_phone != '' or contact_hours != ''
+    assign has_reach = true
+  endif
+
+  assign show_aside = false
+  if has_answers or has_reach
+    assign show_aside = true
+  endif
+  if s.show_content and page.content != blank
+    assign show_aside = true
+  endif
+
+  assign returns_label = 'pages.contact.topic_returns' | t
+  if on_trial
+    assign returns_label = 'pages.contact.topic_returns_trial' | t
+  endif
+
+  assign customer_name = ''
+  if customer
+    assign customer_name = customer.name
+  endif
+-%}
+<section
+  class="section main-contact scheme-{{ s.color_scheme | default: 'bone' }}{% if show_aside %} main-contact--{{ s.layout_order | default: 'answers_first' }}{% else %} main-contact--solo{% endif %}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width">
+    <header class="pages-header main-contact__header">
+      {%- if s.eyebrow != blank -%}
+        <p class="eyebrow">{{ s.eyebrow | escape }}</p>
+      {%- endif -%}
+      <h1 class="h1 pages-header__title" id="{{ heading_id }}">{{ heading | escape }}</h1>
+      {%- if s.standfirst != blank -%}
+        <p class="lede pages-header__lede">{{ s.standfirst | escape | newline_to_br }}</p>
+      {%- endif -%}
+      {%- if s.response_time != blank -%}
+        <p class="pages-pill main-contact__promise">
+          {%- render 'icon', name: 'clock', size: 18 -%}
+          <span>{{ s.response_time | escape }}</span>
+        </p>
+      {%- endif -%}
+    </header>
+
+    <div class="main-contact__layout">
+      {%- capture aside_html -%}
+      {%- if show_aside -%}
+        <div class="main-contact__aside">
+          {%- if s.show_content and page.content != blank -%}
+            <div class="rte main-contact__content">{{ page.content }}</div>
+          {%- endif -%}
+
+          {%- if has_answers -%}
+            <section class="card card--lg scheme-oat quick-answers" aria-labelledby="{{ answers_id }}">
+              <h2 class="h4 quick-answers__title" id="{{ answers_id }}">
+                {%- render 'icon', name: 'sparkle', size: 20 -%}
+                <span>{{ s.answers_heading | default: '' | escape }}</span>
+              </h2>
+              {%- if s.answers_text != blank -%}
+                <p class="small muted quick-answers__intro">{{ s.answers_text | escape }}</p>
+              {%- endif -%}
+              <div class="quick-answers__list">
+                {%- for block in section.blocks -%}
+                  {%- assign key = block.id | append: ',' -%}
+                  {%- unless answer_keys contains key -%}{%- continue -%}{%- endunless -%}
+                  {%- liquid
+                    assign b = block.settings
+                    assign q = b.question | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax
+                    assign a = b.answer | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | newline_to_br
+                    assign link_url = ''
+                    assign link_finder = false
+                    case b.link_type
+                      when 'finder'
+                        if settings.finder_enable
+                          assign link_url = finder_url
+                          assign link_finder = true
+                        else
+                          assign link_url = routes.all_products_collection_url
+                        endif
+                      when 'shipping'
+                        assign link_url = shop.shipping_policy.url | default: ''
+                      when 'returns'
+                        assign link_url = shop.refund_policy.url | default: ''
+                      when 'account'
+                        if shop.customer_accounts_enabled
+                          assign link_url = routes.account_url
+                        endif
+                      when 'custom'
+                        assign link_url = b.link | default: ''
+                    endcase
+                    assign link_label = b.link_label | default: '' | strip
+                    if link_label == '' and link_url != ''
+                      assign link_label = 'pages.contact.answer_link_default' | t
+                    endif
+                    if b.link_type == 'finder' and settings.finder_enable == false
+                      assign link_label = 'pages.cta.shop_all' | t
+                    endif
+                  -%}
+                  <details class="accordion quick-answers__item" {{ block.shopify_attributes }}>
+                    <summary>{{ q }}</summary>
+                    <div class="accordion__content quick-answers__answer">
+                      {%- if a != blank -%}<p>{{ a }}</p>{%- endif -%}
+                      {%- if link_url != '' -%}
+                        <a
+                          class="quick-answers__link"
+                          href="{{ link_url }}"
+                          {%- if link_finder %} data-open-finder aria-haspopup="dialog"{% endif %}
+                        >
+                          <span>{{ link_label | escape }}</span>
+                          {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+                        </a>
+                      {%- endif -%}
+                    </div>
+                  </details>
+                {%- endfor -%}
+              </div>
+            </section>
+          {%- endif -%}
+
+          {%- if has_reach -%}
+            <section class="main-contact__reach" aria-labelledby="{{ reach_id }}">
+              <h2 class="h4" id="{{ reach_id }}">{{ s.reach_heading | default: '' | escape }}</h2>
+              <ul class="main-contact__reach-list" role="list">
+                {%- if contact_email != '' -%}
+                  <li>
+                    {%- render 'icon', name: 'mail', size: 20 -%}
+                    <a href="mailto:{{ contact_email | escape }}">{{ contact_email | escape }}</a>
+                  </li>
+                {%- endif -%}
+                {%- if contact_phone != '' -%}
+                  <li>
+                    {%- render 'icon', name: 'phone', size: 20 -%}
+                    <a href="tel:{{ phone_href | escape }}">{{ contact_phone | escape }}</a>
+                  </li>
+                {%- endif -%}
+                {%- if contact_hours != '' -%}
+                  <li>
+                    {%- render 'icon', name: 'clock', size: 20 -%}
+                    <span>{{ contact_hours | escape }}</span>
+                  </li>
+                {%- endif -%}
+              </ul>
+            </section>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+      {%- endcapture -%}
+
+      {%- capture form_html -%}
+      <div class="main-contact__form-col">
+        {%- form 'contact', id: form_id, class: 'card card--lg contact-form' -%}
+          {%- if form.posted_successfully? -%}
+            <div class="form-success" role="status" tabindex="-1" autofocus>
+              <span class="form-success__icon">{%- render 'icon', name: 'check-circle', size: 32 -%}</span>
+              <h2 class="h3 form-success__title">{{ s.success_heading | default: '' | escape }}</h2>
+              <p class="form-success__text">
+                {{ s.success_text | default: '' | escape }}
+                {%- if s.response_time != blank %} {{ s.response_time | escape }}{% endif -%}
+              </p>
+              <div class="form-success__next">
+                {%- if settings.finder_enable -%}
+                  <p class="small muted">{{ 'pages.contact.success_while_you_wait' | t }}</p>
+                {%- endif -%}
+                <div class="cluster form-success__actions">
+                  {%- if settings.finder_enable -%}
+                    <a class="btn btn--secondary" href="{{ finder_url }}" data-open-finder aria-haspopup="dialog">
+                      <span>{{ finder_label | escape }}</span>
+                      {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+                    </a>
+                  {%- endif -%}
+                  <a class="btn btn--ghost" href="{{ routes.all_products_collection_url }}">{{ 'general.continue_shopping' | t }}</a>
+                </div>
+                <p class="small"><a href="{{ request.path }}">{{ 'pages.contact.send_another' | t }}</a></p>
+              </div>
+            </div>
+          {%- else -%}
+            {%- if form.errors -%}
+              <div class="form-errors" role="alert" tabindex="-1" autofocus id="{{ f }}-errors">
+                <h2 class="form-errors__title">
+                  {%- render 'icon', name: 'info', size: 20 -%}
+                  <span>{{ 'pages.forms.error_heading' | t }}</span>
+                </h2>
+                <ul class="form-errors__list">
+                  {%- for field in form.errors -%}
+                    <li>
+                      {%- if field == 'form' -%}
+                        {{ form.errors.messages[field] }}
+                      {%- else -%}
+                        <a href="#{{ f }}-{{ field }}">{{ form.errors.translated_fields[field] | capitalize }} {{ form.errors.messages[field] }}</a>
+                      {%- endif -%}
+                    </li>
+                  {%- endfor -%}
+                </ul>
+              </div>
+            {%- endif -%}
+
+            <p class="small muted contact-form__note">{{ 'pages.forms.required_note' | t }}</p>
+
+            <div class="field-row field-row--2">
+              <div class="field">
+                <label class="field__label" for="{{ f }}-name">{{ 'pages.contact.name' | t }}</label>
+                <input
+                  class="input"
+                  type="text"
+                  id="{{ f }}-name"
+                  name="contact[name]"
+                  value="{{ form.name | default: customer_name | escape }}"
+                  autocomplete="name"
+                  required
+                  {%- if form.errors contains 'name' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}
+                >
+              </div>
+              <div class="field">
+                <label class="field__label" for="{{ f }}-email">{{ 'pages.contact.email' | t }}</label>
+                <input
+                  class="input"
+                  type="email"
+                  id="{{ f }}-email"
+                  name="contact[email]"
+                  value="{% if form.email != blank %}{{ form.email | escape }}{% elsif customer %}{{ customer.email | escape }}{% endif %}"
+                  autocomplete="email"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  required
+                  {%- if form.errors contains 'email' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}
+                >
+              </div>
+            </div>
+
+            {%- if s.show_phone or s.show_topic -%}
+              <div class="field-row{% if s.show_phone and s.show_topic %} field-row--2{% endif %}">
+                {%- if s.show_phone -%}
+                  <div class="field">
+                    <label class="field__label" for="{{ f }}-phone">
+                      {{- 'pages.contact.phone' | t }} <span class="field__optional">{{ 'pages.forms.optional' | t }}</span>
+                    </label>
+                    <input
+                      class="input"
+                      type="tel"
+                      id="{{ f }}-phone"
+                      name="contact[phone]"
+                      value="{{ form.phone | escape }}"
+                      autocomplete="tel"
+                      inputmode="tel"
+                    >
+                  </div>
+                {%- endif -%}
+                {%- if s.show_topic -%}
+                  <div class="field">
+                    <label class="field__label" for="{{ f }}-topic">
+                      {{- 'pages.contact.topic' | t }} <span class="field__optional">{{ 'pages.forms.optional' | t }}</span>
+                    </label>
+                    <select class="select" id="{{ f }}-topic" name="contact[Topic]" data-contact-topic>
+                      <option value="" data-topic="any">{{ 'pages.contact.topic_placeholder' | t }}</option>
+                      <option value="{{ 'pages.contact.topic_sizing' | t | escape }}" data-topic="sizing">{{ 'pages.contact.topic_sizing' | t }}</option>
+                      <option value="{{ 'pages.contact.topic_order' | t | escape }}" data-topic="order">{{ 'pages.contact.topic_order' | t }}</option>
+                      <option value="{{ returns_label | escape }}" data-topic="returns">{{ returns_label }}</option>
+                      <option value="{{ 'pages.contact.topic_other' | t | escape }}" data-topic="other">{{ 'pages.contact.topic_other' | t }}</option>
+                    </select>
+                  </div>
+                {%- endif -%}
+              </div>
+            {%- endif -%}
+
+            {%- if s.show_order_field -%}
+              <div class="field contact-form__order" data-topic-show="order returns">
+                <label class="field__label" for="{{ f }}-order">
+                  {{- 'pages.contact.order_number' | t }} <span class="field__optional">{{ 'pages.forms.optional' | t }}</span>
+                </label>
+                <input
+                  class="input"
+                  type="text"
+                  id="{{ f }}-order"
+                  name="contact[Order number]"
+                  autocomplete="off"
+                  placeholder="{{ 'pages.contact.order_placeholder' | t | escape }}"
+                  aria-describedby="{{ f }}-order-hint"
+                  data-contact-order
+                >
+                <p class="field__hint" id="{{ f }}-order-hint">{{ 'pages.contact.order_hint' | t }}</p>
+              </div>
+            {%- endif -%}
+
+            {%- if s.show_dog_fields -%}
+              <fieldset class="contact-form__dog" data-topic-show="any sizing other" aria-describedby="{{ f }}-dog-hint">
+                <legend class="field__label contact-form__legend">
+                  {{- 'pages.contact.dog_legend' | t }} <span class="field__optional">{{ 'pages.forms.optional' | t }}</span>
+                </legend>
+                <p class="field__hint" id="{{ f }}-dog-hint">{{ 'pages.contact.dog_hint' | t }}</p>
+                <div class="field-row field-row--2">
+                  <div class="field">
+                    <label class="field__label" for="{{ f }}-dog">{{ 'pages.contact.dog_name' | t }}</label>
+                    <input
+                      class="input"
+                      type="text"
+                      id="{{ f }}-dog"
+                      name="contact[Dog name]"
+                      autocomplete="off"
+                      data-finder-prefill
+                    >
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="{{ f }}-breed">{{ 'pages.contact.dog_breed' | t }}</label>
+                    <input
+                      class="input"
+                      type="text"
+                      id="{{ f }}-breed"
+                      name="contact[Breed and weight]"
+                      autocomplete="off"
+                      placeholder="{{ 'pages.contact.dog_breed_placeholder' | t | escape }}"
+                    >
+                  </div>
+                </div>
+              </fieldset>
+            {%- endif -%}
+
+            <div class="field">
+              <label class="field__label" for="{{ f }}-body">{{ 'pages.contact.message' | t }}</label>
+              <textarea
+                class="textarea"
+                id="{{ f }}-body"
+                name="contact[body]"
+                rows="6"
+                required
+                {%- if form.errors contains 'body' %} aria-invalid="true" aria-describedby="{{ f }}-errors"{% endif %}
+              >{{ form.body | escape }}</textarea>
+            </div>
+
+            <div class="contact-form__submit">
+              <button type="submit" class="btn btn--lg pages-submit">
+                <span>{{ s.submit_label | default: '' | escape }}</span>
+                {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+              </button>
+              {%- if s.form_note != blank or s.response_time != blank -%}
+                <p class="small muted contact-form__reassure">
+                  {%- render 'icon', name: 'check', size: 16 -%}
+                  <span>
+                    {%- if s.form_note != blank -%}{{ s.form_note | escape }}{%- endif -%}
+                    {%- if s.form_note != blank and s.response_time != blank %} {% endif -%}
+                    {%- if s.response_time != blank -%}{{ s.response_time | escape }}{%- endif -%}
+                  </span>
+                </p>
+              {%- endif -%}
+            </div>
+          {%- endif -%}
+        {%- endform -%}
+      </div>
+      {%- endcapture -%}
+
+      {%- if s.layout_order == 'form_first' -%}
+        {{ form_html }}{{ aside_html }}
+      {%- else -%}
+        {{ aside_html }}{{ form_html }}
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Contact page",
+  "class": "section-main-contact",
+  "max_blocks": 8,
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Talk to us"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Tell us about your dog.",
+      "info": "Leave blank to use the page title."
+    },
+    {
+      "type": "textarea",
+      "id": "standfirst",
+      "label": "Standfirst",
+      "default": "Sizing, firmness, whether a bed will suit a dog with stiff joints: we answer these every day, and we'd rather you asked before you buy than after."
+    },
+    {
+      "type": "text",
+      "id": "response_time",
+      "label": "Response-time promise",
+      "default": "We reply within one working day.",
+      "info": "Shown under the heading, beside the button and in the thank-you message. Make it something you can keep; leave blank to hide."
+    },
+    {
+      "type": "select",
+      "id": "layout_order",
+      "label": "Layout",
+      "options": [
+        { "value": "answers_first", "label": "Quick answers first, then the form" },
+        { "value": "form_first", "label": "Form first, then quick answers" }
+      ],
+      "default": "answers_first",
+      "info": "On wide screens the two sit side by side, in this order. On phones they stack."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_content",
+      "label": "Show the page's content beside the form",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Form"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_phone",
+      "label": "Ask for a phone number (optional field)",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_topic",
+      "label": "Ask what it's about",
+      "default": true,
+      "info": "Picking a topic shows only the fields that matter: order number for orders and returns, the dog's details for sizing."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_dog_fields",
+      "label": "Ask for the dog's name and breed or weight (optional fields)",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_order_field",
+      "label": "Ask for an order number (optional field)",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "submit_label",
+      "label": "Button label",
+      "default": "Send message"
+    },
+    {
+      "type": "text",
+      "id": "form_note",
+      "label": "Note beside the button",
+      "default": "We answer every message ourselves."
+    },
+    {
+      "type": "text",
+      "id": "success_heading",
+      "label": "Thank-you heading",
+      "default": "Thanks, that's with us."
+    },
+    {
+      "type": "textarea",
+      "id": "success_text",
+      "label": "Thank-you message",
+      "default": "We'll come back to you by email."
+    },
+    {
+      "type": "header",
+      "content": "Quick answers"
+    },
+    {
+      "type": "text",
+      "id": "answers_heading",
+      "label": "Heading",
+      "default": "Quick answers"
+    },
+    {
+      "type": "text",
+      "id": "answers_text",
+      "label": "Intro",
+      "default": "Most questions are answered here in seconds."
+    },
+    {
+      "type": "header",
+      "content": "Other ways to reach us"
+    },
+    {
+      "type": "text",
+      "id": "reach_heading",
+      "label": "Heading",
+      "default": "Other ways to reach us"
+    },
+    {
+      "type": "text",
+      "id": "contact_email",
+      "label": "Email address",
+      "info": "Leave blank to hide."
+    },
+    {
+      "type": "text",
+      "id": "contact_phone",
+      "label": "Phone number",
+      "info": "Leave blank to hide."
+    },
+    {
+      "type": "text",
+      "id": "contact_hours",
+      "label": "Opening hours",
+      "info": "e.g. Monday to Friday, 9am to 5pm. Leave blank to hide."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    }
+  ],
+  "blocks": [
+    {
+      "type": "answer",
+      "name": "Quick answer",
+      "settings": [
+        {
+          "type": "text",
+          "id": "question",
+          "label": "Question",
+          "default": "Which size does my dog need?"
+        },
+        {
+          "type": "textarea",
+          "id": "answer",
+          "label": "Short answer",
+          "default": "Measure nose to base of tail while they're lying down, then add 15–20cm. Between two sizes? Go up.",
+          "info": "Can use [trial_nights], [guarantee_years], [threshold], [cutoff], [delivery_min] and [delivery_max]."
+        },
+        {
+          "type": "select",
+          "id": "link_type",
+          "label": "Next step",
+          "options": [
+            { "value": "none", "label": "None" },
+            { "value": "finder", "label": "Open the Bed Finder" },
+            { "value": "shipping", "label": "Shipping policy" },
+            { "value": "returns", "label": "Refund policy" },
+            { "value": "account", "label": "Customer account" },
+            { "value": "custom", "label": "Custom link" }
+          ],
+          "default": "finder"
+        },
+        {
+          "type": "text",
+          "id": "link_label",
+          "label": "Next step label",
+          "default": "Find their size in four taps"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Custom link",
+          "info": "Used when Next step is Custom link."
+        },
+        {
+          "type": "select",
+          "id": "promise",
+          "label": "Hide when this promise is off",
+          "options": [
+            { "value": "none", "label": "Never hide" },
+            { "value": "trial", "label": "Sleep trial" },
+            { "value": "guarantee", "label": "Guarantee" },
+            { "value": "free_delivery", "label": "Free delivery" },
+            { "value": "dispatch", "label": "Dispatch cut-off" }
+          ],
+          "default": "none"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,687 @@
+{%- comment -%}
+  Main product — gallery + the buy column.
+
+  The buy column is a stack of reorderable blocks, set out in the order a
+  buyer actually decides: what is it → is it any good → what does it cost
+  (and what is that per night) → which size → is it in stock, when will it
+  come → add → what if it's wrong → why it's worth it → the detail.
+  Each block is drawn by snippets/buy-box.liquid, which the quick-add drawer
+  uses too, so the two never drift apart. App blocks (reviews summaries,
+  Klarna messaging, bundles) can go anywhere in the column.
+
+  Also here: the size guide dialog, the sticky add-to-basket bar, Product +
+  BreadcrumbList structured data, and the "recently viewed" record.
+{%- endcomment -%}
+{{ 'product.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'product.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+
+{%- liquid
+  comment
+    The selected variant: ?variant= > merchant's "most chosen" > first
+    available. (Same rule as snippets/buy-box.liquid; product.js then applies
+    the Bed Finder size when there's no ?variant=.)
+  endcomment
+  assign current = product.selected_or_first_available_variant
+  if product != blank and product.selected_variant == blank and product.has_only_default_variant == false
+    assign mc_found = false
+    for v in product.variants
+      if v.available and v.metafields.custom.most_chosen.value == true
+        assign current = v
+        assign mc_found = true
+        break
+      endif
+    endfor
+    assign mc_value = section.settings.most_chosen_value | default: '' | downcase | strip
+    if mc_found == false and mc_value != ''
+      for v in product.variants
+        if v.available
+          for o in v.options
+            assign od = o | downcase | strip
+            if od == mc_value
+              assign current = v
+              assign mc_found = true
+              break
+            endif
+          endfor
+        endif
+        if mc_found
+          break
+        endif
+      endfor
+    endif
+  endif
+
+  assign layout = section.settings.gallery_layout | default: 'thumbnails'
+  assign sg_block = section.blocks | where: 'type', 'size_guide' | first
+  assign bb_block = section.blocks | where: 'type', 'buy_buttons' | first
+
+  assign has_size = false
+  for option in product.options_with_values
+    assign oname = option.name | downcase
+    if oname contains 'size'
+      assign has_size = true
+      break
+    endif
+  endfor
+-%}
+
+{%- if product == blank or product.id == blank -%}
+  <section
+    id="{{ section.id }}-wrap"
+    class="section scheme-{{ section.settings.color_scheme }} main-product main-product--placeholder"
+    aria-labelledby="ProductTitle-{{ section.id }}"
+  >
+    <div class="page-width">
+      <div class="main-product__grid">
+        <div class="main-product__media">
+          <div class="gallery gallery--single">
+            <div class="gallery__viewer">
+              <div class="gallery__track">
+                <div class="gallery__slide is-active">
+                  <div class="gallery__media" style="--gallery-ratio: 1 / 1">
+                    {{ 'product-1' | placeholder_svg_tag: 'placeholder-svg gallery__img' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="main-product__info">
+          <div class="buy-box">
+            <h1 class="h2 buy-box__title" id="ProductTitle-{{ section.id }}">{{ 'product.placeholder.title' | t }}</h1>
+            <p class="buy-box__tagline buy-box__tagline--serif">{{ 'product.placeholder.text' | t }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+{%- else -%}
+  <section
+    id="{{ section.id }}-wrap"
+    class="section scheme-{{ section.settings.color_scheme }} main-product main-product--{{ layout }}{% if section.settings.sticky_column %} main-product--sticky{% endif %}"
+    data-product-scope
+    data-section-id="{{ section.id }}"
+    data-product-id="{{ product.id }}"
+    data-record-view="{{ product.handle }}"
+    aria-label="{{ product.title | split: ' | ' | first | escape }}"
+  >
+    <div class="page-width">
+      <div class="main-product__grid">
+        <div class="main-product__media">
+          {%- render 'product-gallery',
+            product: product,
+            section: section,
+            variant: current,
+            layout: layout,
+            ratio: section.settings.media_ratio,
+            zoom: section.settings.enable_zoom
+          -%}
+        </div>
+
+        <div class="main-product__info" id="ProductBuy">
+          <div class="buy-box" data-buy-box>
+            {%- for block in section.blocks -%}
+              {%- case block.type -%}
+                {%- when '@app' -%}
+                  <div class="pblock pblock--app">
+                    {% render block %}
+                  </div>
+                {%- else -%}
+                  {%- render 'buy-box', product: product, section: section, block: block, variant: current -%}
+              {%- endcase -%}
+            {%- endfor -%}
+          </div>
+          {%- render 'buy-box', product: product, section: section, part: 'data', variant: current -%}
+        </div>
+      </div>
+    </div>
+
+    {%- if has_size or sg_block -%}
+      {%- render 'size-guide', product: product, section: section, variant: current, block: sg_block -%}
+    {%- endif -%}
+
+    {%- if section.settings.enable_sticky_atc and bb_block -%}
+      {%- render 'sticky-atc', product: product, section: section, variant: current -%}
+    {%- endif -%}
+  </section>
+
+  {%- render 'product-jsonld', product: product, variant: current -%}
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Product information",
+  "tag": "div",
+  "class": "main-product-section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Gallery"
+    },
+    {
+      "type": "select",
+      "id": "gallery_layout",
+      "label": "Desktop layout",
+      "options": [
+        { "value": "thumbnails", "label": "Large image with thumbnails" },
+        { "value": "grid", "label": "Two-column grid" }
+      ],
+      "default": "thumbnails",
+      "info": "Phones always get a swipeable carousel with a counter and dots."
+    },
+    {
+      "type": "select",
+      "id": "media_ratio",
+      "label": "Image shape",
+      "options": [
+        { "value": "square", "label": "Square" },
+        { "value": "portrait", "label": "Portrait (4:5)" },
+        { "value": "adapt", "label": "Match the first image" }
+      ],
+      "default": "square"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_zoom",
+      "label": "Open images full screen with zoom",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Buying"
+    },
+    {
+      "type": "checkbox",
+      "id": "sticky_column",
+      "label": "Keep the shorter column in view on desktop",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_sticky_atc",
+      "label": "Show sticky add-to-basket bar",
+      "default": true,
+      "info": "Appears once the main Add to basket button scrolls out of view. Needs the Buy buttons block."
+    },
+    {
+      "type": "text",
+      "id": "most_chosen_value",
+      "label": "Most chosen size",
+      "info": "e.g. Medium. Pre-selected and marked \"Most chosen\" on every product with that option value. Only use it if it's true. You can also tick custom.most_chosen on a variant."
+    },
+    {
+      "type": "header",
+      "content": "Section"
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    }
+  ],
+  "blocks": [
+    {
+      "type": "@app"
+    },
+    {
+      "type": "title",
+      "name": "Title",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "select",
+          "id": "heading_size",
+          "label": "Heading size",
+          "options": [
+            { "value": "h1", "label": "Large" },
+            { "value": "h2", "label": "Medium" },
+            { "value": "h3", "label": "Small" }
+          ],
+          "default": "h2"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_badges",
+          "label": "Show badges from tags",
+          "default": true,
+          "info": "Tag a product badge:Your text to add a badge, e.g. badge:New colour."
+        },
+        {
+          "type": "checkbox",
+          "id": "trim_title",
+          "label": "Hide anything after \" | \" in the title",
+          "default": true,
+          "info": "Keeps SEO suffixes like \"| PawLunova\" out of the heading."
+        }
+      ]
+    },
+    {
+      "type": "rating",
+      "name": "Rating",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Shows real star ratings written by a reviews app (reviews.rating and reviews.rating_count). Nothing shows until a product has reviews."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_count",
+          "label": "Show review count",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "link_to_reviews",
+          "label": "Link to the reviews section",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "tagline",
+      "name": "Tagline",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Fallback tagline",
+          "default": "Pressure-relieving support for ageing joints, under a cover you can actually wash.",
+          "info": "Shown when the product has no custom.tagline metafield. Make sure it's true of every product using this template. You can use [trial_nights], [guarantee_years] and [threshold]."
+        },
+        {
+          "type": "select",
+          "id": "style",
+          "label": "Style",
+          "options": [
+            { "value": "serif", "label": "Italic serif" },
+            { "value": "plain", "label": "Plain" }
+          ],
+          "default": "serif"
+        }
+      ]
+    },
+    {
+      "type": "price",
+      "name": "Price",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Compare-at price, savings format and the per-night and instalment lines are switched on in Theme settings → Pricing."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_per_night",
+          "label": "Show per-night cost",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_installments",
+          "label": "Show instalments line",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_tax_note",
+          "label": "Show \"VAT included\"",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "variant_picker",
+      "name": "Size and options",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_size_hints",
+          "label": "Show breeds and weights beside sizes",
+          "default": true,
+          "info": "From Theme settings → Sizing."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_size_prices",
+          "label": "Show each size's price",
+          "default": true,
+          "info": "Only when sizes are priced differently."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_size_guide_link",
+          "label": "Show size guide link beside the size option",
+          "default": true
+        },
+        {
+          "type": "select",
+          "id": "size_style",
+          "label": "Size layout",
+          "options": [
+            { "value": "rows", "label": "Size ladder (one row per size)" },
+            { "value": "grid", "label": "Grid of buttons" }
+          ],
+          "default": "rows"
+        }
+      ]
+    },
+    {
+      "type": "size_guide",
+      "name": "Size guide",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "teaser",
+          "label": "Teaser",
+          "default": "Between sizes? Measure nose to base of tail and add about 20cm."
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Button label",
+          "default": "Open the size guide"
+        },
+        {
+          "type": "text",
+          "id": "guide_heading",
+          "label": "Guide heading",
+          "default": "Find the right size"
+        },
+        {
+          "type": "richtext",
+          "id": "measure_text",
+          "label": "How to measure",
+          "default": "<ol><li>Wait until they're asleep and stretched out.</li><li>Measure from nose to the base of the tail.</li><li>Add about 20cm. That's the length of bed they need.</li></ol><p>Between two sizes? Size up. Dogs need more length than owners expect, and no dog has ever complained about too much bed.</p>"
+        }
+      ]
+    },
+    {
+      "type": "finder_prompt",
+      "name": "Bed Finder prompt",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Once someone has used the Bed Finder this becomes \"Recommended for Bella: Medium\" and that size is pre-selected."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Not sure which size?"
+        },
+        {
+          "type": "text",
+          "id": "cta_label",
+          "label": "Link label",
+          "default": "Take the 30-second bed finder"
+        }
+      ]
+    },
+    {
+      "type": "stock",
+      "name": "Stock",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "\"Only 3 left in Medium\" shows only when Shopify tracks the size's stock, it can't oversell, and stock is at or below Theme settings → Low stock."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_in_stock",
+          "label": "Show in-stock message",
+          "default": true
+        },
+        {
+          "type": "text",
+          "id": "in_stock_text",
+          "label": "In-stock message",
+          "default": "In stock, ready to dispatch",
+          "info": "Turn this off if you don't hold the stock yourself."
+        }
+      ]
+    },
+    {
+      "type": "delivery",
+      "name": "Delivery countdown",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Live \"Order within 2h 14m for dispatch today\" from your real cut-off, dispatch days and holidays (Theme settings → Promises)."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_free_delivery_note",
+          "label": "Show free delivery line",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "buy_buttons",
+      "name": "Buy buttons",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_quantity",
+          "label": "Show quantity selector",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "show_price_in_button",
+          "label": "Show price in the button",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_dynamic_checkout",
+          "label": "Show express checkout buttons",
+          "default": true,
+          "info": "Shop Pay, Apple Pay, Google Pay and PayPal, when enabled in Settings → Payments."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_payment_terms",
+          "label": "Show Shop Pay instalments message",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "risk_reversal",
+      "name": "Trial promise",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Hidden when the trial is switched off in Theme settings → Promises. Placeholders: [trial_nights], [guarantee_years], [threshold]."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Sleep on it for [trial_nights] nights."
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Text",
+          "default": "If it isn't right, we collect it free and refund every penny."
+        },
+        {
+          "type": "text",
+          "id": "link_label",
+          "label": "Returns policy link label",
+          "default": "Read our returns policy",
+          "info": "Links to your refund policy (Settings → Policies) when you have one."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_guarantee",
+          "label": "Show guarantee line",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "trust",
+      "name": "Trust and payment",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "text",
+          "id": "items",
+          "label": "Promises",
+          "default": "secure,installments,origin",
+          "info": "Comma list, in order: trial, guarantee, delivery, secure, origin, rating, installments. Each hides itself when its theme setting is off."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_payment_icons",
+          "label": "Show payment icons",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "benefits",
+      "name": "Benefits",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading"
+        },
+        {
+          "type": "richtext",
+          "id": "content",
+          "label": "Fallback benefits",
+          "default": "<ul><li>High-density memory foam that holds its shape</li><li>Cover unzips and machine-washes at 30°C</li><li>Waterproof liner keeps accidents out of the foam</li><li>Gripped base stays put on wood and tile</li></ul>",
+          "info": "Shown when the product has no custom.benefits metafield (one benefit per line). Make sure every product on this template matches."
+        }
+      ]
+    },
+    {
+      "type": "accordion",
+      "name": "Collapsible row",
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "About this bed"
+        },
+        {
+          "type": "select",
+          "id": "source",
+          "label": "Content",
+          "options": [
+            { "value": "description", "label": "Product description" },
+            { "value": "specs", "label": "Specification (custom.specs)" },
+            { "value": "delivery", "label": "Delivery and returns (from theme settings)" },
+            { "value": "care", "label": "Care (custom.care)" },
+            { "value": "custom", "label": "Text below" },
+            { "value": "page", "label": "A page" }
+          ],
+          "default": "description"
+        },
+        {
+          "type": "richtext",
+          "id": "content",
+          "label": "Text",
+          "info": "Used for \"Text below\", added after delivery details and specs, and the fallback when a product has no care metafield."
+        },
+        {
+          "type": "page",
+          "id": "page",
+          "label": "Page"
+        },
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "options": [
+            { "value": "none", "label": "None" },
+            { "value": "bed", "label": "Bed" },
+            { "value": "ruler", "label": "Ruler" },
+            { "value": "truck", "label": "Delivery" },
+            { "value": "return", "label": "Return" },
+            { "value": "leaf", "label": "Leaf" },
+            { "value": "shield", "label": "Shield" },
+            { "value": "heart", "label": "Heart" },
+            { "value": "info", "label": "Info" },
+            { "value": "paw", "label": "Paw" }
+          ],
+          "default": "none"
+        },
+        {
+          "type": "checkbox",
+          "id": "open",
+          "label": "Open by default",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Text",
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Questions before you order? We're happy to help you choose.</p>"
+        },
+        {
+          "type": "select",
+          "id": "style",
+          "label": "Style",
+          "options": [
+            { "value": "body", "label": "Body" },
+            { "value": "small", "label": "Small" },
+            { "value": "muted", "label": "Small, muted" }
+          ],
+          "default": "body"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

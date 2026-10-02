@@ -1,0 +1,89 @@
+{%- comment -%}
+  Star rating. Renders NOTHING unless there is a real rating behind it.
+
+  Source (in order):
+    1. rating: / count: passed in (e.g. the store-level rating from
+       settings.store_rating + settings.store_review_count). Both must be set.
+    2. product.metafields.reviews.rating + reviews.rating_count — Shopify's
+       standard review metafields, written by Judge.me, Okendo, Loox, Yotpo,
+       Stamped and Shopify Product Reviews.
+
+  Product ratings also obey settings.show_product_ratings.
+
+  Parameters
+    product      product object
+    size         'sm' (default) | 'md'
+    show_count   true (default) → "(312)" after the score
+    rating       optional override, number out of 5 (string or number)
+    count        optional override, number of reviews (string or number;
+                 "3,900+" is shown as written)
+    class        extra classes
+
+  The fill is fractional — 4.3 fills 86% of the row — so the stars and the
+  number never disagree. Never rounds up to five.
+{%- endcomment -%}
+{%- liquid
+  assign r = 0.0
+  assign n_display = ''
+  assign n_num = 0
+  assign max = 5.0
+  assign from_override = false
+
+  assign r_override = rating | default: '' | append: '' | strip
+  assign n_override = count | default: '' | append: '' | strip
+  if r_override != '' and n_override != ''
+    assign r = r_override | remove: ',' | plus: 0.0
+    assign n_display = n_override
+    assign n_num = n_override | remove: ',' | remove: '+' | plus: 0
+    assign from_override = true
+  elsif product != blank and settings.show_product_ratings
+    assign r_meta = product.metafields.reviews.rating.value
+    if r_meta != blank
+      assign r = r_meta.rating | plus: 0.0
+      assign max = r_meta.scale_max | default: 5 | plus: 0.0
+      if max > 0 and max != 5.0
+        assign r = r | divided_by: max | times: 5.0
+      endif
+      assign max = 5.0
+    endif
+    assign n_num = product.metafields.reviews.rating_count.value | default: 0 | plus: 0
+    assign n_display = n_num
+  endif
+
+  assign ok = false
+  if r > 0 and n_num > 0
+    assign ok = true
+  endif
+  if from_override and r > 0
+    assign ok = true
+  endif
+  if r > 5
+    assign r = 5.0
+  endif
+
+  assign shown = r | round: 1
+  assign pct = r | times: 20 | round: 1
+  assign size_class = size | default: 'sm'
+-%}
+{%- if ok -%}
+  <span class="rating rating--{{ size_class }}{% if class %} {{ class }}{% endif %}">
+    <span
+      class="stars"
+      style="--rating-pct: {{ pct }}%"
+      role="img"
+      aria-label="{{ 'accessibility.rating' | t: rating: shown, max: 5 }}"
+    ></span>
+    <span class="rating__value" aria-hidden="true">{{ shown }}</span>
+    {%- unless show_count == false -%}
+      {%- if n_display != '' and n_num > 0 -%}
+        <span class="rating__count">
+          {%- if from_override -%}
+            {{ 'core.rating.store_label' | t: count: n_display }}
+          {%- else -%}
+            (<span aria-hidden="true">{{ n_display }}</span><span class="visually-hidden">{{ 'accessibility.reviews_count' | t: count: n_num }}</span>)
+          {%- endif -%}
+        </span>
+      {%- endif -%}
+    {%- endunless -%}
+  </span>
+{%- endif -%}

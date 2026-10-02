@@ -1,0 +1,322 @@
+{%- comment -%}
+  "What happens after you order" — four plain steps that take the unknowns
+  out of buying a bed online (uncertainty reduction). Live where it can be:
+  [dispatch_day] and [arrival] are filled by product.js from the same honest
+  estimate as the delivery countdown (real cut-off, dispatch days, holidays).
+
+  Placeholders in any step title or text:
+    [trial_nights] [guarantee_years] [threshold] [delivery_min] [delivery_max]
+    [cutoff] ("3pm")  [dispatch_days] ("Mon–Fri")  [dispatch_from] (section setting)
+    [dispatch_day] → live "today" / "tomorrow" / "on Mon 12 Oct"
+    [arrival]      → live "Thu 8 Oct–Sat 10 Oct" (fallback "in 1–3 working days")
+  A step can depend on a promise (trial, guarantee, delivery) and hides when
+  that promise is switched off in Theme settings.
+{%- endcomment -%}
+{{ 'product.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'product.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- capture cut_time -%}{%- render 'delivery-promise', mode: 'time' -%}{%- endcapture -%}
+{%- capture cut_days -%}{%- render 'delivery-promise', mode: 'days' -%}{%- endcapture -%}
+{%- liquid
+  assign cut_time = cut_time | strip
+  assign cut_days = cut_days | strip
+  assign nights = settings.trial_nights | default: 0 | plus: 0
+  assign years = settings.guarantee_years | default: 0 | plus: 0
+  assign nights_s = nights | append: ''
+  assign years_s = years | append: ''
+  assign threshold_cents = settings.free_shipping_threshold | default: 0 | times: 100 | round
+  assign threshold_money = threshold_cents | money_without_trailing_zeros
+  assign d_min = settings.delivery_min_days | default: 0 | plus: 0
+  assign d_max = settings.delivery_max_days | default: 0 | plus: 0
+  if d_max < d_min
+    assign d_max = d_min
+  endif
+  assign d_min_s = d_min | append: ''
+  assign d_max_s = d_max | append: ''
+  assign dispatch_from = section.settings.dispatch_from | default: '' | strip | escape
+
+  if d_max == d_min
+    assign arrival_fallback = 'product.timeline.arrival_fallback_single' | t: min: d_min
+  else
+    assign arrival_fallback = 'product.timeline.arrival_fallback' | t: min: d_min, max: d_max
+  endif
+  assign dispatch_fallback = 'product.timeline.dispatch_fallback' | t: days: cut_days
+  assign live_dispatch = '<span data-timeline-live="dispatch_day">' | append: dispatch_fallback | append: '</span>'
+  assign live_arrival = '<span data-timeline-live="arrival">' | append: arrival_fallback | append: '</span>'
+
+  comment
+    Which steps survive the promise switches.
+  endcomment
+  assign visible_ids = ''
+  for block in section.blocks
+    assign req = block.settings.requires | default: 'none'
+    assign ok = true
+    case req
+      when 'trial'
+        unless settings.trial_enable and nights > 0
+          assign ok = false
+        endunless
+      when 'guarantee'
+        unless settings.guarantee_enable and years > 0
+          assign ok = false
+        endunless
+      when 'delivery'
+        unless settings.delivery_promise_enable and cut_days != ''
+          assign ok = false
+        endunless
+      when 'free_delivery'
+        unless settings.free_shipping_enable and threshold_cents > 0
+          assign ok = false
+        endunless
+    endcase
+    if ok
+      assign visible_ids = visible_ids | append: block.id | append: ','
+    endif
+  endfor
+  assign visible_list = visible_ids | split: ','
+  assign step_count = visible_list.size
+-%}
+{%- if step_count > 0 -%}
+  <section
+    id="{{ section.id }}-wrap"
+    class="section scheme-{{ section.settings.color_scheme }} product-timeline"
+    aria-labelledby="{{ section.id }}-heading"
+    data-timeline
+    data-str-today="{{ 'product.timeline.today' | t }}"
+    data-str-tomorrow="{{ 'product.timeline.tomorrow' | t }}"
+    data-str-on-day="{{ 'product.timeline.on_day' | t }}"
+  >
+    <div class="page-width">
+      <div class="section-head{% if section.settings.align == 'center' %} section-head--center{% endif %}">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>
+        {%- endif -%}
+        <h2 class="h2" id="{{ section.id }}-heading">{{ section.settings.heading | default: 'What happens after you order' | escape }}</h2>
+        {%- if section.settings.intro != blank -%}
+          <div class="lede rte">{{ section.settings.intro }}</div>
+        {%- endif -%}
+      </div>
+
+      <ol class="timeline" role="list" style="--steps: {{ step_count }}">
+        {%- assign n = 0 -%}
+        {%- for block in section.blocks -%}
+          {%- liquid
+            assign key = block.id | append: ','
+            unless visible_ids contains key
+              continue
+            endunless
+            assign n = n | plus: 1
+            assign t_title = block.settings.title | default: '' | escape
+            assign t_text = block.settings.text | default: ''
+          -%}
+          {%- capture step_title -%}
+            {{- t_title | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[delivery_min]', d_min_s | replace: '[delivery_max]', d_max_s | replace: '[cutoff]', cut_time | replace: '[dispatch_days]', cut_days | replace: '[dispatch_from]', dispatch_from | replace: '[dispatch_day]', live_dispatch | replace: '[arrival]', live_arrival -}}
+          {%- endcapture -%}
+          {%- capture step_text -%}
+            {{- t_text | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[delivery_min]', d_min_s | replace: '[delivery_max]', d_max_s | replace: '[cutoff]', cut_time | replace: '[dispatch_days]', cut_days | replace: '[dispatch_from]', dispatch_from | replace: '[dispatch_day]', live_dispatch | replace: '[arrival]', live_arrival -}}
+          {%- endcapture -%}
+          <li class="timeline__step{% if n == 1 %} timeline__step--now{% endif %}" {{ block.shopify_attributes }}>
+            <div class="timeline__marker" aria-hidden="true">
+              {%- assign step_icon = block.settings.icon | default: 'check' -%}
+              {%- render 'icon', name: step_icon, class: 'timeline__icon' -%}
+            </div>
+            <div class="timeline__body">
+              <p class="timeline__count">{{ 'product.timeline.step' | t: index: n, count: step_count }}</p>
+              <h3 class="h4 timeline__title">{{ step_title }}</h3>
+              {%- if step_text != blank -%}
+                <div class="timeline__text rte">{{ step_text }}</div>
+              {%- endif -%}
+            </div>
+          </li>
+        {%- endfor -%}
+      </ol>
+
+      {%- if section.settings.footnote != blank -%}
+        <p class="timeline__footnote small muted">{{ section.settings.footnote | escape }}</p>
+      {%- endif -%}
+    </div>
+  </section>
+{%- elsif request.design_mode -%}
+  <div class="page-width product-timeline__empty">
+    <p class="small muted">Add a step, or switch on the promise your steps depend on in Theme settings → Promises.</p>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "After you order",
+  "tag": "div",
+  "class": "product-timeline-section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "No surprises"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "What happens after you order"
+    },
+    {
+      "type": "richtext",
+      "id": "intro",
+      "label": "Intro"
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Centre" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "text",
+      "id": "dispatch_from",
+      "label": "Where orders are sent from",
+      "default": "us",
+      "info": "Fills [dispatch_from], e.g. \"our Yorkshire workshop\". Only say what's true."
+    },
+    {
+      "type": "text",
+      "id": "footnote",
+      "label": "Footnote",
+      "default": "Dates are worked out from our dispatch cut-off and UK working days. Bank holidays are taken into account."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "oat"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    }
+  ],
+  "blocks": [
+    {
+      "type": "step",
+      "name": "Step",
+      "settings": [
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "options": [
+            { "value": "basket", "label": "Basket" },
+            { "value": "truck", "label": "Delivery" },
+            { "value": "home", "label": "Home" },
+            { "value": "moon", "label": "Moon" },
+            { "value": "bed", "label": "Bed" },
+            { "value": "calendar", "label": "Calendar" },
+            { "value": "clock", "label": "Clock" },
+            { "value": "return", "label": "Return" },
+            { "value": "shield", "label": "Shield" },
+            { "value": "heart", "label": "Heart" },
+            { "value": "paw", "label": "Paw" },
+            { "value": "check", "label": "Tick" }
+          ],
+          "default": "check"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Order today"
+        },
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>Pick a size and check out in a couple of minutes. No account needed.</p>"
+        },
+        {
+          "type": "select",
+          "id": "requires",
+          "label": "Only show when this promise is on",
+          "options": [
+            { "value": "none", "label": "Always show" },
+            { "value": "delivery", "label": "Delivery countdown" },
+            { "value": "free_delivery", "label": "Free delivery" },
+            { "value": "trial", "label": "Sleep trial" },
+            { "value": "guarantee", "label": "Guarantee" }
+          ],
+          "default": "none"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 6,
+  "presets": [
+    {
+      "name": "After you order",
+      "blocks": [
+        {
+          "type": "step",
+          "settings": {
+            "icon": "basket",
+            "title": "Order today",
+            "text": "<p>Pick a size and check out in a couple of minutes. No account needed.</p>",
+            "requires": "none"
+          }
+        },
+        {
+          "type": "step",
+          "settings": {
+            "icon": "truck",
+            "title": "Dispatched [dispatch_day]",
+            "text": "<p>Order by [cutoff], [dispatch_days], and it leaves [dispatch_from] the same day. You get tracking as soon as it's on its way.</p>",
+            "requires": "delivery"
+          }
+        },
+        {
+          "type": "step",
+          "settings": {
+            "icon": "home",
+            "title": "Arrives [arrival]",
+            "text": "<p>Delivered to your door. Put it where they already like to sleep and let them find it.</p>",
+            "requires": "delivery"
+          }
+        },
+        {
+          "type": "step",
+          "settings": {
+            "icon": "moon",
+            "title": "[trial_nights] nights to decide",
+            "text": "<p>Most dogs claim a new bed within the first evening. Some take a fortnight. Both are normal. If it isn't right, we collect it free and refund every penny.</p>",
+            "requires": "trial"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

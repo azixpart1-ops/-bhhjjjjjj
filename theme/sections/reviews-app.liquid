@@ -1,0 +1,134 @@
+{%- comment -%}
+  Reviews (app) — a home for a reviews app's block (Judge.me, Okendo, Loox,
+  Yotpo, Stamped, Shopify Product Reviews…). Add the app's block in the
+  editor and it renders here, under an optional heading. Anchor id
+  "reviews" so star ratings elsewhere can link down to it.
+
+  Empty: nothing on the live store; a short how-to in the editor. The
+  theme never invents a review, rating or count.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign has_blocks = false
+  if section.blocks.size > 0
+    assign has_blocks = true
+  endif
+-%}
+{%- if has_blocks or request.design_mode -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- assign heading_id = section.id | append: '-heading' -%}
+<section
+  class="section reviews-app scheme-{{ s.color_scheme }}"
+  id="{{ section.id }}-wrap"
+  {%- if s.heading != blank %} aria-labelledby="{{ heading_id }}"{% endif %}
+>
+  <span class="reviews-app__anchor" id="reviews" aria-hidden="true"></span>
+  <div class="page-width{% if s.narrow %} page-width--narrow{% endif %}">
+    {%- if s.heading != blank or s.eyebrow != blank -%}
+      <header class="section-head{% if s.align == 'center' %} section-head--center{% endif %}">
+        {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        {%- if s.heading != blank -%}<h2 id="{{ heading_id }}" class="h2">{{ s.heading | escape }}</h2>{%- endif -%}
+      </header>
+    {%- endif -%}
+
+    {%- if has_blocks -%}
+      <div class="reviews-app__apps">
+        {%- for block in section.blocks -%}
+          {%- case block.type -%}
+            {%- when '@app' -%}
+              <div class="reviews-app__app">{% render block %}</div>
+          {%- endcase -%}
+        {%- endfor -%}
+      </div>
+    {%- else -%}
+      <div class="editor-note reviews-app__hint">
+        <p>{{ 'home.editor.reviews_app_empty' | t }}</p>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Reviews (app)",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Add your reviews app's block here (Add block → Apps). Only real, verified reviews: the theme never shows a rating it can't back up."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Owner reviews"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "What owners say."
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Heading alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Centre" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "checkbox",
+      "id": "narrow",
+      "label": "Narrow width",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    }
+  ],
+  "blocks": [
+    {
+      "type": "@app"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Reviews (app)"
+    }
+  ]
+}
+{% endschema %}

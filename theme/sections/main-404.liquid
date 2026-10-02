@@ -1,0 +1,369 @@
+{%- comment -%}
+  404 — never a dead end. A friendly line (it's not the shopper's fault),
+  then three ways forward, most helpful first:
+    1. Search, focused on what they came for.
+    2. The Bed Finder (choice architecture: one recommendation instead of
+       a catalogue), or all beds when the finder is off.
+    3. A short list of links from a menu (defaults to the main menu, with a
+       sensible fallback when the menu is empty).
+  Optionally a row of beds from a chosen collection (the most chosen, say),
+  and the store's promises — each from Theme settings, each hidden when off.
+{%- endcomment -%}
+{{ 'pages.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-title'
+  assign finder_id = section.id | append: '-finder-title'
+  assign links_id = section.id | append: '-links-title'
+  assign products_id = section.id | append: '-products-title'
+  assign search_id = 'NotFoundSearch-' | append: section.id
+
+  assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
+  assign finder_label = s.finder_button | default: settings.finder_cta_label | default: '' | strip
+  if finder_label == ''
+    assign finder_label = 'pages.cta.finder_button' | t
+  endif
+  assign named_heading = s.finder_heading_named | default: '' | strip
+  unless named_heading contains '[name]'
+    assign named_heading = ''
+  endunless
+
+  assign menu = s.menu
+  assign has_menu_links = false
+  if menu != blank and menu.links.size > 0
+    assign has_menu_links = true
+  endif
+
+  assign products_limit = s.products_count | default: 4 | plus: 0
+  assign show_products = false
+  assign coll = s.collection
+  if coll != blank and coll.products_count > 0
+    assign show_products = true
+  elsif request.design_mode and s.products_heading != blank
+    assign show_products = true
+  endif
+-%}
+<section
+  class="section main-404 scheme-{{ s.color_scheme | default: 'bone' }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+>
+  <div class="page-width">
+    <header class="pages-header pages-header--center main-404__header">
+      <span class="main-404__mark" aria-hidden="true">{%- render 'icon', name: 'paw', size: 40 -%}</span>
+      {%- if s.eyebrow != blank -%}
+        <p class="eyebrow">{{ s.eyebrow | escape }}</p>
+      {%- endif -%}
+      <h1 class="h1 pages-header__title" id="{{ heading_id }}">{{ s.heading | default: '' | escape }}</h1>
+      {%- if s.text != blank -%}
+        <p class="lede pages-header__lede">{{ s.text | escape }}</p>
+      {%- endif -%}
+    </header>
+
+    {%- if s.show_search -%}
+      <form action="{{ routes.search_url }}" method="get" role="search" class="main-404__search">
+        <label class="visually-hidden" for="{{ search_id }}">{{ 'pages.not_found.search_label' | t }}</label>
+        <div class="main-404__search-row">
+          {%- render 'icon', name: 'search', size: 20, class: 'main-404__search-icon' -%}
+          <input
+            class="input main-404__search-input"
+            type="search"
+            id="{{ search_id }}"
+            name="q"
+            placeholder="{{ s.search_placeholder | default: '' | escape }}"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            enterkeyhint="search"
+          >
+          <input type="hidden" name="options[prefix]" value="last">
+          <button type="submit" class="btn pages-submit main-404__search-btn">{{ 'pages.not_found.search_button' | t }}</button>
+        </div>
+      </form>
+    {%- endif -%}
+
+    <div class="main-404__ways{% unless s.show_finder %} main-404__ways--single{% endunless %}">
+      {%- if s.show_finder -%}
+        <aside class="pages-cta scheme-moss main-404__finder" aria-labelledby="{{ finder_id }}">
+          {%- render 'icon', name: 'paw', size: 28, class: 'pages-cta__icon' -%}
+          {%- if settings.finder_enable -%}
+            {%- if s.finder_eyebrow != blank -%}
+              <p class="eyebrow">{{ s.finder_eyebrow | escape }}</p>
+            {%- endif -%}
+            <h2
+              class="h3 pages-cta__title"
+              id="{{ finder_id }}"
+              {%- if named_heading != '' %} data-finder-name="{{ named_heading | escape }}"{% endif %}
+            >
+              {{- s.finder_heading | default: '' | escape -}}
+            </h2>
+            {%- if s.finder_text != blank -%}
+              <p class="pages-cta__text">{{ s.finder_text | escape }}</p>
+            {%- endif -%}
+            <div class="cluster pages-cta__actions">
+              <a class="btn btn--secondary" href="{{ finder_url }}" data-open-finder aria-haspopup="dialog">
+                <span>{{ finder_label | escape }}</span>
+                {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+              </a>
+              <a class="btn btn--ghost" href="{{ routes.all_products_collection_url }}">{{ 'pages.cta.shop_all' | t }}</a>
+            </div>
+          {%- else -%}
+            <h2 class="h3 pages-cta__title" id="{{ finder_id }}">{{ 'pages.not_found.shop_heading' | t }}</h2>
+            <p class="pages-cta__text">{{ 'pages.not_found.shop_text' | t }}</p>
+            <div class="cluster pages-cta__actions">
+              <a class="btn btn--secondary" href="{{ routes.all_products_collection_url }}">
+                <span>{{ 'pages.cta.shop_all' | t }}</span>
+                {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+              </a>
+            </div>
+          {%- endif -%}
+        </aside>
+      {%- endif -%}
+
+      <nav class="card card--lg main-404__links" aria-labelledby="{{ links_id }}">
+        <h2 class="h4" id="{{ links_id }}">{{ s.links_heading | default: '' | escape }}</h2>
+        <ul class="main-404__link-list" role="list">
+          {%- if has_menu_links -%}
+            {%- for link in menu.links limit: 8 -%}
+              <li>
+                <a class="main-404__link" href="{{ link.url }}">
+                  <span>{{ link.title | escape }}</span>
+                  {%- render 'icon', name: 'chevron-right', size: 18 -%}
+                </a>
+              </li>
+            {%- endfor -%}
+          {%- else -%}
+            <li>
+              <a class="main-404__link" href="{{ routes.all_products_collection_url }}">
+                <span>{{ 'pages.cta.shop_all' | t }}</span>
+                {%- render 'icon', name: 'chevron-right', size: 18 -%}
+              </a>
+            </li>
+            <li>
+              <a class="main-404__link" href="{{ routes.collections_url }}">
+                <span>{{ 'pages.not_found.all_collections' | t }}</span>
+                {%- render 'icon', name: 'chevron-right', size: 18 -%}
+              </a>
+            </li>
+            {%- if settings.finder_enable -%}
+              <li>
+                <a class="main-404__link" href="{{ finder_url }}">
+                  <span>{{ 'pages.not_found.finder_page' | t }}</span>
+                  {%- render 'icon', name: 'chevron-right', size: 18 -%}
+                </a>
+              </li>
+            {%- endif -%}
+            <li>
+              <a class="main-404__link" href="{{ routes.root_url }}">
+                <span>{{ 'pages.not_found.home' | t }}</span>
+                {%- render 'icon', name: 'chevron-right', size: 18 -%}
+              </a>
+            </li>
+          {%- endif -%}
+        </ul>
+      </nav>
+    </div>
+
+    {%- if show_products -%}
+      <div class="main-404__products" aria-labelledby="{{ products_id }}" role="region">
+        <div class="section-head section-head--split">
+          <h2 class="h3" id="{{ products_id }}">{{ s.products_heading | default: '' | escape }}</h2>
+          {%- if coll != blank -%}
+            <a class="btn btn--ghost" href="{{ coll.url }}">{{ 'general.view_all' | t }}</a>
+          {%- endif -%}
+        </div>
+        <ul class="grid grid--4 main-404__grid" role="list">
+          {%- if coll != blank and coll.products_count > 0 -%}
+            {%- for product in coll.products limit: products_limit -%}
+              <li>
+                {%- render 'product-card',
+                  product: product,
+                  image_ratio: settings.card_image_ratio,
+                  show_quick_add: true,
+                  lazy: true,
+                  heading_level: 'h3',
+                  index: forloop.index
+                -%}
+              </li>
+            {%- endfor -%}
+          {%- else -%}
+            {%- for i in (1..products_limit) -%}
+              <li>
+                {%- render 'product-card', product: blank, heading_level: 'h3', placeholder_index: i -%}
+              </li>
+            {%- endfor -%}
+          {%- endif -%}
+        </ul>
+      </div>
+    {%- endif -%}
+
+    {%- if s.show_trust -%}
+      <div class="main-404__trust">
+        {%- render 'trust-list', items: 'trial,guarantee,delivery,secure', layout: 'row', size: 'sm' -%}
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Page not found",
+  "class": "section-main-404",
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Page not found"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "This page has wandered off."
+    },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Text",
+      "default": "Nothing here, but the beds are all still where we left them. Search for what you were after, or let us point you to the right one."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_search",
+      "label": "Show search",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "search_placeholder",
+      "label": "Search placeholder",
+      "default": "Try \"orthopaedic\" or \"large\""
+    },
+    {
+      "type": "header",
+      "content": "Bed Finder card"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_finder",
+      "label": "Show the Bed Finder card",
+      "default": true,
+      "info": "When the finder is switched off in Theme settings, this becomes a link to all beds."
+    },
+    {
+      "type": "text",
+      "id": "finder_eyebrow",
+      "label": "Eyebrow",
+      "default": "Four quick questions"
+    },
+    {
+      "type": "text",
+      "id": "finder_heading",
+      "label": "Heading",
+      "default": "Not sure where to start?"
+    },
+    {
+      "type": "text",
+      "id": "finder_heading_named",
+      "label": "Heading once we know the dog's name",
+      "default": "Let's find [name]'s bed instead.",
+      "info": "[name] is replaced with the dog's name from the Bed Finder. Leave blank to always use the heading above."
+    },
+    {
+      "type": "textarea",
+      "id": "finder_text",
+      "label": "Text",
+      "default": "Tell us how your dog sleeps and roughly how big they are, and we'll suggest one bed in the right size."
+    },
+    {
+      "type": "text",
+      "id": "finder_button",
+      "label": "Button label",
+      "info": "Leave blank to use the Bed Finder label from Theme settings."
+    },
+    {
+      "type": "header",
+      "content": "Links"
+    },
+    {
+      "type": "text",
+      "id": "links_heading",
+      "label": "Heading",
+      "default": "Or try one of these"
+    },
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "Menu",
+      "default": "main-menu",
+      "info": "Shows up to 8 links. With an empty menu, links to all beds, collections and the home page show instead."
+    },
+    {
+      "type": "header",
+      "content": "Beds"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection",
+      "info": "Optional. A few beds from it show under the links, e.g. your most chosen."
+    },
+    {
+      "type": "text",
+      "id": "products_heading",
+      "label": "Heading",
+      "default": "Or start with these beds"
+    },
+    {
+      "type": "range",
+      "id": "products_count",
+      "label": "Number of beds",
+      "min": 2,
+      "max": 8,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "checkbox",
+      "id": "show_trust",
+      "label": "Show promises",
+      "default": true,
+      "info": "Trial, guarantee, delivery and secure checkout, each from Theme settings → Promises."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 88
+    }
+  ]
+}
+{% endschema %}

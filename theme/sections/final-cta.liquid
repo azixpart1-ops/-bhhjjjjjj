@@ -1,0 +1,217 @@
+{%- comment -%}
+  Final CTA — the emotional close (peak-end). One terracotta action (the
+  Bed Finder), the shop link for the ready buyer, and the promises again,
+  driven by Theme settings.
+
+  Over a photograph the moss scrim can't go below 75% — measured against a
+  worst-case white region, that keeps the heading at ≥5.4:1 and the lede at
+  ≥4.9:1 — and small text switches to the brighter on-dark ink.
+{%- endcomment -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign s = section.settings
+  assign heading_id = section.id | append: '-heading'
+  assign note_id = section.id | append: '-cta-note'
+  assign has_image = false
+  if s.image != blank
+    assign has_image = true
+  endif
+  assign scrim = s.scrim | default: 80 | plus: 0
+  if scrim < 75
+    assign scrim = 75
+  endif
+  assign finder_label = s.primary_label | default: settings.finder_cta_label | strip | escape
+  if finder_label == blank
+    assign finder_label = 'home.hero.finder_cta' | t
+  endif
+  assign shop_link = s.secondary_link | default: routes.all_products_collection_url
+  assign shop_label = s.secondary_label | default: '' | strip | escape
+  if shop_label == ''
+    assign shop_label = 'home.hero.shop_cta' | t
+  endif
+  assign scheme = s.color_scheme
+  if has_image
+    assign scheme = 'moss'
+  endif
+-%}
+<section
+  class="section final-cta scheme-{{ scheme }}{% if has_image %} final-cta--image{% endif %} final-cta--{{ s.text_align | default: 'center' }}"
+  id="{{ section.id }}-wrap"
+  aria-labelledby="{{ heading_id }}"
+  style="--scrim: {{ scrim | divided_by: 100.0 }};"
+>
+  {%- if has_image -%}
+    <div class="final-cta__bg" aria-hidden="true">
+      {%- render 'image',
+        image: s.image,
+        widths: '640,960,1280,1600,2000,2400',
+        sizes: '100vw',
+        decorative: true,
+        class: 'final-cta__img'
+      -%}
+    </div>
+  {%- endif -%}
+  <div class="page-width final-cta__inner">
+    <div class="final-cta__content">
+      {%- if s.eyebrow != blank -%}<p class="eyebrow final-cta__eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      <h2 id="{{ heading_id }}" class="h1 final-cta__heading">{{ s.heading | default: shop.name | escape | newline_to_br }}</h2>
+      {%- if s.lede != blank -%}<p class="lede final-cta__lede">{{ s.lede | escape }}</p>{%- endif -%}
+
+      <div class="final-cta__actions">
+        {%- if settings.finder_enable -%}
+          <div class="final-cta__primary">
+            <button
+              type="button"
+              class="btn btn--primary btn--lg"
+              data-open-finder
+              aria-haspopup="dialog"
+              {%- if s.primary_note != blank %} aria-describedby="{{ note_id }}"{% endif %}
+            >
+              <span>{{ finder_label }}</span>{%- render 'icon', name: 'arrow-right' -%}
+            </button>
+            {%- if s.primary_note != blank -%}
+              <p class="final-cta__note" id="{{ note_id }}">{{ s.primary_note | escape }}</p>
+            {%- endif -%}
+          </div>
+          <a class="btn btn--secondary btn--lg" href="{{ shop_link }}">{{ shop_label }}</a>
+        {%- else -%}
+          <a class="btn btn--primary btn--lg" href="{{ shop_link }}">
+            <span>{{ shop_label }}</span>{%- render 'icon', name: 'arrow-right' -%}
+          </a>
+        {%- endif -%}
+      </div>
+
+      {%- if s.show_trust -%}
+        {%- render 'trust-list', items: s.trust_items, layout: 'row', size: 'sm', class: 'final-cta__trust' -%}
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Closing call to action",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "moss",
+      "info": "With a background image the section always uses Moss, so text stays readable."
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Background image"
+    },
+    {
+      "type": "range",
+      "id": "scrim",
+      "label": "Darkening over the image",
+      "min": 75,
+      "max": 95,
+      "step": 5,
+      "unit": "%",
+      "default": 80,
+      "info": "75% is the lowest that keeps the text readable on any photo."
+    },
+    {
+      "type": "select",
+      "id": "text_align",
+      "label": "Alignment",
+      "options": [
+        { "value": "center", "label": "Centre" },
+        { "value": "left", "label": "Left" }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow"
+    },
+    {
+      "type": "textarea",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Fourteen hours a day, on the same surface."
+    },
+    {
+      "type": "textarea",
+      "id": "lede",
+      "label": "Intro",
+      "default": "Worth getting that surface right. Answer four questions and we'll tell you which of ours fits."
+    },
+    {
+      "type": "text",
+      "id": "primary_label",
+      "label": "Bed Finder button label",
+      "info": "Leave blank to use the label from Theme settings."
+    },
+    {
+      "type": "text",
+      "id": "primary_note",
+      "label": "Line under the button",
+      "default": "4 questions · 30 seconds"
+    },
+    {
+      "type": "text",
+      "id": "secondary_label",
+      "label": "Shop button label",
+      "default": "Shop all beds"
+    },
+    {
+      "type": "url",
+      "id": "secondary_link",
+      "label": "Shop button link",
+      "default": "/collections/all"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_trust",
+      "label": "Show promises row",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "trust_items",
+      "label": "Promises to show",
+      "default": "trial,guarantee,delivery",
+      "info": "Comma list from: trial, guarantee, delivery, secure, origin, rating, installments."
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 96
+    }
+  ],
+  "presets": [
+    {
+      "name": "Closing call to action"
+    }
+  ]
+}
+{% endschema %}

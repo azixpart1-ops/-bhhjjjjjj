@@ -1,0 +1,195 @@
+{%- comment -%}
+  Recently viewed — the beds this visitor has already looked at (mere
+  exposure / recency: the comparison they were making, still in front of
+  them). Product pages record each view in localStorage (lunova:recent,
+  newest first, max 8); <recently-viewed> in product.js reads the list,
+  leaves out the product you're on, fetches /products/<handle>.js for each
+  and builds cards from the <template> below (same classes as the shared
+  product card). Nothing stored → the section stays hidden.
+  Works on the product page and the basket page.
+{%- endcomment -%}
+{{ 'product.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'product.js' | asset_url }}" defer="defer"></script>
+{%- render 'section-styles', section: section -%}
+{%- liquid
+  assign limit = section.settings.limit | default: 4 | plus: 0
+  assign cols = limit
+  if cols > 4
+    assign cols = 4
+  endif
+  assign exclude = ''
+  if template.name == 'product' and product != blank
+    assign exclude = product.handle
+  endif
+  case settings.card_image_ratio
+    when 'portrait'
+      assign ratio_css = '4 / 5'
+    when 'landscape'
+      assign ratio_css = '4 / 3'
+    else
+      assign ratio_css = '1 / 1'
+  endcase
+  assign quick = false
+  if settings.card_quick_add and section.settings.show_quick_add
+    assign quick = true
+  endif
+-%}
+<section
+  id="{{ section.id }}-wrap"
+  class="section scheme-{{ section.settings.color_scheme }} recently-viewed"
+  aria-labelledby="{{ section.id }}-heading"
+  data-recently-viewed-section
+  {%- unless request.design_mode %} hidden{% endunless %}
+>
+  <div class="page-width">
+    <div class="section-head section-head--split">
+      <div class="stack stack--xs">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>
+        {%- endif -%}
+        <h2 class="h2" id="{{ section.id }}-heading">{{ section.settings.heading | escape }}</h2>
+      </div>
+      <button type="button" class="btn btn--ghost btn--sm recently-viewed__clear" data-recent-clear hidden>
+        {{- 'product.recent.clear' | t -}}
+      </button>
+    </div>
+
+    <recently-viewed
+      class="recently-viewed__body"
+      data-section-id="{{ section.id }}"
+      data-exclude="{{ exclude | escape }}"
+      data-limit="{{ limit }}"
+      data-quick-add="{{ quick }}"
+      data-root="{{ routes.root_url }}"
+    >
+      <slider-row class="recently-viewed__slider" id="{{ section.id }}-slider">
+        <ul class="slider-row slider-row--grid-desktop recently-viewed__list" data-slider-track data-recent-list role="list" style="--slider-cols: {{ cols }}">
+          {%- if request.design_mode -%}
+            {%- for i in (1..cols) -%}
+              <li class="recently-viewed__item" data-recent-placeholder>
+                {%- render 'product-card', product: nil, placeholder_index: i -%}
+              </li>
+            {%- endfor -%}
+          {%- endif -%}
+        </ul>
+      </slider-row>
+      <p class="visually-hidden" aria-live="polite" data-recent-status></p>
+
+      <template data-recent-template>
+        <li class="recently-viewed__item">
+          <div class="product-card" data-product-card data-finder-match-handle="" style="--card-ratio: {{ ratio_css }};">
+            <div class="product-card__media" data-card-media></div>
+            <div class="product-card__body">
+              <h3 class="product-card__title">
+                <a href="#" class="product-card__link" data-card-link></a>
+              </h3>
+              <div class="product-card__badges" data-card-badges>
+                {%- if settings.finder_enable -%}
+                  <span class="badge badge--match product-card__match" data-finder-match-badge hidden>
+                    {%- render 'icon', name: 'paw' -%}
+                    <span data-finder-name="{{ 'core.card.finder_match' | t: name: '[name]' }}">{{ 'core.card.finder_match_default' | t }}</span>
+                  </span>
+                {%- endif -%}
+              </div>
+              <div class="product-card__price">
+                <div class="price price--sm" data-card-price></div>
+              </div>
+              <div class="product-card__actions" data-card-actions hidden></div>
+            </div>
+          </div>
+        </li>
+      </template>
+      <template data-recent-strings>
+        <span data-k="from">{{ 'general.from' | t }}</span>
+        <span data-k="was">{{ 'accessibility.was_price' | t }}</span>
+        <span data-k="sale">{{ 'accessibility.sale_price' | t }}</span>
+        <span data-k="regular">{{ 'accessibility.regular_price' | t }}</span>
+        <span data-k="soldOut">{{ 'general.sold_out' | t }}</span>
+        <span data-k="chooseSize">{{ 'core.card.choose_size' | t }}</span>
+        <span data-k="chooseOptions">{{ 'core.card.choose_options' | t }}</span>
+        <span data-k="add">{{ 'core.card.add_to_basket' | t }}</span>
+        <span data-k="quickFor">{{ 'core.card.quick_add_for' | t: title: '[title]' }}</span>
+        <span data-k="cleared">{{ 'product.recent.cleared' | t }}</span>
+        <span data-k="plusIcon">{%- render 'icon', name: 'plus' -%}</span>
+      </template>
+    </recently-viewed>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Recently viewed",
+  "tag": "div",
+  "class": "recently-viewed-section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Shows the products this visitor viewed on this device. Hidden until they've viewed one."
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Still deciding?"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Beds you've looked at"
+    },
+    {
+      "type": "range",
+      "id": "limit",
+      "label": "Number of products",
+      "min": 2,
+      "max": 8,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "checkbox",
+      "id": "show_quick_add",
+      "label": "Show quick add",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "oat"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    }
+  ],
+  "presets": [
+    {
+      "name": "Recently viewed"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,260 @@
+{% layout none %}
+{%- comment -%}
+  Gift card — a complete page of its own (no theme layout). Gift card pages
+  are served from Shopify's checkout domain, so every link back to the shop
+  is absolute (shop.url).
+
+  The card, the balance, the code with a copy button, a QR code for
+  scanning, Apple Wallet when Shopify offers a pass, print, the expiry date
+  when there is one, and a clear way back to the beds. Expired or disabled
+  cards say so plainly instead of showing a balance that can't be spent.
+{%- endcomment -%}
+{%- liquid
+  assign heading_font = settings.type_heading_font
+  assign body_font = settings.type_body_font
+  assign body_font_bold = body_font | font_modify: 'weight', 'bold'
+  assign radius = settings.radius | default: 0 | plus: 0
+  assign radius_lg = radius | times: 1.57 | round
+  case settings.button_shape
+    when 'soft'
+      assign radius_btn = radius | times: 0.7 | round | append: 'px'
+    when 'square'
+      assign radius_btn = '2px'
+    else
+      assign radius_btn = '999px'
+  endcase
+
+  assign initial_money = gift_card.initial_value | money_without_trailing_zeros
+  assign balance_money = gift_card.balance | money
+  assign shop_url = shop.url | default: ''
+  assign finder_url = shop_url | append: '/pages/bed-finder'
+  assign all_url = shop_url | append: '/collections/all'
+  assign finder_label = settings.finder_cta_label | default: '' | strip
+  if finder_label == ''
+    assign finder_label = 'pages.cta.finder_button' | t
+  endif
+
+  assign usable = true
+  if gift_card.expired or gift_card.enabled == false
+    assign usable = false
+  endif
+
+  assign recipient_name = ''
+  if gift_card.recipient != blank
+    assign recipient_name = gift_card.recipient.nickname | default: gift_card.recipient.name | default: '' | strip
+  endif
+-%}
+<!doctype html>
+<html lang="{{ request.locale.iso_code }}">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="{{ settings.color_bg | default: '#FAF6EF' }}">
+    <title>{{ 'pages.gift_card.title' | t: value: initial_money, shop: shop.name }}</title>
+    <meta name="description" content="{{ 'pages.gift_card.meta_description' | t: shop: shop.name | escape }}">
+
+    <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
+    {%- if settings.favicon != blank %}
+      <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 64, height: 64 }}">
+    {%- endif %}
+    {%- if body_font != blank %}
+      <link rel="preload" as="font" href="{{ body_font | font_url }}" type="font/woff2" crossorigin>
+    {%- endif %}
+
+    <style>
+      {{ heading_font | font_face: font_display: 'swap' }}
+      {{ body_font | font_face: font_display: 'swap' }}
+      {{ body_font_bold | font_face: font_display: 'swap' }}
+
+      :root {
+        --c-bg: {{ settings.color_bg | default: '#FAF6EF' }};
+        --c-surface: {{ settings.color_surface | default: '#F1E9DB' }};
+        --c-sand: {{ settings.color_sand | default: '#E3D7C3' }};
+        --c-ink: {{ settings.color_ink | default: '#17150F' }};
+        --c-muted: {{ settings.color_muted | default: '#5E5442' }};
+        --c-control-line: {{ settings.color_control_line | default: '#8C7F66' }};
+        --c-dark: {{ settings.color_dark | default: '#1A2B24' }};
+        --c-on-dark: {{ settings.color_on_dark | default: '#F1E9DB' }};
+        --c-on-dark-muted: {{ settings.color_on_dark_muted | default: '#A9BBB1' }};
+        --c-accent: {{ settings.color_accent | default: '#B4532A' }};
+        --c-accent-text: {{ settings.color_accent_text | default: '#FFFFFF' }};
+        --c-accent-hover: {{ settings.color_accent | default: '#B4532A' | color_darken: 6 }};
+        --c-highlight: {{ settings.color_highlight | default: '#A87821' }};
+        --c-alert: {{ settings.color_alert | default: '#A8340E' }};
+        --c-success: {{ settings.color_success | default: '#2E6B4F' }};
+        --font-heading: {{ heading_font.family }}, {{ heading_font.fallback_families }};
+        --font-heading-weight: {{ heading_font.weight | default: 400 }};
+        --font-body: {{ body_font.family }}, {{ body_font.fallback_families }};
+        --font-body-weight: {{ body_font.weight | default: 400 }};
+        --font-body-weight-bold: {{ body_font_bold.weight | default: 700 }};
+        --fs-body: {{ settings.body_size | default: 16 }}px;
+        --heading-scale: {{ settings.heading_scale | default: 100 | divided_by: 100.0 }};
+        --page-width: {{ settings.page_width | default: '1320' }}px;
+        --radius: {{ radius }}px;
+        --radius-lg: {{ radius_lg }}px;
+        --radius-btn: {{ radius_btn }};
+        --logo-width: {{ settings.logo_width | default: 140 }}px;
+      }
+    </style>
+
+    {{ 'base.css' | asset_url | stylesheet_tag }}
+    {{ 'pages.css' | asset_url | stylesheet_tag }}
+
+    <script src="{{ 'vendor/qrcode.js' | shopify_asset_url }}" defer="defer"></script>
+    <script src="{{ 'customer.js' | asset_url }}" defer="defer"></script>
+
+    {{ content_for_header }}
+  </head>
+
+  <body class="gift-card-page scheme-bone">
+    <a class="skip-link" href="#MainContent">{{ 'general.skip_to_content' | t }}</a>
+
+    <header class="gift-card-page__header">
+      <a class="gift-card-page__brand" href="{{ shop_url }}">
+        {%- if settings.logo != blank -%}
+          {%- assign logo_alt = settings.logo.alt | default: shop.name -%}
+          {%- render 'image',
+            image: settings.logo,
+            widths: '160,280,520',
+            sizes: '260px',
+            alt: logo_alt,
+            loading: 'eager',
+            class: 'gift-card-page__logo'
+          -%}
+        {%- else -%}
+          <span class="gift-card-page__name">{{ shop.name | escape }}</span>
+        {%- endif -%}
+      </a>
+    </header>
+
+    <main id="MainContent" class="gift-card-page__main" tabindex="-1">
+      <div class="page-width page-width--text">
+        <header class="pages-header pages-header--center gift-card__header">
+          <p class="eyebrow">{{ 'pages.gift_card.eyebrow' | t }}</p>
+          <h1 class="h1 pages-header__title">
+            {%- if recipient_name != '' -%}
+              {{ 'pages.gift_card.heading_recipient' | t: name: recipient_name, value: initial_money }}
+            {%- else -%}
+              {{ 'pages.gift_card.heading' | t: value: initial_money, shop: shop.name }}
+            {%- endif -%}
+          </h1>
+        </header>
+
+        <section class="card card--lg gift-card" aria-labelledby="GiftCardBalanceLabel">
+          <div class="gift-card__visual scheme-moss{% unless usable %} is-unusable{% endunless %}">
+            <div class="gift-card__visual-top">
+              <span class="gift-card__visual-shop">{{ shop.name | escape }}</span>
+              {%- render 'icon', name: 'gift', size: 28 -%}
+            </div>
+            <p class="gift-card__balance-label" id="GiftCardBalanceLabel">{{ 'pages.gift_card.balance' | t }}</p>
+            <p class="gift-card__balance">{{ balance_money }}</p>
+            {%- if gift_card.balance != gift_card.initial_value and usable -%}
+              <p class="gift-card__initial">{{ 'pages.gift_card.initial' | t: value: initial_money }}</p>
+            {%- endif -%}
+          </div>
+
+          {%- if gift_card.expired -%}
+            <p class="gift-card__status gift-card__status--alert" role="note">
+              {%- render 'icon', name: 'info', size: 18 -%}
+              <span>{{ 'pages.gift_card.expired' | t }}</span>
+            </p>
+          {%- elsif gift_card.enabled == false -%}
+            <p class="gift-card__status gift-card__status--alert" role="note">
+              {%- render 'icon', name: 'info', size: 18 -%}
+              <span>{{ 'pages.gift_card.disabled' | t }}</span>
+            </p>
+          {%- elsif gift_card.expires_on -%}
+            {%- assign expires = gift_card.expires_on | date: '%-d %B %Y' -%}
+            <p class="gift-card__status">
+              {%- render 'icon', name: 'calendar', size: 18 -%}
+              <span>{{ 'pages.gift_card.expires_on' | t: date: expires }}</span>
+            </p>
+          {%- endif -%}
+
+          {%- if gift_card.message != blank -%}
+            <figure class="gift-card__message">
+              <blockquote>{{ gift_card.message | escape | newline_to_br }}</blockquote>
+            </figure>
+          {%- endif -%}
+
+          {%- if usable -%}
+            <div class="gift-card__code-block">
+              <p class="field__label" id="GiftCardCodeLabel">{{ 'pages.gift_card.code_label' | t }}</p>
+              <div class="gift-card__code-row">
+                <p class="gift-card__code" aria-labelledby="GiftCardCodeLabel">{{ gift_card.code | format_code }}</p>
+                <button
+                  type="button"
+                  class="btn btn--secondary btn--sm gift-card__copy"
+                  data-copy-text="{{ gift_card.code | escape }}"
+                  data-copy-done="{{ 'pages.gift_card.copied' | t | escape }}"
+                  hidden
+                >
+                  {%- render 'icon', name: 'check', size: 16, class: 'gift-card__copy-done' -%}
+                  <span data-copy-label>{{ 'pages.gift_card.copy' | t }}</span>
+                </button>
+              </div>
+              <p class="field__hint">{{ 'pages.gift_card.code_hint' | t }}</p>
+              <p class="visually-hidden" role="status" data-copy-status></p>
+            </div>
+
+            <div class="gift-card__extras">
+              <div
+                id="QrCode"
+                class="gift-card__qr"
+                data-identifier="{{ gift_card.qr_identifier }}"
+                data-qr-label="{{ 'pages.gift_card.qr_label' | t | escape }}"
+                role="img"
+                aria-label="{{ 'pages.gift_card.qr_label' | t | escape }}"
+              ></div>
+              {%- if gift_card.pass_url -%}
+                <a class="gift-card__wallet" href="{{ gift_card.pass_url }}">
+                  <img
+                    src="{{ 'gift-card/add-to-apple-wallet.svg' | shopify_asset_url }}"
+                    width="120"
+                    height="40"
+                    alt="{{ 'pages.gift_card.apple_wallet' | t | escape }}"
+                    loading="lazy"
+                  >
+                </a>
+              {%- endif -%}
+            </div>
+          {%- endif -%}
+
+          <div class="cluster gift-card__actions">
+            {%- if usable -%}
+              <a class="btn btn--primary btn--lg" href="{{ shop_url }}">
+                <span>{{ 'pages.gift_card.shop_now' | t }}</span>
+                {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+              </a>
+            {%- else -%}
+              <a class="btn btn--secondary btn--lg" href="{{ shop_url }}">{{ 'pages.gift_card.visit_shop' | t: shop: shop.name }}</a>
+            {%- endif -%}
+            <button type="button" class="btn btn--secondary btn--lg" data-print hidden>
+              {{- 'pages.gift_card.print' | t -}}
+            </button>
+          </div>
+        </section>
+
+        {%- if usable and settings.finder_enable -%}
+          <aside class="pages-cta scheme-oat gift-card__finder" aria-labelledby="GiftCardFinderTitle">
+            <h2 class="h4 pages-cta__title" id="GiftCardFinderTitle">{{ 'pages.gift_card.finder_heading' | t }}</h2>
+            <p class="pages-cta__text">{{ 'pages.gift_card.finder_text' | t }}</p>
+            <div class="cluster pages-cta__actions">
+              <a class="btn btn--secondary" href="{{ finder_url }}">
+                <span>{{ finder_label | escape }}</span>
+                {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+              </a>
+              <a class="btn btn--ghost" href="{{ all_url }}">{{ 'pages.cta.shop_all' | t }}</a>
+            </div>
+          </aside>
+        {%- endif -%}
+
+        <div class="gift-card__trust">
+          {%- render 'trust-list', items: 'trial,guarantee,delivery', layout: 'row', size: 'sm' -%}
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

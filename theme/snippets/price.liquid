@@ -1,0 +1,128 @@
+{%- comment -%}
+  Price block.
+
+  Parameters
+    product        product object (required unless variant is given)
+    variant        optional variant. When given, its own price/compare are shown.
+    show_from      true (default) → "From £69" when the product's price varies
+                   and no variant was passed.
+    show_save      true (default) → "Save £20" / "Save 22%" beside a compare-at
+                   price (also needs settings.show_compare_savings).
+    show_sold_out  true (default) → "Sold out" label when unavailable.
+    size           'sm' | 'md' (default) | 'lg'
+    class          extra classes on the wrapper
+
+  Anchoring: the struck-through compare-at price comes first, then the price
+  paid ("From" sits right beside the price it qualifies), then the saving.
+  Screen readers hear "Was £89.00, Sale price From £69.00, Save £20".
+
+  JS hooks (for variant updates by the product area):
+    [data-price] wrapper, [data-price-current], [data-price-compare],
+    [data-price-save], [data-price-from]; data-product-id on the wrapper.
+{%- endcomment -%}
+{%- liquid
+  if product.id == blank and variant.id != blank
+    assign product = variant.product
+  endif
+  assign has_price_source = true
+  if product.id == blank and variant.id == blank
+    assign has_price_source = false
+  endif
+  assign target = variant
+  assign has_variant = true
+  if target.id == blank
+    assign has_variant = false
+    assign target = product.selected_or_first_available_variant
+    comment
+      For a "From" price, the saving must belong to the variant that sets the
+      From price — not the product's lowest compare-at, which may sit on a
+      different size.
+    endcomment
+    if product.price_varies
+      for v in product.variants
+        if v.price == product.price_min
+          assign target = v
+          if v.available
+            break
+          endif
+        endif
+      endfor
+    endif
+  endif
+
+  assign price_cents = target.price | default: product.price_min | default: 0
+  assign compare_cents = target.compare_at_price | default: 0
+  assign on_sale = false
+  if compare_cents > price_cents
+    assign on_sale = true
+  endif
+
+  assign show_from_label = false
+  if has_variant == false and product.price_varies
+    unless show_from == false
+      assign show_from_label = true
+    endunless
+  endif
+
+  assign show_save_label = false
+  if on_sale and settings.show_compare_savings
+    unless show_save == false
+      assign show_save_label = true
+    endunless
+  endif
+
+  if has_variant
+    assign is_available = target.available
+  else
+    assign is_available = product.available
+  endif
+
+  assign size_class = size | default: 'md'
+-%}
+{%- if has_price_source -%}
+<div
+  class="price price--{{ size_class }}{% if on_sale %} price--on-sale{% endif %}{% unless is_available %} price--sold-out{% endunless %}{% if class %} {{ class }}{% endif %}"
+  data-price
+  {%- if product %} data-product-id="{{ product.id }}"{% endif %}
+>
+  {%- if on_sale -%}
+    <span class="visually-hidden">{{ 'accessibility.was_price' | t }}</span>
+    <s class="price__compare" data-price-compare>{{ compare_cents | money }}</s>
+    <span class="visually-hidden">{{ 'accessibility.sale_price' | t }}</span>
+  {%- else -%}
+    <span class="visually-hidden">{{ 'accessibility.regular_price' | t }}</span>
+  {%- endif -%}
+  {%- if show_from_label -%}
+    <span class="price__from" data-price-from>{{ 'general.from' | t }}</span>
+  {%- endif -%}
+  <span class="price__current" data-price-current>{{ price_cents | money }}</span>
+  {%- if show_save_label -%}
+    {%- liquid
+      assign saved = compare_cents | minus: price_cents
+      if settings.savings_format == 'percent'
+        assign pct = saved | times: 100 | divided_by: compare_cents
+        assign save_text = pct | append: '%'
+      else
+        assign save_text = saved | money_without_trailing_zeros
+      endif
+    -%}
+    <span class="price__save" data-price-save>{{ 'general.save' | t: amount: save_text }}</span>
+  {%- endif -%}
+  {%- unless is_available -%}
+    {%- unless show_sold_out == false -%}
+      <span class="price__sold-out">{{ 'general.sold_out' | t }}</span>
+    {%- endunless -%}
+  {%- endunless -%}
+  {%- if target.unit_price_measurement -%}
+    {%- liquid
+      assign ref_value = target.unit_price_measurement.reference_value
+      assign ref_unit = target.unit_price_measurement.reference_unit
+    -%}
+    <span class="price__unit">
+      <span class="visually-hidden">{{ 'accessibility.unit_price' | t }}</span>
+      {{ target.unit_price | money }}<span aria-hidden="true">/</span><span class="visually-hidden">&nbsp;{{ 'accessibility.unit_price_separator' | t }}&nbsp;</span>
+      {%- if ref_value != 1 -%}{{ ref_value }}{%- endif -%}{{ ref_unit }}
+    </span>
+  {%- endif -%}
+</div>
+{%- endif -%}

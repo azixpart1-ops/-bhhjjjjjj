@@ -1,0 +1,248 @@
+{%- comment -%}
+  Multicolumn — two to four short points side by side (icon or image,
+  title, text, optional link). Text can use [trial_nights],
+  [guarantee_years], [threshold]; a column naming a promise that is
+  switched off hides itself. With no columns it renders nothing on the live
+  store (a hint shows in the editor).
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign ph_nights = settings.trial_nights | default: 0 | plus: 0 | append: ''
+  assign ph_years = settings.guarantee_years | default: 0 | plus: 0 | append: ''
+  assign ph_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round | money_without_trailing_zeros
+  assign on_trial = false
+  if settings.trial_enable and settings.trial_nights > 0
+    assign on_trial = true
+  endif
+  assign on_guarantee = false
+  if settings.guarantee_enable and settings.guarantee_years > 0
+    assign on_guarantee = true
+  endif
+  assign on_free = false
+  if settings.free_shipping_enable and settings.free_shipping_threshold > 0
+    assign on_free = true
+  endif
+
+  assign visible_ids = ''
+  for block in section.blocks
+    assign b = block.settings
+    assign raw = b.title | append: ' ' | append: b.text
+    assign keep = true
+    if b.title == blank and b.text == blank
+      assign keep = false
+    endif
+    if raw contains '[trial_nights]' and on_trial == false
+      assign keep = false
+    endif
+    if raw contains '[guarantee_years]' and on_guarantee == false
+      assign keep = false
+    endif
+    if raw contains '[threshold]' and on_free == false
+      assign keep = false
+    endif
+    if keep
+      assign visible_ids = visible_ids | append: '|' | append: block.id | append: '|'
+    endif
+  endfor
+-%}
+{%- if visible_ids != '' or request.design_mode -%}
+{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- render 'section-styles', section: section -%}
+{%- assign heading_id = section.id | append: '-heading' -%}
+<section
+  class="section multicolumn scheme-{{ s.color_scheme }} multicolumn--{{ s.style | default: 'plain' }} multicolumn--{{ s.align | default: 'left' }}"
+  id="{{ section.id }}-wrap"
+  {%- if s.heading != blank %} aria-labelledby="{{ heading_id }}"{% endif %}
+>
+  <div class="page-width">
+    {%- if s.heading != blank or s.eyebrow != blank -%}
+      <header class="section-head{% if s.align == 'center' %} section-head--center{% endif %}">
+        {%- if s.eyebrow != blank -%}<p class="eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        {%- if s.heading != blank -%}<h2 id="{{ heading_id }}" class="h2">{{ s.heading | escape }}</h2>{%- endif -%}
+      </header>
+    {%- endif -%}
+    {%- if visible_ids == '' -%}
+      <p class="editor-note">{{ 'home.editor.multicolumn_empty' | t }}</p>
+    {%- endif -%}
+    <ul class="multicolumn__list" role="list" style="--cols: {{ s.columns_desktop | default: 3 }};">
+      {%- for block in section.blocks -%}
+        {%- assign marker = '|' | append: block.id | append: '|' -%}
+        {%- if visible_ids contains marker -%}
+          {%- assign b = block.settings -%}
+          <li class="multicolumn__item" data-reveal style="--i: {{ forloop.index0 }};" {{ block.shopify_attributes }}>
+            {%- if b.image != blank -%}
+              <div class="multicolumn__media">
+                {%- render 'image', image: b.image, widths: '240,360,480,640', sizes: '(min-width: 990px) 25vw, (min-width: 750px) 33vw, 100vw', aspect: 1.3333, alt: b.image.alt, class: 'multicolumn__img' -%}
+              </div>
+            {%- elsif b.icon != 'none' -%}
+              <span class="multicolumn__icon">{%- render 'icon', name: b.icon -%}</span>
+            {%- endif -%}
+            {%- if b.title != blank -%}
+              <h3 class="multicolumn__title h4">{{ b.title | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold }}</h3>
+            {%- endif -%}
+            {%- if b.text != blank -%}
+              <div class="rte multicolumn__text">{{ b.text | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold }}</div>
+            {%- endif -%}
+            {%- if b.link_label != blank and b.link != blank -%}
+              <a class="multicolumn__link link" href="{{ b.link }}">{{ b.link_label | escape }}</a>
+            {%- endif -%}
+          </li>
+        {%- elsif request.design_mode -%}
+          <li hidden {{ block.shopify_attributes }}></li>
+        {%- endif -%}
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Multicolumn",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 8,
+  "settings": [
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "options": [
+        { "value": "bone", "label": "Bone" },
+        { "value": "oat", "label": "Oat" },
+        { "value": "moss", "label": "Moss (dark)" },
+        { "value": "white", "label": "White" }
+      ],
+      "default": "bone"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Made for the way they sleep."
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "Columns on desktop",
+      "min": 2,
+      "max": 4,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "Style",
+      "options": [
+        { "value": "plain", "label": "Plain" },
+        { "value": "cards", "label": "Cards" }
+      ],
+      "default": "plain"
+    },
+    {
+      "type": "select",
+      "id": "align",
+      "label": "Alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Centre" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    }
+  ],
+  "blocks": [
+    {
+      "type": "column",
+      "name": "Column",
+      "settings": [
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "options": [
+            { "value": "none", "label": "None" },
+            { "value": "bed", "label": "Bed" },
+            { "value": "moon", "label": "Moon" },
+            { "value": "shield", "label": "Shield" },
+            { "value": "medal", "label": "Medal" },
+            { "value": "truck", "label": "Delivery van" },
+            { "value": "return", "label": "Return" },
+            { "value": "ruler", "label": "Ruler" },
+            { "value": "weight", "label": "Weight" },
+            { "value": "paw", "label": "Paw" },
+            { "value": "heart", "label": "Heart" },
+            { "value": "leaf", "label": "Leaf" },
+            { "value": "snowflake", "label": "Snowflake" },
+            { "value": "check-circle", "label": "Tick" },
+            { "value": "chat", "label": "Chat" }
+          ],
+          "default": "bed"
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image",
+          "info": "Shown instead of the icon."
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Curlers get walls"
+        },
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text",
+          "default": "<p>High sides to press a spine against and tuck a nose under.</p>"
+        },
+        {
+          "type": "text",
+          "id": "link_label",
+          "label": "Link label"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Multicolumn",
+      "blocks": [
+        { "type": "column", "settings": { "icon": "bed", "title": "Curlers get walls", "text": "<p>High sides to press a spine against and tuck a nose under.</p>" } },
+        { "type": "column", "settings": { "icon": "heart", "title": "Leaners get a bolster", "text": "<p>Something to rest a chin on, on every side they might turn.</p>" } },
+        { "type": "column", "settings": { "icon": "ruler", "title": "Sprawlers get surface", "text": "<p>Room to stretch clean across, with nothing in the way.</p>" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

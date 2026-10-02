@@ -1,0 +1,377 @@
+{%- comment -%}
+  Product card — used by every grid, row and recommendation in the theme.
+
+  Parameters
+    product          product object. Blank → a quiet placeholder card (editor/empty states).
+    image_ratio      'square' | 'portrait' | 'landscape'. Default settings.card_image_ratio.
+    show_quick_add   default true (also needs settings.card_quick_add)
+    show_rating      default true (also needs settings.card_show_rating + show_product_ratings)
+    show_per_night   default false — opt in for rows where the reframe helps
+    lazy             default true. Pass false for cards in the first screenful.
+    heading_level    'h2' | 'h3' (default) | 'h4'
+    role_label       overrides the "Best for:" line (else custom.best_for metafield,
+                     else a 'best-for:<text>' tag; hidden when settings.card_show_role is off
+                     unless passed explicitly)
+    sizes            <img sizes>. Default suits a 2 / 3 / 4-up grid.
+    index            1-based position → --i for staggered reveal
+    reveal           true → data-reveal on the card
+    class            extra classes on the root
+    placeholder_index  1–6, which placeholder illustration to use when product is blank
+
+  Psychology, all of it honest and switchable:
+    - Role label ("Best for: Stiff mornings") turns a grid of similar beds into
+      a set of answers (choice architecture).
+    - Finder match chip ("Bella's match") — hidden until global.js finds this
+      handle in the stored Bed Finder result (endowment / personalisation).
+    - Anchoring: compare-at struck through + "Save £X" badge (settings.show_compare_savings,
+      settings.savings_format). "From £69" when sizes are priced differently.
+    - Real ratings only (reviews.* metafields).
+    - Low stock ONLY when the first available variant tracks inventory, stops
+      selling at zero (policy deny) and is at/under settings.low_stock_threshold.
+    - Quick add: single variant → <form data-quick-add-single> posting to
+      /cart/add (cart.js intercepts it; works without JS). Multi-variant → a link
+      to the product (works without JS) that global.js turns into
+      lunova:quickadd:open {handle, url} when the quick-add drawer exists.
+
+  Root carries data-finder-match-handle="{{ product.handle }}"; badges are tags
+  'badge:<text>' (first one gets the featured style), plus automatic Sold out / Save.
+{%- endcomment -%}
+{%- liquid
+  assign ratio_key = image_ratio | default: settings.card_image_ratio | default: 'square'
+  case ratio_key
+    when 'portrait'
+      assign ratio_css = '4 / 5'
+    when 'landscape'
+      assign ratio_css = '4 / 3'
+    else
+      assign ratio_css = '1 / 1'
+  endcase
+
+  assign h_tag = heading_level | default: 'h3'
+  assign load_mode = 'lazy'
+  if lazy == false
+    assign load_mode = 'eager'
+  endif
+  assign img_sizes = sizes | default: '(min-width: 1200px) 300px, (min-width: 990px) 25vw, (min-width: 750px) 33vw, 50vw'
+
+  assign style_attr = '--card-ratio: ' | append: ratio_css | append: ';'
+  if index
+    assign style_attr = style_attr | append: ' --i: ' | append: index | append: ';'
+  endif
+-%}
+{%- if product == blank or product.id == blank -%}
+  {%- liquid
+    assign ph_n = placeholder_index | default: 1 | plus: 0 | minus: 1 | modulo: 6 | plus: 1
+    assign ph_name = 'product-' | append: ph_n
+  -%}
+  <div class="product-card product-card--placeholder{% if class %} {{ class }}{% endif %}" style="{{ style_attr }}"{% if reveal %} data-reveal{% endif %}>
+    <div class="product-card__media">
+      {{ ph_name | placeholder_svg_tag: 'placeholder-svg product-card__img' }}
+    </div>
+    <div class="product-card__body">
+      <{{ h_tag }} class="product-card__title">{{ 'core.card.placeholder_title' | t }}</{{ h_tag }}>
+      <p class="product-card__meta">{{ 'core.card.placeholder_note' | t }}</p>
+    </div>
+  </div>
+{%- else -%}
+  {%- liquid
+    assign variant = product.selected_or_first_available_variant
+    assign sold_out = false
+    unless product.available
+      assign sold_out = true
+    endunless
+
+    comment
+      Options: find the size option by name (so a colour-first product doesn't
+      advertise its colours as sizes) and count colours.
+    endcomment
+    assign size_idx = -1
+    assign size_count = 0
+    assign size_first = ''
+    assign size_last = ''
+    assign colour_count = 0
+    for option in product.options_with_values
+      assign opt_name = option.name | downcase
+      if size_idx == -1 and opt_name contains 'size'
+        assign size_idx = forloop.index0
+        assign size_count = option.values.size
+        assign v_first = option.values.first
+        assign v_last = option.values.last
+        assign size_first = v_first.name | default: v_first | append: ''
+        assign size_last = v_last.name | default: v_last | append: ''
+      elsif opt_name contains 'colour' or opt_name contains 'color'
+        assign colour_count = option.values.size
+      endif
+    endfor
+    if size_first.size > 8
+      assign size_first = size_first | split: ' ' | first | split: '(' | first
+    endif
+    if size_last.size > 8
+      assign size_last = size_last | split: ' ' | first | split: '(' | first
+    endif
+
+    assign meta_text = ''
+    if size_idx >= 0 and size_count > 1
+      assign meta_text = 'core.card.sizes_range' | t: from: size_first, to: size_last
+    elsif size_idx >= 0 and size_count == 1
+      assign meta_text = 'core.card.size_single' | t: size: size_first
+    endif
+    if colour_count > 1
+      assign colour_text = 'core.card.colours' | t: count: colour_count
+      if meta_text != ''
+        assign meta_text = meta_text | append: ' · '
+      endif
+      assign meta_text = meta_text | append: colour_text
+    endif
+
+    comment
+      Role label and custom badges from metafields / tags.
+    endcomment
+    assign role = role_label | default: '' | strip
+    assign role_explicit = false
+    if role != ''
+      assign role_explicit = true
+    endif
+    if role == '' and settings.card_show_role
+      assign role = product.metafields.custom.best_for.value | default: '' | strip
+    endif
+    assign custom_badges = ''
+    for tag in product.tags
+      assign tl = tag | downcase
+      assign p6 = tl | slice: 0, 6
+      assign p9 = tl | slice: 0, 9
+      if p6 == 'badge:'
+        assign b_txt = tag | slice: 6, 60 | strip | remove: '|'
+        if b_txt != ''
+          assign custom_badges = custom_badges | append: b_txt | append: '|'
+        endif
+      elsif p9 == 'best-for:' and role == '' and settings.card_show_role
+        assign role = tag | slice: 9, 80 | strip
+      endif
+    endfor
+    assign custom_badge_list = custom_badges | split: '|'
+
+    comment
+      Saving on the variant that sets the displayed ("From") price.
+    endcomment
+    assign from_v = variant
+    if product.price_varies
+      for v in product.variants
+        if v.price == product.price_min
+          assign from_v = v
+          if v.available
+            break
+          endif
+        endif
+      endfor
+    endif
+    assign save_text = ''
+    assign card_compare = from_v.compare_at_price | default: 0
+    if settings.show_compare_savings and sold_out == false and card_compare > from_v.price
+      assign saved = card_compare | minus: from_v.price
+      if settings.savings_format == 'percent'
+        assign pct = saved | times: 100 | divided_by: card_compare
+        assign save_amount = pct | append: '%'
+      else
+        assign save_amount = saved | money_without_trailing_zeros
+      endif
+      assign save_text = 'general.save' | t: amount: save_amount
+    endif
+
+    comment
+      Honest low stock: tracked by Shopify, can't oversell, at/under threshold.
+    endcomment
+    assign low_text = ''
+    if settings.low_stock_enable and variant.available and variant.inventory_management == 'shopify' and variant.inventory_policy == 'deny'
+      assign qty = variant.inventory_quantity | default: 0 | plus: 0
+      assign limit = settings.low_stock_threshold | default: 0 | plus: 0
+      if qty > 0 and qty <= limit
+        assign low_qty = qty
+        if product.has_only_default_variant
+          assign low_text = 'core.card.low_stock' | t: count: qty
+        elsif size_idx >= 0
+          assign low_size = variant.options[size_idx]
+          assign low_text = 'pending'
+        else
+          assign low_text = 'core.card.low_stock_in' | t: count: qty, size: variant.title
+        endif
+      endif
+    endif
+
+    comment
+      Quick add mode.
+    endcomment
+    assign quick = false
+    if settings.card_quick_add and sold_out == false
+      unless show_quick_add == false
+        assign quick = true
+      endunless
+    endif
+    assign quick_mode = 'choose'
+    if product.has_only_default_variant or product.variants.size == 1
+      assign quick_mode = 'single'
+    endif
+    if product.requires_selling_plan
+      assign quick_mode = 'choose'
+    endif
+
+    assign show_stars = false
+    if settings.card_show_rating
+      unless show_rating == false
+        assign show_stars = true
+      endunless
+    endif
+
+    assign primary_image = product.featured_media.preview_image
+    assign has_secondary = false
+    if settings.card_secondary_image and product.media.size > 1
+      assign secondary_image = product.media[1].preview_image
+      if secondary_image.width
+        assign has_secondary = true
+      endif
+    endif
+
+    comment
+      Badge budget: on a 160px phone card more than two badges hide the photo.
+      With a saving to show, one custom badge; otherwise two.
+    endcomment
+    assign custom_limit = 2
+    if save_text != ''
+      assign custom_limit = 1
+    endif
+  -%}
+  {%- if low_text == 'pending' -%}
+    {%- capture low_label -%}{%- render 'size-hints', value: low_size, mode: 'label' -%}{%- endcapture -%}
+    {%- assign low_label = low_label | strip | default: low_size -%}
+    {%- assign low_text = 'core.card.low_stock_in' | t: count: low_qty, size: low_label -%}
+  {%- endif -%}
+  <div
+    class="product-card{% if sold_out %} is-sold-out{% endif %}{% if has_secondary %} product-card--has-secondary{% endif %}{% if class %} {{ class }}{% endif %}"
+    data-product-card
+    data-finder-match-handle="{{ product.handle }}"
+    data-product-id="{{ product.id }}"
+    data-product-url="{{ product.url }}"
+    style="{{ style_attr }}"
+    {%- if reveal %} data-reveal{% endif %}
+  >
+    <div class="product-card__media">
+      {%- render 'image',
+        image: primary_image,
+        widths: '240,360,480,640,800,1000',
+        sizes: img_sizes,
+        class: 'product-card__img product-card__img--primary',
+        loading: load_mode,
+        placeholder: 'product-1'
+      -%}
+      {%- if has_secondary -%}
+        {%- render 'image',
+          image: secondary_image,
+          widths: '240,360,480,640,800,1000',
+          sizes: img_sizes,
+          class: 'product-card__img product-card__img--secondary',
+          loading: 'lazy',
+          decorative: true
+        -%}
+      {%- endif -%}
+    </div>
+
+    <div class="product-card__body">
+      {%- if role != '' -%}
+        {%- if settings.card_show_role or role_explicit -%}
+          <p class="product-card__role">
+            <span class="product-card__role-label">{{ 'core.card.best_for' | t }}</span>
+            <span class="product-card__role-text">{{ role | escape }}</span>
+          </p>
+        {%- endif -%}
+      {%- endif -%}
+
+      <{{ h_tag }} class="product-card__title">
+        <a href="{{ product.url }}" class="product-card__link">{{ product.title | escape }}</a>
+      </{{ h_tag }}>
+
+      <div class="product-card__badges">
+        {%- if settings.finder_enable -%}
+          <span class="badge badge--match product-card__match" data-finder-match-badge hidden>
+            {%- render 'icon', name: 'paw' -%}
+            <span data-finder-name="{{ 'core.card.finder_match' | t: name: '[name]' }}">{{ 'core.card.finder_match_default' | t }}</span>
+          </span>
+        {%- endif -%}
+        {%- if sold_out -%}
+          {%- assign sold_text = 'general.sold_out' | t -%}
+          {%- render 'badge', text: sold_text, style: 'muted' -%}
+        {%- else -%}
+          {%- for b in custom_badge_list limit: custom_limit -%}
+            {%- if forloop.first -%}
+              {%- render 'badge', text: b, style: 'accent' -%}
+            {%- else -%}
+              {%- render 'badge', text: b -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- if save_text != '' -%}
+            {%- render 'badge', text: save_text, style: 'sale' -%}
+          {%- endif -%}
+        {%- endif -%}
+      </div>
+
+      {%- if show_stars -%}
+        {%- render 'rating', product: product, size: 'sm' -%}
+      {%- endif -%}
+
+      {%- if meta_text != '' -%}
+        <p class="product-card__meta">{{ meta_text }}</p>
+      {%- endif -%}
+
+      <div class="product-card__price">
+        {%- render 'price', product: product, show_from: true, show_save: false, show_sold_out: false, size: 'sm' -%}
+      </div>
+
+      {%- if show_per_night and sold_out == false -%}
+        <div class="product-card__per-night">
+          {%- render 'per-night', price: product.price_min, compact: true -%}
+        </div>
+      {%- endif -%}
+
+      {%- if low_text != '' -%}
+        <p class="product-card__stock">
+          <span class="product-card__stock-dot" aria-hidden="true"></span>{{ low_text }}
+        </p>
+      {%- endif -%}
+
+      {%- if quick -%}
+        <div class="product-card__actions">
+          {%- if quick_mode == 'single' -%}
+            <form
+              action="{{ routes.cart_add_url }}"
+              method="post"
+              class="product-card__form"
+              data-quick-add-single
+              data-product-handle="{{ product.handle }}"
+            >
+              <input type="hidden" name="id" value="{{ variant.id }}">
+              <input type="hidden" name="quantity" value="1">
+              <button type="submit" class="btn btn--secondary btn--sm btn--block product-card__quick-add">
+                {%- render 'icon', name: 'plus' -%}
+                <span>{{ 'core.card.add_to_basket' | t }}</span>
+                <span class="visually-hidden">{{ 'core.card.quick_add_for' | t: title: product.title }}</span>
+              </button>
+              <p class="product-card__error" role="alert" data-quick-add-error hidden></p>
+            </form>
+          {%- else -%}
+            <a
+              href="{{ product.url }}"
+              class="btn btn--secondary btn--sm btn--block product-card__quick-add"
+              data-quick-add
+              data-handle="{{ product.handle }}"
+              data-url="{{ product.url }}"
+            >
+              <span>
+                {%- if size_idx >= 0 -%}{{ 'core.card.choose_size' | t }}{%- else -%}{{ 'core.card.choose_options' | t }}{%- endif -%}
+              </span>
+              <span class="visually-hidden">{{ 'core.card.quick_add_for' | t: title: product.title }}</span>
+            </a>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+{%- endif -%}

@@ -1,0 +1,251 @@
+{%- comment -%}
+  Product gallery — <media-gallery>.
+
+  Every media type: image, Shopify video, YouTube/Vimeo, 3D model.
+    Phones/tablets: swipeable scroll-snap carousel, "3 / 8" counter, dots,
+                    prev/next buttons.
+    Desktop:        large viewer + thumbnails, or a 2-column grid (layout: 'grid').
+  Images open a full-screen lightbox with tap-to-zoom (native <dialog>:
+  Escape closes, focus returns to where it was).
+  The selected variant's image comes first (it's the LCP image, so it loads
+  eagerly with fetchpriority high); everything else is lazy. External video
+  and 3D models only load their heavy embeds when asked.
+
+  Parameters
+    product    required
+    section    required
+    variant    selected variant (its featured media leads)
+    layout     'thumbnails' (default) | 'grid'
+    ratio      'square' (default) | 'portrait' | 'adapt' (first image's own shape)
+    zoom       true (default) → lightbox
+{%- endcomment -%}
+{%- liquid
+  assign current = variant | default: product.selected_or_first_available_variant
+  assign gal_layout = layout | default: 'thumbnails'
+  assign media_count = product.media.size
+  assign featured = current.featured_media | default: product.featured_media
+  assign featured_id = featured.id | default: 0
+
+  case ratio
+    when 'portrait'
+      assign ratio_css = '4 / 5'
+      assign fit = 'cover'
+    when 'adapt'
+      assign ar = featured.preview_image.aspect_ratio | default: 1 | plus: 0.0
+      if ar <= 0
+        assign ar = 1.0
+      endif
+      assign ratio_css = ar | append: ''
+      assign fit = 'contain'
+    else
+      assign ratio_css = '1 / 1'
+      assign fit = 'cover'
+  endcase
+
+  assign zoom_on = true
+  if zoom == false
+    assign zoom_on = false
+  endif
+
+  if gal_layout == 'grid'
+    assign img_sizes = '(min-width: 1320px) 380px, (min-width: 990px) 29vw, 100vw'
+  else
+    assign img_sizes = '(min-width: 1320px) 760px, (min-width: 990px) 58vw, 100vw'
+  endif
+  assign gal_label = 'product.gallery.label' | t
+-%}
+<media-gallery
+  class="gallery gallery--{{ gal_layout }}{% if media_count < 2 %} gallery--single{% endif %}"
+  data-section-id="{{ section.id }}"
+  data-layout="{{ gal_layout }}"
+  data-count="{{ media_count }}"
+  role="region"
+  aria-roledescription="carousel"
+  aria-label="{{ gal_label }}"
+  style="--gallery-ratio: {{ ratio_css }}; --gallery-fit: {{ fit }};"
+>
+  {%- if media_count == 0 -%}
+    <div class="gallery__viewer">
+      <div class="gallery__track">
+        <div class="gallery__slide is-active">
+          <div class="gallery__media">
+            {{ 'product-1' | placeholder_svg_tag: 'placeholder-svg gallery__img' }}
+          </div>
+        </div>
+      </div>
+    </div>
+  {%- else -%}
+    <div class="gallery__viewer">
+      <div class="gallery__track" data-gallery-track>
+        {%- assign n = 0 -%}
+        {%- for pass in (1..2) -%}
+          {%- for media in product.media -%}
+            {%- liquid
+              if pass == 1 and media.id != featured_id
+                continue
+              endif
+              if pass == 2 and media.id == featured_id
+                continue
+              endif
+              assign n = n | plus: 1
+              assign idx0 = n | minus: 1
+              assign alt_text = media.alt | default: product.title
+              assign load = 'lazy'
+              assign prio = 'auto'
+              if n == 1
+                assign load = 'eager'
+                assign prio = 'high'
+              endif
+            -%}
+            <div
+              class="gallery__slide{% if n == 1 %} is-active{% endif %}"
+              data-gallery-slide
+              data-index="{{ idx0 }}"
+              data-media-id="{{ media.id }}"
+              data-media-type="{{ media.media_type }}"
+              role="group"
+              aria-roledescription="slide"
+              aria-label="{{ 'product.gallery.slide' | t: index: n, count: media_count }}"
+            >
+              {%- case media.media_type -%}
+                {%- when 'image' -%}
+                  <div class="gallery__media"{% if zoom_on %} data-zoom-target{% endif %}>
+                    {%- render 'image',
+                      image: media.preview_image,
+                      widths: '360,540,720,960,1200,1500,1800',
+                      sizes: img_sizes,
+                      class: 'gallery__img',
+                      loading: load,
+                      fetchpriority: prio,
+                      alt: alt_text
+                    -%}
+                  </div>
+                  {%- if zoom_on -%}
+                    <button
+                      type="button"
+                      class="gallery__zoom"
+                      data-zoom-open
+                      data-zoom-src="{{ media.preview_image | image_url: width: 2400 }}"
+                      data-zoom-width="{{ media.preview_image.width }}"
+                      data-zoom-height="{{ media.preview_image.height }}"
+                      data-zoom-alt="{{ alt_text | escape }}"
+                      aria-label="{{ 'product.gallery.open_zoom' | t: index: n, count: media_count }}"
+                      aria-haspopup="dialog"
+                      {%- if n != 1 %} tabindex="-1"{% endif %}
+                    >
+                      {%- render 'icon', name: 'zoom' -%}
+                    </button>
+                  {%- endif -%}
+                {%- when 'video' -%}
+                  <div class="gallery__media gallery__media--video">
+                    {{ media | video_tag: image_size: '1500x', controls: true, preload: 'none', playsinline: true, class: 'gallery__video' }}
+                  </div>
+                {%- when 'external_video' -%}
+                  <div class="gallery__media gallery__media--deferred" data-deferred-media>
+                    <button type="button" class="gallery__poster" data-deferred-play aria-label="{{ 'product.gallery.play_video' | t }}"{% if n != 1 %} tabindex="-1"{% endif %}>
+                      {%- render 'image', image: media.preview_image, widths: '360,540,720,960,1200', sizes: img_sizes, class: 'gallery__img', loading: load, fetchpriority: prio, alt: alt_text -%}
+                      <span class="gallery__play">{%- render 'icon', name: 'play' -%}</span>
+                    </button>
+                    <template data-deferred-template>
+                      {{- media | external_video_url: autoplay: true | external_video_tag: class: 'gallery__iframe', title: alt_text -}}
+                    </template>
+                  </div>
+                {%- when 'model' -%}
+                  <div class="gallery__media gallery__media--deferred" data-deferred-media data-model>
+                    <button type="button" class="gallery__poster" data-deferred-play aria-label="{{ 'product.gallery.view_3d' | t }}"{% if n != 1 %} tabindex="-1"{% endif %}>
+                      {%- render 'image', image: media.preview_image, widths: '360,540,720,960,1200', sizes: img_sizes, class: 'gallery__img', loading: load, fetchpriority: prio, alt: alt_text -%}
+                      <span class="gallery__play gallery__play--3d">{{ 'product.gallery.view_3d' | t }}</span>
+                    </button>
+                    <template data-deferred-template>
+                      {{- media | model_viewer_tag: image_size: '1500x', reveal: 'interaction', toggleable: true, class: 'gallery__model' -}}
+                    </template>
+                  </div>
+                {%- else -%}
+                  <div class="gallery__media">
+                    {%- render 'image', image: media.preview_image, sizes: img_sizes, class: 'gallery__img', loading: load, alt: alt_text -%}
+                  </div>
+              {%- endcase -%}
+            </div>
+          {%- endfor -%}
+        {%- endfor -%}
+      </div>
+
+      {%- if media_count > 1 -%}
+        <div class="gallery__controls">
+          <button type="button" class="gallery__arrow gallery__arrow--prev" data-gallery-prev aria-label="{{ 'product.gallery.previous' | t }}">
+            {%- render 'icon', name: 'chevron-left' -%}
+          </button>
+          <span class="gallery__counter" aria-hidden="true"><span data-gallery-current>1</span> / {{ media_count }}</span>
+          <button type="button" class="gallery__arrow gallery__arrow--next" data-gallery-next aria-label="{{ 'product.gallery.next' | t }}">
+            {%- render 'icon', name: 'chevron-right' -%}
+          </button>
+        </div>
+        {%- if media_count <= 12 -%}
+          <div class="gallery__dots" aria-hidden="true">
+            {%- for i in (1..media_count) -%}
+              <span class="gallery__dot{% if forloop.first %} is-active{% endif %}" data-gallery-dot></span>
+            {%- endfor -%}
+          </div>
+        {%- endif -%}
+      {%- endif -%}
+    </div>
+
+    {%- if media_count > 1 -%}
+      <div class="gallery__thumbs" data-gallery-thumbs>
+        <ul class="gallery__thumb-list" role="list">
+          {%- assign n = 0 -%}
+          {%- for pass in (1..2) -%}
+            {%- for media in product.media -%}
+              {%- liquid
+                if pass == 1 and media.id != featured_id
+                  continue
+                endif
+                if pass == 2 and media.id == featured_id
+                  continue
+                endif
+                assign n = n | plus: 1
+              -%}
+              <li class="gallery__thumb-item">
+                <button
+                  type="button"
+                  class="gallery__thumb"
+                  data-gallery-thumb
+                  data-index="{{ n | minus: 1 }}"
+                  data-media-id="{{ media.id }}"
+                  aria-label="{{ 'product.gallery.show_media' | t: index: n, count: media_count }}"
+                  aria-current="{% if n == 1 %}true{% else %}false{% endif %}"
+                >
+                  {%- render 'image', image: media.preview_image, widths: '120,180,240', sizes: '96px', class: 'gallery__thumb-img', loading: 'lazy', decorative: true -%}
+                  {%- if media.media_type == 'video' or media.media_type == 'external_video' -%}
+                    <span class="gallery__thumb-badge">{%- render 'icon', name: 'play' -%}<span class="visually-hidden">{{ 'product.gallery.media_video' | t }}</span></span>
+                  {%- elsif media.media_type == 'model' -%}
+                    <span class="gallery__thumb-badge gallery__thumb-badge--text">3D<span class="visually-hidden">{{ 'product.gallery.media_model' | t }}</span></span>
+                  {%- endif -%}
+                </button>
+              </li>
+            {%- endfor -%}
+          {%- endfor -%}
+        </ul>
+      </div>
+    {%- endif -%}
+
+    {%- if zoom_on -%}
+      <dialog class="gallery-lightbox" data-lightbox aria-label="{{ 'product.gallery.lightbox_label' | t }}">
+        <div class="gallery-lightbox__bar">
+          <span class="gallery-lightbox__counter" aria-hidden="true" data-lightbox-counter></span>
+          <p class="gallery-lightbox__hint">{{ 'product.gallery.zoom_hint' | t }}</p>
+          <button type="button" class="gallery-lightbox__close" data-lightbox-close aria-label="{{ 'product.gallery.close' | t }}">
+            {%- render 'icon', name: 'close' -%}
+          </button>
+        </div>
+        <div class="gallery-lightbox__track" data-lightbox-track></div>
+        <button type="button" class="gallery-lightbox__arrow gallery-lightbox__arrow--prev" data-lightbox-prev aria-label="{{ 'product.gallery.previous' | t }}">
+          {%- render 'icon', name: 'chevron-left' -%}
+        </button>
+        <button type="button" class="gallery-lightbox__arrow gallery-lightbox__arrow--next" data-lightbox-next aria-label="{{ 'product.gallery.next' | t }}">
+          {%- render 'icon', name: 'chevron-right' -%}
+        </button>
+      </dialog>
+    {%- endif -%}
+  {%- endif -%}
+</media-gallery>
