@@ -1021,34 +1021,44 @@
       }
       if (!select || !data || !data.size || select.hasAttribute('data-touched')) return;
       var want = String(data.size).toLowerCase().trim();
-      // The finder stores the size-hint value ("M", "XL"); options may say
-      // "Medium" or "Rydal 2XL". Exact or prefix match first, then the
-      // spec §5.6 rule through Lunova.sizeHint (label ≡ value, 2XL/XXL → XL).
-      var wantHint = typeof L.sizeHint === 'function' ? L.sizeHint(data.size) : null;
-      var opts = Array.prototype.slice.call(select.options);
+      // The finder stores the size-hint value ("M", "XL"). Each option
+      // carries its variant's option values whole (JSON), so a breed-labelled
+      // size ("Small: Pug | French Bulldog | Dachshund") reaches the shared
+      // rule intact: Lunova.sizeMatch picks the value that suits this dog on
+      // this product (its breeds, measurements or size word), else the next
+      // size up, the same as the product page and the finder.
+      var opts = Array.prototype.slice.call(select.options).filter(function (o) { return !o.disabled; });
       function valuesOf(opt) {
-        return (opt.getAttribute('data-options') || '').toLowerCase().split('|').map(function (v) {
-          return v.trim();
+        var raw = opt.getAttribute('data-options') || '';
+        try {
+          var list = JSON.parse(raw);
+          if (Array.isArray(list)) return list.map(function (v) { return String(v); });
+        } catch (e) {
+          /* older markup: values joined with | */
+        }
+        return raw.split('|').map(function (v) { return v.trim(); });
+      }
+      function optionWith(value) {
+        var found = null;
+        opts.some(function (opt) {
+          if (valuesOf(opt).indexOf(value) > -1) found = opt;
+          return !!found;
         });
+        return found;
       }
       var pick = null;
       opts.some(function (opt) {
-        var hit = valuesOf(opt).some(function (v) {
-          return v === want || v.indexOf(want + ' ') === 0 || v.indexOf(want + '(') === 0;
-        });
+        var hit = valuesOf(opt).some(function (v) { return v.toLowerCase().trim() === want; });
         if (hit) pick = opt;
         return hit;
       });
-      if (!pick && wantHint) {
-        var wantValue = String(wantHint.value || '').toLowerCase();
-        opts.some(function (opt) {
-          var hit = valuesOf(opt).some(function (v) {
-            var h = L.sizeHint(v);
-            return !!h && (h === wantHint || String(h.value || '').toLowerCase() === wantValue);
-          });
-          if (hit) pick = opt;
-          return hit;
+      if (!pick && typeof L.sizeMatch === 'function') {
+        var all = [];
+        opts.forEach(function (opt) {
+          valuesOf(opt).forEach(function (v) { if (all.indexOf(v) === -1) all.push(v); });
         });
+        var m = L.sizeMatch(all, data.size);
+        if (m) pick = optionWith(m.value);
       }
       if (pick) select.value = pick.value;
     }

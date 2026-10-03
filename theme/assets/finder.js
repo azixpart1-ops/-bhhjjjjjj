@@ -45,21 +45,31 @@
   /* Fallback beds come from sections/finder-products, fetched on demand. */
   var PRODUCTS_QUERY = 'section_id=finder-products';
   var PRODUCTS_TIMEOUT = 8000;
+  /* finder-products pages by 250 (the platform maximum); at most 1,000 beds are fetched. */
+  var PRODUCTS_MAX = 1000;
   /* Longer names make the Add button wrap onto three lines on small phones. */
   var CTA_NAME_MAX = 12;
   var ADVANCE_MS = 280;
   var CLOSE_MS = 200;
+  /* Sleeping style from a bed's own words. Read from the title first, then
+     from tags one at a time, then (weakly) from the last product-type
+     segment — see classify(). Shapes only: "crate" or "travel" say where a
+     bed goes, not how a dog lies on it. */
   var STYLE_WORDS = {
-    curl: /\b(nest|donut|doughnut|cuddler|calming|burrow|cave|igloo|snuggle)\b/i,
-    lean: /\b(bolster|sofa|couch|raised[\s-]?edge|chaise)\b/i,
-    sprawl: /\b(flat|mattress|mat|pad|crate|cushion|futon|daybed)\b/i
+    curl: /\b(nest|nesting|donut|doughnut|cuddler|calming|burrow|cave|igloo|snuggle|den|high[\s-]?(?:sided|walled|wall))\b/i,
+    lean: /\b(bolster|bolstered|sofa|couch|chaise|corner|raised[\s-]?edge)\b/i,
+    sprawl: /\b(flat|mattress|pillow|mat|pad|cushion|futon|cot|elevated|edge[\s-]?to[\s-]?edge|raised(?![\s-]?edge))\b/i
   };
-  var XL_ALIASES = ['2xl', 'xxl', '3xl', 'xxxl', 'x large', 'xx large', 'extra extra large'];
-  var XS_ALIASES = ['x small', 'xx small', 'xxs', 'extra extra small'];
+  var OLDER_WORDS = /\b(older|senior|elderly|ageing|aging)\b/i;
+  var XL_ALIASES = ['2xl', 'xxl', '3xl', 'xxxl', 'x large', 'xx large', 'extra extra large', 'extra large'];
+  var XS_ALIASES = ['x small', 'xx small', 'xxs', 'extra extra small', 'extra small'];
+  /* "Large Dog Bed", "XL", "dog bed for large dogs": the dog a one-size bed is for. */
+  var DOG_SIZE_TITLE = /\b(xxs|xs|xl|xxl|[2-5]xl|xxxl)\b|\b(extra[\s-]small|extra[\s-]large|x[\s-]?small|x[\s-]?large|small|medium|large|giant)(?=[\s-]+dogs?\b)/i;
+  var DOG_SIZE_TAG = /^(?:(extra small|x small|xs|small|medium|large|extra large|x large|xl|xxl|giant)\s+dogs?(?:\s+beds?)?|dogs?\s+beds?\s+for\s+(extra small|small|medium|large|extra large|xl|giant)\s+dogs?)$/;
   var DEFAULT_HINTS = [
-    { value: 'XS', label: 'Extra small', weight: 'Up to 5kg', breeds: 'Chihuahua, Yorkie, Pomeranian' },
-    { value: 'S', label: 'Small', weight: '5–10kg', breeds: 'Jack Russell, Dachshund, Pug, Shih Tzu' },
-    { value: 'M', label: 'Medium', weight: '10–25kg', breeds: 'Cocker, Springer, Border Collie, Staffie' },
+    { value: 'XS', label: 'Extra small', weight: 'Up to 5kg', breeds: 'Chihuahua, Yorkie, Pomeranian, Yorkshire Terrier' },
+    { value: 'S', label: 'Small', weight: '5–10kg', breeds: 'Jack Russell, Dachshund, Pug, Shih Tzu, French Bulldog' },
+    { value: 'M', label: 'Medium', weight: '10–25kg', breeds: 'Cocker, Springer, Border Collie, Staffie, Cockapoo' },
     { value: 'L', label: 'Large', weight: '25–40kg', breeds: 'Labrador, Retriever, Boxer, Pointer' },
     { value: 'XL', label: 'Extra large', weight: '40kg+', breeds: 'German Shepherd, Bernese, Great Dane' }
   ];
@@ -354,9 +364,12 @@
     });
     cfg.options = cfg.options || {};
     cfg.urls = cfg.urls || {};
+    var rules = cfg.rules && typeof cfg.rules === 'object' ? cfg.rules : {};
+    cfg.rules = { exclude: parseRules(rules.exclude), last: parseRules(rules.lastResort) };
     cfg.products = cfg.products && typeof cfg.products === 'object' ? cfg.products : {};
     Object.keys(cfg.products).forEach(function (handle) {
       prepareProduct(cfg.products[handle]);
+      applyRules(cfg, cfg.products[handle]);
     });
     cfg.matches = (Array.isArray(cfg.matches) ? cfg.matches : [])
       .filter(function (m) {
@@ -384,20 +397,110 @@
   }
 
   function prepareProduct(p) {
-    p.tags = Array.isArray(p.tags) ? p.tags : String(p.tags || '').split(',');
+    p.tags = (Array.isArray(p.tags) ? p.tags : String(p.tags || '').split(',')).map(function (t) { return String(t).trim(); }).filter(Boolean);
     p.tagsLc = p.tags.map(norm);
     p.variants = Array.isArray(p.variants) ? p.variants : [];
     p.options = Array.isArray(p.options) ? p.options : [];
+    p.blurb = decode(p.blurb || '');
+    p.dims = decode(p.dims || '');
     var haystack = [p.title, p.type, p.tags.join(' ')].join(' ');
-    p.foam = /memory[\s-]?foam/i.test(haystack);
+    /* Support, from the bed's own words: used for matching a stage and for
+       the "memory foam" wording only. Whether the foam guarantee (and the
+       per-night sum built on it) applies is the Liquid verdict p.foam
+       (snippets/foam-bed via finder-product-json), read by Lunova.foamBed. */
+    p.memFoam = /memory[\s-]?foam/i.test(haystack);
     p.orthoWord = /orthop(?:a)?edic/i.test(haystack);
-    p.ortho = p.foam || p.orthoWord;
+    p.ortho = p.memFoam || p.orthoWord;
+    if (typeof p.foam !== 'boolean') delete p.foam;
+    if (typeof p.trial !== 'boolean') delete p.trial;
+    p.personalised = p.personalised === true;
+    /* Made for older dogs, in its own words ("dog bed for older dogs", "senior dog bed"). */
+    p.older = OLDER_WORDS.test([p.title].concat(p.tags).join(' | '));
     p.styleTags = STYLES.filter(function (s) { return has(p.tagsLc, 'finder:' + s); });
     p.stageTags = STAGES.filter(function (s) { return has(p.tagsLc, 'finder:' + s); });
-    p.styleWords = STYLES.filter(function (s) { return STYLE_WORDS[s].test(haystack); });
+    var cls = classify(p);
+    p.styleWords = cls.styles;
+    p.styleSource = cls.source;
     p.sizeTags = p.tagsLc.filter(function (t) { return t.indexOf('finder:size-') === 0; }).map(function (t) { return t.slice(12); });
+    /* finder:priority-N (0–10): the merchant's tie-break between equally good beds. */
+    p.priority = 0;
+    p.tagsLc.forEach(function (t) {
+      var m = /^finder:priority-(\d+)$/.exec(t);
+      if (m) p.priority = Math.min(10, Number(m[1]));
+    });
     p.available = p.variants.some(function (v) { return v.available; });
     p.sizeIndex = -2; // resolved lazily (needs size hints)
+    p.sizing = null;
+  }
+
+  function stylesIn(text) {
+    return STYLES.filter(function (s) { return STYLE_WORDS[s].test(text); });
+  }
+
+  /**
+   * How a bed is slept on, from its own words, in this order:
+   *   1. the title ("Nest", "Bolster", "Sofa", "Mattress", "Elevated"…);
+   *   2. only if the title says nothing: each tag on its own ("nest dog bed",
+   *      "Bolster", "Raised and elevated");
+   *   3. only if neither does: the last product-type segment, as a weak hint
+   *      ("Flat & Mattress Beds").
+   * A source naming all three styles says nothing. finder:curl|lean|sprawl
+   * tags outrank all of this (scoreProduct).
+   */
+  function classify(p) {
+    var fromTitle = stylesIn(String(p.title || ''));
+    if (fromTitle.length) return { styles: fromTitle, source: 'title' };
+    var fromTags = [];
+    p.tags.forEach(function (tag) {
+      if (/^finder:/i.test(tag)) return;
+      stylesIn(tag).forEach(function (s) {
+        if (fromTags.indexOf(s) < 0) fromTags.push(s);
+      });
+    });
+    if (fromTags.length && fromTags.length < STYLES.length) return { styles: STYLES.filter(function (s) { return has(fromTags, s); }), source: 'tags' };
+    var fromType = stylesIn(String(p.type || '').split('>').pop());
+    if (fromType.length && fromType.length < STYLES.length) return { styles: fromType, source: 'type' };
+    return { styles: [], source: '' };
+  }
+
+  /* ------------------------------------------------------------------------
+     The merchant's rules (Bed Finder section): "Never recommend" and "Only
+     when nothing else fits", one per line:
+       type: Dog Houses     product type contains it
+       tag: travel          the product has that tag
+       car seat             whole words (or their plural) in the title or type
+     Applied to fallback beds; a Match block is the merchant's own choice.
+     ---------------------------------------------------------------------- */
+  function parseRules(text) {
+    return String(text == null ? '' : decode(String(text)))
+      .split(/\r?\n|<br\s*\/?>/i)
+      .map(function (line) { return line.trim(); })
+      .filter(Boolean)
+      .map(function (line) {
+        var m = /^(type|tag|title)\s*:\s*(.+)$/i.exec(line);
+        var kind = m ? m[1].toLowerCase() : 'words';
+        var q = norm(m ? m[2] : line);
+        var esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '[\\s-]+');
+        return { kind: kind, q: q, re: new RegExp('(^|[^a-z0-9])' + esc + '(e?s)?($|[^a-z0-9])', 'i') };
+      })
+      .filter(function (r) { return !!r.q; });
+  }
+
+  function ruleHit(rules, p) {
+    var title = norm(p.title);
+    var type = norm(p.type);
+    return (rules || []).some(function (r) {
+      if (r.kind === 'type') return type.indexOf(r.q) > -1;
+      if (r.kind === 'tag') return has(p.tagsLc, r.q);
+      if (r.kind === 'title') return r.re.test(title);
+      return r.re.test(title) || r.re.test(type);
+    });
+  }
+
+  function applyRules(cfg, p) {
+    if (!p || !cfg.rules) return;
+    p.excluded = ruleHit(cfg.rules.exclude, p);
+    p.lastResort = !p.excluded && ruleHit(cfg.rules.last, p);
   }
 
   function S(key) {
@@ -412,7 +515,9 @@
      printed into every page. Started as soon as a shopper heads for the
      finder (hover/focus/touch on a finder link, the teaser coming into view,
      the finder opening, the finder page) and awaited before matching; the
-     "finding your bed" moment covers the wait. One request per page.
+     "finding your bed" moment covers the wait. One request per page load
+     (plus one per further 250 beds, in parallel); "Never recommend" beds
+     are dropped as they arrive.
      ---------------------------------------------------------------------- */
   function mergeProducts(cfg, data) {
     var list = data && data.products && typeof data.products === 'object' ? data.products : {};
@@ -420,21 +525,21 @@
       var p = list[handle];
       if (!p || typeof p !== 'object' || cfg.products[handle]) return;
       prepareProduct(p);
+      applyRules(cfg, p);
       cfg.products[handle] = p;
     });
+    /* "Never recommend" beds never become fallback candidates. */
     (Array.isArray(data && data.fallback) ? data.fallback : []).forEach(function (handle) {
-      if (handle && cfg.products[handle] && cfg.fallback.indexOf(handle) === -1) cfg.fallback.push(handle);
+      var p = handle ? cfg.products[handle] : null;
+      if (p && !p.excluded && cfg.fallback.indexOf(handle) === -1) cfg.fallback.push(handle);
     });
     cfg.hasProducts = Object.keys(cfg.products).length > 0;
   }
 
-  function loadProducts() {
-    var cfg = config();
-    if (!cfg) return Promise.resolve(null);
-    if (cfg.productsReady) return Promise.resolve(cfg);
-    if (cfg.productsLoad) return cfg.productsLoad;
-    var url = cfg.fallbackUrl + (cfg.fallbackUrl.indexOf('?') > -1 ? '&' : '?') + PRODUCTS_QUERY;
-    cfg.productsLoad = window
+  /** One page of sections/finder-products (250 beds a page). */
+  function fetchProducts(cfg, page) {
+    var url = cfg.fallbackUrl + (cfg.fallbackUrl.indexOf('?') > -1 ? '&' : '?') + PRODUCTS_QUERY + (page > 1 ? '&page=' + page : '');
+    return window
       .fetch(url, { credentials: 'same-origin', headers: { Accept: 'text/html' } })
       .then(function (res) {
         if (!res.ok) throw new Error('finder-products ' + res.status);
@@ -443,7 +548,30 @@
       .then(function (html) {
         var node = new DOMParser().parseFromString(html, 'text/html').getElementById('finder-products');
         if (!node) throw new Error('finder-products: no data');
-        mergeProducts(cfg, JSON.parse(node.textContent));
+        return JSON.parse(node.textContent);
+      });
+  }
+
+  function loadProducts() {
+    var cfg = config();
+    if (!cfg) return Promise.resolve(null);
+    if (cfg.productsReady) return Promise.resolve(cfg);
+    if (cfg.productsLoad) return cfg.productsLoad;
+    cfg.productsLoad = fetchProducts(cfg, 1)
+      .then(function (first) {
+        /* A catalogue past 250 beds: the other pages, in parallel, merged in order. */
+        var per = Math.max(1, Number(first && first.per) || 250);
+        var pages = Math.min(Math.max(1, Number(first && first.pages) || 1), Math.ceil(PRODUCTS_MAX / per));
+        var rest = [];
+        for (var n = 2; n <= pages; n += 1) {
+          rest.push(fetchProducts(cfg, n).catch(function () { return null; }));
+        }
+        return Promise.all(rest).then(function (more) { return [first].concat(more); });
+      })
+      .then(function (list) {
+        list.forEach(function (data) {
+          if (data) mergeProducts(cfg, data);
+        });
         cfg.productsReady = true;
         return cfg;
       })
@@ -483,7 +611,21 @@
   });
 
   /* ------------------------------------------------------------------------
-     Sizes — same matching rules as snippets/size-hints.liquid
+     Sizes — the theme's one set of size rules (Lunova.sizeParse and
+     Lunova.sizeHintIndex in global.js, snippets/size-hints.liquid), so the
+     finder, the size guide and the product page agree on which dog a size
+     is for: the breeds a value names ("Medium: Springer Spaniel | Cockapoo"),
+     else its measurements (the bed's length against each size's shortest
+     bed, Theme settings → Sizing), else its size word ("Extra Large" → XL).
+
+     On top of that, the finder:
+       - lets a value whose breeds also name another size serve that dog as
+         a second choice (Patterdale "Large: … | German Shepherd" for an XL);
+       - gives a one-size bed a size of its own: the dog its lone value,
+         custom.specs or description measurements, title ("XXL", "Large Dog
+         Bed") or tags ("Large dog") say it's for. It is offered to that dog
+         and the size below, and to no one else;
+       - offers the next size up only one size up ("go up one").
      ---------------------------------------------------------------------- */
   function hints() {
     var s = settings();
@@ -493,15 +635,24 @@
     return DEFAULT_HINTS;
   }
 
-  function hintIndex(value) {
+  /** {value, label, detail, rank, kind, length}: Lunova.sizeParse, or a plain split without global.js. */
+  function parseSize(value) {
+    if (typeof L.sizeParse === 'function') return L.sizeParse(value);
+    var raw = String(value == null ? '' : value).trim();
+    var m = /^(.+?)(?: · |:| \(| \/ | – | — | - )(.*)$/.exec(raw);
+    var label = m ? m[1].trim() : raw;
+    var detail = m ? m[2].replace(/\)\s*$/, '').trim().split(/\s*\|\s*/).join(', ') : '';
+    var d = /(\d+(?:\.\d+)?)\s*(?:cm)?\s*[×x]\s*(\d+(?:\.\d+)?)/i.exec(detail || raw);
+    var one = /^(one size|onesize|one size fits all|default title|os)$/i.test(label);
+    return { value: raw, label: label, detail: detail, rank: one ? 0 : -1, kind: one ? 'one' : 'other', length: d ? Math.max(Number(d[1]), Number(d[2])) : null };
+  }
+
+  /** Index of the size-hint line (the dog) a size value suits, or -1. */
+  function hintIdx(value) {
     var list = hints();
-    var q = norm(value).replace(/-/g, ' ');
-    if (!q) return -1;
-    if (XL_ALIASES.indexOf(q) > -1) q = 'xl';
-    if (XS_ALIASES.indexOf(q) > -1) q = 'xs';
-    var first = q.split(' ')[0].split('/')[0].split('(')[0].split('·')[0].trim();
-    if (['2xl', 'xxl', '3xl', 'xxxl'].indexOf(first) > -1) first = 'xl';
-    if (first === 'xxs') first = 'xs';
+    if (value == null || value === '') return -1;
+    if (typeof L.sizeHintIndex === 'function') return L.sizeHintIndex(value, list);
+    /* Without global.js: by the size word alone. */
     function find(term) {
       if (!term) return -1;
       for (var i = 0; i < list.length; i += 1) {
@@ -510,13 +661,85 @@
       }
       return -1;
     }
-    var i = find(q);
-    return i > -1 ? i : find(first);
+    var q = norm(parseSize(value).label).replace(/-/g, ' ');
+    if (XL_ALIASES.indexOf(q) > -1) q = 'xl';
+    if (XS_ALIASES.indexOf(q) > -1) q = 'xs';
+    var whole = find(norm(value));
+    return whole > -1 ? whole : find(q);
   }
 
   function hintAt(i) {
     var list = hints();
     return i > -1 && i < list.length ? list[i] : null;
+  }
+
+  /** The size-hint lines a breed list names: "Golden Retriever | Labrador | German Shepherd" → L and XL. */
+  function breedHits(breeds) {
+    var out = [];
+    hints().forEach(function (hint, i) {
+      var list = norm(hint && hint.breeds).replace(/-/g, ' ').split(',').map(function (b) { return b.trim(); }).filter(Boolean);
+      if (!list.length) return;
+      var hit = breeds.some(function (b) {
+        var bw = ' ' + norm(b).replace(/-/g, ' ') + ' ';
+        return list.some(function (x) {
+          var xw = ' ' + x + ' ';
+          return bw.indexOf(xw) > -1 || xw.indexOf(bw) > -1;
+        });
+      });
+      if (hit) out.push(i);
+    });
+    return out;
+  }
+
+  /** One size value: which dog it suits, and what it says about itself. */
+  function sizeInfo(value) {
+    var s = parseSize(value);
+    var detail = String(s.detail || '');
+    var breeds = detail && s.length == null && /[a-z]/i.test(detail) && !/\d/.test(detail)
+      ? detail.split(',').map(function (b) { return b.trim(); }).filter(Boolean)
+      : [];
+    return {
+      value: value,
+      label: s.label || String(value == null ? '' : value),
+      length: s.length,
+      dims: s.length != null ? detail || String(value) : '',
+      breeds: breeds,
+      idx: hintIdx(value),
+      labelIdx: hintIdx(s.label),
+      covers: breeds.length ? breedHits(breeds) : [],
+      one: s.kind === 'one'
+    };
+  }
+
+  /** "132 × 104 × 20cm" from a stretch of description text (finder-product-json's descDims). */
+  function descDims(text) {
+    var m = /(\d+(?:\.\d+)?)\s*(?:cm)?\s*[×x]\s*(\d+(?:\.\d+)?)(?:\s*(?:cm)?\s*[×x]\s*(\d+(?:\.\d+)?))?\s*(cm|mm)\b/i.exec(String(text || ''));
+    return m ? m[1] + ' × ' + m[2] + (m[3] ? ' × ' + m[3] : '') + m[4].toLowerCase() : '';
+  }
+
+  /** "large" → L, "XXL" → XL, "giant" → the largest size. */
+  function sizeWordIdx(word) {
+    var w = norm(word).replace(/-/g, ' ');
+    if (!w) return -1;
+    if (w === 'giant') return hints().length - 1;
+    return hintIdx(w);
+  }
+
+  /** The dog a title names: "Burnmoor XXL …", "… Large Dog Bed". */
+  function titleClass(p) {
+    var m = DOG_SIZE_TITLE.exec(String(p.title || ''));
+    return m ? sizeWordIdx(m[1] || m[2]) : -1;
+  }
+
+  /** The dog the tags name ("Large dog", "small dog bed"); -1 when they disagree. */
+  function tagClass(p) {
+    var found = [];
+    p.tagsLc.forEach(function (t) {
+      var m = DOG_SIZE_TAG.exec(t.replace(/-/g, ' '));
+      var i = m ? sizeWordIdx(m[1] || m[2]) : -1;
+      if (i > -1 && found.indexOf(i) < 0) found.push(i);
+    });
+    return found.length === 1 ? found[0] : -1;
   }
 
   /** Which option holds the size: a "Size"-named option, else one whose values map to size hints. */
@@ -529,14 +752,9 @@
     if (idx < 0) {
       for (var j = 0; j < p.options.length && idx < 0; j += 1) {
         var vals = optionValues(p, j);
-        var hits = vals.filter(function (v) { return hintIndex(v) > -1; }).length;
+        var hits = vals.filter(function (v) { return hintIdx(v) > -1; }).length;
         if (vals.length > 1 && hits >= Math.ceil(vals.length / 2)) idx = j;
       }
-    }
-    /* A lone "One size" value is no size at all; a lone "L" still says Large. */
-    if (idx > -1) {
-      var only = optionValues(p, idx);
-      if (only.length < 2 && hintIndex(only[0]) < 0) idx = -1;
     }
     p.sizeIndex = idx;
     return idx;
@@ -551,82 +769,165 @@
     return out;
   }
 
+  /**
+   * A product's sizes, read once. A bed with fewer than two size values is
+   * one size: its measurements come from that value, else custom.specs, else
+   * its description; the dog it's for from that value (breeds, measurements,
+   * size word), else those measurements, else its title, else its tags.
+   */
+  function sizing(p) {
+    if (p.sizing) return p.sizing;
+    var oi = sizeOptionIndex(p);
+    var values = oi > -1 ? optionValues(p, oi) : [];
+    var s = { oi: oi, values: values, infos: values.map(sizeInfo), one: values.length < 2, cls: -1, dims: '', classBy: '' };
+    if (s.one) {
+      var lone = s.infos[0] || null;
+      s.dims = (lone && lone.dims) || p.dims || descDims(p.descDims);
+      if (lone && lone.idx > -1) {
+        s.cls = lone.idx;
+        s.classBy = 'value';
+      } else if (s.dims && hintIdx('One size · ' + s.dims) > -1) {
+        s.cls = hintIdx('One size · ' + s.dims);
+        s.classBy = 'dims';
+      } else if (titleClass(p) > -1) {
+        s.cls = titleClass(p);
+        s.classBy = 'title';
+      } else if (tagClass(p) > -1) {
+        s.cls = tagClass(p);
+        s.classBy = 'tags';
+      }
+    }
+    p.sizing = s;
+    return s;
+  }
+
   function preferred(list) {
     for (var i = 0; i < list.length; i += 1) if (list[i].mc) return list[i];
     return list[0];
   }
 
+  function isOne(fit) {
+    return !!fit && /^one/.test(fit.kind);
+  }
+
   /**
-   * The variant to recommend for a dog of hint index `want`.
-   * kind: 'exact' | 'one' (no size option) | 'larger' (next size up) |
-   *       'approx' / 'larger-approx' (size names that don't map to hints)
+   * The variant to recommend for a dog of hint index `want`, and how well it
+   * fits (rank: lower is better):
+   *   exact          a size made for that dog                            0
+   *   breed          a size whose breeds include that dog's              0.5
+   *   one            a one-size bed made for that dog                    0
+   *   one-larger     a one-size bed made for the next size up            1
+   *   larger         the next size up (theirs is sold out or missing)    1
+   *   approx         size names that don't map ("Snug", "Roomy"),
+   *                  placed by position                                  1
+   *   larger-approx  one position up from that                           1.5
+   *   one-unknown    one size, and nothing says which dog it's for       2
+   * A size whose own name is another dog's ("Large · 70 × 55cm", made for a
+   * Medium dog by its length) fits as well but adds 0.25, so between equal
+   * beds the one the shopper will see called their dog's size goes first.
+   * Never more than one size up; null when the bed doesn't fit that dog.
+   * `forced`: a Match block lists this size, so a one-size bed is taken as
+   * made for it.
    */
-  function resolveSize(p, want) {
+  function resolveSize(p, want, forced) {
     var avail = p.variants.filter(function (v) { return v.available; });
     if (!avail.length) return null;
-    var oi = sizeOptionIndex(p);
+    var s = sizing(p);
+    var oi = s.oi;
 
-    if (oi < 0) {
-      if (p.sizeTags.length && want > -1) {
-        var suits = p.sizeTags.some(function (t) { return hintIndex(t) === want; });
-        if (!suits) return null;
-      }
-      return { variant: preferred(avail), kind: 'one', value: null };
+    if (s.one) {
+      var lone = s.infos[0] || null;
+      /* Its own size word says another dog ("Large · 110 × 75cm" sized for XL). */
+      var named = lone && lone.labelIdx > -1 && s.cls > -1 && lone.labelIdx !== s.cls ? 0.25 : 0;
+      var base = { variant: preferred(avail), value: null, dims: s.dims, cls: s.cls };
+      if (want < 0 || forced) return Object.assign(base, { kind: 'one', rank: 0 });
+      var tagged = p.sizeTags.map(hintIdx).filter(function (i) { return i > -1; });
+      var cls = tagged.length ? tagged : s.cls > -1 ? [s.cls] : [];
+      if (!cls.length) return Object.assign(base, { kind: 'one-unknown', rank: 2 });
+      if (has(cls, want)) return Object.assign(base, { kind: 'one', rank: named, cls: want });
+      if (has(cls, want + 1)) return Object.assign(base, { kind: 'one-larger', rank: 1, cls: want + 1 });
+      return null;
     }
 
-    var values = optionValues(p, oi);
-    var mapped = values.map(hintIndex);
-    function pick(val) {
+    var infos = s.infos;
+    function result(n, kind, rank, extra) {
+      var val = s.values[n];
       var list = avail.filter(function (v) { return v.options[oi] === val; });
-      return list.length ? preferred(list) : null;
+      if (!list.length) return null;
+      return Object.assign({ variant: preferred(list), kind: kind, rank: rank, value: val, info: infos[n] }, extra || {});
     }
-
-    if (want < 0) {
-      var any = preferred(avail);
-      return { variant: any, kind: 'exact', value: any.options[oi] };
-    }
-
-    if (mapped.some(function (i) { return i > -1; })) {
-      for (var k = 0; k < values.length; k += 1) {
-        if (mapped[k] === want) {
-          var exact = pick(values[k]);
-          if (exact) return { variant: exact, kind: 'exact', value: values[k] };
-        }
-      }
-      var best = null;
-      var bestIdx = Infinity;
-      values.forEach(function (val, n) {
-        if (mapped[n] > want && mapped[n] < bestIdx) {
-          var v = pick(val);
-          if (v) {
-            best = { variant: v, value: val };
-            bestIdx = mapped[n];
-          }
-        }
+    /* The first value passing `test` that's in stock; values whose own size word agrees go first. */
+    function first(test, kind, rank, extra) {
+      var order = [];
+      infos.forEach(function (inf, n) {
+        if (test(inf)) order.push(n);
       });
-      if (best) {
-        var offered = mapped.indexOf(want) > -1;
-        return { variant: best.variant, kind: 'larger', value: best.value, offered: offered, jump: bestIdx - want };
+      order.sort(function (x, y) {
+        return (infos[x].labelIdx === infos[x].idx ? 0 : 1) - (infos[y].labelIdx === infos[y].idx ? 0 : 1) || x - y;
+      });
+      for (var k = 0; k < order.length; k += 1) {
+        var r = result(order[k], kind, rank, extra);
+        if (r) return r;
       }
       return null;
     }
 
-    /* Size names we can't map ("Snug", "Roomy"): place by position in the range. */
-    var n = hints().length;
-    var pos = n > 1 ? Math.round((want * (values.length - 1)) / (n - 1)) : 0;
-    for (var m = pos; m < values.length; m += 1) {
-      var cand = pick(values[m]);
-      if (cand) return { variant: cand, kind: m === pos ? 'approx' : 'larger-approx', value: values[m], offered: true };
+    if (want < 0) {
+      var any = preferred(avail);
+      var at = s.values.indexOf(any.options[oi]);
+      return { variant: any, kind: 'exact', rank: 0, value: any.options[oi], info: infos[at] };
     }
-    return null;
+
+    if (infos.some(function (inf) { return inf.idx > -1; })) {
+      var exists = infos.some(function (inf) { return inf.idx === want; });
+      var exact = first(function (inf) { return inf.idx === want; }, 'exact', 0);
+      if (exact && exact.info && exact.info.labelIdx > -1 && exact.info.labelIdx !== exact.info.idx) exact.rank = 0.25;
+      return (
+        exact ||
+        first(function (inf) { return inf.idx !== want && has(inf.covers, want); }, 'breed', 0.5) ||
+        first(function (inf) { return inf.idx === want + 1; }, 'larger', 1, { offered: exists, jump: 1 })
+      );
+    }
+
+    /* Size names we can't place ("Snug", "Roomy"): by position in the range, at most one step up. */
+    var n = hints().length;
+    var pos = n > 1 ? Math.round((want * (s.values.length - 1)) / (n - 1)) : 0;
+    return result(pos, 'approx', 1, { offered: true }) || (pos + 1 < s.values.length ? result(pos + 1, 'larger-approx', 1.5, { offered: true }) : null);
   }
 
-  /** "Medium" for "M"; the option value as the shopper will see it otherwise. */
+  /**
+   * Just the size's name: "Large" for "Large · 91 × 69cm" or "Large: Cocker |
+   * Staffie", "Medium" for "M". Lunova.sizeLabel, the name the product page
+   * uses, so the two never call one size by different names.
+   */
+  function shortSize(value) {
+    if (value == null || value === '') return S('result.size_one');
+    var label = '';
+    if (typeof L.sizeLabel === 'function') {
+      label = String(L.sizeLabel(value) || '');
+    } else {
+      label = parseSize(value).label || String(value);
+      var q = norm(label);
+      var list = hints();
+      for (var i = 0; i < list.length; i += 1) {
+        var hint = list[i] || {};
+        if (q && norm(hint.value) === q && hint.label) {
+          label = String(hint.label);
+          break;
+        }
+      }
+    }
+    label = label || String(value);
+    return label === label.toLowerCase() ? label.charAt(0).toUpperCase() + label.slice(1) : label;
+  }
+
+  /** The size as the result shows it: "Medium" for "M", "Medium (Springer Spaniel, Cockapoo)", "Large · 70 × 55cm". */
   function displaySize(value) {
     if (value == null || value === '') return S('result.size_one');
-    var hint = hintAt(hintIndex(value));
-    if (hint && norm(value) === norm(hint.value) && hint.label) return hint.label;
-    return String(value);
+    var inf = sizeInfo(value);
+    if (inf.breeds.length) return shortSize(value) + ' (' + inf.breeds.slice(0, 2).join(', ') + ')';
+    if (inf.dims) return String(value);
+    return shortSize(value);
   }
 
   /* ------------------------------------------------------------------------
@@ -645,9 +946,16 @@
         score -= 6;
         styleMiss = true;
       }
-    } else if (has(p.styleWords, a.style)) {
-      score += 4;
-      styleFit = true;
+    } else if (p.styleWords.length) {
+      /* The product type is a weak hint ("Bolster & Nest Beds" names two shapes). */
+      if (has(p.styleWords, a.style)) {
+        score += p.styleSource === 'type' ? 2 : 4;
+        styleFit = true;
+      } else if (p.styleSource !== 'type') {
+        /* A shape made for another way of sleeping: support alone doesn't outweigh it. */
+        score -= 2;
+        styleMiss = true;
+      }
     }
     var want = STAGES.indexOf(a.stage);
     if (p.stageTags.length) {
@@ -660,50 +968,103 @@
       }
     }
     if (p.ortho) score += want === 2 ? 4 : want === 1 ? 2 : 0;
+    if (p.older && want > 0) score += 1;
     return { score: score, styleFit: styleFit, styleMiss: styleMiss, stageFit: stageFit };
+  }
+
+  /**
+   * The trial's nights for this bed, or 0 when the trial doesn't cover it:
+   * snippets/trial-eligible's verdict (p.trial, from finder-product-json),
+   * read through Lunova.trialEligible like every other trial line.
+   */
+  function trialNightsFor(p) {
+    var nights = Number(settings().trialNights) || 0;
+    if (nights <= 0 || !p) return nights > 0 ? nights : 0;
+    if (typeof L.trialEligible === 'function') return L.trialEligible(p) ? nights : 0;
+    return p.trial === false ? 0 : nights;
+  }
+
+  /**
+   * What a result may promise for this bed, from the theme's shared rules:
+   *   foam / guaranteeYears / perNight  the foam guarantee covers it
+   *     (Lunova.foamBed: snippets/foam-bed's verdict in the product JSON), so
+   *     the guarantee line and the per-night sum (built on the guarantee) may
+   *     show; a word like "orthopaedic" is not enough;
+   *   trialNights  the sleep trial covers it (snippets/trial-eligible), else 0.
+   */
+  function claims(p) {
+    var s = settings();
+    var foam = !!p && (typeof L.foamBed === 'function' ? L.foamBed(p) : p.foam === true);
+    var years = foam ? Number(s.guaranteeYears) || 0 : 0;
+    return { foam: foam, guaranteeYears: years, perNight: years > 0 && s.perNight !== false, trialNights: trialNightsFor(p) };
+  }
+
+  /**
+   * Between otherwise equal beds: one that ships as it is (not personalised,
+   * so no name to wait on) and that the sleep trial covers goes first.
+   */
+  function assured(p) {
+    return (p.personalised ? 0 : 1) + (trialNightsFor(p) > 0 ? 1 : 0);
+  }
+
+  /** For stiff or slowing dogs, between equals: memory foam, then orthopaedic, then neither. */
+  function support(p) {
+    return p.memFoam ? 2 : p.ortho ? 1 : 0;
   }
 
   function sizeAllowed(m, want) {
     if (!m.sizes.length || want < 0) return true;
-    return m.sizes.some(function (s) { return hintIndex(s) === want; });
+    return m.sizes.some(function (s) { return hintIdx(s) === want; });
   }
 
-  /** Exact fits first, then the smallest step up. */
-  function exactRank(c) {
-    var base = { exact: 0, one: 0, approx: 1, larger: 2, 'larger-approx': 3 }[c.fit.kind] || 0;
-    return base + (c.fit.jump > 1 ? (c.fit.jump - 1) * 0.5 : 0);
-  }
-
-  /** Ranked candidates for a full set of answers. */
-  function rank(cfg, a) {
-    var want = hintIndex(a.size);
+  /**
+   * Ranked candidates for a full set of answers. `ctx` ({handle}) is the bed
+   * the shopper was looking at when they opened the finder.
+   *   tier 1  Match blocks that fit every answer (priority, then size fit)
+   *   tier 2  fallback beds with a positive score
+   *   tier 3  Match blocks that fit the style or the stage
+   *   tier 4  any other fallback bed that fits the dog
+   *   tier 5  "Only when nothing else fits" beds
+   * Within tiers 2, 4 and 5, one order: a bed whose size is unknown never
+   * beats one sized for the dog → score → size fit → (slowing / stiff dogs)
+   * memory foam, then orthopaedic → the bed they were looking at → one that
+   * ships as it is and the trial covers → the
+   * merchant's finder:priority-N and most-chosen size → price, lowest first
+   * (a higher price is never taken as more support) → collection order.
+   */
+  function rank(cfg, a, ctx) {
+    var want = hintIdx(a.size);
+    var ctxHandle = ctx && ctx.handle ? String(ctx.handle) : '';
     var cands = [];
     var seen = {};
 
-    function push(handle, tier, extra) {
+    function push(handle, tier, extra, forced) {
       if (seen[handle]) return;
       var p = cfg.products[handle];
       if (!p || !p.available) return;
-      var fit = resolveSize(p, want);
+      var fit = resolveSize(p, want, forced);
       if (!fit) return;
       seen[handle] = true;
-      cands.push(Object.assign({ product: p, fit: fit, tier: tier, seq: cands.length }, extra));
+      cands.push(Object.assign({ product: p, fit: fit, tier: tier, seq: cands.length, ctx: !!ctxHandle && p.handle === ctxHandle }, extra));
     }
 
     /* 1. Match blocks that fit every answer */
     cfg.matches.forEach(function (m) {
       if (has(m.styles, a.style) && has(m.stages, a.stage) && sizeAllowed(m, want)) {
-        push(m.handle, 1, { block: m, styleFit: true, stageFit: true, styleMiss: false });
+        push(m.handle, 1, { block: m, styleFit: true, stageFit: true, styleMiss: false }, m.sizes.length > 0);
       }
     });
 
-    /* 2. Fallback candidates with a positive tag score */
+    /* 2. Fallback candidates with a positive score */
     var scored = cfg.fallback.map(function (handle, idx) {
       var p = cfg.products[handle];
-      return Object.assign({ handle: handle, idx: idx }, scoreProduct(p, a));
+      return Object.assign({ handle: handle, idx: idx, last: !!p.lastResort }, scoreProduct(p, a));
     });
+    function extras(s) {
+      return { score: s.score, idx: s.idx, styleFit: s.styleFit, stageFit: s.stageFit, styleMiss: s.styleMiss };
+    }
     scored.forEach(function (s) {
-      if (s.score > 0) push(s.handle, 2, { score: s.score, idx: s.idx, styleFit: s.styleFit, stageFit: s.stageFit, styleMiss: s.styleMiss });
+      if (s.score > 0 && !s.last) push(s.handle, 2, extras(s));
     });
 
     /* 3. Match blocks that fit the style (closest stage, erring towards more support) or the stage */
@@ -725,27 +1086,36 @@
       .sort(function (x, y) { return x.key - y.key || x.m.order - y.m.order; })
       .forEach(function (r) {
         var styleOk = has(r.m.styles, a.style);
-        push(r.m.handle, 3, { block: r.m, styleFit: styleOk, stageFit: has(r.m.stages, a.stage), styleMiss: !styleOk && r.m.styles.length > 0 });
+        push(r.m.handle, 3, { block: r.m, styleFit: styleOk, stageFit: has(r.m.stages, a.stage), styleMiss: !styleOk && r.m.styles.length > 0 }, r.m.sizes.length > 0);
       });
 
-    /* 4. Anything else that fits the size */
+    /* 4. Anything else that fits the dog; 5. then the last-resort beds */
     scored.forEach(function (s) {
-      if (s.score <= 0) push(s.handle, 4, { score: s.score, idx: s.idx, styleFit: s.styleFit, stageFit: s.stageFit, styleMiss: s.styleMiss });
+      if (s.score <= 0 && !s.last) push(s.handle, 4, extras(s));
+    });
+    scored.forEach(function (s) {
+      if (s.last) push(s.handle, 5, extras(s));
     });
 
-    var diagnosed = a.stage === 'diagnosed';
+    var later = a.stage === 'slowing' || a.stage === 'diagnosed';
     cands.sort(function (x, y) {
       if (x.tier !== y.tier) return x.tier - y.tier;
       if (x.tier === 1) {
-        return y.block.priority - x.block.priority || exactRank(x) - exactRank(y) || x.block.order - y.block.order;
+        return y.block.priority - x.block.priority || x.fit.rank - y.fit.rank || x.block.order - y.block.order;
       }
-      if (x.tier === 2 || x.tier === 4) {
-        var tie = diagnosed
-          ? (y.product.ortho ? 1 : 0) - (x.product.ortho ? 1 : 0) || y.fit.variant.price - x.fit.variant.price
-          : x.fit.variant.price - y.fit.variant.price;
-        return y.score - x.score || exactRank(x) - exactRank(y) || tie || x.idx - y.idx;
-      }
-      return x.seq - y.seq;
+      if (x.tier === 3) return x.seq - y.seq;
+      return (
+        (x.fit.rank >= 2 ? 1 : 0) - (y.fit.rank >= 2 ? 1 : 0) ||
+        y.score - x.score ||
+        x.fit.rank - y.fit.rank ||
+        (later ? support(y.product) - support(x.product) : 0) ||
+        (y.ctx ? 1 : 0) - (x.ctx ? 1 : 0) ||
+        assured(y.product) - assured(x.product) ||
+        y.product.priority - x.product.priority ||
+        (y.fit.variant.mc ? 1 : 0) - (x.fit.variant.mc ? 1 : 0) ||
+        x.fit.variant.price - y.fit.variant.price ||
+        x.idx - y.idx
+      );
     });
     return cands;
   }
@@ -769,22 +1139,60 @@
     return '';
   }
 
-  function recommend(cfg, a, showAlt) {
-    var cands = rank(cfg, a);
+  /**
+   * One bed, and at most one alternative. The alternative fits no worse than
+   * the main pick's size plus one step (no alternative beats an ill-fitting
+   * one). Opened from a product page, the bed being viewed is the
+   * alternative when it fits these answers as well (its size made for the
+   * dog, its shape not against how they sleep).
+   */
+  function recommend(cfg, a, showAlt, ctx) {
+    var cands = rank(cfg, a, ctx);
     if (!cands.length) return { main: null, alt: null };
     var main = cands[0];
     var alt = null;
     if (showAlt) {
-      var pool = cands.slice(1, 6).filter(function (c) {
-        return c.tier < 4 || main.tier === 4;
-      });
-      for (var i = 0; i < pool.length && !alt; i += 1) {
-        var d = difference(main, pool[i]);
-        if (d) alt = Object.assign({}, pool[i], { diff: d });
+      var viewing = null;
+      for (var v = 1; v < cands.length && !viewing; v += 1) {
+        var c = cands[v];
+        if (c.ctx && c.fit.rank <= 0.5 && !c.styleMiss && c.tier <= 2) viewing = c;
       }
-      if (!alt && pool.length) alt = Object.assign({}, pool[0], { diff: S('result.diff_other') });
+      if (viewing) alt = Object.assign({}, viewing, { diff: difference(main, viewing) || S('result.diff_other'), viewing: true });
+      if (!alt) {
+        var pool = cands.slice(1).filter(function (x) {
+          return x.fit.rank <= main.fit.rank + 1 && (x.tier < 4 || main.tier >= 4) && (x.tier < 5 || main.tier === 5);
+        }).slice(0, 5);
+        for (var i = 0; i < pool.length && !alt; i += 1) {
+          var d = difference(main, pool[i]);
+          if (d) alt = Object.assign({}, pool[i], { diff: d });
+        }
+        if (!alt && pool.length) alt = Object.assign({}, pool[0], { diff: S('result.diff_other') });
+      }
     }
     return { main: main, alt: alt };
+  }
+
+  /** The bed being looked at when the finder was opened (a product page's "Not sure?" prompt). */
+  function productContext(detail) {
+    detail = detail || {};
+    if (detail.handle) return { handle: String(detail.handle) };
+    var t = detail.trigger || detail.opener;
+    if (!t || t.nodeType !== 1 || typeof t.closest !== 'function') return null;
+    var own = t.closest('[data-finder-product]');
+    if (own && own.getAttribute('data-finder-product')) return { handle: own.getAttribute('data-finder-product') };
+    var scope = t.closest('[data-product-scope]');
+    if (!scope) return null;
+    var json = scope.querySelector('script[data-product-json]');
+    if (json) {
+      try {
+        var data = JSON.parse(json.textContent);
+        if (data && data.handle) return { handle: String(data.handle) };
+      } catch (e) {
+        /* fall through */
+      }
+    }
+    var rv = scope.getAttribute('data-record-view');
+    return rv ? { handle: rv } : null;
   }
 
   /* ------------------------------------------------------------------------
@@ -798,7 +1206,7 @@
     if (has(STYLES, raw.style)) out.style = raw.style;
     if (has(STAGES, raw.stage)) out.stage = raw.stage;
     if (raw.size != null && raw.size !== '') {
-      var hint = hintAt(hintIndex(raw.size));
+      var hint = hintAt(hintIdx(raw.size));
       if (hint) out.size = hint.value;
     }
     if (typeof raw.dogName === 'string') out.dogName = raw.dogName.trim().slice(0, 40);
@@ -815,6 +1223,7 @@
       this.classList.add('finder--' + this.mode);
       this.state = { step: 1, answers: { style: null, stage: null, size: null }, name: '' };
       this.result = null;
+      this.context = null;
       this.rendered = false;
       this.editing = false;
       this.timers = [];
@@ -998,6 +1407,8 @@
 
     onOpenEvent(detail) {
       loadProducts();
+      /* Opened from a product page: that bed is weighed in (recommend). */
+      this.context = productContext(detail);
       var inline = doc.querySelector('bed-finder[mode="inline"]');
       if (this.mode === 'modal') {
         if (inline && inline !== this && inline.isConnected) return; // the page's own finder answers
@@ -1486,7 +1897,7 @@
       var token = (this._resultToken = {});
       var calm = !!opts.instant || reduceMotion() || cfg.options.matchingMoment === false;
       if (cfg.productsReady) {
-        this.result = recommend(cfg, this.state.answers, cfg.options.showAlternative !== false);
+        this.result = recommend(cfg, this.state.answers, cfg.options.showAlternative !== false, this.context);
         if (calm || !this.result.main) {
           this.renderResult(opts);
           return;
@@ -1501,7 +1912,7 @@
       whenProducts().then(function () {
         if (self._resultToken !== token || self.state.step !== 'matching' || !self.isConnected) return;
         var now = self.cfg;
-        self.result = recommend(now, self.state.answers, now.options.showAlternative !== false);
+        self.result = recommend(now, self.state.answers, now.options.showAlternative !== false, self.context);
         var wait = calm || !self.result.main ? 0 : Math.max(0, 900 - (Date.now() - started));
         if (wait) self.later(function () { self.renderResult(opts); }, wait);
         else self.renderResult(opts);
@@ -1606,7 +2017,7 @@
         title: p.title,
         url: p.url,
         image: v.image || p.image || null,
-        sizeLabel: pick.fit.kind === 'one' ? '' : displaySize(pick.fit.value)
+        sizeLabel: isOne(pick.fit) ? '' : shortSize(pick.fit.value)
       });
       emit('lunova:finder:complete', { result: data });
       track('lunova_finder_complete', { handle: p.handle, variantId: v.id, style: a.style, stage: a.stage, size: a.size });
@@ -1623,14 +2034,14 @@
       else if (pick.styleMiss) out.push(fill(S('result.why_style_miss'), { phrase: phrase }));
 
       if (p.ortho) {
-        var material = S(p.foam && p.orthoWord ? 'result.material_both' : p.foam ? 'result.material_foam' : 'result.material_ortho');
+        var material = S(p.memFoam && p.orthoWord ? 'result.material_both' : p.memFoam ? 'result.material_foam' : 'result.material_ortho');
         out.push(fill(S('result.why_ortho_' + a.stage), { dog: dog, material: material }));
       }
       else if (pick.stageFit || a.stage === 'fine') out.push(S('result.why_' + a.stage));
 
       out.push(this.sizeReason(pick));
 
-      var nights = Number(settings().trialNights) || 0;
+      var nights = trialNightsFor(p);
       if (nights > 0) out.push(fill(S('result.why_trial'), { nights: nights, dog: dog }));
       return out.filter(Boolean).slice(0, 3);
     }
@@ -1638,19 +2049,33 @@
     sizeReason(pick) {
       var fit = pick.fit;
       var a = this.state.answers;
-      var hint = hintAt(hintIndex(a.size));
+      var want = hintIdx(a.size);
+      var hint = hintAt(want);
       var wanted = hint ? hint.label || hint.value : a.size;
       var label = displaySize(fit.value);
-      if (fit.kind === 'one') {
-        return fill(S('result.why_size_one'), { dims: pick.product.dims ? ' — ' + pick.product.dims : '', dog: this.dogWord() });
+      var hintBreeds = hint && hint.breeds ? String(hint.breeds).split(',').map(function (b) { return b.trim(); }).filter(Boolean).slice(0, 2).join(', ') : '';
+      if (isOne(fit)) {
+        var dims = fit.dims || pick.product.dims;
+        var dimsText = dims ? ' — ' + dims : '';
+        if (fit.kind === 'one-larger') return fill(S('result.why_size_one_larger'), { dims: dimsText, wanted: wanted });
+        if (fit.kind === 'one' && fit.cls === want && want > -1 && hintBreeds && hint.weight) {
+          return fill(S('result.why_size_one_fit'), { dims: dimsText, breeds: hintBreeds, weight: hint.weight });
+        }
+        return fill(S('result.why_size_one'), { dims: dimsText, dog: this.dogWord() });
       }
       if (fit.kind === 'larger' || fit.kind === 'larger-approx') {
         return fill(S(fit.offered ? 'result.why_size_larger_sold' : 'result.why_size_larger_missing'), { size: label, wanted: wanted });
       }
       if (fit.kind === 'approx') return fill(S('result.why_size_approx'), { size: label, wanted: wanted });
-      if (hint && hint.breeds && hint.weight) {
-        var breeds = String(hint.breeds).split(',').map(function (b) { return b.trim(); }).filter(Boolean).slice(0, 2).join(', ');
-        return fill(S('result.why_size'), { size: label, breeds: breeds, weight: hint.weight });
+      /* A size labelled with breeds: the bed's own list, this dog's breeds first. */
+      if (fit.info && fit.info.breeds.length) {
+        var own = fit.info.breeds.slice().sort(function (x, y) {
+          return (has(breedHits([y]), want) ? 1 : 0) - (has(breedHits([x]), want) ? 1 : 0);
+        });
+        return fill(S('result.why_size_breeds'), { size: shortSize(fit.value), breeds: own.slice(0, 3).join(', ') });
+      }
+      if (hintBreeds && hint.weight) {
+        return fill(S('result.why_size'), { size: label, breeds: hintBreeds, weight: hint.weight });
       }
       if (hint && hint.weight) {
         var w = String(hint.weight);
@@ -1695,7 +2120,7 @@
      *  guarantee is the basis of the sum): see Lunova.foamBed / snippets/foam-bed. */
     perNight(price, product) {
       if (this.cfg.options.showPerNight === false || typeof L.perNight !== 'function') return null;
-      if (product && typeof L.foamBed === 'function' && !L.foamBed(product)) return null;
+      if (product && !claims(product).perNight) return null;
       var amount = L.perNight(price);
       if (!amount) return null;
       var years = Number(settings().guaranteeYears) || 0;
@@ -1730,10 +2155,11 @@
     riskLine(product) {
       var s = settings();
       var copy = this.cfg.copy;
-      var nights = Number(s.trialNights) || 0;
-      var years = Number(s.guaranteeYears) || 0;
-      /* The guarantee is on the foam: never promise it for a bed it doesn't cover. */
-      if (product && typeof L.foamBed === 'function' && !L.foamBed(product)) years = 0;
+      /* The guarantee is on the foam and the trial has exclusions: never
+         promise either for a bed it doesn't cover (claims()). */
+      var c = claims(product);
+      var nights = c.trialNights;
+      var years = c.guaranteeYears;
       var parts = [];
       if (nights > 0 && copy.riskText) parts.push(fill(copy.riskText, { nights: nights, trial_terms: s.trialTerms || '', trial_terms_short: s.trialTermsShort || '' }).replace(/\s+/g, ' ').trim());
       if (years > 0 && copy.guaranteeText) parts.push(fill(copy.guaranteeText, { years: years }));
@@ -1771,8 +2197,11 @@
       var p = pick.product;
       var v = pick.fit.variant;
       var name = this.dogName();
-      var oneSize = pick.fit.kind === 'one';
+      var oneSize = isOne(pick.fit);
       var sizeLabel = oneSize ? S('result.size_one') : displaySize(pick.fit.value);
+      /* Just the size's name ("Large") for the stock line and the slim bar. */
+      var shortLabel = oneSize ? S('result.size_one') : shortSize(pick.fit.value);
+      var dims = oneSize ? pick.fit.dims || p.dims : '';
       var hid = this.uid + '-h-result';
       var url = variantUrl(p.url, v.id);
 
@@ -1805,7 +2234,7 @@
           icon('ruler', 'finder-result__size-icon'),
           oneSize ? null : h('span', { class: 'finder-result__size-label', text: S('result.size_line') + ' ' }),
           h('strong', { text: sizeLabel }),
-          oneSize && p.dims ? h('span', { class: 'finder-result__size-label', text: ' · ' + p.dims }) : null
+          dims ? h('span', { class: 'finder-result__size-label', text: ' · ' + dims }) : null
         ])
       ]);
 
@@ -1821,7 +2250,7 @@
       ]);
 
       /* Price, stock, delivery */
-      var stock = this.stockLine(v, sizeLabel, oneSize);
+      var stock = this.stockLine(v, shortLabel, oneSize);
       var stockEl = h('p', { class: 'finder-result__stock finder-result__stock--' + stock.kind }, [
         icon(stock.kind === 'low' ? 'clock' : 'check-circle', 'finder-result__stock-icon'),
         h('span', { text: stock.text })
@@ -1837,15 +2266,26 @@
 
       /* Buy — a long name stays in the heading, not the button */
       var ctaName = this.ctaName();
-      var label = ctaName ? fill(S('result.add_named'), { name: ctaName }) : S('result.add');
-      var addBtn = h('button', { type: 'button', class: 'btn btn--primary btn--lg btn--block finder-result__add' }, [
-        icon('basket'),
+      /* A personalised bed (snippets/personalised) can't go in the basket
+         without the name it's made with: its button opens the product page,
+         where the name field is, at the chosen size. */
+      var personal = p.personalised === true;
+      var label = personal
+        ? ctaName ? fill(S('result.personalise_named'), { name: ctaName }) : S('result.personalise')
+        : ctaName ? fill(S('result.add_named'), { name: ctaName }) : S('result.add');
+      var addKids = [
+        icon(personal ? 'arrow-right' : 'basket'),
         h('span', { text: fill(S('result.add_price'), { label: label, price: money(v.price) }) })
-      ]);
+      ];
+      var addBtn = personal
+        ? h('a', { href: url, class: 'btn btn--primary btn--lg btn--block finder-result__add', 'data-finder-personalise': '' }, addKids)
+        : h('button', { type: 'button', class: 'btn btn--primary btn--lg btn--block finder-result__add' }, addKids);
       var errorEl = h('p', { class: 'field__error finder-result__error', role: 'alert', hidden: true });
-      addBtn.addEventListener('click', function () {
-        self.addToBasket(addBtn, errorEl, pick);
-      });
+      if (!personal) {
+        addBtn.addEventListener('click', function () {
+          self.addToBasket(addBtn, errorEl, pick);
+        });
+      }
       var buy = h('div', { class: 'finder-result__buy' }, [addBtn, errorEl, this.riskLine(p)]);
 
       var details = h('a', { class: 'btn btn--ghost finder-result__details', href: url }, [h('span', { text: S('result.details') }), icon('arrow-right', 'icon--arrow-right')]);
@@ -1863,18 +2303,21 @@
       if (res.alt) nodes.push(this.viewAlt(res.alt));
       nodes.push(this.foot());
       /* Price + Add, kept in reach while the main button is out of view (see watchCta). */
-      var nights = Number(settings().trialNights) || 0;
-      var miniBtn = h('button', { type: 'button', class: 'btn btn--primary finder-mini__add' }, [
-        h('span', { text: ctaName ? fill(S('result.add_short_named'), { name: ctaName }) : S('result.add') })
-      ]);
-      miniBtn.addEventListener('click', function () {
-        self.addToBasket(miniBtn, errorEl, pick);
-      });
+      var nights = trialNightsFor(p);
+      var miniKids = [h('span', { text: personal ? S('result.personalise') : ctaName ? fill(S('result.add_short_named'), { name: ctaName }) : S('result.add') })];
+      var miniBtn = personal
+        ? h('a', { href: url, class: 'btn btn--primary finder-mini__add' }, miniKids)
+        : h('button', { type: 'button', class: 'btn btn--primary finder-mini__add' }, miniKids);
+      if (!personal) {
+        miniBtn.addEventListener('click', function () {
+          self.addToBasket(miniBtn, errorEl, pick);
+        });
+      }
       nodes.push(
         h('div', { class: 'finder-mini', inert: true }, [
           h('p', { class: 'finder-mini__info' }, [
             h('strong', { class: 'finder-mini__price', text: money(v.price) }),
-            h('span', { class: 'finder-mini__meta', text: nights > 0 ? fill(S('result.mini_trial'), { nights: nights }) : sizeLabel })
+            h('span', { class: 'finder-mini__meta', text: nights > 0 ? fill(S('result.mini_trial'), { nights: nights }) : shortLabel })
           ]),
           miniBtn
         ])
@@ -1886,7 +2329,8 @@
       var self = this;
       var p = alt.product;
       var v = alt.fit.variant;
-      var size = alt.fit.kind === 'one' ? S('result.size_one') : displaySize(alt.fit.value);
+      var altDims = isOne(alt.fit) ? alt.fit.dims || p.dims : '';
+      var size = isOne(alt.fit) ? S('result.size_one') + (altDims ? ' · ' + altDims : '') : displaySize(alt.fit.value);
       var hid = this.uid + '-alt';
       var line = fillNodes(h('p', { class: 'finder-alt__line' }), S('result.alt_line'), { title: p.title, difference: alt.diff }, ['title']);
       var swap = h('button', { type: 'button', class: 'btn btn--secondary btn--sm finder-alt__swap', text: S('result.alt_switch') });
@@ -1900,7 +2344,7 @@
       return h('aside', { class: 'finder-alt', 'aria-labelledby': hid }, [
         h('div', { class: 'finder-alt__media' }, [this.image(v.image || p.image, '', p.imageRatio, '96px', 'finder-alt__img')]),
         h('div', { class: 'finder-alt__body' }, [
-          h('p', { class: 'finder-alt__eyebrow', id: hid, text: S('result.alt_heading') }),
+          h('p', { class: 'finder-alt__eyebrow', id: hid, text: (alt.viewing && S('result.alt_heading_viewing')) || S('result.alt_heading') }),
           line,
           h('p', { class: 'finder-alt__meta' }, [size + ' · ', h('strong', { text: money(v.price) })]),
           h('div', { class: 'finder-alt__actions' }, [swap, view])
@@ -2104,7 +2548,13 @@
       }
       var view = qs('[data-teaser-view]', welcome);
       if (view) {
-        view.href = variantUrl(url, data.variantId);
+        /* Straight to the matched bed; without its URL, View re-opens the
+           finder on the result (data-open-finder, as rendered). */
+        if (url) {
+          view.href = variantUrl(url, data.variantId);
+          view.removeAttribute('data-open-finder');
+          view.removeAttribute('aria-haspopup');
+        }
         view.setAttribute('aria-label', fill(decode(welcome.getAttribute('data-view-label') || ''), { title: title }));
       }
       var media = qs('[data-teaser-media]', welcome);
@@ -2147,5 +2597,5 @@
   if (!customElements.get('finder-teaser')) customElements.define('finder-teaser', FinderTeaser);
 
   /* For other areas/tests: the pure matching engine. */
-  L.finderEngine = { config: config, loadProducts: loadProducts, recommend: recommend, rank: rank, resolveSize: resolveSize, hintIndex: hintIndex };
+  L.finderEngine = { config: config, loadProducts: loadProducts, recommend: recommend, rank: rank, resolveSize: resolveSize, hintIndex: hintIdx, sizing: sizing, classify: classify, displaySize: displaySize, shortSize: shortSize, claims: claims };
 })();

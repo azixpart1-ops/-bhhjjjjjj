@@ -1,0 +1,38 @@
+{%- comment -%}
+  The one "does this product need the dog's name before it can be made?"
+  test, shared by the buy box (name field, no dynamic checkout), product
+  cards (never a one-tap add) and the Bed Finder (its Add opens the product
+  instead of adding a bed without the name).
+
+  Personalised when:
+    - the custom.personalisation_label metafield is set; or
+    - its product type contains "Personalis" / "Personaliz"; or
+    - a tag equals personalised, personalized, personalised dog bed,
+      personalized dog bed or personalisation:yes.
+  Tag personalisation:no turns it off whatever else says so.
+
+  Output: the word "true" when personalised, nothing otherwise. Capture it:
+    {%- capture is_pers -%}{%- render 'personalised', product: product -%}{%- endcapture -%}
+    {%- if is_pers == 'true' -%} … {%- endif -%}
+{%- endcomment -%}
+{%- liquid
+  if product != blank
+    assign ps_tags = product.tags | join: '|' | downcase | prepend: '|' | append: '|'
+    assign ps_type = product.type | default: '' | downcase
+    assign ps_label = product.metafields.custom.personalisation_label.value | default: '' | strip
+    assign ps_on = false
+    if ps_label != '' or ps_type contains 'personalis' or ps_type contains 'personaliz'
+      assign ps_on = true
+    elsif ps_tags contains '|personalised|' or ps_tags contains '|personalized|' or ps_tags contains '|personalisation:yes|'
+      assign ps_on = true
+    elsif ps_tags contains '|personalised dog bed|' or ps_tags contains '|personalized dog bed|'
+      assign ps_on = true
+    endif
+    if ps_tags contains '|personalisation:no|'
+      assign ps_on = false
+    endif
+    if ps_on
+      echo 'true'
+    endif
+  endif
+-%}

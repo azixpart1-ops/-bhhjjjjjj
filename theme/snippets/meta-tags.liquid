@@ -36,7 +36,24 @@
     assign share_image = settings.logo
   endif
 
-  assign title_l = page_title | downcase
+  comment
+    A search from a shortcut link (tag:"flat dog bed", product_type:"…")
+    is titled by its plain value (snippets/search-terms), not by Shopify's
+    page_title, which repeats the raw query with its field syntax.
+  endcomment
+  assign doc_title = page_title
+  if request.page_type == 'search' and search.terms != blank
+    capture plain_terms
+      render 'search-terms', terms: search.terms
+    endcapture
+    assign plain_terms = plain_terms | strip
+    if plain_terms != search.terms and plain_terms != ''
+      assign doc_title = 'general.search' | t | append: ': ' | append: plain_terms
+      assign og_title = doc_title
+    endif
+  endif
+
+  assign title_l = doc_title | downcase
   assign shop_l = shop.name | downcase
   assign needs_shop = true
   if title_l contains shop_l
@@ -44,7 +61,7 @@
   endif
 -%}
 <title>
-  {{- page_title -}}
+  {{- doc_title | escape_once -}}
   {%- if current_tags %} &ndash; {{ current_tags | join: ', ' }}{% endif -%}
   {%- if current_page != 1 %} &ndash; {{ 'accessibility.page' | t: page: current_page }}{% endif -%}
   {%- if needs_shop %} &ndash; {{ shop.name }}{% endif -%}

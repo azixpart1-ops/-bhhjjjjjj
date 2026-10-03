@@ -8,6 +8,7 @@
 //   node check.mjs --verbose       print every warning (default caps each group)
 //   node check.mjs --real          also render-sweep the live catalogue (.out/real-products.json)
 //   node check.mjs --modes=real    choose the render-sweep catalogues (full,empty,real)
+//   node check.mjs --only=finder   just the headless Bed Finder matrix (lib/finder-matrix.mjs)
 //
 // Output lines are greppable:  ERROR [schema] sections/hero.liquid  message
 import fs from 'node:fs';
@@ -19,6 +20,8 @@ import { resolveRoute, routeCatalog } from './lib/routes.mjs';
 import { createCart, cartAdd } from './lib/cart.mjs';
 import { validateSectionSchema, validateTemplateJson, validateSettings, checkValue, CONTRACT_SETTINGS } from './lib/schema.mjs';
 import { liquidjs } from './lib/drops.mjs';
+import { loadFinderEngine } from './lib/finder-engine.mjs';
+import { runFinderMatrix, rawByHandle } from './lib/finder-matrix.mjs';
 import {
   DEFAULT_THEME_DIR, OUT_DIR, HARNESS_DIR, readText, exists, listFiles, stripJsonComment, deepMerge, getPath, parseArgs, relTheme, setThemeRootForRel,
 } from './lib/util.mjs';
@@ -549,6 +552,27 @@ async function runThemeCheck(locale) {
 }
 
 // ==========================================================================
+// (f) the Bed Finder, headless: every style × stage × size answer through the theme's
+// own engine for each catalogue with products (lib/finder-matrix.mjs says what fails).
+async function checkFinder() {
+  const out = {};
+  for (const mode of MODES.filter((m) => m !== 'empty')) {
+    const store = createStore({ real: mode === 'real' });
+    let eng;
+    try { eng = await loadFinderEngine({ themeDir: THEME, store }); } catch (e) {
+      add('finder', 'error', `${mode}: the finder engine did not load: ${e.message.split('\n')[0]}`, { file: T('assets', 'finder.js') });
+      continue;
+    }
+    const raw = mode === 'real' ? rawByHandle(store.realProducts || []) : new Map();
+    const res = runFinderMatrix(eng, { raw });
+    for (const p of res.problems) add('finder', mode === 'real' || !/curl and lean/.test(p) ? 'error' : 'warn', `${mode}: ${p}`, { file: T('assets', 'finder.js') });
+    for (const w of res.warns) add('finder', 'warn', `${mode}: ${w}`, { file: T('assets', 'finder.js') });
+    out[mode] = res.summary;
+  }
+  return out;
+}
+
+// ==========================================================================
 async function main() {
   const t0 = Date.now();
   if (!exists(THEME)) { console.log(`ERROR [setup] theme dir ${THEME} does not exist`); process.exit(1); }
@@ -570,10 +594,11 @@ async function main() {
     for (const { i, seen } of renderIssues.values()) add('render', i.level, `${i.kind}: ${i.message}`, { file: i.file, line: i.line, seen });
     summary.render = { renders: renderCount, modes: MODES };
   }
+  if (run('finder')) summary.finder = await checkFinder();
   if (run('theme-check')) summary.themeCheck = await runThemeCheck(locale);
 
   // ---- report
-  const order = ['json', 'schema', 'spec', 'contract', 'templates', 'settings', 'liquid', 'refs', 'i18n', 'perf', 'render', 'real', 'theme-check'];
+  const order = ['json', 'schema', 'spec', 'contract', 'templates', 'settings', 'liquid', 'refs', 'i18n', 'perf', 'render', 'real', 'finder', 'theme-check'];
   const byCheck = new Map(order.map((c) => [c, []]));
   for (const r of results) { if (!byCheck.has(r.check)) byCheck.set(r.check, []); byCheck.get(r.check).push(r); }
   let errors = 0; let warnings = 0;

@@ -1,19 +1,27 @@
 {%- comment -%}
-  Mechanism — "Density isn't firmness". Specificity beats adjectives: the
-  50kg/m³ core is explained in words and drawn as a cross-section, layer by
-  layer, so the price stops being compared with a supermarket bed.
+  Mechanism — "Foam, not filling". Specificity beats adjectives: what's
+  inside an orthopaedic bed is explained in words and drawn as a
+  cross-section, layer by layer, so the price stops being compared with a
+  supermarket bed. Every claim must be one the product pages make: a figure
+  (foam density, depth) only goes in the "Figure" setting or a layer's spec
+  once the products state it, and both stay blank (hidden) until then.
 
   Blocks
-    layer  name, spec (e.g. 50kg/m³), description, colour, texture, thickness
+    layer  name, spec (e.g. 10cm), description, colour, texture, thickness
     proof  icon, title, supporting line (+ hide when its promise is off)
-  No layer blocks → the four default layers. No proof blocks → proof points
-  built from Theme settings (trial, guarantee) plus the waterproof liner.
+  No layer blocks → the five default layers of a typical orthopaedic bed.
+  No proof blocks → proof points built from Theme settings (trial,
+  guarantee) plus "foam, not filling".
 
-  On product pages ("Show on" = auto) the section only renders for beds whose
-  title, type or tags mention orthopaedic / memory foam, so a fibre-filled
-  nest bed is never shown a foam diagram it doesn't have (snippets/foam-bed,
-  shared with the guarantee line and per-night price). Tag a product
-  "guarantee:yes" or "guarantee:no" to override.
+  On product pages ("Show on" = auto) the section only renders for beds the
+  foam guarantee covers (snippets/foam-bed: the description promises a
+  no-flatten guarantee), so a fibre-filled nest bed is never shown a foam
+  diagram it doesn't have. Shared with the guarantee line and per-night
+  price. Tag a product "guarantee:yes" or "guarantee:no" to override.
+
+  On a product page the trial and guarantee proof points also follow the
+  product: none for one the trial (snippets/trial-eligible) or the foam
+  guarantee doesn't cover.
 
   Text can use [trial_nights], [guarantee_years] and [trial_terms_short].
 {%- endcomment -%}
@@ -43,6 +51,30 @@
   assign on_guarantee = false
   if settings.guarantee_enable and settings.guarantee_years > 0
     assign on_guarantee = true
+  endif
+
+  comment
+    On a product page the trial and guarantee proof points follow the
+    product (snippets/trial-eligible, snippets/foam-bed), even when "Show
+    on" is set to always.
+  endcomment
+  if template.name == 'product' and product != blank
+    if on_trial
+      capture m_trial
+        render 'trial-eligible', product: product
+      endcapture
+      if m_trial != 'true'
+        assign on_trial = false
+      endif
+    endif
+    if on_guarantee
+      capture m_foam_proof
+        render 'foam-bed', product: product
+      endcapture
+      if m_foam_proof != 'true'
+        assign on_guarantee = false
+      endif
+    endif
   endif
 
   assign layer_blocks = section.blocks | where: 'type', 'layer'
@@ -102,10 +134,10 @@
             {%- endfor -%}
           {%- else -%}
             {%- liquid
-              assign d_colours = '#DED3BF,#B8C6BC,#C98B63,#4A4A46' | split: ','
-              assign d_textures = 'fabric,liner,foam,grip' | split: ','
-              assign d_heights = '1,1,5,1' | split: ','
-              assign d_keys = 'cover,liner,core,base' | split: ','
+              assign d_colours = '#DED3BF,#B8C6BC,#C98B63,#A9714C,#4A4A46' | split: ','
+              assign d_textures = 'fabric,liner,foam,foam,grip' | split: ','
+              assign d_heights = '1,1,3,3,1' | split: ','
+              assign d_keys = 'cover,liner,core,support,base' | split: ','
             -%}
             {%- for key in d_keys -%}
               {%- liquid
@@ -120,7 +152,6 @@
                 <span class="mechanism__slab" aria-hidden="true"></span>
                 <div class="mechanism__label">
                   <h3 class="mechanism__name">{{ k_title | t }}</h3>
-                  {%- if key == 'core' -%}<span class="mechanism__spec">50kg/m³</span>{%- endif -%}
                   <p class="mechanism__text">{{ k_text | t }}</p>
                 </div>
               </li>
@@ -194,8 +225,8 @@
           <li class="mechanism__proof-item">
             <span class="mechanism__proof-icon">{%- render 'icon', name: 'check-circle' -%}</span>
             <span class="mechanism__proof-text">
-              <span class="mechanism__proof-title">{{ 'home.mechanism.default_liner_proof_title' | t }}</span>
-              <span class="mechanism__proof-sub">{{ 'home.mechanism.default_liner_proof_text' | t }}</span>
+              <span class="mechanism__proof-title">{{ 'home.mechanism.default_foam_proof_title' | t }}</span>
+              <span class="mechanism__proof-sub">{{ 'home.mechanism.default_foam_proof_text' | t }}</span>
             </span>
           </li>
         {%- endif -%}
@@ -245,49 +276,54 @@
         { "value": "always", "label": "Always" }
       ],
       "default": "auto",
-      "info": "Auto shows it when the product's title, type or tags mention orthopaedic or memory foam. Tag a product guarantee:yes or guarantee:no to override (the same tags decide the foam guarantee line and per-night price)."
+      "info": "Auto shows it for beds the foam guarantee covers: their description mentions a no-flatten guarantee. Tag a product guarantee:yes or guarantee:no to override (the same test decides the foam guarantee line and per-night price)."
     },
     {
       "type": "text",
       "id": "eyebrow",
       "label": "Eyebrow",
-      "default": "What 50kg/m³ actually means"
+      "default": "What's inside the orthopaedic beds"
     },
     {
       "type": "text",
       "id": "heading",
       "label": "Heading",
-      "default": "Density isn't firmness."
+      "default": "Foam, not filling."
     },
     {
       "type": "richtext",
       "id": "body",
       "label": "Text",
-      "default": "<p>Density is the weight of a cubic metre of foam. It is not the same thing as firmness, which is why a cheap bed can feel reassuringly solid in the shop and still be flat by March. Firmness is how it feels on day one. Density is how much foam is in there to keep feeling that way.</p><p>Our orthopaedic cores are 50kg/m³, dense enough to hold hips, elbows and spine off the floor and still be doing it years from now. The fibre-filled nest beds are made differently, and each product page says which is which.</p>"
+      "default": "<p>A lot of dog beds are filled with loose fibre or shredded offcuts. They can feel plump in the shop and still be flat by March, because filling shifts and packs down under a dog's weight, night after night.</p><p>Our orthopaedic beds are built on foam instead. On many of them, memory foam on top contours to hip and shoulder while a profiled egg-crate layer underneath spreads their weight, so it doesn't compress to the floor. Each product page says exactly how that bed is built.</p><p>The fibre-filled nest beds are made differently, for dogs who want soft and enclosed, and their pages say so too.</p>"
+    },
+    {
+      "type": "header",
+      "content": "Figure"
+    },
+    {
+      "type": "paragraph",
+      "content": "Optional. Only use a number your product pages state (e.g. a foam depth or density). Leave the figure blank to hide it."
     },
     {
       "type": "text",
       "id": "stat_number",
-      "label": "Figure",
-      "default": "50"
+      "label": "Figure"
     },
     {
       "type": "text",
       "id": "stat_unit",
-      "label": "Unit",
-      "default": "kg/m³"
+      "label": "Unit"
     },
     {
       "type": "text",
       "id": "stat_caption",
-      "label": "Figure caption",
-      "default": "High-density memory foam core, used across the orthopaedic range."
+      "label": "Figure caption"
     },
     {
       "type": "text",
       "id": "diagram_caption",
       "label": "Diagram caption",
-      "default": "Cross-section of an orthopaedic bed, top to bottom."
+      "default": "A typical orthopaedic bed, top to bottom. Layers vary from bed to bed: each product page lists its own."
     },
     {
       "type": "checkbox",
@@ -327,19 +363,19 @@
           "type": "text",
           "id": "title",
           "label": "Layer name",
-          "default": "50kg/m³ memory foam core"
+          "default": "Memory foam"
         },
         {
           "type": "text",
           "id": "spec",
           "label": "Spec",
-          "info": "A number worth seeing, e.g. 50kg/m³ or 10cm."
+          "info": "A number worth seeing, e.g. 10cm. Only use one your product pages state."
         },
         {
           "type": "textarea",
           "id": "text",
           "label": "What it does",
-          "default": "Takes the weight of hip and shoulder, then comes back to shape by morning."
+          "default": "Contours to hip and shoulder, then comes back to shape by morning."
         },
         {
           "type": "color",
@@ -399,13 +435,13 @@
           "type": "text",
           "id": "title",
           "label": "Title",
-          "default": "Waterproof-lined core"
+          "default": "Built from foam, not filling"
         },
         {
           "type": "text",
           "id": "text",
           "label": "Supporting line",
-          "default": "On the orthopaedic range"
+          "default": "Across the orthopaedic range"
         },
         {
           "type": "select",
@@ -425,10 +461,11 @@
     {
       "name": "Foam explained",
       "blocks": [
-        { "type": "layer", "settings": { "title": "Machine-washable cover", "text": "Unzips fully, 30°C, back on the bed inside a couple of hours.", "colour": "#DED3BF", "texture": "fabric", "thickness": 1 } },
-        { "type": "layer", "settings": { "title": "Waterproof inner liner", "text": "The layer that keeps a wet dog from ever reaching the foam.", "colour": "#B8C6BC", "texture": "liner", "thickness": 1 } },
-        { "type": "layer", "settings": { "title": "Memory foam core", "spec": "50kg/m³", "text": "Takes the weight of hip and shoulder, then comes back to shape by morning.", "colour": "#C98B63", "texture": "foam", "thickness": 5 } },
-        { "type": "layer", "settings": { "title": "Non-slip base", "text": "Stays put on wood and tile, so the bed does not travel across the kitchen.", "colour": "#4A4A46", "texture": "grip", "thickness": 1 } }
+        { "type": "layer", "settings": { "title": "Zip-off cover", "text": "Comes off to wash, following the care label sewn into each one.", "colour": "#DED3BF", "texture": "fabric", "thickness": 1 } },
+        { "type": "layer", "settings": { "title": "Waterproof inner liner", "text": "On selected beds: sits between cover and foam, so a wet coat or an accident stops before the core.", "colour": "#B8C6BC", "texture": "liner", "thickness": 1 } },
+        { "type": "layer", "settings": { "title": "Memory foam", "text": "Contours to hip and shoulder, then comes back to shape by morning.", "colour": "#C98B63", "texture": "foam", "thickness": 3 } },
+        { "type": "layer", "settings": { "title": "Egg-crate support foam", "text": "Profiled foam underneath that spreads their weight rather than compressing flat.", "colour": "#A9714C", "texture": "foam", "thickness": 3 } },
+        { "type": "layer", "settings": { "title": "Non-slip base", "text": "On many beds: grips wood and tile, so the bed stays where you put it.", "colour": "#4A4A46", "texture": "grip", "thickness": 1 } }
       ]
     }
   ]

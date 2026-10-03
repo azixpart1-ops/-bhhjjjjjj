@@ -23,11 +23,12 @@ and Chromium from `/opt/pw-browsers`. Don't run `playwright install`.
 | Command | What it does |
 |---|---|
 | `node server.mjs` | Mock storefront on http://127.0.0.1:9292 (`--port`, `--empty`, `--real`, `--logged-in`, `--quiet`, `--theme <dir>`) |
-| `node check.mjs` | All static and render checks plus theme-check. Exits 1 on any ERROR (`--no-theme-check`, `--only=json,schema,templates,static,locales,render,theme-check`, `--real`, `--modes=full,empty,real`, `--json`, `--verbose`) |
-| `node browser-test.mjs` | Playwright page sweep, purchase flows and the finder matrix. Starts its own server unless you pass `--url` (`--real`, `--all-products`, `--only=pages\|flows\|matrix`, `--no-matrix`, `--pages=home,product`, `--no-a11y`, `--strict-a11y`, `--viewport-only`) |
+| `node check.mjs` | All static and render checks, the headless finder matrix, plus theme-check. Exits 1 on any ERROR (`--no-theme-check`, `--only=json,schema,templates,static,locales,render,finder,theme-check`, `--real`, `--modes=full,empty,real`, `--json`, `--verbose`) |
+| `node browser-test.mjs` | Playwright page sweep, purchase flows and the finder matrix. Starts its own server (on `--port`, else a free port) unless you pass `--url` (`--real`, `--all-products`, `--only=pages\|flows\|matrix`, `--no-matrix`, `--pages=home,product`, `--no-a11y`, `--strict-a11y`, `--viewport-only`) |
+| `node lib/finder-engine.mjs` | Prints the finder's pick for every answer, headless, on the committed real catalogue (`--full` for the fixture catalogue) |
 | `node render.mjs <path>` | Renders one URL to stdout and prints its issues to stderr (`--empty`, `--real`, `--cart`, `--section <id>`, `--out file.html`) |
 | `node fixtures/fetch-real.mjs` | Downloads the live catalogue into `.out/real-products.json` (`--offline` copies the snapshot, `--check` prints what the file holds) |
-| `npm run test:harness` | Self-tests for the harness's Shopify emulation (Ruby maths, render scoping, paginate, forms, cart rules, schema rules) |
+| `npm run test:harness` | Self-tests for the harness's Shopify emulation (Ruby maths, render scoping, paginate, forms, cart rules, schema rules) and the headless finder matrix on the real catalogue (`test/finder-matrix.test.mjs`) |
 | `npm test` | Self-tests, then `check.mjs`, then `browser-test.mjs` |
 
 Output lines are meant to be grepped: `ERROR [schema] sections/hero.liquid  message`,
@@ -37,7 +38,9 @@ Output lines are meant to be grepped: `ERROR [schema] sections/hero.liquid  mess
 
 - **Pages:** `/`, `/products/:h` (`?variant=`), `/collections` and `/collections/:h` (`sort_by`,
   `filter.v.availability`, `filter.v.price.gte/lte`, `filter.v.option.size|colour`,
-  `filter.p.product_type`, `page`), `/cart`, `/search?q=`, `/pages/:h` (honours
+  `filter.p.product_type`, `page`), `/cart`, `/search?q=` (with Shopify's field syntax as the
+  theme's links use it: `tag:"…"`, `product_type:"…"`, `title:`, `body:`, `vendor:`,
+  `variants.title:`, quoted phrases, `OR`, `NOT` / `-term`), `/pages/:h` (honours
   `template_suffix`, e.g. `page.bed-finder`), `/blogs/journal(/:article)`, `/policies/:h`,
   `/account/*`, `/password`, `/gift_cards/:code`. Anything else renders `404.json` with status 404.
 - **AJAX:** `GET /cart.js`; `POST /cart/add.js | change.js | update.js | clear.js`
@@ -73,7 +76,8 @@ handles, prices and "why" copy; Rydal, Wensleydale and the Windermere cooling be
 added. Variant ladders are S/M/L(/XL), and Colour appears on Buttermere, Harrogate and
 Kendal. Langdale Large is tracked with 2 left (low stock). Kendal XL/Stone and all of
 Wensleydale are sold out, and Ambleside XL sells on backorder. Two products have
-compare-at prices. Tags cover `finder:*`, `best-for:*` and `badge:Most popular`.
+compare-at prices. Tags cover `finder:*`, `best-for:*`, `badge:Most popular` and `guarantee:yes`
+(on the eight orthopaedic beds, so the foam guarantee and per-night lines still render).
 Metafields cover `reviews.rating`, `custom.best_for`, `tagline`, `benefits`, `specs`,
 `care` and `variant custom.most_chosen`. Images are served from `/assets/img`.
 
@@ -117,9 +121,11 @@ with `curl`, because Node's `fetch` ignores `HTTPS_PROXY`. It reads:
 
 The result goes to `.out/real-products.json`, which is gitignored. The file is created on
 first use. Refreshing it is up to you: run the script again. If a refresh fails, the existing
-file is kept. If there is no file and no network, the session snapshot is copied instead
-(`REAL_SNAPSHOT`, which defaults to the scratchpad `real-products.snapshot.json`). Set
-`REAL_STORE_ORIGIN` to read from another store.
+file is kept. If there is no file and no network, the snapshot is copied instead
+(`REAL_SNAPSHOT`, which defaults to the committed `fixtures/real-catalogue.json`: the live
+`/products.json` with its 64 products, kept so real mode and the finder-matrix self-test
+work offline and never change under a test). Set `REAL_STORE_ORIGIN` to read from another
+store.
 
 **What the fixture builds** (`createStore({ real: true })` in `fixtures/store.mjs`):
 
@@ -192,6 +198,37 @@ and a kennel. That comparison found three things the harness now emulates in eve
 
 ## The finder matrix
 
+### Headless (`check.mjs`, `npm run test:harness`)
+
+`lib/finder-engine.mjs` runs the theme's own `assets/global.js` and `assets/finder.js` in
+Node (a `vm` context with an inert DOM), fed by what the harness renders: the inline
+`Lunova.settings` script and `#finder-config` from `/pages/bed-finder`, and
+`<fallbackUrl>?section_id=finder-products` for every page `finder.js` asks for. So the
+Liquid verdicts in the product JSON (`foam`, `trial`, `personalised`), the size hints and the
+"Never recommend" rules are the real ones. `lib/finder-matrix.mjs` then calls
+`Lunova.finderEngine.recommend` for 3 styles × 3 stages × 5 sizes and fails an answer when:
+
+- there is no bed;
+- the main pick or the alternative is a "Never recommend" bed, a `Dog Houses` type, a car
+  seat or a crate mat;
+- the alternative is the main pick again;
+- the chosen size is shorter than the shortest bed for that dog (`Lunova.sizeMin`), a
+  one-size bed is made for a dog other than this one or one size up, or a size is more
+  than one step up;
+- a per-night sum or guarantee line would show on a bed the foam rule doesn't cover, or a
+  trial line on a product the trial doesn't cover. Both rules are restated in the test from
+  the raw product data (description, type, tags), so the Liquid, the JS and the stated
+  rule must all agree, for every product, not only the ones picked;
+- a reason line runs two sentences together (`/\.[A-Z]/`);
+- curl and lean get the same bed for more than 2 of the 5 sizes at any stage.
+
+`check.mjs` reports these as `[finder]` ERRORs for the fixture catalogue and, with `--real`,
+the real one. `test/finder-matrix.test.mjs` runs them on `fixtures/real-catalogue.json`
+(64 products: kennels and day beds, the car seat, crate mats, `Label · dims`, `Label: breeds`
+and `Extra Large · dims` sizes, 21 `Default Title` beds) and prints the grid.
+
+### In the browser (`browser-test.mjs`)
+
 `browser-test.mjs` runs the matrix in both catalogues (`--only=matrix`, or skip it with
 `--no-matrix`). It drives the theme's own finder through every style (curl, lean,
 sprawl) × stage (fine, slowing, diagnosed) × size, taking the sizes from `sizeHints` (XS–XL).
@@ -207,13 +244,19 @@ An answer **FAILS** if:
 
 - it produces no result (an empty or "no fit" state, or a timeout);
 - its result or alternative has a `product_type` starting with `Dog Houses`;
-- its result or alternative has a title containing `Car Seat`.
+- its result or alternative has a title containing `Car Seat`;
+- the result shows a per-night sum or the guarantee line for a bed whose `foam` verdict
+  (snippets/foam-bed, in the finder's product JSON) is false, or a trial line for one whose
+  `trial` verdict is false;
+- the result is a personalised bed and its Add button would put it in the basket without
+  the name (it must link to the product page instead).
 
 It also fails on visible HTML entities in the result.
 
 Answers whose chosen size is made for a different dog are a **WARN** (`~` in the grid). That
-covers a breed-labelled size that doesn't match the answer's breeds, or a size word two or
-more steps away (XS → "Burnmoor XXL").
+covers a size two or more steps up (XS → "Burnmoor XXL"), a smaller breed-labelled size than
+the answer's, or a size word two or more steps down. One size up is the finder's stated
+fallback when the dog's own size is missing or sold out, so it is not flagged.
 
 ## What the renderer emulates (`render.mjs`)
 
@@ -276,7 +319,9 @@ more steps away (XS → "Burnmoor XXL").
    preset as a merchant would add it. Every `application/json` or `ld+json` island in the
    output must parse. In real mode a `[real]` group adds observations about the store, for
    example "Only N left" showing on every product page while every variant holds 5.
-6. **theme-check:** `@shopify/theme-check-node` runs on a copy of the theme with
+6. **finder:** the headless finder matrix (see [The finder matrix](#the-finder-matrix)) for
+   each catalogue with products.
+7. **theme-check:** `@shopify/theme-check-node` runs on a copy of the theme with
    `en.default.json` assembled from the parts. Its docs are cached in
    `~/.cache/theme-liquid-docs-nodejs`. If the first run can't reach the network, this step
    becomes a WARN.

@@ -465,9 +465,11 @@ export class ThemeRenderer {
         const size = Number(toValue(yield evalToken(this.byToken, ctx)));
         const opts = yield this.hash.render(ctx);
         let coll = yield evalToken(this.collToken, ctx);
-        if (!(size >= 1 && size <= 250)) R.issue('error', 'liquid-error', `paginate: page size must be 1–250 (got ${size}); Shopify caps collection pages at 50 products and 250 per pagination`);
+        if (!(size >= 1 && size <= 250)) R.issue('error', 'liquid-error', `paginate: page size must be 1–250 (got ${size})`);
         const per = Math.max(1, Math.min(250, size || 1));
-        if (per > 50 && /products/.test(this.collToken.getText())) R.issue('warn', 'paginate-size', `paginate by ${per}: Shopify returns at most 50 products per page`);
+        // Page sizes 1–250 are valid (shopify.dev paginate docs; Theme Check's PaginationSize
+        // allows up to 250). Whatever the platform serves, sections/finder-products reports
+        // "per"/"pages" and finder.js fetches every page, so a clamp can't lose beds.
         // collection.products / search.results hold 50 items outside paginate (see shopifyLimited); paginate sees them all.
         const full = coll && Array.isArray(coll._all) ? coll._all : coll;
         const arr = full == null ? [] : Array.isArray(full) ? full : (typeof full === 'object' && full[Symbol.iterator]) ? [...full] : [];

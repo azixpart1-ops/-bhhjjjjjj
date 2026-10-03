@@ -1,0 +1,56 @@
+{%- comment -%}
+  A search query as a shopper reads it. Shortcut links (the need chips,
+  shop-by-need tiles) search with Shopify's field syntax, e.g.
+  tag:"flat dog bed" or product_type:"Dog Beds > Cooling & Elevated Beds";
+  the results heading, the search boxes and the page <title> show the plain
+  value ("flat dog bed", "Cooling & Elevated Beds") instead. A query without
+  field syntax comes back as typed.
+
+  Usage: {% render 'search-terms', terms: search.terms %}
+  Output: the plain text, unescaped (escape it where it's printed).
+{%- endcomment -%}
+{%- liquid
+  comment
+    Field queries read as their value: field names, quotes and brackets go,
+    OR / AND / NOT read as words, and a product type keeps its last level,
+    after the final " > ". A field only counts at the start of a word, so
+    vintage: is not tag:, and variants.title comes before title in the list
+    so it is stripped whole.
+  endcomment
+  assign display_terms = terms | default: '' | strip
+  assign query_fields = 'product_type:,variants.title:,variants.sku:,variants.price:,vendor:,title:,tag:,body:' | split: ','
+  assign probe = ' ' | append: terms | replace: '(', ' ' | replace: ')', ' ' | replace: '-', ' ' | downcase
+  assign is_field_query = false
+  for field in query_fields
+    assign needle = ' ' | append: field
+    if probe contains needle
+      assign is_field_query = true
+      break
+    endif
+  endfor
+  if is_field_query
+    assign clean = ' ' | append: terms | replace: '(', ' ' | replace: ')', ' '
+    for field in query_fields
+      assign needle = ' ' | append: field
+      assign needle_neg = ' -' | append: field
+      assign clean = clean | replace: needle_neg, ' not ' | replace: needle, ' '
+    endfor
+    assign clean = clean | replace: '"', ' ' | replace: ' OR ', ' or ' | replace: ' AND ', ' and ' | replace: ' NOT ', ' not '
+    assign clean_parts = clean | split: ' or '
+    assign rebuilt = ''
+    for clean_part in clean_parts
+      assign piece = clean_part | split: ' > ' | last | split: ' ' | join: ' ' | replace: '  ', ' ' | replace: '  ', ' ' | strip
+      if piece == ''
+        continue
+      endif
+      if rebuilt != ''
+        assign rebuilt = rebuilt | append: ' or '
+      endif
+      assign rebuilt = rebuilt | append: piece
+    endfor
+    if rebuilt != ''
+      assign display_terms = rebuilt
+    endif
+  endif
+  echo display_terms
+-%}

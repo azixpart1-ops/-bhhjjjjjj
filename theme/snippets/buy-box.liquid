@@ -177,18 +177,13 @@
     dispatch promise).
   endcomment
   assign bb_tags = product.tags | join: '|' | downcase | prepend: '|' | append: '|'
-  assign bb_type = product.type | default: '' | downcase
   assign pers_label = product.metafields.custom.personalisation_label.value | default: '' | strip
+  capture bb_pers
+    render 'personalised', product: product
+  endcapture
   assign is_personalised = false
-  if pers_label != '' or bb_type contains 'personalis' or bb_type contains 'personaliz'
+  if bb_pers == 'true'
     assign is_personalised = true
-  elsif bb_tags contains '|personalised|' or bb_tags contains '|personalized|' or bb_tags contains '|personalisation:yes|'
-    assign is_personalised = true
-  elsif bb_tags contains '|personalised dog bed|' or bb_tags contains '|personalized dog bed|'
-    assign is_personalised = true
-  endif
-  if bb_tags contains '|personalisation:no|'
-    assign is_personalised = false
   endif
   assign lead_days = product.metafields.custom.lead_time_days.value | default: 0 | plus: 0 | round
   assign made_to_order = false

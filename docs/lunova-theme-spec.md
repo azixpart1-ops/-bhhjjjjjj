@@ -381,14 +381,14 @@ Layout:      page_width (select 1200|1320|1440, 1320), radius (range 0–24 step
              button_shape (select pill|soft|square, pill), animations (checkbox, true)
 Promises:    trial_enable (true), trial_nights (number 100), guarantee_enable (true), guarantee_years (number 5),
              free_shipping_enable (true), free_shipping_threshold (number 40, major units),
-             delivery_promise_enable (true), dispatch_cutoff_hour (range 0–23, 15),
+             delivery_promise_enable (false until the merchant confirms real dispatch times), dispatch_cutoff_hour (range 0–23, 15),
              dispatch_days (text "1,2,3,4,5"; 0 = Sunday), delivery_min_days (number 1), delivery_max_days (number 3),
              holiday_dates (textarea, one YYYY-MM-DD per line), origin_line (text, "" — e.g. "Made in Yorkshire"; hidden if blank)
 Pricing:     show_compare_savings (true), savings_format (select amount|percent, amount),
              show_per_night (true), show_installments (false), installments_count (range 2–4, 3),
              installments_provider (text "Klarna")
 Proof:       store_rating (text ""), store_review_count (text ""), show_product_ratings (true)
-Scarcity:    low_stock_enable (true), low_stock_threshold (range 1–20, 5)
+Scarcity:    low_stock_enable (true), low_stock_threshold (range 1–20, 3 — kept low so it only fires on genuine scarcity)
 Sizing:      size_hints (textarea; lines "VALUE|Label|Weight|Breeds", default:
              "XS|Extra small|Up to 5kg|Chihuahua, Yorkie, Pomeranian
               S|Small|5–10kg|Jack Russell, Dachshund, Pug, Shih Tzu

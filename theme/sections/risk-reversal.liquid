@@ -21,6 +21,19 @@
   Text can use [trial_nights], [guarantee_years], [threshold], [trial_mid],
   [trial_terms] and [trial_terms_short] (Theme settings → Promises, so the
   returns wording is set once, to match the real policy).
+
+  Only where the trial applies (snippets/trial-eligible: Theme settings →
+  Promises → Not covered by the trial, and trial:yes / trial:no tags):
+    - product page: a product the trial doesn't cover (a dog house, a
+      personalised bed) never gets the trial section. The buy box already
+      says it isn't covered; this section adds at most a compact "Returns
+      for this product" line linking the published refund policy (with the
+      product's custom.returns_note when it has one), or nothing.
+    - collection page: hidden when none of the collection's products (first
+      50) is covered.
+    - elsewhere (home, about): the shop's trial, with an optional line saying
+      a few products aren't part of it, shown while the exclusion list in
+      Theme settings has anything in it.
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
@@ -29,16 +42,97 @@
   if settings.trial_enable and nights > 0
     assign trial_on = true
   endif
+  assign policy_url = shop.refund_policy.url | default: ''
+  assign heading_id = section.id | append: '-heading'
+
+  comment
+    Does the trial cover what this page sells?
+  endcomment
+  assign covers = trial_on
+  assign rr_excluded = false
+  if trial_on
+    if template.name == 'product' and product != blank
+      capture rr_ok
+        render 'trial-eligible', product: product
+      endcapture
+      if rr_ok != 'true'
+        assign covers = false
+        assign rr_excluded = true
+      endif
+    elsif template.name == 'collection' and collection != blank and collection.products_count > 0
+      assign covers = false
+      for rr_p in collection.products limit: 50
+        capture rr_ok
+          render 'trial-eligible', product: rr_p
+        endcapture
+        if rr_ok == 'true'
+          assign covers = true
+          break
+        endif
+      endfor
+    endif
+  endif
+
+  assign rr_line = false
+  if rr_excluded and policy_url != '' and s.excluded_heading != blank
+    assign rr_line = true
+  endif
 -%}
-{%- if trial_on or request.design_mode -%}
+{%- if rr_excluded -%}
+  {%- if rr_line or request.design_mode -%}
+    {%- unless template.name == 'index' -%}{{ 'sections.css' | asset_url | stylesheet_tag }}{%- endunless -%}
+    {%- render 'section-styles', section: section -%}
+    {%- liquid
+      assign ex_nights = nights | append: ''
+      assign ex_note = product.metafields.custom.returns_note.value | default: '' | strip | escape
+      if ex_note == ''
+        assign ex_note = s.excluded_text | default: '' | escape | replace: '[trial_nights]', ex_nights
+      endif
+    -%}
+    <section
+      class="section risk-reversal risk-reversal--excluded scheme-{{ s.color_scheme }}"
+      id="{{ section.id }}-wrap"
+      {%- if rr_line %} aria-labelledby="{{ heading_id }}"{% endif %}
+    >
+      <div class="page-width">
+        {%- if request.design_mode -%}
+          <p class="editor-note">{{ 'home.editor.trial_excluded_product' | t }}</p>
+        {%- endif -%}
+        {%- if rr_line -%}
+          <div class="risk-reversal__excluded">
+            <span class="risk-reversal__excluded-icon" aria-hidden="true">{%- render 'icon', name: 'return' -%}</span>
+            <div class="risk-reversal__excluded-body">
+              <h2 id="{{ heading_id }}" class="h4 risk-reversal__excluded-heading">{{ s.excluded_heading | escape }}</h2>
+              {%- if ex_note != blank -%}
+                <p class="risk-reversal__excluded-text">{{ ex_note }}</p>
+              {%- endif -%}
+              <p><a class="risk-reversal__policy" href="{{ policy_url }}">{{ s.policy_label | default: shop.refund_policy.title | escape }}</a></p>
+            </div>
+          </div>
+        {%- endif -%}
+      </div>
+    </section>
+  {%- endif -%}
+{%- elsif covers or request.design_mode -%}
 {%- unless template.name == 'index' -%}{{ 'sections.css' | asset_url | stylesheet_tag }}{%- endunless -%}
 {%- render 'section-styles', section: section -%}
 {%- liquid
-  assign heading_id = section.id | append: '-heading'
   assign years = settings.guarantee_years | default: 0 | plus: 0
   assign guarantee_on = false
   if settings.guarantee_enable and years > 0
     assign guarantee_on = true
+  endif
+  comment
+    On a product page the foam guarantee line only sits under a bed the
+    guarantee covers (snippets/foam-bed), never under a fibre nest bed.
+  endcomment
+  if guarantee_on and template.name == 'product' and product != blank
+    capture rr_foam
+      render 'foam-bed', product: product
+    endcapture
+    if rr_foam != 'true'
+      assign guarantee_on = false
+    endif
   endif
 
   comment
@@ -69,8 +163,6 @@
   assign pull = s.pull | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms
   assign reassure = s.reassurance | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms
 
-  assign policy_url = shop.refund_policy.url | default: ''
-
   assign step_blocks = section.blocks | where: 'type', 'step'
   assign step_count = step_blocks.size
   if step_count == 0
@@ -81,6 +173,18 @@
   if s.image != blank
     assign has_image = true
   endif
+
+  comment
+    Some products are left out of the trial (Theme settings → Promises → Not
+    covered by the trial): say so on the shop-wide version of the section.
+  endcomment
+  assign has_exclusions = false
+  if template.name != 'product'
+    assign rr_excl = settings.trial_excluded | default: '' | strip
+    if rr_excl != ''
+      assign has_exclusions = true
+    endif
+  endif
 -%}
 <section
   class="section risk-reversal scheme-{{ s.color_scheme }}{% if has_image %} risk-reversal--with-image risk-reversal--media-{{ s.media_side | default: 'left' }}{% endif %}"
@@ -88,9 +192,11 @@
   aria-labelledby="{{ heading_id }}"
 >
   <div class="page-width">
-    {%- unless trial_on -%}
+    {%- if trial_on == false -%}
       <p class="editor-note">{{ 'home.editor.trial_off' | t }}</p>
-    {%- endunless -%}
+    {%- elsif covers == false -%}
+      <p class="editor-note">{{ 'home.editor.trial_excluded_collection' | t }}</p>
+    {%- endif -%}
     <div class="risk-reversal__inner">
       {%- if has_image -%}
         <div class="risk-reversal__media media" style="--ratio: 4 / 5;">
@@ -194,6 +300,9 @@
           {%- if guarantee_on and s.guarantee_note != blank -%}
             <p>{{ s.guarantee_note | escape | replace: '[guarantee_years]', ph_years }}</p>
           {%- endif -%}
+          {%- if has_exclusions and s.exclusions_note != blank -%}
+            <p>{{ s.exclusions_note | escape | replace: '[trial_nights]', ph_nights }}</p>
+          {%- endif -%}
           {%- if s.policy_label != blank and policy_url != '' -%}
             <p><a class="risk-reversal__policy" href="{{ policy_url }}">{{ s.policy_label | escape }}</a></p>
           {%- endif -%}
@@ -261,8 +370,15 @@
       "type": "text",
       "id": "guarantee_note",
       "label": "Guarantee line",
-      "default": "Every memory foam bed also carries the [guarantee_years]-year foam guarantee.",
-      "info": "Hidden when the guarantee is switched off."
+      "default": "Our orthopaedic memory foam beds also carry the [guarantee_years]-year foam guarantee, as marked on each bed's page.",
+      "info": "Hidden when the guarantee is switched off, and on product pages for beds the foam guarantee doesn't cover."
+    },
+    {
+      "type": "text",
+      "id": "exclusions_note",
+      "label": "Exclusions line",
+      "default": "A few products aren't part of the trial. Where that's the case, the product page says so before you buy.",
+      "info": "Shown while Theme settings → Promises → Not covered by the trial lists anything. Not shown on product pages."
     },
     {
       "type": "text",
@@ -270,6 +386,28 @@
       "label": "Policy link label",
       "default": "Read the full returns policy",
       "info": "Links to your refund policy (Settings → Policies). Hidden until a refund policy is published there."
+    },
+    {
+      "type": "header",
+      "content": "Products the trial doesn't cover"
+    },
+    {
+      "type": "paragraph",
+      "content": "On the page of a product the trial doesn't cover, this section never shows the trial. It shows a short returns line with a link to your refund policy instead, or nothing until a refund policy is published."
+    },
+    {
+      "type": "text",
+      "id": "excluded_heading",
+      "label": "Returns line heading",
+      "default": "Returns for this product",
+      "info": "Leave blank to show nothing on those pages."
+    },
+    {
+      "type": "text",
+      "id": "excluded_text",
+      "label": "Returns line text",
+      "default": "It isn't part of the [trial_nights]-night sleep trial. The returns policy sets out what applies, and your statutory rights are unaffected.",
+      "info": "A product's own custom.returns_note metafield replaces this."
     },
     {
       "type": "image_picker",

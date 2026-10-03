@@ -24,16 +24,24 @@
 
   Matching (finder.js): strict Match blocks first (priority, then order) →
   fallback candidates scored by tags finder:curl|lean|sprawl and
-  finder:fine|slowing|diagnosed (+ orthopaedic / memory foam in title or tags)
-  → blocks that match on style or stage only. The size is resolved per bed
-  from its size option; if that size is sold out the next size up is offered,
-  and the result says so.
+  finder:fine|slowing|diagnosed, else the bed's own words (title, then tags,
+  then product type; + orthopaedic / memory foam, + "older dogs") → blocks
+  that match on style or stage only → anything else that fits → beds on the
+  "Only when nothing else fits" list. The size is resolved per bed with the
+  theme's size rules (breeds, then measurements, then size word; Theme
+  settings → Sizing); one-size beds are sized from their value, specs,
+  description, title or tags and only offered to that dog or the size below;
+  if a size is sold out the next size up (never more) is offered, and the
+  result says so.
 
   Fallback beds are NOT printed here: when some style × stage pair isn't
   covered by an available, all-sizes Match block, the island carries the
   fallback collection's URL and finder.js fetches sections/finder-products
-  (Section Rendering API) once a shopper heads for the finder. Products
-  tagged finder:exclude and gift cards are never fallback candidates.
+  (Section Rendering API, 250 a page) once a shopper heads for the finder.
+  Products tagged finder:exclude, gift cards and anything matching the
+  "Never recommend" list (emitted here as rules.exclude and applied by
+  finder.js, because finder-products renders in collection context) are
+  never fallback candidates.
 
   On the bed-finder page template, main-finder-page has already loaded
   finder.css and finder.js, so they aren't requested twice.
@@ -99,9 +107,6 @@
       only when the fallback collection has anything in it.
     endcomment
     assign fb_count = fb_coll.products_count | default: 0 | plus: 0
-    if fb_count > 50
-      assign fb_count = 50
-    endif
     assign fallback_url = nil
     if need_fallback and fb_count > 0
       assign fallback_url = fb_coll.url
@@ -128,7 +133,7 @@
     assign finder_page_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
 
     assign string_keys = 'dialog_label,close,back,next,step_of,your_match,browse_all,your_dog,options.curl_title,options.curl_text,options.curl_short,options.curl_phrase,options.lean_title,options.lean_text,options.lean_short,options.lean_phrase,options.sprawl_title,options.sprawl_text,options.sprawl_short,options.sprawl_phrase,options.fine_title,options.fine_text,options.fine_short,options.slowing_title,options.slowing_text,options.slowing_short,options.diagnosed_title,options.diagnosed_text,options.diagnosed_short,size.meta,size.measure_icon_label,name.label,name.placeholder,name.submit,name.submit_named,name.skip,name.privacy,matching.heading,matching.heading_named,matching.style,matching.stage,matching.size' | split: ','
-    assign result_keys = 'heading,heading_named,answers,change,why_heading,why_heading_named,why_style,why_style_miss,material_both,material_foam,material_ortho,why_ortho_diagnosed,why_ortho_slowing,why_ortho_fine,why_fine,why_slowing,why_diagnosed,why_size,why_size_plain,why_size_label,why_size_larger_sold,why_size_larger_missing,why_size_approx,why_size_one,why_trial,vet_note,size_line,size_one,stock_in,stock_low,stock_low_one,stock_backorder,per_night,per_night_basis,per_night_hint,was,now,save,rating,rating_count,add,add_named,add_short_named,add_price,mini_trial,adding,add_error,details,alt_heading,alt_line,alt_switch,alt_view,alt_view_label,diff_cheaper,diff_support,diff_curl,diff_lean,diff_sprawl,diff_other,restart,empty_heading,empty_text,nofit_heading,nofit_text,try_size,setup_note' | split: ','
+    assign result_keys = 'heading,heading_named,answers,change,why_heading,why_heading_named,why_style,why_style_miss,material_both,material_foam,material_ortho,why_ortho_diagnosed,why_ortho_slowing,why_ortho_fine,why_fine,why_slowing,why_diagnosed,why_size,why_size_plain,why_size_label,why_size_larger_sold,why_size_larger_missing,why_size_approx,why_size_one,why_size_one_fit,why_size_one_larger,why_size_breeds,why_trial,vet_note,size_line,size_one,stock_in,stock_low,stock_low_one,stock_backorder,per_night,per_night_basis,per_night_hint,was,now,save,rating,rating_count,add,add_named,add_short_named,add_price,personalise,personalise_named,mini_trial,adding,add_error,details,alt_heading,alt_heading_viewing,alt_line,alt_switch,alt_view,alt_view_label,diff_cheaper,diff_support,diff_curl,diff_lean,diff_sprawl,diff_other,restart,empty_heading,empty_text,nofit_heading,nofit_text,try_size,setup_note' | split: ','
   -%}
 
   {%- comment -%} ---------------- 1. Config island ---------------- {%- endcomment -%}
@@ -178,6 +183,10 @@
       "sizeHints": {{ hints_json }},
       "storeEmpty": {{ store_empty | json }},
       "fallbackUrl": {{ fallback_url | json }},
+      "rules": {
+        "exclude": {{ section.settings.never_recommend | default: '' | json }},
+        "lastResort": {{ section.settings.last_resort | default: '' | json }}
+      },
       "products": {
         {%- assign emitted = '|' -%}
         {%- assign first_p = true -%}
@@ -578,7 +587,21 @@
       "type": "collection",
       "id": "fallback_collection",
       "label": "Choose from this collection",
-      "info": "Blank uses all products (up to 50). Beds are scored by their finder: tags, and orthopaedic / memory foam in the title or tags. Tag a product finder:exclude to leave it out."
+      "info": "Blank uses all products. Beds are scored by their finder: tags, else the shape words in their title or tags (nest, bolster, sofa, mattress…), plus orthopaedic / memory foam. Tag a product finder:exclude to leave it out."
+    },
+    {
+      "type": "textarea",
+      "id": "never_recommend",
+      "label": "Never recommend",
+      "default": "type: Dog Houses\ndog house\nkennel\nday bed\ncar seat\ncrate mat",
+      "info": "One per line. Plain words match whole words in the title or product type (plurals too). \"type: …\" matches a product type containing it, \"tag: …\" a tag. Match blocks are always used."
+    },
+    {
+      "type": "textarea",
+      "id": "last_resort",
+      "label": "Only when nothing else fits",
+      "default": "crate\ntravel",
+      "info": "Same format. These beds are only recommended when no other bed suits the answers, e.g. crate and travel beds."
     },
     {
       "type": "header",

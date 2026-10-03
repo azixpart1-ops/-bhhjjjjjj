@@ -812,22 +812,38 @@
   };
 
   /**
-   * Is this a memory-foam bed the foam guarantee covers? Mirrors
-   * snippets/foam-bed.liquid: title, type or tags mention orthopaedic /
-   * orthopedic / memory foam; tag guarantee:yes forces it on, guarantee:no
-   * (which wins) forces it off. `product` is any object with title, type
-   * (or product_type) and tags (array or comma string). Gate per-night
-   * figures and guarantee lines on this.
+   * Does the foam guarantee cover this product? The same test as
+   * snippets/foam-bed.liquid (keep the two in step). A word such as
+   * "orthopaedic" in a title, type or tag is not evidence of the guarantee,
+   * so it reads what the product itself promises:
+   *   1. a precomputed verdict: `foam` true/false (the finder's product JSON
+   *      carries the Liquid snippet's answer, so the two can't disagree);
+   *   2. tag guarantee:no → never (wins); tag guarantee:yes → always;
+   *   3. not a bed → never: the type's first part (before " > ") doesn't
+   *      mention "bed" ("Dog Houses > …"), or it's a car seat (tag "dog car
+   *      seat" / "car seat", or "car seat" in the title);
+   *   4. its description (`description` or `body_html`) contains
+   *      "no-flatten guarantee".
+   * Anything else → not covered. `product` is /products/x.js data, the
+   * finder's product JSON, or any object with title, type (or product_type),
+   * tags (array or comma string) and description. Gate per-night figures and
+   * guarantee lines on this.
    */
   L.foamBed = function (product) {
     if (!product) return false;
+    if (typeof product.foam === 'boolean') return product.foam;
     var tags = product.tags || [];
     if (typeof tags === 'string') tags = tags.split(',');
     tags = tags.map(function (t) { return String(t).trim().toLowerCase(); });
     if (tags.indexOf('guarantee:no') !== -1) return false;
     if (tags.indexOf('guarantee:yes') !== -1) return true;
-    var hay = [product.title, product.type || product.product_type, tags.join(',')].join(' ').toLowerCase();
-    return /orthopaedic|orthopedic|memory[ -]foam/.test(hay);
+    var type = String(product.type || product.product_type || '').toLowerCase().trim();
+    var first = type.split('>')[0].trim();
+    if (first && first.indexOf('bed') === -1) return false;
+    var title = String(product.title || '').toLowerCase();
+    if (tags.indexOf('dog car seat') !== -1 || tags.indexOf('car seat') !== -1 || title.indexOf('car seat') !== -1) return false;
+    var desc = String(product.description || product.body_html || '').toLowerCase();
+    return desc.indexOf('no-flatten guarantee') !== -1 || desc.indexOf('no flatten guarantee') !== -1;
   };
   L.guaranteeEligible = L.foamBed;
 
@@ -837,7 +853,8 @@
    * tagged trial:no, its type doesn't contain a line of
    * Lunova.settings.trialExcluded and none of its tags equals one; trial:yes
    * includes it whatever the list says (trial:no still wins).
-   * Takes /products/x.js data ({type, tags}), the finder's product JSON, or a
+   * Takes /products/x.js data ({type, tags}), the finder's product JSON
+   * (whose `trial` true/false is snippets/trial-eligible's verdict), or a
    * cart line ({product_type}; cart lines carry no tags, so only the type
    * is checked there).
    */
@@ -845,6 +862,8 @@
     var s = L.settings || {};
     if (s.trialEnabled === false || !(Number(s.trialNights) > 0)) return false;
     if (!product) return true;
+    /* The finder's product JSON carries the Liquid snippet's own answer. */
+    if (typeof product.trial === 'boolean') return product.trial;
     var tags = product.tags || [];
     if (typeof tags === 'string') tags = tags.split(',');
     tags = tags.map(function (t) { return String(t).trim().toLowerCase(); });
@@ -930,6 +949,7 @@
      Lunova.sizeMatch(values, want) → {value, index, kind: 'exact'|'larger'}
        for a dog of size `want` (a hint VALUE such as the finder's "XL"):
        the first value that suits it, else the smallest larger one; or null.
+     Lunova.sizeMin(want) → the shortest bed (cm) for that dog, or null.
      ---------------------------------------------------------------------- */
   var SIZE_SEPS = [' · ', ':', ' (', ' / ', ' – ', ' — ', ' - '];
   var SIZE_RANKS = {
@@ -1135,6 +1155,22 @@
       if (idx > w && (!best || idx < best.index)) best = { value: values[i], index: idx, kind: 'larger' };
     }
     return best;
+  };
+
+  /**
+   * The shortest bed (cm) for the dog of size-hint line `want` (its index, or
+   * a value such as "L"): the line's own 5th field, else SIZE_MIN_LENGTH for
+   * its rank; null when unknown. The same minimum sizeHintIndex reads.
+   */
+  L.sizeMin = function (want) {
+    var hints = sizeHintList();
+    var i = typeof want === 'number' ? want : L.sizeHintIndex(want, hints);
+    var h = i > -1 && i < hints.length ? hints[i] || {} : null;
+    if (!h) return null;
+    if (h.min != null && h.min !== '' && !isNaN(Number(h.min))) return Number(h.min);
+    var r = sizeRankOf(h.value);
+    if (r < 0 && h.label) r = sizeRankOf(h.label);
+    return r > 0 && SIZE_MIN_LENGTH[r] != null ? SIZE_MIN_LENGTH[r] : null;
   };
 
   /* ------------------------------------------------------------------------

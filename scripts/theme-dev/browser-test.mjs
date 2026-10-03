@@ -6,6 +6,7 @@
 //                                               Chromium goes through HTTPS_PROXY so CDN images load
 //                                               (placeholder images if the CDN can't be reached)
 //   node browser-test.mjs --url http://127.0.0.1:9292   test an already running server
+//   node browser-test.mjs --port 9871                    start its server on that port (default: a free one)
 //   node browser-test.mjs --only=pages|flows|matrix    --pages=home,product   --no-a11y   --strict-a11y
 //   node browser-test.mjs --viewport-only       skip full-page screenshots
 //   node browser-test.mjs --real --all-products also sweep every real product page at 390px
@@ -746,7 +747,27 @@ async function finderMatrix(browser, base, vp, store) {
             if (res.classList.contains('finder-result--empty')) return { empty: true, heading: txt(res.querySelector('h2, h3')), text: txt(res).slice(0, 200), leak: leak(root) };
             const link = res.querySelector('.finder-result__link');
             const altView = res.querySelector('.finder-alt__view') || (root.querySelector('.finder-alt:not([data-matrix-stale]) .finder-alt__view'));
+            // What the result promises, against the theme's own verdicts in the product JSON.
+            const cfg = window.Lunova && Lunova.finderEngine ? Lunova.finderEngine.config() : null;
+            const hrefPath = link ? new URL(link.getAttribute('href'), location.href).pathname : '';
+            const handle = (hrefPath.match(/\/products\/([^/]+)/) || [])[1];
+            const prod = cfg && handle ? cfg.products[decodeURIComponent(handle)] : null;
+            const years = window.Lunova && Lunova.settings ? Number(Lunova.settings.guaranteeYears) || 0 : 0;
+            const nights = window.Lunova && Lunova.settings ? Number(Lunova.settings.trialNights) || 0 : 0;
+            const gText = cfg && cfg.copy && cfg.copy.guaranteeText ? cfg.copy.guaranteeText.replace(/\[years\]/g, years) : '';
+            const riskText = txt(res.querySelector('.finder-result__risk'));
+            const whyText = txt(res.querySelector('.finder-result__bullets'));
+            const claims = {
+              foam: prod ? prod.foam : null,
+              trial: prod ? prod.trial : null,
+              personalised: prod ? prod.personalised === true : null,
+              perNight: !!res.querySelector('.finder-result__per-night'),
+              guarantee: !!gText && riskText.indexOf(gText) > -1,
+              trialLine: nights > 0 && (new RegExp('\\b' + nights + '[- ]night')).test(riskText + ' ' + whyText),
+              addIsLink: !!res.querySelector('a.finder-result__add'),
+            };
             return {
+              claims,
               href: link ? link.getAttribute('href') : null,
               title: txt(link),
               sizeLine: txt(res.querySelector('.finder-result__size')),
@@ -784,7 +805,9 @@ async function finderMatrix(browser, base, vp, store) {
       const asked = sizes.indexOf(size);
       const label = variant && !variant.options.every((o) => o === 'Default Title') ? (prod.options.findIndex(isSizeName) > -1 ? variant.options[prod.options.findIndex(isSizeName)] : variant.title) : prod ? prod.title : '';
       const fit = prod ? fitClass(label, hints) : null;
-      if (fit && asked > -1 && Math.abs(fit.cls - asked) >= (fit.via === 'breeds' ? 1 : 2)) rec.sizeFit = `asked ${size}, got "${label}" (${fit.via === 'breeds' ? `for ${hints[fit.cls] ? hints[fit.cls].value : '?'} dogs by its breeds` : 'by its size word'})`;
+      // One size up is the finder's stated fallback ("the next size up"), whatever names the
+      // size; a smaller size is wrong when its breeds say so, or two size words away.
+      if (fit && asked > -1 && (fit.cls > asked ? fit.cls - asked >= 2 : asked - fit.cls >= (fit.via === 'breeds' ? 1 : 2))) rec.sizeFit = `asked ${size}, got "${label}" (${fit.via === 'breeds' ? `for ${hints[fit.cls] ? hints[fit.cls].value : '?'} dogs by its breeds` : 'by its size word'})`;
       if (r.timeout) rec.problems.push(`no result within 12s (finder step: ${r.step})`);
       else if (r.empty) rec.problems.push(`no bed: "${r.heading}"`);
       else if (!main.handle) rec.problems.push('result has no product link');
@@ -793,6 +816,14 @@ async function finderMatrix(browser, base, vp, store) {
       const badAlt = notABed(altProd);
       if (badAlt) rec.problems.push(`alternative is ${badAlt}: ${altProd.title}`);
       if (r.leak) rec.leak = r.leak;
+      const c = r.claims;
+      if (c) {
+        rec.claims = c;
+        if (c.perNight && c.foam !== true) rec.problems.push(`per-night sum on ${prod ? prod.title : main.handle}, which the foam guarantee doesn't cover`);
+        if (c.guarantee && c.foam !== true) rec.problems.push(`guarantee line on ${prod ? prod.title : main.handle}, which the foam guarantee doesn't cover`);
+        if (c.trialLine && c.trial === false) rec.problems.push(`trial line on ${prod ? prod.title : main.handle}, which the trial doesn't cover`);
+        if (c.personalised && !c.addIsLink) rec.problems.push(`Add puts ${prod ? prod.title : main.handle} in the basket without the name it's made with`);
+      }
       records.push(rec);
     }
     // ---- report
@@ -882,7 +913,7 @@ async function main() {
   let base = args.url ? String(args.url).replace(/\/$/, '') : null;
   let srv = null;
   if (!base) {
-    srv = await startServer({ port: 0, quiet: true, real: REAL, themeDir: path.resolve(args.theme || DEFAULT_THEME_DIR), log: () => {} });
+    srv = await startServer({ port: Number(args.port) || 0, quiet: true, real: REAL, themeDir: path.resolve(args.theme || DEFAULT_THEME_DIR), log: () => {} });
     base = srv.origin;
   }
   const store = srv ? srv.store(RUN_MODE) : createStore({ real: REAL });

@@ -72,6 +72,62 @@
   if settings.trial_enable and settings.trial_nights > 0
     assign trial_on = true
   endif
+
+  comment
+    The sleep trial covers beds, not kennels, car seats or personalised
+    beds. As in the drawer, the lines are rendered first: each carries
+    data-trial (snippets/trial-eligible), so the page words the trial from
+    them. Every line covered → the usual line; some → it speaks of the beds
+    and each line it doesn't cover says so; none → no trial claim.
+  endcomment
+  capture cart_lines_html
+    for item in cart.items
+      render 'cart-line', item: item, index: forloop.index, context: 'page'
+    endfor
+  endcapture
+  assign trial_cover = 'none'
+  if cart_lines_html contains 'data-trial="true"'
+    assign trial_cover = 'all'
+    if cart_lines_html contains 'data-trial="false"'
+      assign trial_cover = 'some'
+    endif
+  endif
+  if trial_on and trial_cover == 'some'
+    capture cart_lines_html
+      for item in cart.items
+        render 'cart-line', item: item, index: forloop.index, context: 'page', trial_note: true
+      endfor
+    endcapture
+  endif
+  if cart.item_count > 0 and trial_cover == 'none'
+    assign trial_on = false
+  endif
+
+  comment
+    The same-day dispatch countdown is for stock beds: a basket where every
+    line is made to order (personalised, tagged made-to-order, or with a
+    custom.lead_time_days lead time; as the buy box decides) doesn't get it.
+  endcomment
+  assign mto_all = false
+  if cart.item_count > 0
+    assign mto_all = true
+    for item in cart.items
+      assign mto_p = item.product
+      if mto_p == blank
+        assign mto_all = false
+        break
+      endif
+      assign mto_tags = mto_p.tags | join: '|' | downcase | prepend: '|' | append: '|'
+      assign mto_days = mto_p.metafields.custom.lead_time_days.value | default: 0 | plus: 0
+      capture mto_pers
+        render 'personalised', product: mto_p
+      endcapture
+      unless mto_pers == 'true' or mto_days > 0 or mto_tags contains '|made-to-order|' or mto_tags contains '|made to order|'
+        assign mto_all = false
+        break
+      endunless
+    endfor
+  endif
 -%}
 <section class="section scheme-{{ cs }} main-cart" id="{{ sid }}-wrap" aria-labelledby="CartTitle-{{ sid }}">
   <cart-items
@@ -115,9 +171,7 @@
 
               <h2 class="visually-hidden">{{ 'collection.cart.items_heading' | t }}</h2>
               <ul class="cart-lines cart__lines" role="list" data-cart-swap="lines">
-                {%- for item in cart.items -%}
-                  {%- render 'cart-line', item: item, index: forloop.index, context: 'page' -%}
-                {%- endfor -%}
+                {{- cart_lines_html -}}
               </ul>
 
               <div class="cart__nojs-update">
@@ -160,7 +214,7 @@
                               {%- for v in upsell_variants -%}
                                 <option
                                   value="{{ v.id }}"
-                                  data-options="{{ v.options | join: '|' | escape }}"
+                                  data-options="{{ v.options | json | escape }}"
                                   {%- if v.id == upsell_first.id %} selected{% endif %}
                                 >
                                   {{- v.title | escape }} · {{ v.price | money -}}
@@ -255,25 +309,35 @@
                   </div>
                 {%- endif -%}
 
+                {%- comment -%} Re-rendered with the lines (the trial follows what's in the basket). {%- endcomment -%}
+                <div class="cart__swap" data-cart-swap="trial">
                 {%- if section.settings.show_trial_line and trial_on -%}
                   <p class="cart__trial">
                     {%- render 'icon', name: 'moon', class: 'cart__trial-icon' -%}
                     {%- capture cart_terms -%}{%- render 'trial-terms' -%}{%- endcapture -%}
-                    <span>{{ 'collection.cart.trial_line' | t: nights: settings.trial_nights, terms: cart_terms }}</span>
+                    {%- if trial_cover == 'some' -%}
+                      <span>{{ 'collection.cart.trial_line_beds' | t: nights: settings.trial_nights, terms: cart_terms }}</span>
+                    {%- else -%}
+                      <span>{{ 'collection.cart.trial_line' | t: nights: settings.trial_nights, terms: cart_terms }}</span>
+                    {%- endif -%}
                   </p>
                 {%- endif -%}
 
-                {%- if section.settings.show_delivery -%}
+                </div>
+
+                {%- if section.settings.show_delivery and mto_all == false -%}
                   {%- render 'delivery-promise', compact: true, class: 'cart__delivery' -%}
                 {%- endif -%}
               </div>
 
               {%- if section.settings.show_trust -%}
+                <div class="cart__swap" data-cart-swap="trust">
                 {%- if trial_on and section.settings.show_trial_line -%}
                   {%- render 'trust-list', items: 'guarantee,secure,installments', layout: 'stack', size: 'md', class: 'cart__trust' -%}
                 {%- else -%}
-                  {%- render 'trust-list', items: 'trial,guarantee,secure,installments', layout: 'stack', size: 'md', class: 'cart__trust' -%}
+                  {%- render 'trust-list', items: 'trial,guarantee,secure,installments', layout: 'stack', size: 'md', class: 'cart__trust', basket: cart -%}
                 {%- endif -%}
+                </div>
               {%- endif -%}
 
               {%- if section.settings.show_payment_icons -%}

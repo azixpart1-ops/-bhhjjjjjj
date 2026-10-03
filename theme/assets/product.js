@@ -475,7 +475,11 @@
       if (show && textEl) {
         var name = L.finder && typeof L.finder.name === 'function' ? L.finder.name() : '';
         var tpl = name ? s.finderResult : s.finderResultDefault;
-        var vars = { name: name, size: sizeLabelFor(rec.value) };
+        /* The finder's own name for the size (Lunova.sizeLabel, as its
+           result card says it: "Medium" for "M"), so the recommendation
+           reads the same here as it did in the finder. */
+        var recLabel = typeof L.sizeLabel === 'function' ? displayCase(L.sizeLabel(rec.value)) : sizeLabelFor(rec.value);
+        var vars = { name: name, size: recLabel || sizeLabelFor(rec.value) };
         if (typeof L.fillInto === 'function') L.fillInto(textEl, tpl, vars);
         else textEl.textContent = fill(tpl, vars);
       }
@@ -887,8 +891,11 @@
       if (this.button && this.button.disabled) return;
 
       var fd = new FormData(this.form);
+      /* The picker's own id field, so a stray "id" input from any other
+         script or app block can't override the chosen variant. */
+      var own = this.form.querySelector('[data-variant-id-input]');
       var ids = fd.getAll('id');
-      var id = parseInt(ids[ids.length - 1], 10);
+      var id = parseInt(own && own.value ? own.value : ids[ids.length - 1], 10);
       var s = (this.data() || {}).strings || {};
       if (!id) {
         this.showError(s.unavailable || s.error || '');
@@ -1660,6 +1667,25 @@
   /* ------------------------------------------------------------------------
      Recently viewed
      ---------------------------------------------------------------------- */
+  /** Same test as snippets/buy-box (minus the metafield, which /products/x.js
+      doesn't carry): type mentions Personalised, or tag personalised /
+      personalized / personalised dog bed / personalisation:yes; tag
+      personalisation:no turns it off. */
+  function personalised(p) {
+    if (!p) return false;
+    var tags = p.tags || [];
+    if (typeof tags === 'string') tags = tags.split(',');
+    tags = tags.map(function (t) {
+      return String(t).trim().toLowerCase();
+    });
+    if (tags.indexOf('personalisation:no') !== -1) return false;
+    var type = String(p.type || p.product_type || '').toLowerCase();
+    if (/personalis|personaliz/.test(type)) return true;
+    return ['personalised', 'personalized', 'personalised dog bed', 'personalized dog bed', 'personalisation:yes'].some(function (t) {
+      return tags.indexOf(t) !== -1;
+    });
+  }
+
   function recentList() {
     var list = L.store && typeof L.store.get === 'function' ? L.store.get(RECENT_KEY) : null;
     return Array.isArray(list) ? list.filter(function (h) { return typeof h === 'string' && h; }) : [];
@@ -1904,7 +1930,9 @@
       var actions = card.querySelector('[data-card-actions]');
       if (actions && p.available && this.getAttribute('data-quick-add') === 'true') {
         var forText = fill(s.quickFor || '', { title: p.title });
-        if (variants.length > 1) {
+        // A personalised product needs its name field, so it always opens the
+        // quick-add drawer (snippets/buy-box), never a one-tap add.
+        if (variants.length > 1 || personalised(p)) {
           var hasSize = (p.options || []).some(function (o) {
             var name = typeof o === 'string' ? o : o && o.name;
             return /size/i.test(name || '');

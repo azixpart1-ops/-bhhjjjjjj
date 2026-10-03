@@ -14,9 +14,10 @@
 //
 // Only public storefront GETs are made (products.json, collections.json and
 // collections/<h>/products.json). Node's fetch ignores HTTPS_PROXY, so this shells
-// out to curl, which honours it. Offline, it copies the session snapshot instead
-// (REAL_SNAPSHOT env var, or the path below) and derives `all` (title order) and
-// `frontpage` (the last known home-page product).
+// out to curl, which honours it. Offline, it copies the snapshot instead (REAL_SNAPSHOT
+// env var, else the committed fixtures/real-catalogue.json: the live /products.json
+// with 64 products) and derives `all` (title order) and `frontpage` (the last known
+// home-page product).
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, execFile } from 'node:child_process';
@@ -25,8 +26,10 @@ import { OUT_DIR, parseArgs } from '../lib/util.mjs';
 
 export const REAL_ORIGIN = process.env.REAL_STORE_ORIGIN || 'https://pawlunova.co.uk';
 export const REAL_FILE = path.join(OUT_DIR, 'real-products.json');
-export const REAL_SNAPSHOT = process.env.REAL_SNAPSHOT
-  || '/tmp/claude-0/-home-user--bhhjjjjjj/a3221a5f-e5d5-5db4-9aa0-d19d177c4648/scratchpad/real-products.snapshot.json';
+/** The committed snapshot (fixtures/real-catalogue.json): the offline fallback, and the
+ *  fixed catalogue the finder-matrix self-test runs against (it never changes under a test). */
+export const REAL_FIXTURE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'real-catalogue.json');
+export const REAL_SNAPSHOT = process.env.REAL_SNAPSHOT || REAL_FIXTURE;
 /** The home-page collection's product when the snapshot was taken (used offline only). */
 const SNAPSHOT_FRONTPAGE = ['ennerdale-gel-memory-foam-orthopaedic-dog-bed'];
 

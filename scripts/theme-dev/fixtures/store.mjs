@@ -583,14 +583,67 @@ export function createStore({ empty = false, real = false, imgDir = FIXTURE_IMG_
     const hay = `${p.title} ${p.type} ${p.tags.join(' ')} ${stripHtml(p.description)} ${p.variants.map((v) => v.title).join(' ')}`.toLowerCase();
     return terms.every((t) => hay.includes(t));
   }
+  /**
+   * Shopify's search syntax, as far as the theme's links use it: field terms
+   * (tag:"flat dog bed", product_type:"Dog Beds > …", title:, body:, vendor:,
+   * variants.title:, variants.sku:), quoted phrases, OR between terms (AND is
+   * the default), NOT / a leading "-" to exclude, and brackets (read as plain
+   * grouping). Returns OR-groups of AND-ed clauses.
+   */
+  function parseQuery(q) {
+    const groups = [[]];
+    let negateNext = false;
+    const re = /(-?)(?:([a-z_.]+):)?(?:"([^"]*)"|([^\s()"]+))/gi;
+    const src = String(q || '').replace(/[()]/g, ' ');
+    let m;
+    while ((m = re.exec(src))) {
+      const [, neg, field, quoted, bare] = m;
+      const word = quoted != null ? quoted : bare;
+      if (!field && !neg && quoted == null && word === 'OR') { if (groups[groups.length - 1].length) groups.push([]); continue; }
+      if (!field && !neg && quoted == null && word === 'AND') continue;
+      if (!field && !neg && quoted == null && word === 'NOT') { negateNext = true; continue; }
+      const value = String(word || '').toLowerCase().trim();
+      if (!value) continue;
+      groups[groups.length - 1].push({ field: field ? field.toLowerCase() : '', value, phrase: quoted != null, not: !!neg || negateNext });
+      negateNext = false;
+    }
+    return groups.filter((g) => g.length);
+  }
+  const wordsIn = (text) => String(text || '').toLowerCase().split(/[^a-z0-9£]+/).filter(Boolean);
+  const PRODUCT_ONLY_FIELDS = new Set(['tag', 'product_type', 'vendor', 'variants.title', 'variants.sku', 'variants.price']);
+  function clauseHit(c, r, kind) {
+    let hit;
+    if (c.field && kind !== 'product' && PRODUCT_ONLY_FIELDS.has(c.field)) hit = false;
+    // tag: and product_type: match by words, not whole values: every word of the value
+    // appears somewhere in the product's tags (or type). Checked against the live store:
+    // tag:"large dog" finds 45 (any tag with "large", any with "dog"), tag:"flat dog bed"
+    // finds 9 (one product only has "Flat mattress" + another "… dog bed" tag).
+    else if (c.field === 'tag') hit = wordsIn(c.value).every((w) => wordsIn(r.tags.join(' ')).includes(w));
+    else if (c.field === 'product_type') hit = wordsIn(c.value).every((w) => wordsIn(r.type).includes(w));
+    else if (c.field === 'vendor') hit = String(r.vendor || '').toLowerCase() === c.value;
+    else if (c.field === 'variants.title') hit = r.variants.some((v) => String(v.title).toLowerCase().includes(c.value));
+    else if (c.field === 'variants.sku') hit = r.variants.some((v) => String(v.sku || '').toLowerCase().includes(c.value));
+    else if (c.field === 'variants.price') hit = true;
+    else if (c.field === 'title') hit = String(r.title || '').toLowerCase().includes(c.value);
+    else if (c.field === 'body') hit = stripHtml(kind === 'product' ? r.description : r.content).toLowerCase().includes(c.value);
+    else {
+      const hay = kind === 'product'
+        ? `${r.title} ${r.type} ${r.tags.join(' ')} ${stripHtml(r.description)} ${r.variants.map((v) => v.title).join(' ')}`.toLowerCase()
+        : `${r.title} ${stripHtml(r.content)}`.toLowerCase();
+      hit = c.phrase ? hay.includes(c.value) : c.value.split(/\s+/).every((w) => hay.includes(w));
+    }
+    return c.not ? !hit : hit;
+  }
+  const queryHit = (groups, r, kind) => groups.some((g) => g.every((c) => clauseHit(c, r, kind)));
+
   function search(q, { types = ['product', 'page', 'article'], query = new URLSearchParams() } = {}) {
-    const terms = searchTerms(q);
-    const performed = terms.length > 0;
-    let productsHit = performed && types.includes('product') ? products().filter((p) => matchProduct(p, terms)) : [];
+    const groups = parseQuery(q);
+    const performed = groups.length > 0;
+    let productsHit = performed && types.includes('product') ? products().filter((p) => queryHit(groups, p, 'product')) : [];
     const { filters, filtered } = applyFilters(productsHit, query, '/search');
     productsHit = sortProducts(filtered, query.get('sort_by') || 'relevance');
-    const pagesHit = performed && types.includes('page') ? pageList.filter((p) => terms.every((t) => `${p.title} ${stripHtml(p.content)}`.toLowerCase().includes(t))) : [];
-    const articlesHit = performed && types.includes('article') ? blogList.flatMap((b) => b.articles).filter((a) => terms.every((t) => `${a.title} ${stripHtml(a.content)}`.toLowerCase().includes(t))) : [];
+    const pagesHit = performed && types.includes('page') ? pageList.filter((p) => queryHit(groups, p, 'page')) : [];
+    const articlesHit = performed && types.includes('article') ? blogList.flatMap((b) => b.articles).filter((a) => queryHit(groups, a, 'article')) : [];
     const results = [...productsHit, ...pagesHit, ...articlesHit];
     return {
       performed,
@@ -693,6 +746,8 @@ export function createStore({ empty = false, real = false, imgDir = FIXTURE_IMG_
     real,
     mode: empty ? 'empty' : real ? 'real' : 'full',
     realMeta: realCat ? realCat.meta : null,
+    /** The live catalogue as fetched (storefront products.json shape), for checks that restate a rule from the raw data. */
+    realProducts: realCat ? realCat.products : null,
     shop: SHOP,
     images,
     products,

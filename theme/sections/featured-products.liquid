@@ -7,7 +7,12 @@
     2. The chosen collection.
     3. Nothing chosen (e.g. reused on the cart page with "settings": {}):
        the store's all-products collection.
-  On the cart page, beds already in the basket are skipped.
+  When it fills itself from a collection (2 and 3) it skips sold-out
+  products and anything matching "Leave out when filling automatically"
+  (a product type containing a line, or a tag equal to one; default
+  "Dog Houses"), so kennels never stand in for beds. Products picked in
+  blocks always show. On the cart page, beds already in the basket are
+  skipped.
 
   Psychology: roles turn similar beds into a set of answers (choice
   architecture); "Most chosen" is a merchant-set default cue — only use it
@@ -48,8 +53,10 @@
 
   comment
     Count what will actually render so an empty section can stay hidden.
+    Filling from a collection, picks are recorded as |id| in pick_ids.
   endcomment
   assign count = 0
+  assign pick_ids = ''
   if use_blocks
     for block in product_blocks
       if block.settings.product != blank
@@ -60,11 +67,31 @@
       endif
     endfor
   elsif source != blank
-    for p in source.products limit: 24
+    assign fx_lines = s.fallback_exclude | default: '' | downcase | newline_to_br | split: '<br />'
+    for p in source.products limit: 50
       assign pid = '|' | append: p.id | append: '|'
-      unless in_cart contains pid
-        assign count = count | plus: 1
-      endunless
+      if in_cart contains pid or p.available == false
+        continue
+      endif
+      assign fx_type = p.type | default: '' | downcase
+      assign fx_tags = p.tags | join: '|' | downcase | prepend: '|' | append: '|'
+      assign fx_skip = false
+      for fx_line in fx_lines
+        assign fx_l = fx_line | strip
+        if fx_l == ''
+          continue
+        endif
+        assign fx_tag_key = '|' | append: fx_l | append: '|'
+        if fx_type contains fx_l or fx_tags contains fx_tag_key
+          assign fx_skip = true
+          break
+        endif
+      endfor
+      if fx_skip
+        continue
+      endif
+      assign pick_ids = pick_ids | append: pid
+      assign count = count | plus: 1
       if count >= limit
         break
       endif
@@ -148,9 +175,9 @@
             {%- endfor -%}
           {%- elsif count > 0 -%}
             {%- assign n = 0 -%}
-            {%- for p in source.products limit: 24 -%}
+            {%- for p in source.products limit: 50 -%}
               {%- assign pid = '|' | append: p.id | append: '|' -%}
-              {%- unless in_cart contains pid -%}
+              {%- if pick_ids contains pid -%}
                 {%- assign n = n | plus: 1 -%}
                 <li class="featured-products__item">
                   {%- render 'product-card',
@@ -164,7 +191,7 @@
                   -%}
                 </li>
                 {%- if n >= limit -%}{%- break -%}{%- endif -%}
-              {%- endunless -%}
+              {%- endif -%}
             {%- endfor -%}
           {%- else -%}
             {%- for i in (1..limit) -%}
@@ -241,6 +268,13 @@
       "id": "collection",
       "label": "Collection",
       "info": "Used when no product blocks are set."
+    },
+    {
+      "type": "textarea",
+      "id": "fallback_exclude",
+      "label": "Leave out when filling automatically",
+      "default": "Dog Houses",
+      "info": "One per line. When the section fills itself from a collection, products whose type contains a line, or with a tag equal to one, are skipped, and so are sold-out ones. Beds picked in blocks always show."
     },
     {
       "type": "range",

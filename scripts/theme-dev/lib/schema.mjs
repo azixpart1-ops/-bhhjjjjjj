@@ -378,13 +378,15 @@ export const CONTRACT_SETTINGS = {
   heading_scale: ['range', 100], body_size: ['range', 16],
   page_width: ['select', '1320'], radius: ['range', 14], button_shape: ['select', 'pill'], animations: ['checkbox', true],
   trial_enable: ['checkbox', true], trial_nights: ['number', 100], guarantee_enable: ['checkbox', true], guarantee_years: ['number', 5],
-  free_shipping_enable: ['checkbox', true], free_shipping_threshold: ['number', 40], delivery_promise_enable: ['checkbox', true],
+  free_shipping_enable: ['checkbox', true], free_shipping_threshold: ['number', 40], delivery_promise_enable: ['checkbox', false],
   dispatch_cutoff_hour: ['range', 15], dispatch_days: ['text', '1,2,3,4,5'], delivery_min_days: ['number', 1], delivery_max_days: ['number', 3],
   holiday_dates: ['textarea'], origin_line: ['text'],
   show_compare_savings: ['checkbox', true], savings_format: ['select', 'amount'], show_per_night: ['checkbox', true],
   show_installments: ['checkbox', false], installments_count: ['range', 3], installments_provider: ['text', 'Klarna'],
   store_rating: ['text'], store_review_count: ['text'], show_product_ratings: ['checkbox', true],
-  low_stock_enable: ['checkbox', true], low_stock_threshold: ['range', 5],
+  // low_stock_threshold: the spec (§5.6) says 5; core lowered it to 3 on purpose (real stock is 5 on
+  // every variant, so 5 would show "Only 5 left" everywhere). The spec text still needs the edit.
+  low_stock_enable: ['checkbox', true], low_stock_threshold: ['range', 3],
   size_hints: ['textarea'],
   cart_type: ['select', 'drawer'], cart_upsell_product: ['product'], cart_upsell_heading: ['text', 'Complete the set'], cart_show_note: ['checkbox', false],
   card_image_ratio: ['select', 'square'], card_show_rating: ['checkbox', true], card_show_role: ['checkbox', true], card_quick_add: ['checkbox', true], card_secondary_image: ['checkbox', true],

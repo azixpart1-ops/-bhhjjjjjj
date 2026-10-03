@@ -28,47 +28,11 @@
   assign terms = search.terms | default: ''
 
   comment
-    Field queries read as their value: field names, quotes and brackets go,
-    OR / AND / NOT read as words, and a product type keeps its last level,
-    after the final " > ". A field only counts at the start of a word, so
-    vintage: is not tag:, and variants.title comes before title in the list
-    so it is stripped whole.
+    Field queries ("tag:"flat dog bed"") read as their value: snippets/search-terms.
   endcomment
-  assign display_terms = terms
-  assign query_fields = 'product_type:,variants.title:,variants.sku:,variants.price:,vendor:,title:,tag:,body:' | split: ','
-  assign probe = ' ' | append: terms | replace: '(', ' ' | replace: ')', ' ' | replace: '-', ' ' | downcase
-  assign is_field_query = false
-  for field in query_fields
-    assign needle = ' ' | append: field
-    if probe contains needle
-      assign is_field_query = true
-      break
-    endif
-  endfor
-  if is_field_query
-    assign clean = ' ' | append: terms | replace: '(', ' ' | replace: ')', ' '
-    for field in query_fields
-      assign needle = ' ' | append: field
-      assign needle_neg = ' -' | append: field
-      assign clean = clean | replace: needle_neg, ' not ' | replace: needle, ' '
-    endfor
-    assign clean = clean | replace: '"', ' ' | replace: ' OR ', ' or ' | replace: ' AND ', ' and ' | replace: ' NOT ', ' not '
-    assign clean_parts = clean | split: ' or '
-    assign rebuilt = ''
-    for clean_part in clean_parts
-      assign piece = clean_part | split: ' > ' | last | split: ' ' | join: ' ' | replace: '  ', ' ' | replace: '  ', ' ' | strip
-      if piece == ''
-        continue
-      endif
-      if rebuilt != ''
-        assign rebuilt = rebuilt | append: ' or '
-      endif
-      assign rebuilt = rebuilt | append: piece
-    endfor
-    if rebuilt != ''
-      assign display_terms = rebuilt
-    endif
-  endif
+  capture display_terms
+    render 'search-terms', terms: terms
+  endcapture
   assign terms_escaped = display_terms | escape
 
   comment

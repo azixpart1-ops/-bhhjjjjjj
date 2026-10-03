@@ -4,6 +4,9 @@
   their arthritis?" (truthfully: a bed isn't a treatment; keep talking to
   your vet). Uncertainty reduction, plus FAQPage structured data (toggle).
 
+  On product pages the trial and guarantee questions follow the product:
+  they hide for one the trial or the foam guarantee doesn't cover.
+
   Blocks: question + answer (rich text) + "hide when this promise is off".
   Text can use [trial_nights], [trial_terms], [trial_terms_short],
   [guarantee_years], [threshold], [cutoff], [delivery_min], [delivery_max],
@@ -84,6 +87,30 @@
   endif
 
   comment
+    On a product page the trial and foam-guarantee questions only show for a
+    product they cover (snippets/trial-eligible, snippets/foam-bed), so a dog
+    house or a personalised bed is never promised the trial here.
+  endcomment
+  if template.name == 'product' and product != blank
+    if on_trial
+      capture faq_trial_ok
+        render 'trial-eligible', product: product
+      endcapture
+      if faq_trial_ok != 'true'
+        assign on_trial = false
+      endif
+    endif
+    if on_guarantee
+      capture faq_foam_ok
+        render 'foam-bed', product: product
+      endcapture
+      if faq_foam_ok != 'true'
+        assign on_guarantee = false
+      endif
+    endif
+  endif
+
+  comment
     Pass 1: which questions render, as a list of keys (block indexes "b:N", or
     default keys prefixed "d:").
   endcomment
@@ -141,7 +168,7 @@
       endif
     endfor
   else
-    assign keys = 'd:size,d:density,d:wash,d:delivery,'
+    assign keys = 'd:size,d:foam,d:wash,d:delivery,'
     if on_trial
       assign keys = keys | append: 'd:trial,'
     endif
@@ -426,7 +453,7 @@
       "name": "FAQ",
       "blocks": [
         { "type": "question" },
-        { "type": "question", "settings": { "question": "What does 50kg/m³ actually mean?", "answer": "<p>It is how much foam is packed into every cubic metre. Density and firmness are not the same thing: a low-density foam can feel firm on day one and still collapse by month six. High-density foam keeps its structure under repeated weight, which is why a 50kg/m³ core is still supporting hips and elbows years later.</p>" } },
+        { "type": "question", "settings": { "question": "What's inside the orthopaedic beds?", "answer": "<p>Foam, rather than loose filling. Loose fibre shifts and packs down under a dog's weight; foam keeps its shape far longer. Each product page says exactly what's inside that bed.</p>" } },
         { "type": "question", "settings": { "question": "What if my dog just won't use it?", "answer": "<p>Then it goes back. Let your dog sleep on it for up to [trial_nights] nights. [trial_terms] Just contact us inside that window.</p>", "promise": "trial" } }
       ]
     }

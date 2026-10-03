@@ -5,36 +5,44 @@
   catalogue isn't printed into every page's HTML (sections/bed-finder.liquid
   keeps only the Match block beds inline).
 
-  Renders in the requested collection's context: its first 50 products,
-  skipping gift cards, products tagged finder:exclude and sold-out beds. The
-  per-bed JSON is the same snippet bed-finder uses.
+  Renders in the requested collection's context, 250 products a page (the
+  platform maximum; without paginate, collection.products stops at 50).
+  "page" and "pages" let finder.js fetch the rest (&page=2…) of a bigger
+  collection. Gift cards, products tagged finder:exclude and sold-out beds
+  are skipped here; the Bed Finder section's "Never recommend" list (which
+  this section can't read: it renders in collection context) is applied by
+  finder.js. The per-bed JSON is the same snippet bed-finder uses.
 {%- endcomment -%}
 {%- liquid
   assign handles = ''
   assign first_p = true
 -%}
-<script type="application/json" id="finder-products">{"products":{
 {%- if collection != blank -%}
-  {%- for p in collection.products limit: 50 -%}
-    {%- liquid
-      if p.gift_card?
-        continue
-      endif
-      assign tags_lc = p.tags | join: '|' | downcase
-      if tags_lc contains 'finder:exclude'
-        continue
-      endif
-      if p.available != true
-        continue
-      endif
-      assign handles = handles | append: p.handle | append: ','
-    -%}
-    {%- unless first_p -%},{%- endunless -%}
-    {%- assign first_p = false -%}
-    {%- render 'finder-product-json', p: p -%}
-  {%- endfor -%}
+  {%- paginate collection.products by 250 -%}
+    <script type="application/json" id="finder-products">{"products":{
+      {%- for p in collection.products -%}
+        {%- liquid
+          if p.gift_card?
+            continue
+          endif
+          assign tags_lc = p.tags | join: '|' | downcase
+          if tags_lc contains 'finder:exclude'
+            continue
+          endif
+          if p.available != true
+            continue
+          endif
+          assign handles = handles | append: p.handle | append: ','
+        -%}
+        {%- unless first_p -%},{%- endunless -%}
+        {%- assign first_p = false -%}
+        {%- render 'finder-product-json', p: p -%}
+      {%- endfor -%}
+    },"fallback":{{ handles | split: ',' | json }},"page":{{ paginate.current_page | default: 1 | json }},"pages":{{ paginate.pages | default: 1 | json }},"per":{{ paginate.page_size | default: 250 | json }}}</script>
+  {%- endpaginate -%}
+{%- else -%}
+  <script type="application/json" id="finder-products">{"products":{},"fallback":[],"page":1,"pages":1}</script>
 {%- endif -%}
-},"fallback":{{ handles | split: ',' | json }}}</script>
 
 {% schema %}
 {

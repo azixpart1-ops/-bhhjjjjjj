@@ -30,7 +30,8 @@
       selling at zero (policy deny) and is at/under settings.low_stock_threshold
       and at most 2 (cards are stricter than the buy box).
     - Quick add: single variant → <form data-quick-add-single> posting to
-      /cart/add (cart.js intercepts it; works without JS). Multi-variant → a link
+      /cart/add (cart.js intercepts it; works without JS), unless it's
+      personalised (snippets/personalised: it needs a name). Otherwise a link
       to the product (works without JS) that global.js turns into
       lunova:quickadd:open {handle, url} when the quick-add drawer exists.
 
@@ -235,12 +236,24 @@
         assign quick = true
       endunless
     endif
+    comment
+      A personalised product needs the dog's name first (snippets/personalised),
+      so it opens quick add / the product page instead of a one-tap add.
+    endcomment
     assign quick_mode = 'choose'
     if product.has_only_default_variant or product.variants.size == 1
       assign quick_mode = 'single'
     endif
     if product.requires_selling_plan
       assign quick_mode = 'choose'
+    endif
+    if quick_mode == 'single'
+      capture card_pers
+        render 'personalised', product: product
+      endcapture
+      if card_pers == 'true'
+        assign quick_mode = 'choose'
+      endif
     endif
 
     assign show_stars = false

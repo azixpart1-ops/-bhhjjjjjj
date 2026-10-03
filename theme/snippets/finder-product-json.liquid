@@ -7,18 +7,60 @@
   Usage: {% render 'finder-product-json', p: product %}
 
   The reason line falls back to the product's own words: its tagline
-  metafield, else the first sentence of its description, so nothing has to
-  be written twice to add a bed to the finder. A dimensions line from
-  custom.specs ("Dimensions: 90 × 65cm") is shown for one-size beds.
+  metafield, else its description's first block (a heading or paragraph;
+  a short label-like heading such as "Features" is skipped), whole when it's
+  a short headline, else its first sentence, so nothing has to be written
+  twice to add a bed to the finder.
+  Block ends count as sentence ends, so "<h2>Cold nights.</h2><p>On a…"
+  never runs together as "nights.On a…".
+
+  "foam", "trial" and "personalised" are the Liquid verdicts of
+  snippets/foam-bed, snippets/trial-eligible and snippets/personalised, so
+  the finder's guarantee, per-night and trial lines and its Add button follow
+  exactly the rules the product page uses (Lunova.foamBed and
+  Lunova.trialEligible read them when present).
+
+  Measurements for one-size beds: "dims" from custom.specs ("Dimensions:
+  90 × 65cm"), and "descDims", a short stretch of the description around its
+  first "×" (or " x ") that finder.js reads "132 × 104 × 20cm" from. Only
+  emitted when the bed has no size choice (no option named Size, or a Size
+  option with one value).
 {%- endcomment -%}
 {%- liquid
+  comment
+    The description as text, with ¦¦ where a block ends (heading, paragraph,
+    list item, line break, div). | split: ' ' | join: ' ' collapses runs of
+    spaces and newlines (Liquid splits on whitespace for ' ').
+  endcomment
+  assign blocks_text = p.description | default: '' | replace: '&times;', '×' | replace: '&nbsp;', ' ' | replace: '</p>', '¦¦</p>' | replace: '</h1>', '¦¦</h1>' | replace: '</h2>', '¦¦</h2>' | replace: '</h3>', '¦¦</h3>' | replace: '</h4>', '¦¦</h4>' | replace: '</h5>', '¦¦</h5>' | replace: '</h6>', '¦¦</h6>' | replace: '</li>', '¦¦</li>' | replace: '</div>', '¦¦</div>' | replace: '<br', '¦¦<br' | replace: '<', ' <' | strip_html
+
   assign blurb = p.metafields.custom.tagline.value | default: '' | strip
   if blurb == ''
-    assign plain = p.description | default: '' | replace: '</p>', ' </p>' | replace: '<br', ' <br' | strip_html | strip_newlines | replace: '  ', ' ' | strip
-    assign blurb = plain | split: '. ' | first | default: '' | strip
-    if blurb != '' and blurb != plain
-      assign blurb = blurb | append: '.'
-    endif
+    assign blocks = blocks_text | split: '¦¦'
+    for block in blocks
+      assign bt = block | split: ' ' | join: ' ' | strip
+      if bt == ''
+        continue
+      endif
+      assign bt_words = bt | split: ' '
+      assign bt_last = bt | slice: -1
+      if bt_words.size < 4
+        unless bt_last == '.' or bt_last == '!' or bt_last == '?'
+          continue
+        endunless
+      endif
+      comment
+        A short block (a headline) is kept whole; a long one gives its first sentence.
+      endcomment
+      assign blurb = bt
+      if bt.size > 140
+        assign blurb = bt | split: '. ' | first | default: '' | strip
+        if blurb != bt
+          assign blurb = blurb | append: '.'
+        endif
+      endif
+      break
+    endfor
     assign blurb = blurb | truncate: 220
   endif
 
@@ -35,6 +77,47 @@
     endfor
   endif
 
+  comment
+    One-size beds only: text around the description's first measurement.
+  endcomment
+  assign desc_dims = ''
+  assign one_size = true
+  for opt in p.options_with_values
+    assign on_lc = opt.name | downcase
+    if on_lc contains 'size' and opt.values.size > 1
+      assign one_size = false
+    endif
+  endfor
+  if one_size
+    assign flat = blocks_text | remove: '¦¦' | split: ' ' | join: ' '
+    assign dim_sep = ''
+    if flat contains '×'
+      assign dim_sep = '×'
+    elsif flat contains ' x '
+      assign dim_sep = ' x '
+    endif
+    if dim_sep != ''
+      assign before_dim = flat | split: dim_sep | first | default: ''
+      assign dim_at = before_dim.size | minus: 10 | at_least: 0
+      assign desc_dims = flat | slice: dim_at, 48
+    endif
+  endif
+
+  comment
+    The theme's own verdicts, so the finder result and the product page can't
+    disagree: the foam guarantee (and the per-night sum built on it), the
+    sleep trial, and whether it needs the dog's name before it can be added.
+  endcomment
+  capture fj_foam
+    render 'foam-bed', product: p
+  endcapture
+  capture fj_trial
+    render 'trial-eligible', product: p
+  endcapture
+  capture fj_pers
+    render 'personalised', product: p
+  endcapture
+
   assign img = p.featured_image
   assign rating = p.metafields.reviews.rating.value.rating
   assign rating_count = p.metafields.reviews.rating_count.value
@@ -44,7 +127,7 @@
 "price":{{ p.price | default: 0 | json }},"compare_at_price":{% if p.compare_at_price > 0 %}{{ p.compare_at_price | json }}{% else %}null{% endif %},"available":{{ p.available | json }},
 "tags":{{ p.tags | json }},"options":{{ p.options | json }},
 "rating":{% if rating != blank %}{{ rating | json }}{% else %}null{% endif %},"ratingCount":{% if rating_count != blank %}{{ rating_count | json }}{% else %}null{% endif %},
-"blurb":{{ blurb | json }},"dims":{{ dims | json }},
+"blurb":{{ blurb | json }},"dims":{{ dims | json }},"foam":{% if fj_foam == 'true' %}true{% else %}false{% endif %},"trial":{% if fj_trial == 'true' %}true{% else %}false{% endif %},"personalised":{% if fj_pers == 'true' %}true{% else %}false{% endif %},{% if desc_dims != '' %}"descDims":{{ desc_dims | json }},{% endif %}
 "variants":[
 {%- for v in p.variants limit: 60 -%}
 {"id":{{ v.id | json }},"title":{{ v.title | json }},"options":{{ v.options | json }},"price":{{ v.price | default: 0 | json }},"compare_at_price":{% if v.compare_at_price > 0 %}{{ v.compare_at_price | json }}{% else %}null{% endif %},"available":{{ v.available | json }}
