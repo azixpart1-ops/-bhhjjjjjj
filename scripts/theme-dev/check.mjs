@@ -286,6 +286,14 @@ function checkStatic(locale) {
       let line = null; try { line = e.token ? e.token.getPosition()[0] : null; } catch { /* */ }
       add('liquid', 'error', `syntax: ${String(e.message).split(', line:')[0].replace(/, file:\S+$/, '')}`, { file: f, line });
     }
+    // Shopify's tokenizer is /{%.*?%}|{{.*?}}?/ — lazier than liquidjs. A '}' inside an output
+    // tag (even in a string) ends the tag there: "Variable ... was not properly terminated".
+    // liquidjs parses those happily, so this caught nothing until it broke the real homepage.
+    for (const m of src.matchAll(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}?/g)) {
+      if (m[0].startsWith('{{') && !m[0].endsWith('}}')) {
+        add('liquid', 'error', `Shopify tokenizer: output tag is cut short at a '}' (${JSON.stringify(m[0].slice(0, 60))}) — build the string with capture instead`, { file: f, line: src.slice(0, m.index).split('\n').length });
+      }
+    }
     for (const s of liquidStatements(src)) {
       let m;
       if (s.kind === 'tag' && (m = s.text.match(/^(render|include)\s+['"]([^'"]+)['"]/))) {
