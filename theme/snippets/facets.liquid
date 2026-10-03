@@ -23,7 +23,7 @@
     enable_filtering default true
     enable_sorting   default true
     results_count    number of results after filtering
-    noun             'beds' (default) | 'results' — wording of the count
+    noun             'beds' (default) | 'products' | 'results' — wording of the count
 
   No JavaScript: the panel shows inline (collapsed groups) with an
   "Apply filters" button; the sort form has its own "Sort" button. Both are
@@ -49,6 +49,8 @@
   assign n_results = results_count | default: 0 | plus: 0
   if noun == 'results'
     assign count_text = 'collection.facets.count_results' | t: count: n_results
+  elsif noun == 'products'
+    assign count_text = 'collection.facets.count_products' | t: count: n_results
   else
     assign count_text = 'collection.facets.count_beds' | t: count: n_results
   endif
@@ -74,9 +76,21 @@
   endif
 
   assign clear_qs = ''
+  comment
+    A search limited to one type (type=product, from a shortcut link) keeps
+    that limit through filtering, sorting and Clear all.
+  endcomment
+  assign search_type = ''
+  if search_terms != '' and results.types.size == 1
+    assign search_type = results.types.first
+  endif
+
   if search_terms != ''
     assign enc_terms = search_terms | url_encode
     assign clear_qs = 'q=' | append: enc_terms | append: '&options%5Bprefix%5D=last'
+    if search_type != ''
+      assign clear_qs = clear_qs | append: '&type=' | append: search_type
+    endif
   endif
   if results.sort_by != blank
     if clear_qs != ''
@@ -141,6 +155,7 @@
           {%- if search_terms != '' -%}
             <input type="hidden" name="q" value="{{ search_terms | escape }}">
             <input type="hidden" name="options[prefix]" value="last">
+            {%- if search_type != '' -%}<input type="hidden" name="type" value="{{ search_type | escape }}">{%- endif -%}
           {%- endif -%}
 
           <div class="facets-form__body">
@@ -374,6 +389,7 @@
             {%- if search_terms != '' -%}
               <input type="hidden" name="q" value="{{ search_terms | escape }}">
               <input type="hidden" name="options[prefix]" value="last">
+              {%- if search_type != '' -%}<input type="hidden" name="type" value="{{ search_type | escape }}">{%- endif -%}
             {%- endif -%}
             {%- comment -%} Keep the current filters when sorting without JavaScript. {%- endcomment -%}
             {%- if has_filters -%}

@@ -11,8 +11,10 @@
       the collection description (first sentence or two, ~160 characters).
       Hidden on phones, where the full description under the grid does
       the job and the beds need the space.
-    - Product count ("27 beds") — a sense of the size of the choice. Off in
-      the default template: the toolbar above the grid already says it.
+    - Product count ("27 beds", or "64 products" when the collection mixes
+      beds with kennels or accessories) — a sense of the size of the
+      choice. Off in the default template: the toolbar above the grid
+      already says it.
     - Store rating line only when the merchant has filled in BOTH
       store_rating and store_review_count (no invented proof).
     - Promises from theme settings (trial, guarantee, delivery) as one quiet
@@ -124,8 +126,8 @@
   endif
 
   comment
-    Before the shop has any beds, the all-beds intro ("Filter by size… or let
-    the finder narrow it down") promises things the page can't do yet.
+    Before the shop has any beds, the all-beds intro ("…or let the finder
+    narrow it down to one") promises things the page can't do yet.
   endcomment
   assign shop_total = collections.all.products_count | default: 0 | plus: 0
   assign live_store_empty = false
@@ -137,6 +139,23 @@
   endif
 
   assign count = collection.all_products_count | default: 0 | plus: 0
+
+  comment
+    Count as beds ("27 beds") only when every product type in the
+    collection names a bed or a mattress; a mixed collection (kennels,
+    accessories) counts products ("64 products").
+  endcomment
+  assign count_key = 'collection.hero.count'
+  for type_name in collection.all_types
+    assign type_down = type_name | downcase | strip
+    if type_down == ''
+      continue
+    endif
+    unless type_down contains 'bed' or type_down contains 'mattress'
+      assign count_key = 'collection.hero.count_products'
+      break
+    endunless
+  endfor
 
   assign show_image = false
   assign hero_image = collection.image
@@ -204,7 +223,7 @@
           {%- if show_count -%}
             <p class="collection-hero__count">
               {%- render 'icon', name: 'bed', class: 'collection-hero__count-icon' -%}
-              <span>{{ 'collection.hero.count' | t: count: count }}</span>
+              <span>{{ count_key | t: count: count }}</span>
             </p>
           {%- endif -%}
           {{ rating_html }}
@@ -345,7 +364,7 @@
       "type": "richtext",
       "id": "all_intro",
       "label": "Intro on the all-products page",
-      "default": "<p>Every bed we make, in one place. Filter by size or by how your dog sleeps — or let the finder narrow it down to one.</p>"
+      "default": "<p>Every bed we sell, in one place — or let the finder narrow it down to one.</p>"
     },
     {
       "type": "header",
@@ -354,7 +373,7 @@
     {
       "type": "checkbox",
       "id": "show_count",
-      "label": "Show how many beds are in the collection",
+      "label": "Show how many products are in the collection",
       "default": true
     },
     {

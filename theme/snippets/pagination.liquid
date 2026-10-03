@@ -15,8 +15,11 @@
     - Current page is a non-link with aria-current="page".
     - Every number link is named "Page 3", prev/next keep visible text on
       wider screens and are icon + visually-hidden text on phones.
-    - On very narrow screens the neighbours of the current page collapse
-      (prev/next still reach them) so the row never overflows at 360px.
+    - Phones under 420px: a row that would not fit on one line at 360px
+      shrinks to first, current and last page, with "…" standing in for
+      every page left out (prev/next still reach the neighbours). A row
+      that fits (e.g. "1 2 3 >") always shows every number, so no page
+      silently disappears.
 
   JS hook: links carry [data-pagination-link]; inside <facet-filters>
   collection.js loads them through the Section Rendering API.
@@ -30,7 +33,32 @@
       assign last_item = paginate.items
     endif
     assign current = paginate.current_page | plus: 0
-    assign last_page = paginate.pages | plus: 0
+
+    comment
+      Compact on phones only when the full row would wrap at 360px: 328px of
+      content; page links and prev/next are 44px, a gap marker 24px, with
+      4px between items.
+    endcomment
+    assign row_width = 0
+    if paginate.previous.is_link
+      assign row_width = row_width | plus: 48
+    endif
+    if paginate.next.is_link
+      assign row_width = row_width | plus: 48
+    endif
+    for part in paginate.parts
+      assign part_num = part.title | plus: 0
+      if part_num > 0
+        assign row_width = row_width | plus: 48
+      else
+        assign row_width = row_width | plus: 28
+      endif
+    endfor
+    assign compact = false
+    if row_width > 332
+      assign compact = true
+    endif
+    assign shown_num = 0
   -%}
   <nav class="pagination{% if class %} {{ class }}{% endif %}" aria-label="{{ 'collection.pagination.label' | t }}">
     {%- if show_summary -%}
@@ -49,16 +77,33 @@
       {%- for part in paginate.parts -%}
         {%- liquid
           assign part_num = part.title | plus: 0
-          assign near_class = ''
-          if part_num > 1 and part_num < last_page
-            assign diff = part_num | minus: current | abs
-            if diff == 1
-              assign near_class = ' pagination__item--near'
+          assign wide_class = ''
+          assign narrow_gap = false
+          if compact
+            assign keep = false
+            if part_num > 0
+              if part_num == current or forloop.first or forloop.last
+                assign keep = true
+              endif
+            endif
+            if keep
+              assign jump = part_num | minus: shown_num
+              if shown_num > 0 and jump > 1
+                assign narrow_gap = true
+              endif
+              assign shown_num = part_num
+            else
+              assign wide_class = ' pagination__item--wide'
             endif
           endif
         -%}
+        {%- if narrow_gap -%}
+          <li class="pagination__item pagination__item--gap pagination__item--narrow" aria-hidden="true">
+            <span class="pagination__gap">…</span>
+          </li>
+        {%- endif -%}
         {%- if part.is_link -%}
-          <li class="pagination__item{{ near_class }}">
+          <li class="pagination__item{{ wide_class }}">
             <a class="pagination__link" href="{{ part.url }}{{ anchor_str }}" aria-label="{{ 'accessibility.page' | t: page: part.title }}" data-pagination-link>{{ part.title }}</a>
           </li>
         {%- elsif part_num == current -%}
@@ -66,7 +111,7 @@
             <span class="pagination__link pagination__link--current" aria-current="page" aria-label="{{ 'accessibility.page' | t: page: part.title }}">{{ part.title }}</span>
           </li>
         {%- else -%}
-          <li class="pagination__item pagination__item--gap" aria-hidden="true">
+          <li class="pagination__item pagination__item--gap{{ wide_class }}" aria-hidden="true">
             <span class="pagination__gap">…</span>
           </li>
         {%- endif -%}

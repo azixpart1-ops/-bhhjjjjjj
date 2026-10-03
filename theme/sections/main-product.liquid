@@ -18,52 +18,48 @@
 
 {%- liquid
   comment
-    The selected variant: ?variant= > merchant's "most chosen" > first
-    available. (Same rule as snippets/buy-box.liquid; product.js then applies
-    the Bed Finder size when there's no ?variant=.)
+    The selected variant: ?variant= > merchant's "most chosen" > the first
+    available in size order. snippets/buy-box works it out (its variant_id
+    part), so this page and the quick-add drawer always agree; product.js
+    then applies the Bed Finder size when there's no ?variant=.
   endcomment
   assign current = product.selected_or_first_available_variant
   if product != blank and product.selected_variant == blank and product.has_only_default_variant == false
-    assign mc_found = false
+    capture cur_id
+      render 'buy-box', product: product, section: section, part: 'variant_id'
+    endcapture
+    assign cur_id = cur_id | strip | plus: 0
     for v in product.variants
-      if v.available and v.metafields.custom.most_chosen.value == true
+      if v.id == cur_id
         assign current = v
-        assign mc_found = true
         break
       endif
     endfor
-    assign mc_value = section.settings.most_chosen_value | default: '' | downcase | strip
-    if mc_found == false and mc_value != ''
-      for v in product.variants
-        if v.available
-          for o in v.options
-            assign od = o | downcase | strip
-            if od == mc_value
-              assign current = v
-              assign mc_found = true
-              break
-            endif
-          endfor
-        endif
-        if mc_found
-          break
-        endif
-      endfor
-    endif
   endif
 
   assign layout = section.settings.gallery_layout | default: 'thumbnails'
   assign sg_block = section.blocks | where: 'type', 'size_guide' | first
   assign bb_block = section.blocks | where: 'type', 'buy_buttons' | first
 
+  comment
+    The size guide only earns its place when there's a size to choose: a
+    single "One size" value gets a plain line instead (variant-picker).
+  endcomment
   assign has_size = false
   for option in product.options_with_values
     assign oname = option.name | downcase
     if oname contains 'size'
-      assign has_size = true
+      if option.values.size > 1
+        assign has_size = true
+      endif
       break
     endif
   endfor
+  assign vp_block = section.blocks | where: 'type', 'variant_picker' | first
+  assign sg_hints = false
+  if vp_block and vp_block.settings.show_size_hints
+    assign sg_hints = true
+  endif
 -%}
 
 {%- if product == blank or product.id == blank -%}
@@ -138,7 +134,7 @@
     </div>
 
     {%- if has_size or sg_block -%}
-      {%- render 'size-guide', product: product, section: section, variant: current, block: sg_block -%}
+      {%- render 'size-guide', product: product, section: section, variant: current, block: sg_block, hints: sg_hints -%}
     {%- endif -%}
 
     {%- if section.settings.enable_sticky_atc and bb_block -%}
@@ -323,11 +319,11 @@
           "id": "fallback_scope",
           "label": "Use the fallback on",
           "options": [
-            { "value": "foam", "label": "Foam / orthopaedic beds only" },
+            { "value": "foam", "label": "Foam beds only" },
             { "value": "all", "label": "Every product" }
           ],
           "default": "foam",
-          "info": "The default text describes a memory-foam bed. \"Foam / orthopaedic beds only\" uses it when the product's title, type or tags mention orthopaedic or memory foam. Tag a product guarantee:yes or guarantee:no to override."
+          "info": "The default text describes a memory-foam bed. \"Foam beds only\" uses it on beds the foam guarantee covers: the description says \"no-flatten guarantee\", or the product is tagged guarantee:yes (guarantee:no hides it)."
         },
         {
           "type": "select",
@@ -377,11 +373,15 @@
       "limit": 1,
       "settings": [
         {
+          "type": "paragraph",
+          "content": "Each size shows what its own name says: \"Large · 91 × 69cm\" reads Large with 91 × 69cm under it, \"Medium: Cocker | Staffie\" reads Medium with the breeds under it. A size variant's custom.size_hint metafield adds a line of your own."
+        },
+        {
           "type": "checkbox",
           "id": "show_size_hints",
-          "label": "Show breeds and weights beside sizes",
-          "default": true,
-          "info": "From Theme settings → Sizing."
+          "label": "Fill in breeds and weights from Theme settings",
+          "default": false,
+          "info": "Only for sizes with no dimensions or breeds of their own (e.g. plain \"Medium\"). The table in Theme settings → Sizing is the same for every product, so only use it if it's right for all of them."
         },
         {
           "type": "checkbox",
@@ -563,7 +563,7 @@
       "settings": [
         {
           "type": "paragraph",
-          "content": "Hidden when the trial is switched off in Theme settings → Promises. Placeholders: [trial_nights], [guarantee_years], [threshold], [trial_terms] (the returns wording from Theme settings → Promises) and [trial_terms_short]."
+          "content": "Hidden when the trial is switched off in Theme settings → Promises. On products the trial doesn't cover (Theme settings → Promises → Not covered by the trial) it says so plainly instead: the product's custom.returns_note metafield, or standard wording. Placeholders: [trial_nights], [guarantee_years], [threshold], [trial_terms] (the returns wording from Theme settings → Promises) and [trial_terms_short]."
         },
         {
           "type": "text",
@@ -589,7 +589,7 @@
           "id": "show_guarantee",
           "label": "Show guarantee line",
           "default": true,
-          "info": "Only on beds the foam guarantee covers: title, type or tags mention orthopaedic or memory foam. Tag a product guarantee:yes or guarantee:no to override."
+          "info": "Only on beds the foam guarantee covers: the description says \"no-flatten guarantee\", or the product is tagged guarantee:yes (guarantee:no hides it)."
         }
       ]
     },
@@ -627,19 +627,18 @@
           "type": "richtext",
           "id": "content",
           "label": "Fallback benefits",
-          "default": "<ul><li>High-density memory foam that holds its shape</li><li>Cover unzips and machine-washes at 30°C</li><li>Waterproof liner keeps accidents out of the foam</li><li>Gripped base stays put on wood and tile</li></ul>",
-          "info": "Shown when the product has no custom.benefits metafield (one benefit per line). Make sure every product on this template matches."
+          "info": "Optional. Shown when the product has no custom.benefits metafield (one benefit per line). Every line must be true of every product it shows on."
         },
         {
           "type": "select",
           "id": "fallback_scope",
           "label": "Use the fallback on",
           "options": [
-            { "value": "foam", "label": "Foam / orthopaedic beds only" },
+            { "value": "foam", "label": "Foam beds only" },
             { "value": "all", "label": "Every product" }
           ],
           "default": "foam",
-          "info": "The default text describes a memory-foam bed. \"Foam / orthopaedic beds only\" uses it when the product's title, type or tags mention orthopaedic or memory foam. Tag a product guarantee:yes or guarantee:no to override."
+          "info": "\"Foam beds only\" uses it on beds the foam guarantee covers: the description says \"no-flatten guarantee\", or the product is tagged guarantee:yes (guarantee:no hides it)."
         }
       ]
     },
@@ -651,7 +650,7 @@
           "type": "text",
           "id": "heading",
           "label": "Heading",
-          "default": "About this bed"
+          "default": "Product details"
         },
         {
           "type": "select",

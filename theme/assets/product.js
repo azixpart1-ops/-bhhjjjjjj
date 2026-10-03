@@ -197,15 +197,38 @@
     return best;
   }
 
+  /** All-lowercase text gets a capital, as snippets/variant-picker shows it. */
+  function displayCase(text) {
+    var t = String(text == null ? '' : text);
+    return t && t === t.toLowerCase() ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+  }
+
+  /** A size by its own name, as the picker shows it in bold, for sentences
+      ("Only 3 left in Large", the sticky bar): "Large" for "Large · 91 ×
+      69cm" or "Large: Cocker | Staffie" (Lunova.sizeParse, the same rule as
+      snippets/size-hints mode size_label). Never another size's name. */
   function sizeLabelFor(value) {
-    var hint = typeof L.sizeHint === 'function' ? L.sizeHint(value) : null;
-    return (hint && hint.label) || value || '';
+    if (value == null || value === '') return '';
+    var label = typeof L.sizeParse === 'function' ? L.sizeParse(value).label : '';
+    return displayCase(label || String(value));
+  }
+
+  /** "Large / Dark Grey" for the sticky bar and status messages: the size by
+      its name, other options as the picker shows them. */
+  function variantDisplayTitle(data, v) {
+    if (!v) return '';
+    if (data.onlyDefault) return '';
+    return (v.options || [])
+      .map(function (o, i) {
+        return i === data.sizeIndex ? sizeLabelFor(o) : displayCase(o);
+      })
+      .join(' / ');
   }
 
   function variantSizeLabel(data, v) {
     if (!v) return '';
     if (data.sizeIndex >= 0) return sizeLabelFor(v.options[data.sizeIndex]);
-    if (!data.onlyDefault) return v.title;
+    if (!data.onlyDefault) return variantDisplayTitle(data, v);
     return '';
   }
 
@@ -423,6 +446,12 @@
     for (var i = 0; i < values.length; i += 1) {
       if (norm(values[i]) === want) return { value: values[i] };
     }
+    // The size that suits that dog on THIS bed (breeds or dimensions in the
+    // value count), else the next size up: Lunova.sizeMatch.
+    if (typeof L.sizeMatch === 'function') {
+      var m = L.sizeMatch(values, f.size);
+      return m ? { value: m.value } : null;
+    }
     if (typeof L.sizeHint === 'function') {
       var wantHint = L.sizeHint(f.size);
       if (wantHint) {
@@ -551,9 +580,14 @@
         qsa('[data-value-input]', fs).forEach(function (input) {
           input.checked = input.value === sel[idx];
         });
-        // The legend, and the visible label row above the size option.
+        // The legend, and the visible label row above the size option, in
+        // the picker's display text ("Large", "Beige"), not the raw value.
+        var shown = sel[idx] || '';
+        qsa('[data-value-input]', fs).forEach(function (input) {
+          if (input.value === sel[idx] && input.hasAttribute('data-display')) shown = input.getAttribute('data-display');
+        });
         qsa('[data-selected-value]', fs.closest('.variant-picker__group') || fs).forEach(function (label) {
-          label.textContent = sel[idx] || '';
+          label.textContent = shown;
         });
       });
 
@@ -650,7 +684,14 @@
     announce(v, changedIndex) {
       if (!this.status) return;
       var s = this.data.strings;
-      var value = changedIndex != null ? this.selected[changedIndex] : v ? v.title : '';
+      var value = v ? variantDisplayTitle(this.data, v) : '';
+      if (changedIndex != null) {
+        var raw = this.selected[changedIndex];
+        value = raw;
+        qsa('fieldset[data-option-index="' + changedIndex + '"] [data-value-input]', this).forEach(function (input) {
+          if (input.value === raw && input.hasAttribute('data-display')) value = input.getAttribute('data-display');
+        });
+      }
       var stockEl = this.scope.querySelector('[data-stock]');
       var stock = stockFor(this.data, v, stockEl ? stockEl.getAttribute('data-in-stock-text') : null);
       var msg = v ? fill(s.status, { value: value, price: money(v.price), stock: stock.text }) : s.unavailable;
@@ -677,16 +718,98 @@
   class ProductForm extends HTMLElement {
     connectedCallback() {
       this.form = this.querySelector('form');
-      if (!this.form || this._wired) return;
+      if (this._wired) {
+        this.listenFinder();
+        return;
+      }
+      if (!this.form) return;
       this._wired = true;
       this.scope = scopeOf(this);
       this.button = this.querySelector('[data-add-button]');
       this.errorEl = this.querySelector('[data-form-error]');
       this.messageEl = this.querySelector('[data-form-message]');
       this.busy = false;
+      // Native validation stays on without JavaScript (a personalised bed
+      // can't post without its name); here the form checks the field itself
+      // and says what's wrong next to it.
+      this.form.noValidate = true;
       this.form.addEventListener('submit', this.onSubmit.bind(this));
       this.addEventListener('click', this.onClick.bind(this));
       this.addEventListener('input', this.onInput.bind(this));
+      this.personalise = this.querySelector('[data-personalise-input]');
+      this.listenFinder();
+    }
+
+    listenFinder() {
+      if (!this.personalise || this._offFinder) return;
+      var self = this;
+      this.prefillName();
+      this._offFinder = on('lunova:finder:complete', function () {
+        self.prefillName();
+      });
+    }
+
+    disconnectedCallback() {
+      if (this._offFinder) this._offFinder();
+      this._offFinder = null;
+    }
+
+    /** Personalised: start the name field with the dog's name from the Bed
+        Finder, if there is one and nothing has been typed. They still check
+        it: the hint under the field says it's made exactly as typed. */
+    prefillName() {
+      var input = this.personalise;
+      if (!input || input.value) return;
+      var f = finderData();
+      var name = f && typeof f.dogName === 'string' ? f.dogName.trim() : '';
+      if (!name) return;
+      var max = parseInt(input.getAttribute('maxlength'), 10) || 0;
+      input.value = max > 0 ? name.slice(0, max) : name;
+    }
+
+    /** True when every required personalisation field is filled in. */
+    checkPersonalise() {
+      var input = this.personalise;
+      if (!input) return true;
+      var value = String(input.value || '').replace(/\s+/g, ' ').trim();
+      input.value = value;
+      var errorEl = this.querySelector('[data-personalise-error]');
+      if (value) {
+        this.clearPersonaliseError();
+        return true;
+      }
+      var message = errorEl ? errorEl.getAttribute('data-message') || '' : '';
+      if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.hidden = false;
+        var ids = (input.getAttribute('aria-describedby') || '').split(' ').filter(Boolean);
+        if (ids.indexOf(errorEl.id) === -1) ids.push(errorEl.id);
+        input.setAttribute('aria-describedby', ids.join(' '));
+      }
+      input.setAttribute('aria-invalid', 'true');
+      try {
+        input.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+      } catch (e) {
+        /* older browsers */
+      }
+      focusEl(input);
+      this.dispatchEvent(new CustomEvent('product-form:end', { bubbles: true, detail: { error: message } }));
+      return false;
+    }
+
+    clearPersonaliseError() {
+      var input = this.personalise;
+      var errorEl = this.querySelector('[data-personalise-error]');
+      if (!input) return;
+      input.removeAttribute('aria-invalid');
+      if (errorEl) {
+        errorEl.hidden = true;
+        errorEl.textContent = '';
+        var ids = (input.getAttribute('aria-describedby') || '').split(' ').filter(function (id) {
+          return id && id !== errorEl.id;
+        });
+        input.setAttribute('aria-describedby', ids.join(' '));
+      }
     }
 
     data() {
@@ -707,6 +830,7 @@
 
     onInput(e) {
       if (e.target && e.target.matches && e.target.matches('[data-qty-input]')) this.refresh();
+      if (e.target && e.target === this.personalise && String(e.target.value || '').trim()) this.clearPersonaliseError();
     }
 
     refresh() {
@@ -753,6 +877,10 @@
     }
 
     onSubmit(e) {
+      if (!this.checkPersonalise()) {
+        e.preventDefault();
+        return;
+      }
       if (!window.fetch || !L.cart || typeof L.cart.add !== 'function') return; // native post
       e.preventDefault();
       if (this.busy) return;
@@ -998,7 +1126,7 @@
         else label.textContent = s.add || '';
       }
       var title = this.querySelector('[data-sticky-variant]');
-      if (title) title.textContent = v.title;
+      if (title) title.textContent = data ? variantDisplayTitle(data, v) : v.title;
       var price = this.querySelector('[data-sticky-price]');
       if (price) price.textContent = money(v.price);
       var compare = this.querySelector('[data-sticky-compare]');
@@ -1514,8 +1642,16 @@
         });
     }
 
+    /** Nothing recommended: the same-type products the page rendered into
+        <template data-recs-fallback>, else hide the section. */
     empty() {
       if (designMode()) return;
+      var tpl = this.querySelector('template[data-recs-fallback]');
+      if (tpl && tpl.content && tpl.content.querySelector('[data-recs-list] > *')) {
+        this.innerHTML = tpl.innerHTML;
+        if (this.section) this.section.hidden = false;
+        return;
+      }
       if (this.section) this.section.hidden = true;
     }
   }

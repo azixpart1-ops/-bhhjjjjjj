@@ -118,6 +118,21 @@
               endif
               assign c_image = c.featured_image
               assign c_count = c.all_products_count | default: 0 | plus: 0
+              comment
+                Beds ("12 beds") only when every product type here names a
+                bed or a mattress; kennels or accessories make it products.
+              endcomment
+              assign c_count_key = 'collection.hero.count'
+              for type_name in c.all_types
+                assign type_down = type_name | downcase | strip
+                if type_down == ''
+                  continue
+                endif
+                unless type_down contains 'bed' or type_down contains 'mattress'
+                  assign c_count_key = 'collection.hero.count_products'
+                  break
+                endunless
+              endfor
               assign tile_lazy = 'lazy'
               if tile_n <= 3
                 assign tile_lazy = 'eager'
@@ -143,7 +158,7 @@
                     <a href="{{ c.url }}" class="collection-tile__link">{{ c_title | escape }}</a>
                   </h2>
                   {%- if section.settings.show_count and c_count > 0 -%}
-                    <p class="collection-tile__count">{{ 'collection.hero.count' | t: count: c_count }}</p>
+                    <p class="collection-tile__count">{{ c_count_key | t: count: c_count }}</p>
                   {%- endif -%}
                   {%- if section.settings.show_description and c.description != blank -%}
                     <p class="collection-tile__desc">{{ c.description | strip_html | strip | truncatewords: 16, '…' }}</p>
@@ -287,7 +302,7 @@
     {
       "type": "checkbox",
       "id": "show_count",
-      "label": "Show how many beds each has",
+      "label": "Show how many products each has",
       "default": true
     },
     {

@@ -12,6 +12,14 @@
     [arrival]      → live "Thu 8 Oct–Sat 10 Oct" (fallback "in 1–3 working days")
   A step can depend on a promise (trial, guarantee, delivery) and hides when
   that promise is switched off in Theme settings.
+
+  On a product page the steps also follow the product (snippets/buy-box,
+  part 'flags'):
+    - a trial step hides on a product the sleep trial doesn't cover;
+    - a made-to-order product (personalised, tag made-to-order, or
+      custom.lead_time_days) gets no dated dispatch/arrival: the first
+      delivery step becomes "Made for you" (with its lead time when known)
+      and the other delivery steps are left out.
 {%- endcomment -%}
 {%- comment -%}
   On product templates main-product (first in product.json) already links
@@ -59,6 +67,35 @@
   assign live_arrival = '<span data-timeline-live="arrival">' | append: arrival_fallback | append: '</span>'
 
   comment
+    This product's facts: is it covered by the trial, is it made to order.
+  endcomment
+  assign tl_trial_ok = true
+  assign tl_made = false
+  assign tl_lead = 0
+  if product != blank and product.id != blank
+    capture tl_flags
+      render 'buy-box', product: product, section: section, part: 'flags', variant: product.selected_or_first_available_variant
+    endcapture
+    assign tl_f = tl_flags | strip | split: '|'
+    if tl_f[0] == '0'
+      assign tl_trial_ok = false
+    endif
+    if tl_f[1] == '1'
+      assign tl_made = true
+    endif
+    assign tl_lead = tl_f[2] | default: 0 | plus: 0
+  endif
+  if tl_made
+    assign made_title = 'product.timeline.made_title' | t
+    if tl_lead > 0
+      assign made_text = 'product.timeline.made_text_lead' | t: days: tl_lead
+    else
+      assign made_text = 'product.timeline.made_text' | t
+    endif
+  endif
+  assign made_used = false
+
+  comment
     Which steps survive the promise switches.
   endcomment
   assign visible_ids = ''
@@ -67,7 +104,7 @@
     assign ok = true
     case req
       when 'trial'
-        unless settings.trial_enable and nights > 0
+        unless settings.trial_enable and nights > 0 and tl_trial_ok
           assign ok = false
         endunless
       when 'guarantee'
@@ -75,9 +112,19 @@
           assign ok = false
         endunless
       when 'delivery'
-        unless settings.delivery_promise_enable and cut_days != ''
-          assign ok = false
-        endunless
+        if tl_made
+          comment
+            Made to order: one "Made for you" step in place of the dated ones.
+          endcomment
+          if made_used
+            assign ok = false
+          endif
+          assign made_used = true
+        else
+          unless settings.delivery_promise_enable and cut_days != ''
+            assign ok = false
+          endunless
+        endif
       when 'free_delivery'
         unless settings.free_shipping_enable and threshold_cents > 0
           assign ok = false
@@ -122,6 +169,10 @@
             assign n = n | plus: 1
             assign t_title = block.settings.title | default: '' | escape
             assign t_text = block.settings.text | default: ''
+            if tl_made and block.settings.requires == 'delivery'
+              assign t_title = made_title
+              assign t_text = '<p>' | append: made_text | append: '</p>'
+            endif
           -%}
           {%- capture step_title -%}
             {{- t_title | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms]', ph_terms | replace: '[delivery_min]', d_min_s | replace: '[delivery_max]', d_max_s | replace: '[cutoff]', cut_time | replace: '[dispatch_days]', cut_days | replace: '[dispatch_from]', dispatch_from | replace: '[dispatch_day]', live_dispatch | replace: '[arrival]', live_arrival -}}
@@ -145,7 +196,7 @@
         {%- endfor -%}
       </ol>
 
-      {%- if section.settings.footnote != blank -%}
+      {%- if section.settings.footnote != blank and tl_made == false -%}
         <p class="timeline__footnote small muted">{{ section.settings.footnote | escape }}</p>
       {%- endif -%}
     </div>

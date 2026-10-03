@@ -1,33 +1,57 @@
 {%- comment -%}
-  The one "is this a memory-foam bed?" test, shared by everything that makes
-  a foam-specific claim about a product: the foam guarantee line and
-  per-night price (buy box, cards, finder result via Lunova.foamBed), the
-  cost reframe, the mechanism diagram and the comparison table.
+  The one "is this a foam bed the foam guarantee covers?" test, shared by
+  everything that makes a foam-specific claim about a product: the foam
+  guarantee line and per-night price (buy box, cards, finder result via
+  Lunova.foamBed), the foam tagline fallback, the cost reframe, the
+  mechanism diagram and the comparison table.
 
-  A product passes when its title, type or tags mention orthopaedic /
-  orthopedic / memory foam. Merchants override it per product with ONE tag
-  pair: "guarantee:yes" (treat as a foam bed the guarantee covers) or
-  "guarantee:no" (never). guarantee:no wins over guarantee:yes.
+  A word like "orthopaedic" in a title, type or tag is not evidence of a
+  guarantee (egg-crate beds, car seats and nest beds carry it too), so the
+  test reads what the product itself promises:
+    1. tag "guarantee:no"  → never (wins over everything)
+    2. tag "guarantee:yes" → always
+    3. not a bed           → never: the product type's first part (before
+                             " > ") doesn't mention "bed" ("Dog Houses > …"),
+                             or it's a car seat (tag "dog car seat" /
+                             "car seat", or "car seat" in the title)
+    4. its description promises it: contains "no-flatten guarantee"
+  Anything else → not covered. Tag a product guarantee:yes when its
+  description words the guarantee differently.
 
-  Output: the word "true" for a foam bed, nothing otherwise. Capture it:
+  Output: the word "true" when covered, nothing otherwise. Capture it:
     {%- capture is_foam -%}{%- render 'foam-bed', product: product -%}{%- endcapture -%}
     {%- if is_foam == 'true' -%} … {%- endif -%}
 
-  Keep in step with Lunova.foamBed() in assets/global.js.
+  Keep in step with Lunova.foamBed() in assets/global.js and the finder's
+  product JSON (snippets/finder-product-json).
 {%- endcomment -%}
 {%- liquid
   if product != blank
     assign fb_tags = product.tags | join: ',' | downcase | prepend: ',' | append: ','
-    assign fb_hay = product.title | append: ' ' | append: product.type | append: ' ' | append: fb_tags | downcase
     assign fb_ok = false
-    if fb_hay contains 'orthopaedic' or fb_hay contains 'orthopedic' or fb_hay contains 'memory foam' or fb_hay contains 'memory-foam'
-      assign fb_ok = true
-    endif
-    if fb_tags contains ',guarantee:yes,'
-      assign fb_ok = true
-    endif
     if fb_tags contains ',guarantee:no,'
       assign fb_ok = false
+    elsif fb_tags contains ',guarantee:yes,'
+      assign fb_ok = true
+    else
+      assign fb_bed = true
+      assign fb_type = product.type | default: '' | downcase | strip
+      assign fb_first = fb_type | split: '>' | first | default: '' | strip
+      if fb_first != ''
+        unless fb_first contains 'bed'
+          assign fb_bed = false
+        endunless
+      endif
+      assign fb_title = product.title | default: '' | downcase
+      if fb_tags contains ',dog car seat,' or fb_tags contains ',car seat,' or fb_title contains 'car seat'
+        assign fb_bed = false
+      endif
+      if fb_bed
+        assign fb_desc = product.description | default: '' | downcase
+        if fb_desc contains 'no-flatten guarantee' or fb_desc contains 'no flatten guarantee'
+          assign fb_ok = true
+        endif
+      endif
     endif
     if fb_ok
       echo 'true'

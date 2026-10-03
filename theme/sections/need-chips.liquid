@@ -7,15 +7,20 @@
   screen size (swipe on phones, scroll if it ever overflows on desktop), so
   the strip stays a single line and the grid starts higher.
 
-  Each chip goes to its own link, else its collection. A chip with neither
-  is hidden on the live store (and shown as a hint in the editor), so the
-  row never contains a dead end. The chip for the page you're on is marked
-  aria-current="page".
+  Each chip goes to its collection once that collection has products, else
+  to its link. So a template can name the collection a chip is meant for
+  and ship a search link alongside it: the chip runs the search until the
+  collection exists and fills, then switches to it with no edit. A chip
+  with neither (or only an empty collection) is hidden on the live store
+  and shown as a hint in the editor, so the row never contains a dead end.
+  The chip for the page you're on is marked aria-current="page".
 
-  Until the store has collections, the template's chips run a search
-  (e.g. /search?q=nest) so they still lead somewhere real. Before the store
-  has any products at all, every chip would lead to an empty page, so the
-  row renders nothing on the live store (the editor still shows it).
+  Search links can use Shopify's field syntax to stay narrow, e.g.
+  /search?q=tag:"nest dog bed"&type=product (URL-encoded in the template);
+  main-search shows such a query as its plain value ("nest dog bed"), not
+  the syntax. Before the store has any products at all, every chip would
+  lead to an empty page, so the row renders nothing on the live store (the
+  editor still shows it).
 {%- endcomment -%}
 {{ 'collection.css' | asset_url | stylesheet_tag }}
 {%- render 'section-styles', section: section -%}
@@ -30,7 +35,10 @@
   endcomment
   assign renderable = 0
   for block in section.blocks
-    if block.settings.link != blank or block.settings.collection != blank
+    assign chip_collection = block.settings.collection
+    if block.settings.link != blank
+      assign renderable = renderable | plus: 1
+    elsif chip_collection != blank and chip_collection.all_products_count > 0
       assign renderable = renderable | plus: 1
     endif
   endfor
@@ -80,9 +88,15 @@
         {%- for block in section.blocks -%}
           {%- liquid
             assign chip_collection = block.settings.collection
-            assign chip_url = block.settings.link
-            if chip_url == blank and chip_collection != blank
+            assign use_collection = false
+            if chip_collection != blank and chip_collection.all_products_count > 0
+              assign use_collection = true
+            endif
+            assign chip_url = ''
+            if use_collection
               assign chip_url = chip_collection.url
+            elsif block.settings.link != blank
+              assign chip_url = block.settings.link
             endif
             assign chip_label = block.settings.label | default: chip_collection.title | default: ''
             assign chip_label = chip_label | split: ' | ' | first | strip
@@ -97,16 +111,25 @@
               if chip_path == current_path and has_query == false
                 assign is_current = true
               endif
-              if chip_collection != blank and collection.handle != blank and chip_collection.handle == collection.handle and block.settings.link == blank
+              if use_collection and collection.handle != blank and chip_collection.handle == collection.handle
                 assign is_current = true
               endif
             endif
 
             assign show_count = false
-            if section.settings.show_counts and chip_collection != blank and block.settings.link == blank
-              if chip_collection.all_products_count > 0
-                assign show_count = true
-              endif
+            if section.settings.show_counts and use_collection
+              assign show_count = true
+              assign count_key = 'collection.hero.count'
+              for type_name in chip_collection.all_types
+                assign type_down = type_name | downcase | strip
+                if type_down == ''
+                  continue
+                endif
+                unless type_down contains 'bed' or type_down contains 'mattress'
+                  assign count_key = 'collection.hero.count_products'
+                  break
+                endunless
+              endfor
             endif
           -%}
           {%- if chip_url != blank and chip_label != '' -%}
@@ -123,7 +146,7 @@
                 {%- if show_count -%}
                   <span class="need-chips__count">
                     <span aria-hidden="true">{{ chip_collection.all_products_count }}</span>
-                    <span class="visually-hidden">{{ 'collection.hero.count' | t: count: chip_collection.all_products_count }}</span>
+                    <span class="visually-hidden">{{ count_key | t: count: chip_collection.all_products_count }}</span>
                   </span>
                 {%- endif -%}
               </a>
@@ -153,7 +176,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "One-tap shortcuts by how a dog sleeps or what it needs. Each chip goes to its link, or else its collection; chips with neither are hidden from shoppers."
+      "content": "One-tap shortcuts by how a dog sleeps or what it needs. Each chip goes to its collection once that has products, otherwise to its link; chips with neither are hidden from shoppers."
     },
     {
       "type": "text",
@@ -176,7 +199,7 @@
     {
       "type": "checkbox",
       "id": "show_counts",
-      "label": "Show how many beds each collection has",
+      "label": "Show how many products each collection has",
       "default": false
     },
     {
@@ -237,7 +260,7 @@
           "type": "url",
           "id": "link",
           "label": "Link",
-          "info": "Optional. Overrides the collection — for example a search such as /search?q=nest."
+          "info": "Used until the collection has products, or when no collection is picked. For example a search such as /search?q=nest, or a narrower one such as /search?q=tag:%22nest%20dog%20bed%22&type=product."
         },
         {
           "type": "select",

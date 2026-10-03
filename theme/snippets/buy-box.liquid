@@ -12,13 +12,16 @@
          show_title: true / show_price: true are passed.
     3. A single named part: part: 'data' → the product JSON island product.js
        reads (main-product renders it once, outside the blocks).
+       part: 'variant_id' → just the id of the variant to show (main-product
+       captures it, so the page and quick add pick the same default).
 
   Parameters
     product, section   required
     block              a main-product block
     compact            true → the compact box (see above)
-    variant            the variant to show; else ?variant= > most chosen > first available
-    part               'data'
+    variant            the variant to show; else ?variant= > most chosen > the
+                       first available in size order (smallest first)
+    part               'data' | 'variant_id' | 'flags'
     show_title         compact only
     show_price         compact only
 
@@ -30,7 +33,18 @@
     - Honest scarcity: "Only 3 left in Medium" ONLY when Shopify tracks the
       variant, it can't oversell (policy deny) and stock ≤ the low-stock setting.
     - Honest urgency: the dispatch countdown comes from the real cut-off.
-    - Risk reversal sits directly under the button.
+    - Risk reversal sits directly under the button, for products the sleep
+      trial covers (snippets/trial-eligible). Anything it doesn't cover gets
+      a plain line saying so instead (custom.returns_note, or the standard
+      wording), never the trial promise.
+    - Made to order (personalised type/tags, tag made-to-order, or
+      custom.lead_time_days): no dated dispatch countdown and no "ready to
+      dispatch"; "Made to order: dispatched within N working days" instead.
+    - Personalised products (type contains Personalised, tag personalised /
+      personalised dog bed / personalisation:yes, or custom.personalisation_label;
+      personalisation:no turns it off): a required name field inside the
+      product form, so the order can always be made. Express checkout buttons
+      are left off for them, so nothing skips the field.
 {%- endcomment -%}
 {%- if product != blank and product.id != blank -%}
 {%- liquid
@@ -67,6 +81,61 @@
           endif
         endfor
       endif
+      comment
+        No most chosen: the first available variant in size order (XS < S <
+        M < L < XL…, snippets/size-hints), so a product whose variants were
+        entered XL first doesn't open on its dearest size. Only when every
+        size value has a rank; otherwise Shopify's own order stands.
+      endcomment
+      if mc_found == false
+        assign sel_size_opt = nil
+        assign sel_size_i = -1
+        for option in product.options_with_values
+          assign sel_on = option.name | downcase
+          if sel_on contains 'size'
+            assign sel_size_opt = option
+            assign sel_size_i = forloop.index0
+            break
+          endif
+        endfor
+        if sel_size_i >= 0 and sel_size_opt.values.size > 1
+          assign sel_keys = ''
+          assign sel_ranked = true
+          for sv in sel_size_opt.values
+            assign sv_s = sv.name | default: sv | append: ''
+            capture sv_parsed
+              render 'size-hints', value: sv_s, mode: 'parse'
+            endcapture
+            assign sv_rank = sv_parsed | split: '|' | first | plus: 0
+            if sv_rank < 1
+              assign sel_ranked = false
+              break
+            endif
+            assign sv_pos = forloop.index0 | plus: 100
+            assign sv_key = sv_rank | plus: 100 | append: '~' | append: sv_pos
+            assign sel_keys = sel_keys | append: sv_key | append: ','
+          endfor
+          if sel_ranked
+            assign sel_sorted = sel_keys | split: ',' | sort
+            assign sel_done = false
+            for k in sel_sorted
+              assign k_i = k | split: '~' | last | plus: 0 | minus: 100
+              assign k_val = sel_size_opt.values[k_i]
+              assign k_val = k_val.name | default: k_val | append: ''
+              for v in product.variants
+                if v.available and v.options[sel_size_i] == k_val
+                  assign current = v
+                  assign sel_done = true
+                  break
+                endif
+              endfor
+              if sel_done
+                break
+              endif
+            endfor
+          endif
+        endif
+      endif
     endif
   endif
 
@@ -89,6 +158,66 @@
     assign trial_on = true
   endif
   comment
+    Does the sleep trial cover THIS product? (snippets/trial-eligible: Theme
+    settings → Promises → Not covered by the trial, and trial:yes / trial:no
+    tags.) trial_on says the shop runs a trial; trial_ok says it applies here.
+  endcomment
+  assign trial_ok = false
+  if trial_on
+    capture bb_trial
+      render 'trial-eligible', product: product
+    endcapture
+    if bb_trial == 'true'
+      assign trial_ok = true
+    endif
+  endif
+
+  comment
+    Personalised (needs a name to be made) and made to order (no same-day
+    dispatch promise).
+  endcomment
+  assign bb_tags = product.tags | join: '|' | downcase | prepend: '|' | append: '|'
+  assign bb_type = product.type | default: '' | downcase
+  assign pers_label = product.metafields.custom.personalisation_label.value | default: '' | strip
+  assign is_personalised = false
+  if pers_label != '' or bb_type contains 'personalis' or bb_type contains 'personaliz'
+    assign is_personalised = true
+  elsif bb_tags contains '|personalised|' or bb_tags contains '|personalized|' or bb_tags contains '|personalisation:yes|'
+    assign is_personalised = true
+  elsif bb_tags contains '|personalised dog bed|' or bb_tags contains '|personalized dog bed|'
+    assign is_personalised = true
+  endif
+  if bb_tags contains '|personalisation:no|'
+    assign is_personalised = false
+  endif
+  assign lead_days = product.metafields.custom.lead_time_days.value | default: 0 | plus: 0 | round
+  assign made_to_order = false
+  if is_personalised or lead_days > 0 or bb_tags contains '|made-to-order|' or bb_tags contains '|made to order|'
+    assign made_to_order = true
+  endif
+  if lead_days > 0
+    assign made_text = 'product.made.lead' | t: days: lead_days
+  else
+    assign made_text = 'product.made.generic' | t
+  endif
+
+  comment
+    What to say instead of the trial on a product it doesn't cover: the
+    product's own custom.returns_note, else the standard wording (made to
+    order with a name / not covered). Escaped, ready to print.
+  endcomment
+  assign excluded_note = ''
+  if trial_on and trial_ok == false
+    assign excluded_note = product.metafields.custom.returns_note.value | default: '' | strip | escape
+    if excluded_note == ''
+      if is_personalised
+        assign excluded_note = 'product.risk.excluded_personalised' | t: nights: nights
+      else
+        assign excluded_note = 'product.risk.excluded' | t: nights: nights
+      endif
+    endif
+  endif
+  comment
     Returns wording from Theme settings → Promises (snippets/trial-terms),
     for the trial_terms and trial_terms_short tokens in block text.
   endcomment
@@ -103,8 +232,9 @@
   comment
     One foam-bed test (snippets/foam-bed) for every foam-specific claim in
     the buy box: the guarantee is on the foam, so it (and the per-night
-    reframe built on it) is only promised for a bed it covers, and the
-    foam-describing tagline / benefits fallbacks only show on foam beds.
+    reframe built on it) is only promised for a bed it covers (its
+    description says so, or tag guarantee:yes), and the foam-describing
+    tagline / benefits fallbacks only show on those beds.
   endcomment
   capture bb_foam
     render 'foam-bed', product: product
@@ -174,6 +304,19 @@
 {%- endif -%}
 {%- for p in parts -%}
   {%- case p -%}
+
+    {%- comment -%} ---------- The default variant's id (main-product) ---------- {%- endcomment -%}
+    {%- when 'variant_id' -%}
+      {{- current.id -}}
+
+    {%- comment -%}
+      ---------- Facts for other product sections (product-timeline) ----------
+      "trial|made|lead_days": trial 1 when the sleep trial covers this
+      product, made 1 when it's made to order, lead_days its
+      custom.lead_time_days (0 when unknown).
+    {%- endcomment -%}
+    {%- when 'flags' -%}
+      {%- if trial_ok %}1{% else %}0{% endif %}|{% if made_to_order %}1{% else %}0{% endif %}|{{ lead_days -}}
 
     {%- comment -%} ---------- JSON island for product.js ---------- {%- endcomment -%}
     {%- when 'data' -%}
@@ -358,8 +501,9 @@
         if tagline == ''
           comment
             The fallback copy describes a memory-foam bed: by default it is
-            only used on beds whose title, type or tags say orthopaedic /
-            memory foam, or tagged guarantee:yes (snippets/foam-bed).
+            only used on beds the foam guarantee covers (snippets/foam-bed:
+            the description promises a no-flatten guarantee, or tag
+            guarantee:yes).
           endcomment
           if is_foam or bs.fallback_scope == 'all'
             assign tagline = bs.text | default: '' | strip
@@ -431,18 +575,34 @@
         if bs.show_in_stock == false
           assign show_in = false
         endif
-        assign in_text = bs.in_stock_text | default: '' | strip
+        assign in_text = bs.in_stock_text | default: '' | strip | escape
         if in_text == ''
           assign in_text = 'product.stock.in_stock' | t
         endif
+        comment
+          Made to order: "ready to dispatch" isn't true, so the in-stock line
+          says how it's made and when it goes out instead.
+        endcomment
+        if made_to_order
+          assign in_text = made_text
+          assign show_in = true
+        endif
 
+        comment
+          The size by its own name, as the picker shows it in bold: Large,
+          not Large · 91 × 69 × 24cm or the breed list after a colon.
+        endcomment
         assign size_label = ''
         if size_idx >= 0
           assign size_val = current.options[size_idx]
           capture size_label
-            render 'size-hints', value: size_val, mode: 'label'
+            render 'size-hints', value: size_val, mode: 'size_label'
           endcapture
           assign size_label = size_label | strip | default: size_val
+          assign sl_lc = size_label | downcase
+          if sl_lc == size_label
+            assign size_label = size_label | capitalize
+          endif
         elsif product.has_only_default_variant == false
           assign size_label = current.title
         endif
@@ -463,7 +623,7 @@
               assign stock_text = 'product.stock.sold_out_single' | t
             endif
           else
-            assign stock_text = in_text | escape
+            assign stock_text = in_text
         endcase
 
         comment
@@ -478,9 +638,15 @@
         assign sl_free = false
         if bs.show_delivery
           assign with_delivery = true
-          capture sl_promise
-            render 'delivery-promise', variant: current
-          endcapture
+          comment
+            No dated countdown on a made-to-order product: the stock line
+            already says when it's dispatched.
+          endcomment
+          unless made_to_order
+            capture sl_promise
+              render 'delivery-promise', variant: current
+            endcapture
+          endunless
           if threshold_cents > 0
             unless bs.show_free_delivery_note == false
               assign sl_free = true
@@ -497,7 +663,7 @@
         <p
           class="stock stock--{{ stock_state }}"
           data-stock
-          data-in-stock-text="{{ in_text | escape }}"
+          data-in-stock-text="{{ in_text }}"
           data-show-in-stock="{{ show_in }}"
           {%- if stock_state == 'in' and show_in == false %} hidden{% endif %}
         >
@@ -530,7 +696,25 @@
 
     {%- comment -%} ---------- Delivery promise (live countdown) ---------- {%- endcomment -%}
     {%- when 'delivery' -%}
-      {%- capture promise_html -%}{%- render 'delivery-promise', variant: current -%}{%- endcapture -%}
+      {%- liquid
+        comment
+          Made to order: a plain "dispatched within N working days" line in
+          place of the same-day countdown.
+        endcomment
+        if made_to_order
+          capture promise_html
+            echo '<div class="delivery-promise delivery-promise--made">'
+            render 'icon', name: 'clock', class: 'delivery-promise__icon'
+            echo '<p class="delivery-promise__text">'
+            echo made_text
+            echo '</p></div>'
+          endcapture
+        else
+          capture promise_html
+            render 'delivery-promise', variant: current
+          endcapture
+        endif
+      -%}
       {%- liquid
         assign show_free = false
         if threshold_cents > 0
@@ -577,7 +761,7 @@
           assign price_in_button = false
         endif
         assign show_dynamic = true
-        if bs.show_dynamic_checkout == false or compact
+        if bs.show_dynamic_checkout == false or compact or is_personalised
           assign show_dynamic = false
         endif
         assign show_terms = true
@@ -607,7 +791,12 @@
           data-price-in-button="{{ price_in_button }}"
           {%- if compact %} data-compact{% endif %}
         >
-          {%- form 'product', product, id: form_id, class: 'product-form__form', novalidate: 'novalidate', data-product-form: '' -%}
+          {%- comment -%}
+            No novalidate here: without JavaScript the browser itself stops a
+            personalised bed going in without its name. product.js switches
+            native validation off and checks the field itself.
+          {%- endcomment -%}
+          {%- form 'product', product, id: form_id, class: 'product-form__form', data-product-form: '' -%}
             <input type="hidden" name="id" value="{{ current.id }}" data-variant-id-input>
             {%- unless product.has_only_default_variant -%}
               <noscript>
@@ -624,6 +813,44 @@
                 </div>
               </noscript>
             {%- endunless -%}
+
+            {%- if is_personalised -%}
+              {%- liquid
+                assign pers_max = product.metafields.custom.personalisation_max_length.value | default: 15 | plus: 0 | round
+                if pers_max < 1
+                  assign pers_max = 15
+                endif
+                if pers_label != ''
+                  assign pers_field_label = pers_label | escape
+                  assign pers_key = pers_label | escape
+                else
+                  assign pers_field_label = 'product.personalise.label' | t
+                  assign pers_key = 'product.personalise.property' | t
+                endif
+                assign pers_id = form_id | append: '-personalise'
+              -%}
+              <div class="personalise field" data-personalise>
+                <label class="field__label personalise__label" for="{{ pers_id }}">
+                  {{- pers_field_label }} <span class="personalise__req">{{ 'product.personalise.required_marker' | t }}</span>
+                </label>
+                <input
+                  class="input personalise__input"
+                  type="text"
+                  id="{{ pers_id }}"
+                  name="properties[{{ pers_key }}]"
+                  maxlength="{{ pers_max }}"
+                  required
+                  aria-required="true"
+                  autocomplete="off"
+                  autocapitalize="words"
+                  spellcheck="false"
+                  aria-describedby="{{ pers_id }}-hint"
+                  data-personalise-input
+                >
+                <p class="field__hint personalise__hint" id="{{ pers_id }}-hint">{{ 'product.personalise.hint' | t: max: pers_max }}</p>
+                <p class="field__error personalise__error" id="{{ pers_id }}-error" data-personalise-error data-message="{{ 'product.personalise.error' | t }}" role="alert" hidden></p>
+              </div>
+            {%- endif -%}
 
             {%- if show_qty -%}
               <div class="product-form__qty field">
@@ -678,11 +905,18 @@
           Compact: the one-line risk reversal rides with the button, so the
           two stay together when the button sticks to the drawer's bottom edge.
         {%- endcomment -%}
-        {%- if compact and trial_on and parts contains 'risk_reversal' -%}
-          <p class="buy-box__risk-line">
-            {%- render 'icon', name: 'moon' -%}
-            <span>{{ 'core.trust.trial_title' | t: nights: nights }} · {{ 'core.trust.trial_sub' | t: terms_short: trial_terms_short }}</span>
-          </p>
+        {%- if compact and parts contains 'risk_reversal' -%}
+          {%- if trial_ok -%}
+            <p class="buy-box__risk-line">
+              {%- render 'icon', name: 'moon' -%}
+              <span>{{ 'core.trust.trial_title' | t: nights: nights }} · {{ 'core.trust.trial_sub' | t: terms_short: trial_terms_short }}</span>
+            </p>
+          {%- elsif excluded_note != '' -%}
+            <p class="buy-box__risk-line buy-box__risk-line--note">
+              {%- render 'icon', name: 'info' -%}
+              <span>{{ excluded_note }}</span>
+            </p>
+          {%- endif -%}
         {%- endif -%}
       </div>
 
@@ -702,13 +936,27 @@
         -%}
         {%- if trial_on or show_g -%}
           <div class="pblock pblock--risk_reversal"{% if block %} {{ block.shopify_attributes }}{% endif %}>
-            <div class="risk-reversal">
-              {%- if trial_on -%}
+            <div class="risk-reversal{% unless trial_ok %} risk-reversal--note{% endunless %}">
+              {%- if trial_ok -%}
                 <div class="risk-reversal__main">
                   {%- render 'icon', name: 'moon', class: 'risk-reversal__icon' -%}
                   <p class="risk-reversal__text">
                     {%- if rr_heading != '' -%}<strong class="risk-reversal__heading">{{ rr_heading | escape }}</strong> {% endif -%}
                     {{- rr_text | escape -}}
+                    {%- if returns_url != '' and bs.link_label != blank %}
+                      <a class="risk-reversal__link" href="{{ returns_url }}">{{ bs.link_label | escape }}</a>
+                    {%- endif -%}
+                  </p>
+                </div>
+              {%- elsif excluded_note != '' -%}
+                {%- comment -%}
+                  The trial doesn't cover this product (kennels, personalised
+                  beds…): say so plainly, where the promise would have been.
+                {%- endcomment -%}
+                <div class="risk-reversal__main">
+                  {%- render 'icon', name: 'info', class: 'risk-reversal__icon' -%}
+                  <p class="risk-reversal__text" data-trial-excluded>
+                    {{- excluded_note -}}
                     {%- if returns_url != '' and bs.link_label != blank %}
                       <a class="risk-reversal__link" href="{{ returns_url }}">{{ bs.link_label | escape }}</a>
                     {%- endif -%}
@@ -731,7 +979,7 @@
       {%- liquid
         assign t_items = bs.items | default: 'secure' | remove: ' '
         capture trust_html
-          render 'trust-list', items: t_items, layout: 'row', size: 'sm', class: 'buy-box__trust-list'
+          render 'trust-list', items: t_items, layout: 'row', size: 'sm', class: 'buy-box__trust-list', for_product: product
         endcapture
         assign show_pay = true
         if bs.show_payment_icons == false
@@ -913,7 +1161,12 @@
               endif
             -%}
             <ul class="delivery-facts" role="list">
-              {%- if settings.delivery_promise_enable and d_days != '' -%}
+              {%- if made_to_order -%}
+                <li>
+                  {%- render 'icon', name: 'clock', class: 'delivery-facts__icon' -%}
+                  <span>{{ made_text }}</span>
+                </li>
+              {%- elsif settings.delivery_promise_enable and d_days != '' -%}
                 <li>
                   {%- render 'icon', name: 'clock', class: 'delivery-facts__icon' -%}
                   <span>
@@ -940,8 +1193,10 @@
               {%- if threshold_cents > 0 -%}
                 <li>{%- render 'icon', name: 'check-circle', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_free' | t: amount: threshold_money }}</span></li>
               {%- endif -%}
-              {%- if trial_on -%}
+              {%- if trial_ok -%}
                 <li>{%- render 'icon', name: 'moon', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_trial' | t: nights: nights, terms: trial_terms }}</span></li>
+              {%- elsif excluded_note != '' -%}
+                <li>{%- render 'icon', name: 'info', class: 'delivery-facts__icon' -%}<span>{{ excluded_note }}</span></li>
               {%- endif -%}
               {%- if guarantee_on -%}
                 <li>{%- render 'icon', name: 'shield', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_guarantee' | t: years: years }}</span></li>
@@ -1010,7 +1265,7 @@
   {%- endcase -%}
 {%- endfor -%}
 {%- if compact -%}
-  {%- if size_idx >= 0 -%}
+  {%- if size_idx >= 0 and product.options_with_values[size_idx].values.size > 1 -%}
     {%- render 'size-guide', product: product, section: section, variant: current, compact: true -%}
   {%- endif -%}
   </div>

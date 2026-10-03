@@ -4,9 +4,12 @@
   Conversion levers here, all honest:
     - Choice architecture: a Bed Finder tile sits *inside* the grid at
       position N (default 3) on page 1 — help offered where the choice feels
-      biggest, without leaving the page. Personalised once the finder knows
-      the dog's name; finder-matched cards get their "Bella's match" chip
-      from global.js.
+      biggest, without leaving the page — and closes the grid on later
+      pages, for the shopper still looking. Personalised once the finder
+      knows the dog's name; finder-matched cards get their "Bella's match"
+      chip from global.js. The tile takes one of the page's cells (24 per
+      page → 23 products + the tile), so full pages fill complete rows at
+      2, 3 and 4 columns instead of leaving one card alone on the last row.
     - Friction removal: filters apply instantly (Section Rendering, no page
       load), state lives in the URL (shareable, back button works), quick
       add on every card, a sticky "Filter & sort (n)" bar on phones.
@@ -82,6 +85,37 @@
   assign shop_total = collections.all.products_count | default: 0 | plus: 0
 
   comment
+    Count as beds ("27 beds") only when everything in the collection is a
+    bed; a mixed collection (all products, with kennels or accessories)
+    counts products ("64 products"). Judged by product type: a type that
+    names a bed or a mattress is a bed; products without a type are ignored.
+  endcomment
+  assign count_noun = 'beds'
+  for type_name in collection.all_types
+    assign type_down = type_name | downcase | strip
+    if type_down == ''
+      continue
+    endif
+    unless type_down contains 'bed' or type_down contains 'mattress'
+      assign count_noun = 'products'
+      break
+    endunless
+  endfor
+
+  comment
+    The finder tile counts as one of the page's cells, so paginate one
+    product fewer when it shows: every full page then fills whole rows.
+  endcomment
+  assign tile_on = false
+  if section.settings.show_finder_tile and settings.finder_enable
+    assign tile_on = true
+  endif
+  assign page_size = per_page | plus: 0
+  if tile_on
+    assign page_size = page_size | minus: 1
+  endif
+
+  comment
     No filter bar or sidebar over an empty collection: there is nothing to
     filter. Kept when filters are active, so they can still be cleared.
   endcomment
@@ -91,14 +125,18 @@
   endif
 -%}
 
-{%- paginate collection.products by per_page -%}
+{%- paginate collection.products by page_size -%}
   {%- liquid
     assign results_count = collection.products_count | default: 0 | plus: 0
-    assign show_tile = false
-    if section.settings.show_finder_tile and settings.finder_enable and paginate.current_page == 1
-      assign show_tile = true
-    endif
+    assign show_tile = tile_on
+    comment
+      Page 1: at the chosen position. Later pages: after the last card, as
+      tile_pos 0 never matches inside the loop.
+    endcomment
     assign tile_pos = section.settings.finder_tile_position | default: 3 | plus: 0
+    if paginate.current_page > 1
+      assign tile_pos = 0
+    endif
   -%}
   <section
     class="section scheme-{{ cs }} main-collection"
@@ -123,7 +161,7 @@
             enable_filtering: section.settings.enable_filtering,
             enable_sorting: section.settings.enable_sorting,
             results_count: results_count,
-            noun: 'beds'
+            noun: count_noun
           -%}
           {%- render 'facets',
             part: 'panel',
@@ -134,7 +172,7 @@
             enable_filtering: section.settings.enable_filtering,
             enable_sorting: section.settings.enable_sorting,
             results_count: results_count,
-            noun: 'beds'
+            noun: count_noun
           -%}
         {%- endif -%}
 
@@ -149,7 +187,7 @@
               enable_filtering: section.settings.enable_filtering,
               enable_sorting: section.settings.enable_sorting,
               results_count: results_count,
-              noun: 'beds'
+              noun: count_noun
             -%}
           {%- endif -%}
 
@@ -206,8 +244,14 @@
 
             {%- elsif total_in_collection == 0 and active_count == 0 and request.design_mode -%}
               <p class="collection-results__editor-note">{{ 'collection.empty.editor_note' | t }}</p>
+              {%- liquid
+                assign placeholder_count = 8
+                if show_tile
+                  assign placeholder_count = 7
+                endif
+              -%}
               <ul class="grid collection-grid collection-grid--{{ cols }}" role="list" style="--card-ratio: {{ ratio_css }};">
-                {%- for i in (1..8) -%}
+                {%- for i in (1..placeholder_count) -%}
                   {%- if show_tile and forloop.index == tile_pos -%}
                     {%- render 'finder-tile',
                       heading: section.settings.finder_tile_heading,
@@ -417,11 +461,12 @@
     {
       "type": "range",
       "id": "products_per_page",
-      "label": "Beds per page",
+      "label": "Cards per page",
       "min": 12,
       "max": 48,
       "step": 4,
-      "default": 24
+      "default": 24,
+      "info": "Includes the Bed Finder tile when it shows, so full pages end on a complete row: 24 is 23 products and the tile."
     },
     {
       "type": "select",
@@ -500,12 +545,13 @@
       "id": "show_finder_tile",
       "label": "Show the Bed Finder tile in the grid",
       "default": true,
-      "info": "Shown on the first page only. Hidden when the Bed Finder is switched off in Theme settings."
+      "info": "Hidden when the Bed Finder is switched off in Theme settings."
     },
     {
       "type": "range",
       "id": "finder_tile_position",
-      "label": "Position in the grid",
+      "label": "Position on the first page",
+      "info": "Later pages show it after the last product.",
       "min": 1,
       "max": 12,
       "step": 1,

@@ -1,7 +1,18 @@
 {%- comment -%}
   Size guide — a native <dialog> (bottom sheet on phones) built from THIS
-  product's size option values crossed with settings.size_hints, so the
-  breeds and weights always line up with the sizes actually on sale.
+  product's size option values, in size order (XS → 3XL), so it always
+  lines up with the sizes actually on sale.
+
+  Each value is parsed by snippets/size-hints (mode parse):
+    "Large · 91 × 69 × 24cm"            Size "Large", Dimensions "91 × 69 × 24cm"
+    "Small: Pug | French Bulldog"        Size "Small", Typically suits "Pug, French Bulldog"
+  A size variant's custom.size_hint metafield fills "Typically suits" when
+  the value carries no breeds. The store-wide breed/weight table (Theme
+  settings → Sizing) is only used with hints: true (the variant picker's
+  "Fill in breeds and weights" setting), and never for a value that already
+  carries its own dimensions or breeds: one table can't be right for beds
+  whose "Large" means different dogs. Columns with nothing in them are left
+  out.
 
   Opened by any [data-size-guide-open] button in the same product scope
   (variant picker's "Size guide" link, the size_guide block). Each row has a
@@ -14,6 +25,8 @@
     block     optional main-product size_guide block — its heading / measuring
               tip override the defaults
     compact   true inside the quick-add drawer
+    hints     true → fill breeds/weights from Theme settings → Sizing for
+              values with no detail of their own (default false)
 {%- endcomment -%}
 {%- if product != blank and product.id != blank -%}
   {%- liquid
@@ -43,7 +56,19 @@
       assign measure_html = 'product.size_guide.measure_html' | t
     endif
 
+    comment
+      The trial line only for a product the sleep trial covers.
+    endcomment
     assign nights = settings.trial_nights | default: 0 | plus: 0
+    assign sg_trial_ok = false
+    if settings.trial_enable and nights > 0
+      capture sg_trial
+        render 'trial-eligible', product: product
+      endcapture
+      if sg_trial == 'true'
+        assign sg_trial_ok = true
+      endif
+    endif
     assign current_size = ''
     if size_idx >= 0
       assign current_size = current.options[size_idx]
@@ -54,6 +79,94 @@
     endcomment
     assign show_price = product.price_varies
     assign display_title = product.title | split: ' | ' | first
+
+    comment
+      One pass over the sizes: parse each value, collect its row data and a
+      sort key (rank, then position) so the rows run smallest to largest
+      when every value has a size rank. Rows: value~label~dims~suits~weight.
+    endcomment
+    assign rows = ''
+    assign sort_keys = ''
+    assign all_ranked = true
+    assign has_dims = false
+    assign has_suits = false
+    assign has_weight = false
+    if size_idx >= 0
+      for value in size_option.values
+        assign val = value.name | default: value | append: ''
+        capture parsed
+          render 'size-hints', value: val, mode: 'parse'
+        endcapture
+        assign pp = parsed | split: '|'
+        assign p_rank = pp[0] | default: 0 | plus: 0
+        assign p_label = pp[2] | default: val | strip
+        assign p_detail = pp[3] | default: '' | strip
+        assign lbl_lc = p_label | downcase
+        if lbl_lc == p_label
+          assign p_label = p_label | capitalize
+        endif
+        if p_rank < 1
+          assign all_ranked = false
+        endif
+
+        comment
+          Detail with a digit in it is a measurement; otherwise it names
+          the dogs the size suits.
+        endcomment
+        assign s_dims = ''
+        assign s_suits = ''
+        assign s_weight = ''
+        if p_detail != ''
+          assign d_digits = p_detail | remove: '0' | remove: '1' | remove: '2' | remove: '3' | remove: '4' | remove: '5' | remove: '6' | remove: '7' | remove: '8' | remove: '9'
+          if d_digits != p_detail
+            assign s_dims = p_detail
+          else
+            assign s_suits = p_detail
+          endif
+        endif
+        if s_suits == ''
+          for v in product.variants
+            if v.options[size_idx] == val
+              assign mf_hint = v.metafields.custom.size_hint.value | default: '' | strip
+              if mf_hint != ''
+                assign s_suits = mf_hint
+                break
+              endif
+            endif
+          endfor
+        endif
+        if s_suits == '' and p_detail == '' and hints
+          capture s_suits
+            render 'size-hints', value: val, mode: 'breeds', breeds: 0
+          endcapture
+          capture s_weight
+            render 'size-hints', value: val, mode: 'weight'
+          endcapture
+          assign s_suits = s_suits | strip
+          assign s_weight = s_weight | strip
+        endif
+        if s_dims != ''
+          assign has_dims = true
+        endif
+        if s_suits != ''
+          assign has_suits = true
+        endif
+        if s_weight != ''
+          assign has_weight = true
+        endif
+        assign row = val | append: '~~' | append: p_label | append: '~~' | append: s_dims | append: '~~' | append: s_suits | append: '~~' | append: s_weight
+        assign rows = rows | append: row | append: '^^'
+        assign pos = forloop.index0 | plus: 100
+        assign sk = p_rank | plus: 100 | append: '-' | append: pos
+        assign sort_keys = sort_keys | append: sk | append: ','
+      endfor
+    endif
+    assign row_list = rows | split: '^^'
+    if all_ranked
+      assign order_keys = sort_keys | split: ',' | sort
+    else
+      assign order_keys = sort_keys | split: ','
+    endif
   -%}
   <dialog
     class="modal modal--sheet size-guide"
@@ -75,8 +188,15 @@
           <thead role="rowgroup">
             <tr role="row">
               <th scope="col" role="columnheader">{{ 'product.size_guide.col_size' | t }}</th>
-              <th scope="col" role="columnheader">{{ 'product.size_guide.col_breeds' | t }}</th>
-              <th scope="col" role="columnheader">{{ 'product.size_guide.col_weight' | t }}</th>
+              {%- if has_dims -%}
+                <th scope="col" role="columnheader">{{ 'product.size_guide.col_dims' | t }}</th>
+              {%- endif -%}
+              {%- if has_suits -%}
+                <th scope="col" role="columnheader">{{ 'product.size_guide.col_breeds' | t }}</th>
+              {%- endif -%}
+              {%- if has_weight -%}
+                <th scope="col" role="columnheader">{{ 'product.size_guide.col_weight' | t }}</th>
+              {%- endif -%}
               {%- if show_price -%}
                 <th scope="col" role="columnheader">{{ 'product.size_guide.col_price' | t }}</th>
               {%- endif -%}
@@ -84,21 +204,18 @@
             </tr>
           </thead>
           <tbody role="rowgroup">
-            {%- for value in size_option.values -%}
+            {%- for key in order_keys -%}
               {%- liquid
-                assign val = value.name | default: value | append: ''
-                capture s_label
-                  render 'size-hints', value: val, mode: 'label'
-                endcapture
-                capture s_breeds
-                  render 'size-hints', value: val, mode: 'breeds', breeds: 0
-                endcapture
-                capture s_weight
-                  render 'size-hints', value: val, mode: 'weight'
-                endcapture
-                assign s_label = s_label | strip
-                assign s_breeds = s_breeds | strip
-                assign s_weight = s_weight | strip
+                if key == ''
+                  continue
+                endif
+                assign r_i = key | split: '-' | last | plus: 0 | minus: 100
+                assign r = row_list[r_i] | split: '~~'
+                assign val = r[0]
+                assign s_label = r[1] | default: val
+                assign s_dims = r[2] | default: ''
+                assign s_suits = r[3] | default: ''
+                assign s_weight = r[4] | default: ''
 
                 assign min_price = -1
                 assign any_available = false
@@ -118,18 +235,20 @@
                 if val == current_size
                   assign is_current = true
                 endif
-                assign label_lc = s_label | downcase
-                assign val_lc = val | downcase
               -%}
               <tr role="row" class="size-guide__row{% if is_current %} is-current{% endif %}{% unless any_available %} is-sold-out{% endunless %}" data-size-row data-value="{{ val | escape }}">
                 <th scope="row" role="rowheader" class="size-guide__size">
-                  <span class="size-guide__value">{{ val | escape }}</span>
-                  {%- if s_label != '' and label_lc != val_lc -%}
-                    <span class="size-guide__label">{{ s_label }}</span>
-                  {%- endif -%}
+                  <span class="size-guide__value">{{ s_label | escape }}</span>
                 </th>
-                <td role="cell" class="size-guide__breeds" data-label="{{ 'product.size_guide.col_breeds' | t }}">{{ s_breeds | default: '—' }}</td>
-                <td role="cell" class="size-guide__weight" data-label="{{ 'product.size_guide.col_weight' | t }}">{{ s_weight | default: '—' }}</td>
+                {%- if has_dims -%}
+                  <td role="cell" class="size-guide__dims" data-label="{{ 'product.size_guide.col_dims' | t }}">{{ s_dims | default: '—' | escape }}</td>
+                {%- endif -%}
+                {%- if has_suits -%}
+                  <td role="cell" class="size-guide__breeds" data-label="{{ 'product.size_guide.col_breeds' | t }}">{{ s_suits | default: '—' | escape }}</td>
+                {%- endif -%}
+                {%- if has_weight -%}
+                  <td role="cell" class="size-guide__weight" data-label="{{ 'product.size_guide.col_weight' | t }}">{{ s_weight | default: '—' | escape }}</td>
+                {%- endif -%}
                 {%- if show_price -%}
                   <td role="cell" class="size-guide__price" data-label="{{ 'product.size_guide.col_price' | t }}">
                     {%- if min_price >= 0 -%}{{ min_price | money }}{%- endif -%}
@@ -144,7 +263,7 @@
                     data-option-index="{{ size_idx }}"
                     data-value="{{ val | escape }}"
                     aria-pressed="{{ is_current }}"
-                    aria-label="{{ 'product.size_guide.choose_label' | t: size: val }}"
+                    aria-label="{{ 'product.size_guide.choose_label' | t: size: s_label }}"
                   >
                     <span class="size-guide__choose-text">{{ 'product.size_guide.choose' | t }}</span>
                     <span class="size-guide__chosen-text">{%- render 'icon', name: 'check' -%}{{ 'product.size_guide.selected' | t }}</span>
@@ -174,7 +293,7 @@
         </div>
       </div>
 
-      {%- if settings.trial_enable and nights > 0 -%}
+      {%- if sg_trial_ok -%}
         <p class="size-guide__trial">
           {%- render 'icon', name: 'return', class: 'size-guide__trial-icon' -%}
           {%- capture sg_terms -%}{%- render 'trial-terms' -%}{%- endcapture -%}

@@ -27,6 +27,39 @@
     else
       assign btn_label = 'product.buy.sold_out' | t
     endif
+
+    comment
+      What is being bought, short: the size by its name, so Large rather
+      than Large · 91 × 69 × 24cm, and other options as the picker shows
+      them: Large / Dark Grey. product.js keeps it in step.
+    endcomment
+    assign sa_size_idx = -1
+    for option in product.options_with_values
+      assign sa_on = option.name | downcase
+      if sa_on contains 'size'
+        assign sa_size_idx = forloop.index0
+        break
+      endif
+    endfor
+    assign sa_title = ''
+    for o in current.options
+      if forloop.index0 == sa_size_idx
+        capture sa_part
+          render 'size-hints', value: o, mode: 'size_label'
+        endcapture
+        assign sa_part = sa_part | strip | default: o | escape
+      else
+        assign sa_part = o | escape
+      endif
+      assign sa_lc = sa_part | downcase
+      if sa_lc == sa_part
+        assign sa_part = sa_part | capitalize
+      endif
+      if sa_title != ''
+        assign sa_title = sa_title | append: ' / '
+      endif
+      assign sa_title = sa_title | append: sa_part
+    endfor
   -%}
   <sticky-atc
     class="sticky-atc scheme-{{ section.settings.color_scheme | default: 'bone' }}"
@@ -56,7 +89,7 @@
         <p class="sticky-atc__title">{{ display_title | escape }}</p>
         <p class="sticky-atc__meta">
           {%- unless product.has_only_default_variant -%}
-            <span class="sticky-atc__variant" data-sticky-variant>{{ current.title | escape }}</span>
+            <span class="sticky-atc__variant" data-sticky-variant>{{ sa_title }}</span>
             <span class="sticky-atc__sep" aria-hidden="true">·</span>
           {%- endunless -%}
           <span class="sticky-atc__price" data-sticky-price>{{ current.price | money }}</span>

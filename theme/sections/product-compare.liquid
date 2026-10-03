@@ -12,12 +12,15 @@
   Placeholders in any cell: [trial_nights] [guarantee_years] [threshold]
   [trial_terms] [trial_terms_short] (the returns wording, snippets/trial-terms).
 
-  The default rows describe the memory-foam core, so on product pages
-  ("Show on product pages" = auto) the section only renders for beds whose
-  title, type or tags mention orthopaedic / memory foam — the same test as
-  the mechanism section and the guarantee line (snippets/foam-bed). A
-  fibre-filled nest bed is never told it has a 50kg/m³ foam core. Tag a
-  product "guarantee:yes" or "guarantee:no" to override.
+  The default rows describe a foam core under the foam guarantee, so on
+  product pages ("Show on product pages" = auto) the section only renders for
+  beds the guarantee covers — the same test as the mechanism section and the
+  guarantee line (snippets/foam-bed: the description promises a no-flatten
+  guarantee, or the product is tagged guarantee:yes; guarantee:no wins).
+  On a product page the trial rows also follow the product: a product the
+  sleep trial doesn't cover (snippets/trial-eligible) never shows them.
+  A row can also be limited to products with a tag ("Only on products
+  tagged", e.g. washable dog bed for a washing claim).
 
   Semantic <table> with explicit ARIA roles, so phones can lay each row out as
   a card without losing the table for screen readers.
@@ -70,17 +73,38 @@
   endif
   assign theirs_label = section.settings.theirs_label | default: ''
 
+  comment
+    The trial rows follow the product on a product page: no trial row for a
+    product the sleep trial doesn't cover (kennels, personalised beds).
+  endcomment
+  assign pc_trial_ok = false
+  if settings.trial_enable and nights > 0
+    assign pc_trial_ok = true
+    if product != blank and product.id != blank
+      capture pc_trial
+        render 'trial-eligible', product: product
+      endcapture
+      if pc_trial != 'true'
+        assign pc_trial_ok = false
+      endif
+    endif
+  endif
+  assign pc_tags = ''
+  if product != blank and product.id != blank
+    assign pc_tags = product.tags | join: '|' | downcase | prepend: '|' | append: '|'
+  endif
+
   assign visible_ids = ''
   for block in section.blocks
     assign req = block.settings.requires | default: 'none'
     assign ok = true
     case req
       when 'trial'
-        unless settings.trial_enable and nights > 0
+        unless pc_trial_ok
           assign ok = false
         endunless
       when 'free_return'
-        unless settings.trial_enable and nights > 0 and settings.trial_free_collection
+        unless pc_trial_ok and settings.trial_free_collection
           assign ok = false
         endunless
       when 'guarantee'
@@ -92,6 +116,17 @@
           assign ok = false
         endunless
     endcase
+    comment
+      Only on products tagged: on a product page, the product must carry
+      the tag; elsewhere (no product) the row shows.
+    endcomment
+    assign req_tag = block.settings.requires_tag | default: '' | strip | downcase
+    if ok and req_tag != '' and pc_tags != ''
+      assign req_key = '|' | append: req_tag | append: '|'
+      unless pc_tags contains req_key
+        assign ok = false
+      endunless
+    endif
     if ok
       assign visible_ids = visible_ids | append: block.id | append: ','
     endif
@@ -220,11 +255,11 @@
       "id": "product_filter",
       "label": "Show on product pages",
       "options": [
-        { "value": "auto", "label": "Only foam / orthopaedic beds" },
+        { "value": "auto", "label": "Only beds the foam guarantee covers" },
         { "value": "always", "label": "Always" }
       ],
       "default": "auto",
-      "info": "Auto shows it only on foam/orthopaedic beds. Tag a product guarantee:yes or guarantee:no to override (the same tags decide the foam guarantee line and per-night price)."
+      "info": "Auto shows it only on beds the foam guarantee covers: the description says \"no-flatten guarantee\", or the product is tagged guarantee:yes. Tag guarantee:no to hide it. The same test decides the guarantee line and per-night price."
     },
     {
       "type": "checkbox",
@@ -311,7 +346,7 @@
           "type": "text",
           "id": "ours",
           "label": "Ours",
-          "default": "50kg/m³ high-density memory foam core",
+          "default": "A foam core, not loose filling",
           "info": "Can use [trial_nights], [guarantee_years], [threshold], and [trial_terms_short] or [trial_terms] for the returns wording in Theme settings → Promises."
         },
         {
@@ -329,7 +364,7 @@
           "type": "text",
           "id": "theirs",
           "label": "Right-hand column",
-          "default": "Is the foam density stated?",
+          "default": "What's inside, and what keeps it from flattening?",
           "info": "A question to ask of any bed. Don't state facts about other beds you can't evidence."
         },
         {
@@ -354,7 +389,14 @@
             { "value": "guarantee", "label": "Guarantee" },
             { "value": "free_delivery", "label": "Free delivery" }
           ],
-          "default": "none"
+          "default": "none",
+          "info": "On a product page, the trial rows also hide on products the trial doesn't cover (Theme settings → Promises → Not covered by the trial)."
+        },
+        {
+          "type": "text",
+          "id": "requires_tag",
+          "label": "Only on products tagged",
+          "info": "Optional. On product pages the row only shows when the product has this tag, e.g. washable dog bed for a washing claim."
         }
       ]
     }
@@ -368,9 +410,9 @@
           "type": "row",
           "settings": {
             "label": "Filling",
-            "ours": "50kg/m³ high-density memory foam core",
+            "ours": "A foam core, not loose filling",
             "ours_icon": "check",
-            "theirs": "Is the foam density stated?",
+            "theirs": "What's inside, and what keeps it from flattening?",
             "theirs_icon": "none",
             "requires": "none"
           }
@@ -412,11 +454,12 @@
           "type": "row",
           "settings": {
             "label": "Cleaning",
-            "ours": "Cover unzips, machine-washes at 30°C",
+            "ours": "The cover comes off to wash",
             "ours_icon": "check",
             "theirs": "Does the whole cover come off to wash?",
             "theirs_icon": "none",
-            "requires": "none"
+            "requires": "none",
+            "requires_tag": "washable dog bed"
           }
         }
       ]

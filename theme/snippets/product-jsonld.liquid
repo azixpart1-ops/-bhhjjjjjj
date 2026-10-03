@@ -7,8 +7,12 @@
       reviews.rating_count (> 0) to the product.
     - gtin from the variant barcode when it is 8, 12, 13 or 14 digits.
     - hasMerchantReturnPolicy from the trial settings when the trial is
-      switched on: FreeReturn only while "We collect returns free"
-      (trial_free_collection) is ticked, else the customer pays the return.
+      switched on AND covers this product (snippets/trial-eligible):
+      FreeReturn only while "We collect returns free" (trial_free_collection)
+      is ticked, else the customer pays the return. A product the trial
+      doesn't cover (kennels, personalised beds) gets no trial policy: only
+      a return window of its own from the custom.return_days metafield
+      (customer pays the return), else none at all.
     - shippingDetails only on offers that qualify for free delivery (the one
       shipping rate the theme actually knows), with the handling/transit
       windows from the delivery settings.
@@ -37,6 +41,20 @@
       assign d_max = d_min
     endif
     assign nights = settings.trial_nights | default: 0 | plus: 0
+    assign rp_days = 0
+    assign rp_free = false
+    if settings.trial_enable and nights > 0
+      capture rp_trial
+        render 'trial-eligible', product: product
+      endcapture
+      if rp_trial == 'true'
+        assign rp_days = nights
+        assign rp_free = settings.trial_free_collection
+      endif
+    endif
+    if rp_days == 0
+      assign rp_days = product.metafields.custom.return_days.value | default: 0 | plus: 0 | round
+    endif
 
     assign image_urls = ''
     for m in product.media limit: 8
@@ -146,14 +164,14 @@
                   }
                 },
                 {%- endif -%}
-                {%- if settings.trial_enable and nights > 0 -%}
+                {%- if rp_days > 0 -%}
                 "hasMerchantReturnPolicy": {
                   "@type": "MerchantReturnPolicy",
                   "applicableCountry": "GB",
                   "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-                  "merchantReturnDays": {{ nights }},
+                  "merchantReturnDays": {{ rp_days }},
                   "returnMethod": "https://schema.org/ReturnByMail",
-                  "returnFees": "https://schema.org/{% if settings.trial_free_collection %}FreeReturn{% else %}ReturnFeesCustomerResponsibility{% endif %}"
+                  "returnFees": "https://schema.org/{% if rp_free %}FreeReturn{% else %}ReturnFeesCustomerResponsibility{% endif %}"
                 },
                 {%- endif -%}
                 "seller": { "@type": "Organization", "name": {{ shop.name | json }} }

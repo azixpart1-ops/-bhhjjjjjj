@@ -11,15 +11,30 @@
     update_url  true → <variant-picker> writes ?variant= to the address bar
 
   How each option renders
-    size-like   (name contains "size", any case) → a size ladder: one row per
-                value with the breed/weight hint from settings.size_hints, the
-                price of that size (only when sizes are priced differently),
-                a "Most chosen" chip (variant metafield custom.most_chosen or the
-                section's most_chosen_value) and a hidden "Recommended for Bella"
-                chip that product.js reveals from the Bed Finder result.
+    size-like   (name contains "size", any case) → a size ladder, smallest
+                first when every value is a size (XS < S < M < L < XL…, from
+                snippets/size-hints; otherwise in the product's own order).
+                Each row: the size's own name in bold ("Large"), the rest of
+                the value under it ("91 × 69 × 24cm", or the breeds of
+                "Medium: Cocker | Staffie" as "Cocker, Staffie"), the price of
+                that size (only when sizes are priced differently), a "Most
+                chosen" chip (variant metafield custom.most_chosen or the
+                section's most_chosen_value) and a hidden "Recommended for
+                Bella" chip that product.js reveals from the Bed Finder result.
+                A value with nothing after its name uses the size variant's
+                custom.size_hint metafield, and only then (block setting
+                show_size_hints, off by default) the store-wide breed/weight
+                table — never for a value that carries its own detail.
     colour-like (colour / color) → swatches from the option value's swatch
                 (colour or image), else text pills.
     anything else → text pills.
+    One value only → a plain "Colour: Herringbone grey" line, no buttons,
+                no size guide or finder links.
+
+  Display only (the values used to match variants never change): option
+  names "color"/"Color" read "Colour", and all-lowercase values and names
+  get a capital ("beige" → "Beige"). Each input carries data-display, which
+  product.js shows as the selected value.
 
   Combinations that don't exist or are sold out stay selectable (you might want
   that colour in another size) but are struck through and announced as such.
@@ -41,14 +56,14 @@
     assign has_block = true
   endif
 
-  assign show_hints = true
+  assign show_hints = false
   assign show_prices = true
   assign show_guide = true
   assign show_finder = false
   assign size_style = 'rows'
   if has_block
-    if block.settings.show_size_hints == false
-      assign show_hints = false
+    if block.settings.show_size_hints
+      assign show_hints = true
     endif
     if block.settings.show_size_prices == false
       assign show_prices = false
@@ -135,11 +150,99 @@
           assign kind = 'colour'
         endif
         assign current_value = current.options[idx]
+
+        comment
+          The option's display name: "Colour" for color / Color / colour,
+          and a capital on an all-lowercase name.
+        endcomment
+        assign oname_s = oname | strip
+        if oname_s == 'color' or oname_s == 'colour'
+          assign opt_name = 'product.picker.colour_name' | t
+        else
+          assign opt_name = option.name | escape
+          if oname == option.name
+            assign opt_name = option.name | capitalize | escape
+          endif
+        endif
+
+        comment
+          Display text for every value: sizes by their own name (size-hints
+          parse: "Large · 91 × 69cm" → "Large" + detail "91 × 69cm"), others
+          as typed with a capital when all lowercase. Kept per position as
+          label~~detail~~rank in vals_info.
+        endcomment
+        assign vals_info = ''
+        assign sort_keys = ''
+        assign all_ranked = true
+        assign current_display = current_value
+        for value in option.values
+          assign v_raw = value.name | default: value | append: ''
+          assign v_label = v_raw
+          assign v_detail = ''
+          assign v_rank = 0
+          if kind == 'size'
+            capture v_parsed
+              render 'size-hints', value: v_raw, mode: 'parse'
+            endcapture
+            assign vp = v_parsed | split: '|'
+            assign v_rank = vp[0] | default: 0 | plus: 0
+            assign v_label = vp[2] | default: v_raw | strip
+            assign v_detail = vp[3] | default: '' | strip
+            if v_rank < 1
+              assign all_ranked = false
+            endif
+          endif
+          assign v_lc = v_label | downcase
+          if v_lc == v_label
+            assign v_label = v_label | capitalize
+          endif
+          if v_raw == current_value
+            assign current_display = v_label
+          endif
+          assign vals_info = vals_info | append: v_label | append: '~~' | append: v_detail | append: '^^'
+          assign v_pos = forloop.index0 | plus: 100
+          assign v_key = v_rank | plus: 100 | append: '-' | append: v_pos
+          assign sort_keys = sort_keys | append: v_key | append: ','
+        endfor
+        assign info_list = vals_info | split: '^^'
+        assign order_keys = sort_keys | split: ','
+        if kind == 'size' and all_ranked
+          assign order_keys = order_keys | sort
+        endif
+
         assign values_class = 'variant-picker__values variant-picker__values--' | append: kind
         if kind == 'size'
           assign values_class = values_class | append: ' variant-picker__values--' | append: size_style
         endif
+        assign single = false
+        if option.values.size == 1
+          assign single = true
+        endif
       -%}
+      {%- if single -%}
+        {%- comment -%}
+          Nothing to choose: say what it is, as a plain line. A one-value
+          size reads in full ("One size · 80 × 80cm"); colours as typed.
+        {%- endcomment -%}
+        {%- liquid
+          if kind == 'size'
+            assign static_text = current_value
+            assign st_lc = static_text | downcase
+            if st_lc == static_text
+              assign static_text = static_text | capitalize
+            endif
+          else
+            assign static_text = current_display
+          endif
+        -%}
+        <div class="variant-picker__group variant-picker__group--static">
+          <p class="variant-picker__static" data-option-static data-option-index="{{ idx }}">
+            <span class="variant-picker__name">{{ opt_name }}</span>
+            <span class="variant-picker__selected">{{ static_text | escape }}</span>
+          </p>
+        </div>
+        {%- continue -%}
+      {%- endif -%}
       {%- liquid
         assign has_help = false
         if kind == 'size'
@@ -152,8 +255,8 @@
       {%- if has_help -%}
         <p class="variant-picker__head">
           <span class="variant-picker__head-label" aria-hidden="true">
-            <span class="variant-picker__name">{{ option.name | escape }}</span>
-            <span class="variant-picker__selected" data-selected-value>{{ current_value | escape }}</span>
+            <span class="variant-picker__name">{{ opt_name }}</span>
+            <span class="variant-picker__selected" data-selected-value>{{ current_display | escape }}</span>
           </span>
           {%- if show_guide -%}
             <span class="variant-picker__help">
@@ -187,15 +290,23 @@
         data-option-kind="{{ kind }}"
       >
         <legend class="variant-picker__legend{% if has_help %} visually-hidden{% endif %}">
-          <span class="variant-picker__name">{{ option.name | escape }}</span>
-          <span class="variant-picker__selected" data-selected-value>{{ current_value | escape }}</span>
+          <span class="variant-picker__name">{{ opt_name }}</span>
+          <span class="variant-picker__selected" data-selected-value>{{ current_display | escape }}</span>
         </legend>
 
         <div class="{{ values_class }}">
-          {%- for value in option.values -%}
+          {%- for okey in order_keys -%}
             {%- liquid
+              if okey == ''
+                continue
+              endif
+              assign v_i = okey | split: '-' | last | plus: 0 | minus: 100
+              assign value = option.values[v_i]
               assign val = value.name | default: value | append: ''
-              assign input_id = uid | append: '-' | append: idx | append: '-' | append: forloop.index0
+              assign v_info = info_list[v_i] | split: '~~'
+              assign disp = v_info[0] | default: val
+              assign detail = v_info[1] | default: ''
+              assign input_id = uid | append: '-' | append: idx | append: '-' | append: v_i
 
               comment
                 The variant this value would select, keeping the other options
@@ -255,14 +366,32 @@
               name="{{ uid }}-{{ idx }}"
               value="{{ val | escape }}"
               data-value-input
+              data-display="{{ disp | escape }}"
               {%- if val == current_value %} checked{% endif %}
             >
             {%- case kind -%}
               {%- when 'size' -%}
                 {%- liquid
+                  comment
+                    The line under the size: the value's own detail, else the
+                    size variant's custom.size_hint, else (opt-in) the store
+                    table's breeds and weight.
+                  endcomment
                   assign h_breeds = ''
                   assign h_weight = ''
-                  if show_hints
+                  assign h_own = detail
+                  if h_own == ''
+                    for v in product.variants
+                      if v.options[idx] == val
+                        assign mf_hint = v.metafields.custom.size_hint.value | default: '' | strip
+                        if mf_hint != ''
+                          assign h_own = mf_hint
+                          break
+                        endif
+                      endif
+                    endfor
+                  endif
+                  if h_own == '' and show_hints
                     capture h_breeds
                       render 'size-hints', value: val, mode: 'breeds'
                     endcapture
@@ -281,7 +410,7 @@
                 >
                   <span class="size-option__main">
                     <span class="size-option__top">
-                      <span class="size-option__value">{{ val | escape }}</span>
+                      <span class="size-option__value">{{ disp | escape }}</span>
                       {%- if idx == chip_idx -%}
                         {%- if is_mc -%}
                           <span class="size-option__chip size-option__chip--popular" data-most-chosen-chip>{{ 'product.picker.most_chosen' | t }}</span>
@@ -292,7 +421,9 @@
                         </span>
                       {%- endif -%}
                     </span>
-                    {%- if h_breeds != '' or h_weight != '' -%}
+                    {%- if h_own != '' -%}
+                      <span class="size-option__hint">{{ h_own | escape }}</span>
+                    {%- elsif h_breeds != '' or h_weight != '' -%}
                       <span class="size-option__hint">
                         {{- h_breeds -}}
                         {%- if h_breeds != '' and h_weight != '' %} · {% endif -%}
@@ -328,10 +459,10 @@
                     for="{{ input_id }}"
                     data-value-label
                     data-value="{{ val | escape }}"
-                    title="{{ val | escape }}"
+                    title="{{ disp | escape }}"
                   >
                     <span class="swatch-option__swatch" style="{{ swatch_style }}" aria-hidden="true"></span>
-                    <span class="visually-hidden">{{ val | escape }}</span>
+                    <span class="visually-hidden">{{ disp | escape }}</span>
                     <span class="visually-hidden" data-value-state>
                       {%- if state == 'sold-out' %}, {{ 'product.picker.sold_out' | t }}{% elsif state == 'unavailable' %}, {{ 'product.picker.unavailable' | t }}{% endif -%}
                     </span>
@@ -343,7 +474,7 @@
                     data-value-label
                     data-value="{{ val | escape }}"
                   >
-                    <span class="pill-option__text">{{ val | escape }}</span>
+                    <span class="pill-option__text">{{ disp | escape }}</span>
                     <span class="visually-hidden" data-value-state>
                       {%- if state == 'sold-out' %}, {{ 'product.picker.sold_out' | t }}{% elsif state == 'unavailable' %}, {{ 'product.picker.unavailable' | t }}{% endif -%}
                     </span>
@@ -356,7 +487,7 @@
                   data-value-label
                   data-value="{{ val | escape }}"
                 >
-                  <span class="pill-option__text">{{ val | escape }}</span>
+                  <span class="pill-option__text">{{ disp | escape }}</span>
                   {%- if idx == chip_idx and is_mc -%}
                     <span class="pill-option__chip" data-most-chosen-chip>{{ 'product.picker.most_chosen' | t }}</span>
                   {%- endif -%}

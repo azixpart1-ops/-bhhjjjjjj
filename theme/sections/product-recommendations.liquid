@@ -4,10 +4,16 @@
   The page renders an empty shell; <product-recommendations> (product.js)
   fetches this same section through
     {{ routes.product_recommendations_url }}?section_id=…&product_id=…&limit=…&intent=…
-  when it nears the viewport, and swaps the cards in. No results → the
-  section removes itself. Cards are the shared product-card snippet, so the
-  "Bella's match" chip, honest stock and quick add all come along.
-  A swipe row on phones, a grid on desktop.
+  when it nears the viewport, and swaps the cards in. Cards are the shared
+  product-card snippet, so the "Bella's match" chip, honest stock and quick
+  add all come along. A swipe row on phones, a grid on desktop.
+
+  No results (a new store: Shopify needs order history before it recommends
+  anything) → the cards in <template data-recs-fallback> are used instead:
+  available products of the same product type, then of the same top-level
+  type ("Dog Beds" for "Dog Beds > Nest Beds"), never the product itself,
+  from the first 50 of the "all" collection. Nothing there either → the
+  section stays hidden.
 {%- endcomment -%}
 {%- comment -%}
   On product templates main-product (first in product.json) already links
@@ -77,6 +83,60 @@
             {%- endfor -%}
           </ul>
         </slider-row>
+      {%- elsif has_product and recommendations.performed? == false and request.design_mode == false -%}
+        {%- liquid
+          assign fb_type = product.type | default: '' | strip
+          assign fb_top = fb_type | split: '>' | first | default: '' | strip
+          assign fb_seen = '|' | append: product.id | append: '|'
+          assign fb_count = 0
+        -%}
+        {%- if fb_type != '' -%}
+          {%- capture fb_cards -%}
+            {%- for pass in (1..2) -%}
+              {%- for rec in collections.all.products -%}
+                {%- liquid
+                  if fb_count >= limit
+                    break
+                  endif
+                  assign rec_key = '|' | append: rec.id | append: '|'
+                  if fb_seen contains rec_key or rec.available == false
+                    continue
+                  endif
+                  assign rec_type = rec.type | default: '' | strip
+                  if pass == 1 and rec_type != fb_type
+                    continue
+                  endif
+                  if pass == 2
+                    assign rec_top = rec_type | split: '>' | first | default: '' | strip
+                    if fb_top == '' or rec_top != fb_top
+                      continue
+                    endif
+                  endif
+                  assign fb_seen = fb_seen | append: rec.id | append: '|'
+                  assign fb_count = fb_count | plus: 1
+                -%}
+                <li class="product-recs__item">
+                  {%- render 'product-card',
+                    product: rec,
+                    show_quick_add: show_quick,
+                    heading_level: 'h3',
+                    index: fb_count,
+                    sizes: '(min-width: 1320px) 300px, (min-width: 990px) 23vw, (min-width: 750px) 40vw, 78vw'
+                  -%}
+                </li>
+              {%- endfor -%}
+            {%- endfor -%}
+          {%- endcapture -%}
+          {%- if fb_count > 0 -%}
+            <template data-recs-fallback>
+              <slider-row class="product-recs__slider" id="{{ section.id }}-slider">
+                <ul class="slider-row slider-row--grid-desktop product-recs__list" data-slider-track role="list" style="--slider-cols: {{ cols }}" data-recs-list>
+                  {{- fb_cards -}}
+                </ul>
+              </slider-row>
+            </template>
+          {%- endif -%}
+        {%- endif -%}
       {%- elsif has_product == false or request.design_mode and recommendations.performed? == false -%}
         {%- if request.design_mode -%}
           <ul class="grid grid--4 product-recs__list" role="list">
@@ -102,7 +162,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Chosen automatically by Shopify from what's bought and viewed together. Tune them with the Search & Discovery app."
+      "content": "Chosen automatically by Shopify from what's bought and viewed together. Tune them with the Search & Discovery app. Until Shopify has enough orders to recommend anything, other products of the same product type show instead."
     },
     {
       "type": "text",

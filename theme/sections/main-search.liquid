@@ -9,6 +9,12 @@
     popular searches that do work, popular collections and the Bed Finder —
     the shopper who can't name what they want is exactly who the finder
     is for.
+  - Shortcut links (the need chips) may search with Shopify's field syntax,
+    e.g. tag:"flat dog bed" or product_type:"Dog Beds > Cooling & Elevated
+    Beds". The heading and the search box show the plain value ("flat dog
+    bed", "Cooling & Elevated Beds"), never the syntax; the raw query (and a
+    type=product restriction) still drives results, filters, sort and
+    pages.
 {%- endcomment -%}
 {{ 'collection.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'collection.js' | asset_url }}" defer="defer"></script>
@@ -20,7 +26,59 @@
   assign fx_layout = section.settings.filter_layout | default: 'sidebar'
   assign cols = section.settings.columns_desktop | default: '4'
   assign terms = search.terms | default: ''
-  assign terms_escaped = terms | escape
+
+  comment
+    Field queries read as their value: field names, quotes and brackets go,
+    OR / AND / NOT read as words, and a product type keeps its last level,
+    after the final " > ". A field only counts at the start of a word, so
+    vintage: is not tag:, and variants.title comes before title in the list
+    so it is stripped whole.
+  endcomment
+  assign display_terms = terms
+  assign query_fields = 'product_type:,variants.title:,variants.sku:,variants.price:,vendor:,title:,tag:,body:' | split: ','
+  assign probe = ' ' | append: terms | replace: '(', ' ' | replace: ')', ' ' | replace: '-', ' ' | downcase
+  assign is_field_query = false
+  for field in query_fields
+    assign needle = ' ' | append: field
+    if probe contains needle
+      assign is_field_query = true
+      break
+    endif
+  endfor
+  if is_field_query
+    assign clean = ' ' | append: terms | replace: '(', ' ' | replace: ')', ' '
+    for field in query_fields
+      assign needle = ' ' | append: field
+      assign needle_neg = ' -' | append: field
+      assign clean = clean | replace: needle_neg, ' not ' | replace: needle, ' '
+    endfor
+    assign clean = clean | replace: '"', ' ' | replace: ' OR ', ' or ' | replace: ' AND ', ' and ' | replace: ' NOT ', ' not '
+    assign clean_parts = clean | split: ' or '
+    assign rebuilt = ''
+    for clean_part in clean_parts
+      assign piece = clean_part | split: ' > ' | last | split: ' ' | join: ' ' | replace: '  ', ' ' | replace: '  ', ' ' | strip
+      if piece == ''
+        continue
+      endif
+      if rebuilt != ''
+        assign rebuilt = rebuilt | append: ' or '
+      endif
+      assign rebuilt = rebuilt | append: piece
+    endfor
+    if rebuilt != ''
+      assign display_terms = rebuilt
+    endif
+  endif
+  assign terms_escaped = display_terms | escape
+
+  comment
+    A search limited to one type (e.g. type=product from a chip) keeps that
+    limit when the shopper clears filters.
+  endcomment
+  assign type_qs = ''
+  if search.types.size == 1
+    assign type_qs = '&type=' | append: search.types.first
+  endif
 
   case settings.card_image_ratio
     when 'portrait'
@@ -116,11 +174,28 @@
         {%- if c.handle == 'frontpage' or c.all_products_count == 0 -%}{%- continue -%}{%- endif -%}
       {%- endif -%}
       {%- assign col_shown = col_shown | plus: 1 -%}
-      {%- assign c_title = c.title | split: ' | ' | first | split: ' – ' | first | strip -%}
+      {%- liquid
+        assign c_title = c.title | split: ' | ' | first | split: ' – ' | first | strip
+        comment
+          Beds ("12 beds"), or products ("4 products") for a collection
+          that isn't all beds.
+        endcomment
+        assign c_count_key = 'collection.hero.count'
+        for type_name in c.all_types
+          assign type_down = type_name | downcase | strip
+          if type_down == ''
+            continue
+          endif
+          unless type_down contains 'bed' or type_down contains 'mattress'
+            assign c_count_key = 'collection.hero.count_products'
+            break
+          endunless
+        endfor
+      -%}
       <li>
         <a class="search-recovery__link" href="{{ c.url }}">
           <span>{{ c_title | escape }}</span>
-          {%- if c.all_products_count > 0 -%}<span class="search-recovery__count">{{ 'collection.hero.count' | t: count: c.all_products_count }}</span>{%- endif -%}
+          {%- if c.all_products_count > 0 -%}<span class="search-recovery__count">{{ c_count_key | t: count: c.all_products_count }}</span>{%- endif -%}
           {%- render 'icon', name: 'arrow-right' -%}
         </a>
       </li>
@@ -344,7 +419,7 @@
                     <h2 class="h3 collection-empty__heading">{{ 'collection.empty.filtered_heading' | t }}</h2>
                     <p class="collection-empty__text">{{ 'collection.search.filtered_text' | t }}</p>
                     <div class="collection-empty__actions">
-                      <a href="{{ search_url }}?q={{ terms | url_encode }}&amp;options%5Bprefix%5D=last" class="btn btn--secondary" data-facets-link>{{ 'collection.facets.clear_all' | t }}</a>
+                      <a href="{{ search_url }}?q={{ terms | url_encode }}&amp;options%5Bprefix%5D=last{{ type_qs | escape }}" class="btn btn--secondary" data-facets-link>{{ 'collection.facets.clear_all' | t }}</a>
                       {%- if settings.finder_enable -%}
                         <a href="{{ finder_url }}" class="btn btn--ghost" data-open-finder>
                           {%- render 'icon', name: 'paw' -%}
