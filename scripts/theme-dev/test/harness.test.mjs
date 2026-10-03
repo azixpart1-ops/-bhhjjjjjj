@@ -151,3 +151,98 @@ test('keyed globals: sortable arrays that still resolve by handle', () => {
   assert.match(html, new RegExp(`S${n}/`));
   assert.match(html, /H[^/]+\/cooling\/main-menu$/);
 });
+
+// ---------------------------------------------------------------- real-catalogue mode
+// A synthetic products.json (no network): 60 products, so collection.products hits the
+// 50-product cap, one colour-first product with variant images, one Default Title kennel.
+const cdn = (n) => `https://cdn.shopify.com/s/files/1/0000/0000/0001/files/${n}.jpg?v=17`;
+const synthetic = (() => {
+  const products = [];
+  for (let i = 0; i < 58; i++) {
+    products.push({
+      id: 1000 + i, title: `Bed ${String(i).padStart(2, '0')}`, handle: `bed-${i}`, body_html: '<p>Soft.</p>', vendor: 'PawLunova', product_type: 'Dog Beds > Orthopaedic Dog Beds', tags: ['PawLunova'],
+      created_at: '2026-10-02T15:54:26-04:00', published_at: '2026-10-02T15:54:26-04:00',
+      options: [{ name: 'Size', position: 1, values: ['Medium · 70 × 55cm', 'Large · 90 × 70cm'] }],
+      variants: [
+        { id: 50000 + i * 10, title: 'Medium · 70 × 55cm', option1: 'Medium · 70 × 55cm', option2: null, option3: null, price: '79.00', compare_at_price: null, available: true, sku: `B${i}M`, grams: 0, featured_image: null },
+        { id: 50001 + i * 10, title: 'Large · 90 × 70cm', option1: 'Large · 90 × 70cm', option2: null, option3: null, price: '99.50', compare_at_price: '120.00', available: true, sku: `B${i}L`, grams: 0, featured_image: null },
+      ],
+      images: [{ id: 7000 + i, position: 1, src: cdn(`bed-${i}`), width: 1200, height: 800, variant_ids: [], alt: `Bed ${i} - Pawlunova`, media_id: 9000 + i }],
+    });
+  }
+  products.push({
+    id: 2001, title: 'Colour Bed', handle: 'colour-bed', body_html: '', vendor: 'PawLunova', product_type: 'Dog Beds > Bolster & Nest Beds', tags: [],
+    options: [{ name: 'Colour', position: 1, values: ['Green', 'Grey'] }, { name: 'Size', position: 2, values: ['Small', 'Large'] }],
+    variants: [['Green', 'Small', 69], ['Green', 'Large', 99], ['Grey', 'Small', 69], ['Grey', 'Large', 99]].map(([c, s, p], i) => ({
+      id: 60000 + i, title: `${c} / ${s}`, option1: c, option2: s, option3: null, price: `${p}.00`, compare_at_price: null, available: true, sku: '', grams: 0,
+      featured_image: { id: c === 'Green' ? 8001 : 8002, alt: `${c} bed`, src: cdn(c), width: 1000, height: 1000 },
+    })),
+    images: [{ id: 8001, position: 1, src: cdn('Green'), width: 1000, height: 1000, variant_ids: [60000, 60001], media_id: 9901 }, { id: 8002, position: 2, src: cdn('Grey'), width: 1000, height: 1000, variant_ids: [60002, 60003], media_id: 9902 }],
+  });
+  products.push({
+    id: 2002, title: 'Keswick Kennel', handle: 'kennel', body_html: '', vendor: 'PawLunova', product_type: 'Dog Houses > Outdoor Kennels', tags: [],
+    options: [{ name: 'Title', position: 1, values: ['Default Title'] }],
+    variants: [{ id: 61000, title: 'Default Title', option1: 'Default Title', option2: null, option3: null, price: '149.00', compare_at_price: null, available: true, sku: 'K', grams: 0, featured_image: null }],
+    images: [],
+  });
+  const all = [...products].sort((a, b) => a.title.localeCompare(b.title)).map((p) => p.handle);
+  return { meta: { source: 'test' }, products, all, collections: [{ handle: 'frontpage', title: 'Home page', products: ['colour-bed'] }] };
+})();
+const realStore = createStore({ real: true, realCatalog: synthetic });
+const rr = new ThemeRenderer({ themeDir: dir, store: realStore });
+
+test('real catalogue: options, variants in pence, 5 tracked on deny, Default Title, menus', () => {
+  const p = realStore.productByHandle('colour-bed');
+  assert.deepEqual(p.options, ['Colour', 'Size']);
+  assert.equal(p.variants[1].title, 'Green / Large');
+  assert.deepEqual([p.variants[1].option1, p.variants[1].option2, p.variants[1].option3], ['Green', 'Large', null]);
+  assert.equal(p.variants[1].price, 9900);
+  assert.equal(realStore.productByHandle('bed-3').variants[1].compare_at_price, 12000);
+  assert.ok(p.variants.every((v) => v.inventory_quantity === 5 && v.inventory_management === 'shopify' && v.inventory_policy === 'deny' && v.available));
+  const k = realStore.productByHandle('kennel');
+  assert.equal(k.has_only_default_variant, true);
+  assert.equal(k.type, 'Dog Houses > Outdoor Kennels');
+  assert.deepEqual(realStore.linklists().map((l) => `${l.handle}:${l.links.map((x) => x.title).join(',')}`), ['main-menu:Home,Catalog,Contact', 'footer:Search']);
+  assert.deepEqual(realStore.collectionView('frontpage').products.map((x) => x.handle), ['colour-bed']);
+});
+
+test('real catalogue: media ids differ from image ids; variant featured image/media', () => {
+  const p = realStore.productByHandle('colour-bed');
+  assert.equal(p.images[0].id, 8001);
+  assert.equal(p.media[0].id, 9901);
+  assert.equal(p.media[0].preview_image.id, 8001);
+  assert.equal(p.variants[2].featured_image.id, 8002);
+  assert.equal(p.variants[2].featured_media.id, 9902);
+  assert.equal(p.images[0].alt, 'Green bed', 'alt from the variant image when products.json has none');
+});
+
+test('real catalogue: image_url returns the CDN URL with width; image_tag srcset on the CDN', () => {
+  const p = realStore.productByHandle('bed-1');
+  const route = resolveRoute(realStore, '/', new URLSearchParams());
+  rr.begin(route, null);
+  const html = rr.engine.parseAndRenderSync("{{ p.featured_image | image_url: width: 600 }}|{{ p.featured_image | image_url: width: 400 | image_tag: alt: '' }}", { p }, { globals: rr.cur.globals });
+  rr.cur = null;
+  assert.match(html, /^https:\/\/cdn\.shopify\.com\/s\/files\/1\/0000\/0000\/0001\/files\/bed-1\.jpg\?v=17&width=600\|/);
+  assert.match(html, /srcset="https:\/\/cdn\.shopify\.com\/[^"]*bed-1\.jpg\?v=17&amp;width=352 352w/);
+  assert.match(html, /width="400" height="267"/);
+});
+
+test('real catalogue: collection.products holds 50, paginate and products_count see all 60', () => {
+  const c = realStore.collectionView('all');
+  assert.equal(c.products.length, 50);
+  assert.equal(c.products_count, 60);
+  const p3 = rr.renderPage(resolveRoute(realStore, '/collections/all', new URLSearchParams('page=12')), {});
+  assert.match(p3.html, /N5 P12\/12 /, p3.html.slice(0, 300));
+  rr.begin(resolveRoute(realStore, '/collections/all', new URLSearchParams()), null);
+  const n = rr.engine.parseAndRenderSync('{{ collections.all.products.size }}/{{ collections.all.products_count }}', {}, { globals: rr.cur.globals });
+  rr.cur = null;
+  assert.equal(n, '50/60');
+});
+
+test('Shopify escaping: t escapes keys without _html; json escapes slashes', () => {
+  const route = resolveRoute(store, '/', new URLSearchParams());
+  r.begin(route, null);
+  const out = r.engine.parseAndRenderSync("{{ 't.hello' | t: name: \"Bella's <b>\" }}|{{ '/products/x' | json }}", {}, { globals: r.cur.globals });
+  r.cur = null;
+  assert.equal(out, 'Hello Bella&#39;s &lt;b&gt;|"\\/products\\/x"');
+});

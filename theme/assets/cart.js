@@ -498,9 +498,11 @@
     render(html) {
       var current = this.content;
       if (!current || !html) return false;
+      var parsed = null;
       var fresh;
       try {
-        fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-drawer-content]');
+        parsed = new DOMParser().parseFromString(html, 'text/html');
+        fresh = parsed.querySelector('[data-drawer-content]');
       } catch (e) {
         fresh = null;
       }
@@ -535,6 +537,13 @@
 
       var after = this.querySelector('[data-cart-after]');
       if (after) after.hidden = count === 0;
+
+      // The trust row under Checkout sits outside the swapped content (next
+      // to the express checkout buttons, which must not be re-rendered), but
+      // its trial wording depends on what's in the basket: take it across.
+      var trust = this.querySelector('[data-cart-trust]');
+      var freshTrust = parsed.querySelector('[data-cart-trust]');
+      if (trust && freshTrust) trust.innerHTML = freshTrust.innerHTML;
 
       updateCounts(count);
       this.applyPersonal();
@@ -626,23 +635,57 @@
         (f.variantId && String(item.variant_id || item.id || '') === String(f.variantId))
       ));
       this.added = {
-        product: item.product_title || item.title || '',
-        name: isMatch ? finderName() : ''
+        product: item.product_title || '',
+        name: isMatch ? finderName() : '',
+        key: item.key ? String(item.key) : '',
+        variantId: String(item.variant_id || item.id || ''),
+        seen: false
       };
+    }
+
+    /* The basket line the "added" banner is about, in the drawer as it is
+       now rendered: by line key, else by variant id. */
+    addedLine() {
+      var a = this.added;
+      var content = this.content;
+      if (!a || !content) return null;
+      var line = null;
+      if (a.key) line = content.querySelector('[data-line-key="' + cssEscape(a.key) + '"]');
+      if (!line && a.variantId) line = content.querySelector('[data-line-key][data-variant-id="' + cssEscape(a.variantId) + '"]');
+      return line;
     }
 
     paintAdded() {
       var banner = this.querySelector('[data-cart-added]');
       if (!banner) return;
-      if (!this.added || !this.added.product) {
+      var line = this.addedLine();
+      if (!line) {
+        // Gone from the basket (removed here, on the basket page or in another
+        // tab): stop saying it's in there. Not seen yet means this render
+        // predates the add; keep it for the render that has the line.
+        if (this.added && this.added.seen) this.added = null;
+        banner.hidden = true;
+        return;
+      }
+      this.added.seen = true;
+      var product = this.added.product;
+      if (!product) {
+        var title = line.querySelector('.cart-line__title');
+        product = title ? title.textContent.trim() : '';
+      }
+      if (!product) {
         banner.hidden = true;
         return;
       }
       var text = banner.querySelector('[data-cart-added-text]');
       if (text) {
         var tpl = this.added.name ? str('addedNamed') : str('added');
-        fillTemplate(text, tpl || '[product]', { name: this.added.name, product: this.added.product });
+        fillTemplate(text, tpl || '[product]', { name: this.added.name, product: product });
       }
+      // The sleep-trial reminder only for a line the trial covers (cart-line
+      // sets data-trial from the product, server-side).
+      var trial = banner.querySelector('[data-cart-added-trial]');
+      if (trial) trial.hidden = line.getAttribute('data-trial') !== 'true';
       banner.hidden = false;
     }
 
@@ -828,8 +871,27 @@
         listen('lunova:quickadd:open', function (e) { self.load(e.detail || {}); }),
         listen('lunova:cart:open', function () {
           if (self.hasAttribute('open')) self.close({ returnFocus: false });
-        })
+        }),
+        listen('lunova:variant:change', function (e) { self.onVariant(e.detail || {}); })
       ];
+    }
+
+    /* The thumbnail follows the chosen variant's own image (a colour), from
+       the <template>s quick-add-product renders per variant image. */
+    onVariant(detail) {
+      var sid = this.getAttribute('data-section-id') || 'quick-add-product';
+      if (detail.sectionId !== sid || !detail.variant) return;
+      var holder = this.body.querySelector('[data-quick-add-media-holder]');
+      if (!holder) return;
+      var media = detail.variant.featured_media;
+      var key = media && media.id ? String(media.id) : 'default';
+      if (holder.getAttribute('data-media-key') === key) return;
+      var tpl = this.body.querySelector('template[data-quick-add-media="' + cssEscape(key) + '"]');
+      var img = tpl && tpl.content && tpl.content.firstElementChild;
+      if (!img) return;
+      holder.textContent = '';
+      holder.appendChild(doc.importNode(img, true));
+      holder.setAttribute('data-media-key', key);
     }
 
     disconnectedCallback() {
@@ -941,6 +1003,13 @@
         .then(function (results) {
           if (self._token !== token) return;
           var parsed = new DOMParser().parseFromString(results[0], 'text/html');
+          // DOMParser parses with scripting off, so <noscript> content (the
+          // buy box's no-JS <select name="id">) comes out as live elements.
+          // Imported as they are, they'd post the drawer's first variant
+          // alongside the one the shopper picked. They are only for no-JS.
+          Array.prototype.slice.call(parsed.querySelectorAll('noscript')).forEach(function (n) {
+            n.parentNode.removeChild(n);
+          });
           var product = parsed.querySelector('[data-quick-add-product]');
           if (!product || !product.firstElementChild) throw new Error('empty');
           self.body.innerHTML = '';

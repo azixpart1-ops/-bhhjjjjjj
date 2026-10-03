@@ -18,9 +18,42 @@
     {%- liquid
       assign qa_variant = product.selected_or_first_available_variant
       assign qa_image = qa_variant.featured_image | default: product.featured_image
+      assign qa_media_key = 'default'
+      if qa_variant.featured_media
+        assign qa_media_key = qa_variant.featured_media.id | append: ''
+      endif
+
+      comment
+        Variant images: a colour that has its own photo should show it here
+        too. One pre-rendered thumbnail per distinct variant image (plus the
+        product image, for a variant without one), in inert <template>s keyed
+        by media id; cart.js swaps the right one in on lunova:variant:change.
+        Products whose variants share one image (or have none) get nothing.
+      endcomment
+      assign qa_media_ids = ','
+      assign qa_media_count = 0
+      assign qa_media_missing = false
+      for v in product.variants
+        if v.featured_media
+          assign qa_needle = ',' | append: v.featured_media.id | append: ','
+          unless qa_media_ids contains qa_needle
+            assign qa_media_ids = qa_media_ids | append: v.featured_media.id | append: ','
+            assign qa_media_count = qa_media_count | plus: 1
+          endunless
+        else
+          assign qa_media_missing = true
+        endif
+      endfor
     -%}
     <div class="quick-add-product__summary">
-      <a href="{{ product.url }}" class="quick-add-product__media" tabindex="-1" aria-hidden="true">
+      <a
+        href="{{ product.url }}"
+        class="quick-add-product__media"
+        tabindex="-1"
+        aria-hidden="true"
+        data-quick-add-media-holder
+        data-media-key="{{ qa_media_key }}"
+      >
         {%- render 'image',
           image: qa_image,
           widths: '160,240,320,480',
@@ -31,6 +64,41 @@
           aspect: 1
         -%}
       </a>
+      {%- if qa_media_count > 1 -%}
+        {%- assign qa_done = ',' -%}
+        {%- for v in product.variants -%}
+          {%- if v.featured_media -%}
+            {%- assign qa_needle = ',' | append: v.featured_media.id | append: ',' -%}
+            {%- unless qa_done contains qa_needle -%}
+              {%- assign qa_done = qa_done | append: v.featured_media.id | append: ',' -%}
+              <template data-quick-add-media="{{ v.featured_media.id }}">
+                {%- render 'image',
+                  image: v.featured_media.preview_image,
+                  widths: '160,240,320,480',
+                  sizes: '(min-width: 750px) 120px, 96px',
+                  class: 'quick-add-product__img',
+                  loading: 'eager',
+                  decorative: true,
+                  aspect: 1
+                -%}
+              </template>
+            {%- endunless -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- if qa_media_missing -%}
+          <template data-quick-add-media="default">
+            {%- render 'image',
+              image: product.featured_image,
+              widths: '160,240,320,480',
+              sizes: '(min-width: 750px) 120px, 96px',
+              class: 'quick-add-product__img',
+              loading: 'eager',
+              decorative: true,
+              aspect: 1
+            -%}
+          </template>
+        {%- endif -%}
+      {%- endif -%}
       <div class="quick-add-product__info">
         <h2 class="quick-add-product__title" id="QuickAddProductTitle" tabindex="-1">{{ product.title | escape }}</h2>
         {%- if settings.show_product_ratings -%}

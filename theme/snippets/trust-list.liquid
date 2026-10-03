@@ -11,10 +11,16 @@
     scroll    true → single swipeable row on mobile (layout row only)
     class     extra classes
     label     accessible name for the list (default "Our promises")
+    for_product  optional: promises for this product only — the trial item shows
+                 only if the trial covers it (snippets/trial-eligible) and the
+                 guarantee only for a foam bed (snippets/foam-bed)
+    basket       optional, pass cart: the trial item shows only if the trial
+                 covers at least one product in the basket
+    (Not "product"/"cart": both are Shopify globals, so they'd always be set.)
 
   Each item hides itself when its setting is off:
-    trial        trial_enable + trial_nights > 0
-    guarantee    guarantee_enable + guarantee_years > 0
+    trial        trial_enable + trial_nights > 0 (+ for_product / basket covered)
+    guarantee    guarantee_enable + guarantee_years > 0 (+ a foam bed, with for_product)
     delivery     free_shipping_enable + threshold > 0 (sub-line needs delivery_promise_enable)
     secure       always
     origin       origin_line not blank
@@ -22,6 +28,31 @@
     installments show_installments + provider set
 {%- endcomment -%}
 {%- capture cut_time_raw -%}{%- render 'delivery-promise', mode: 'time' -%}{%- endcapture -%}
+{%- liquid
+  assign tl_trial_ok = true
+  assign tl_foam_ok = true
+  if for_product != blank
+    capture tl_trial
+      render 'trial-eligible', product: for_product
+    endcapture
+    capture tl_foam
+      render 'foam-bed', product: for_product
+    endcapture
+    if tl_trial != 'true'
+      assign tl_trial_ok = false
+    endif
+    if tl_foam != 'true'
+      assign tl_foam_ok = false
+    endif
+  elsif basket.items
+    capture tl_trial
+      render 'trial-eligible', basket: basket
+    endcapture
+    if tl_trial != 'true'
+      assign tl_trial_ok = false
+    endif
+  endif
+-%}
 {%- capture cut_days_raw -%}{%- render 'delivery-promise', mode: 'days' -%}{%- endcapture -%}
 {%- liquid
   assign list = items | default: 'trial,guarantee,delivery,secure' | split: ','
@@ -62,11 +93,11 @@
     assign key = raw | strip
     case key
       when 'trial'
-        if settings.trial_enable and nights > 0
+        if settings.trial_enable and nights > 0 and tl_trial_ok
           assign visible = visible | append: key | append: ','
         endif
       when 'guarantee'
-        if settings.guarantee_enable and years > 0
+        if settings.guarantee_enable and years > 0 and tl_foam_ok
           assign visible = visible | append: key | append: ','
         endif
       when 'delivery'

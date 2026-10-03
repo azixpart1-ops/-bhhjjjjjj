@@ -2,16 +2,22 @@
 // Browser tests for the Lunova theme against the mock storefront (Playwright + Chromium).
 //
 //   node browser-test.mjs                       starts server.mjs on a free port, runs everything
+//   node browser-test.mjs --real                same, against the live catalogue (.out/real-products.json):
+//                                               Chromium goes through HTTPS_PROXY so CDN images load
+//                                               (placeholder images if the CDN can't be reached)
 //   node browser-test.mjs --url http://127.0.0.1:9292   test an already running server
-//   node browser-test.mjs --only=pages|flows    --pages=home,product   --no-a11y   --strict-a11y
+//   node browser-test.mjs --only=pages|flows|matrix    --pages=home,product   --no-a11y   --strict-a11y
 //   node browser-test.mjs --viewport-only       skip full-page screenshots
+//   node browser-test.mjs --real --all-products also sweep every real product page at 390px
 //
 // Output: one line per check — PASS/FAIL/SKIP/WARN <kind> <name> <detail>; exit 1 on any FAIL.
-// Screenshots: .out/shots/<page>-<width>.png
+// Screenshots: .out/shots/<page>-<width>.png (real-<page>-<width>.png with --real)
+// Finder matrix: every style × stage × size answer → .out/finder-matrix[-real].json
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { startServer } from './server.mjs';
+import { createStore } from './fixtures/store.mjs';
 import { OUT_DIR, HARNESS_DIR, DEFAULT_THEME_DIR, parseArgs } from './lib/util.mjs';
 
 process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
@@ -22,11 +28,36 @@ function loadPlaywright() {
   }
   return null;
 }
+
+/**
+ * Which dog a bed size is for, as a hint index: from the breeds in the label when it
+ * lists them ("Large: Cocker Spaniel | Cockapoo | Staffie" → the hint whose breeds
+ * include Cocker/Staffie), else from the size word. → { cls, via } or null.
+ */
+function fitClass(label, hints) {
+  const text = String(label || '');
+  const breedPart = text.includes(':') ? text.split(':').slice(1).join(':') : '';
+  if (breedPart && Array.isArray(hints) && hints.length) {
+    const hits = [];
+    for (const breed of breedPart.split(/[|,]/).map((b) => b.trim().toLowerCase()).filter(Boolean)) {
+      const i = hints.findIndex((h) => String(h.breeds || '').toLowerCase().split(/,\s*/).some((t) => t && (breed.includes(t) || t.includes(breed))));
+      if (i > -1) hits.push(i);
+    }
+    if (hits.length) return { cls: Math.round(hits.reduce((a, b) => a + b, 0) / hits.length), via: 'breeds' };
+  }
+  const c = sizeClass(text.split(/[·:(|]/)[0]);
+  return c == null ? null : { cls: c, via: 'label' };
+}
 let axeSource = null;
 try { axeSource = require('axe-core').source; } catch { /* optional */ }
 
 const args = parseArgs(process.argv.slice(2));
 const ONLY = args.only ? String(args.only) : null;
+const REAL = !!args.real;
+const RUN_MODE = REAL ? 'real' : 'full';
+const PREFIX = REAL ? 'real-' : '';
+const CDN_HOST = 'cdn.shopify.com';
+let cdnMode = 'blocked'; // real mode: 'live' (through the proxy) or 'placeholder'
 const PAGE_FILTER = args.pages ? new Set(String(args.pages).split(',')) : null;
 const SHOTS = path.join(OUT_DIR, 'shots');
 const VIEWPORTS = [{ w: 1440, h: 900 }, { w: 390, h: 844 }];
@@ -37,7 +68,7 @@ function report(status, kind, name, detail = '') {
   console.log(`${status.padEnd(5)} ${kind.padEnd(6)} ${name.padEnd(34)} ${detail}`);
 }
 
-const PAGES = [
+const FIXTURE_PAGES = [
   ['home', '/'],
   ['collection', '/collections/orthopaedic-dog-beds'],
   ['collection-all', '/collections/all'],
@@ -68,18 +99,87 @@ const PAGES = [
   ['empty-cart', '/cart?empty=1', { empty: true }],
 ];
 
+const isColourName = (n) => /^colou?rs?$/i.test(String(n).trim());
+const isSizeName = (n) => /\bsize\b/i.test(String(n));
+
+/**
+ * Real-catalogue pages, chosen by shape rather than handle so the list follows the
+ * store: each awkward option format, the non-bed products, pagination past 50.
+ */
+function realPages(store) {
+  const ps = store.products();
+  const out = [
+    ['home', '/'],
+    ['collection-all', '/collections/all'],
+    ['collection-all-p3', '/collections/all?page=3'],
+    ['collection-frontpage', '/collections/frontpage'],
+  ];
+  const pick = (name, pred) => { const p = ps.find(pred); if (p) out.push([name, p.url]); };
+  pick('product-sizes', (p) => p.options.length === 1 && isSizeName(p.options[0]) && p.variants.length >= 3 && p.price_varies);
+  pick('product-colour-size', (p) => isColourName(p.options[0]) && p.options.some(isSizeName) && p.variants.length > 2);
+  pick('product-size-colour', (p) => isSizeName(p.options[0]) && p.options.slice(1).some(isColourName));
+  pick('product-breed-sizes', (p) => p.variants.some((v) => /:.*\|/.test(v.title)));
+  pick('product-one-size', (p) => p.variants.length === 1 && /one size/i.test(p.variants[0].title));
+  pick('product-default-title', (p) => p.has_only_default_variant && /^Dog Beds/.test(p.type));
+  const most = [...ps].sort((a, b) => b.variants.length - a.variants.length)[0];
+  if (most && !out.some(([, u]) => u === most.url)) out.push(['product-most-variants', most.url]);
+  pick('product-kennel', (p) => /^Dog Houses/.test(p.type));
+  pick('product-car-seat', (p) => /car seat/i.test(p.title));
+  pick('product-crate', (p) => /crate/i.test(p.type) && !/car seat/i.test(p.title));
+  out.push(
+    ['cart-empty', '/cart'],
+    ['cart', '/cart', { fillCart: true }],
+    ['search', '/search?q=bed'],
+    ['search-p2', '/search?q=dog&page=2'],
+    ['search-none', '/search?q=zzzz'],
+    ['finder-page', '/pages/bed-finder'],
+    ['list-collections', '/collections'],
+    ['404', '/does-not-exist'],
+  );
+  if (args['all-products']) for (const p of ps) out.push([`p-${p.handle.slice(0, 40)}`, p.url, { only: 390 }]);
+  return out;
+}
+
+/** Which products the flows use. Fixture handles by default; main() picks real ones with --real. */
+let CFG = {
+  pdpHandle: 'coniston-orthopaedic-dog-bed',     // size-only, prices differ by size
+  cartHandle: 'coniston-orthopaedic-dog-bed',
+  stickyHandle: 'coniston-orthopaedic-dog-bed',
+  soldOutHandle: 'wensleydale-nesting-bed',
+  quickAddPath: '/collections/orthopaedic-dog-beds',
+  searchTerm: 'con',
+  searchExpect: 'Coniston',
+  colourProducts: [],                            // colour + size products (real mode)
+};
+
 // ------------------------------------------------------------------ helpers
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function newContext(browser, base, { w, h }, { reducedMotion = 'no-preference' } = {}) {
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, reducedMotion, hasTouch: w < 800, isMobile: false });
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, reducedMotion, hasTouch: w < 800, isMobile: false, ignoreHTTPSErrors: REAL });
   const host = new URL(base).host;
-  await ctx.route('**/*', (route) => {
+  await ctx.route('**/*', async (route) => {
     const u = new URL(route.request().url());
+    if (REAL && u.host === CDN_HOST) {
+      if (cdnMode === 'live') return route.continue();
+      // CDN unreachable: the mock server's placeholder image route stands in.
+      try {
+        const r = await fetch(`${base}/__dev/placeholder-img/${encodeURIComponent(u.pathname.split('/').pop())}?${u.searchParams}`);
+        return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: await r.text() });
+      } catch { return route.abort(); }
+    }
     if (u.host !== host && u.protocol.startsWith('http')) return route.abort();
     return route.continue();
   });
   return ctx;
+}
+
+/** Catalogue mode for this context (cookie read by server.mjs). */
+async function setMode(ctx, base, mode) {
+  await ctx.addCookies([
+    { name: 'theme_dev_mode', value: mode, url: base },
+    { name: 'theme_dev_empty', value: mode === 'empty' ? '1' : '0', url: base },
+  ]);
 }
 
 function watch(page, base, { expectStatus = 200 } = {}) {
@@ -95,14 +195,17 @@ function watch(page, base, { expectStatus = 200 } = {}) {
     w.console.push(`${msg.text().slice(0, 200)}${loc ? ` @ ${loc.replace(base, '')}` : ''}`);
   });
   page.on('pageerror', (e) => w.pageErrors.push(String(e && e.message ? e.message : e).slice(0, 300)));
+  const ours = (u) => u.host === host || (REAL && cdnMode === 'live' && u.host === CDN_HOST);
   page.on('response', (r) => {
     const u = new URL(r.url());
     if (r.request().isNavigationRequest() && r.request().frame() === page.mainFrame()) return; // the document itself is checked separately
-    if (u.host === host && r.status() >= 400 && !u.pathname.startsWith('/fonts/')) w.failed.push(`${r.status()} ${u.pathname}`);
+    if (ours(u) && r.status() >= 400 && !u.pathname.startsWith('/fonts/')) w.failed.push(`${r.status()} ${u.host === host ? u.pathname : u.href.slice(0, 120)}`);
   });
   page.on('requestfailed', (r) => {
     const u = new URL(r.url());
-    if (u.host === host && !u.pathname.startsWith('/fonts/')) w.failed.push(`failed ${u.pathname} (${r.failure() && r.failure().errorText})`);
+    const err = r.failure() && r.failure().errorText;
+    if (/ERR_ABORTED/.test(err || '') && u.host === CDN_HOST) return; // lazy image cancelled by navigation/scroll
+    if (ours(u) && !u.pathname.startsWith('/fonts/')) w.failed.push(`failed ${u.host === host ? u.pathname : u.href.slice(0, 120)} (${err})`);
   });
   return w;
 }
@@ -122,6 +225,29 @@ async function waitFor(fn, timeout = 5000, step = 100) {
     await sleep(step);
   }
   return false;
+}
+
+/**
+ * HTML entities shown as text ("Your dog&#39;s name"): a translation escaped by Shopify's
+ * t filter (keys without _html) and then escaped again, or put into textContent from JSON.
+ * Checks visible text plus aria-label/title/alt/placeholder under `sel`.
+ */
+async function entityLeaks(page, sel = 'body') {
+  return page.evaluate((sel) => {
+    const src = '&(?:#\\d+|#x[0-9a-f]+|amp|quot|lt|gt|apos|nbsp|rsquo|lsquo|ldquo|rdquo|hellip|ndash|mdash|pound|times|middot);';
+    const out = [];
+    for (const root of document.querySelectorAll(sel)) {
+      const t = root.innerText || '';
+      for (const m of t.matchAll(new RegExp(src, 'gi'))) out.push(`text "…${t.slice(Math.max(0, m.index - 28), m.index + m[0].length + 8).replace(/\s+/g, ' ')}…"`);
+      for (const el of root.querySelectorAll('[aria-label],[title],[alt],[placeholder]')) {
+        for (const a of ['aria-label', 'title', 'alt', 'placeholder']) {
+          const v = el.getAttribute(a);
+          if (v && new RegExp(src, 'i').test(v)) out.push(`${a}="${v.slice(0, 60)}"`);
+        }
+      }
+    }
+    return [...new Set(out)].slice(0, 4);
+  }, sel);
 }
 
 const cartCount = (page) => page.evaluate(() => fetch('/cart.js', { headers: { Accept: 'application/json' } }).then((r) => r.json()).then((c) => c.item_count));
@@ -150,23 +276,24 @@ async function overflow(page) {
 }
 
 async function fillCart(ctx, base) {
-  const p = await (await ctx.request.get(`${base}/products/coniston-orthopaedic-dog-bed.js`)).json();
-  await ctx.request.post(`${base}/cart/add.js`, { data: { items: [{ id: p.variants[1].id, quantity: 1 }] } });
+  const p = await (await ctx.request.get(`${base}/products/${CFG.cartHandle}.js`)).json();
+  await ctx.request.post(`${base}/cart/add.js`, { data: { items: [{ id: (p.variants[1] || p.variants[0]).id, quantity: 1 }] } });
 }
 
 // ------------------------------------------------------------------ page checks
-async function checkPages(browser, base) {
+async function checkPages(browser, base, pages) {
   fs.mkdirSync(SHOTS, { recursive: true });
-  for (const [name, url, opts = {}] of PAGES) {
+  for (const [name, url, opts = {}] of pages) {
     if (PAGE_FILTER && !PAGE_FILTER.has(name)) continue;
     for (const vp of VIEWPORTS) {
-      const id = `${name}@${vp.w}`;
+      if (opts.only && opts.only !== vp.w) continue;
+      const id = `${PREFIX}${name}@${vp.w}`;
       const ctx = await newContext(browser, base, vp, { reducedMotion: 'reduce' });
       const page = await ctx.newPage();
       const w = watch(page, base, { expectStatus: name === '404' ? 404 : 200 });
       let resp;
       try {
-        await ctx.addCookies([{ name: 'theme_dev_empty', value: opts.empty ? '1' : '0', url: base }]);
+        await setMode(ctx, base, opts.empty ? 'empty' : RUN_MODE);
         if (opts.fillCart) await fillCart(ctx, base);
         resp = await page.goto(base + url, { waitUntil: 'load', timeout: 20000 });
         await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
@@ -187,15 +314,17 @@ async function checkPages(browser, base) {
       const html = await page.content();
       if (/Liquid (syntax )?error/.test(html)) problems.push('"Liquid error" text in page');
       if (/translation missing/.test(html)) problems.push('"translation missing" text in page');
+      const leaks = await entityLeaks(page);
+      if (leaks.length) problems.push(`HTML entity shown as text: ${leaks.join(' | ')}`);
       if (w.pageErrors.length) problems.push(`JS errors: ${w.pageErrors.slice(0, 2).join(' | ')}`);
       if (w.console.length) problems.push(`console errors: ${w.console.slice(0, 2).join(' | ')}`);
       if (w.failed.length) problems.push(`failed requests: ${[...new Set(w.failed)].slice(0, 3).join(', ')}`);
       const ov = await overflow(page);
       if (ov.scroll > ov.vw) problems.push(`horizontal overflow ${ov.scroll}px > ${ov.vw}px (${ov.offenders.join(', ')})`);
-      const shot = path.join(SHOTS, `${name}-${vp.w}.png`);
+      const shot = path.join(SHOTS, `${PREFIX}${name}-${vp.w}.png`);
       try { await page.screenshot({ path: shot, fullPage: !args['viewport-only'], animations: 'disabled', timeout: 20000 }); } catch (e) { problems.push(`screenshot failed: ${e.message.split('\n')[0]}`); }
       report(problems.length ? 'FAIL' : 'PASS', 'page', id, problems.length ? problems.join('; ') : `HTTP ${status} · no console/JS errors · no overflow · ${path.relative(HARNESS_DIR, shot)}`);
-      if (axeSource && !args['no-a11y'] && vp.w === 390) await a11y(page, name);
+      if (axeSource && !args['no-a11y'] && vp.w === 390) await a11y(page, `${PREFIX}${name}`);
       await ctx.close();
     }
   }
@@ -223,8 +352,9 @@ async function flow(browser, base, name, vp, fn) {
   const ctx = await newContext(browser, base, vp);
   const page = await ctx.newPage();
   const w = watch(page, base);
+  name = `${PREFIX}${name}`;
   try {
-    await ctx.addCookies([{ name: 'theme_dev_empty', value: '0', url: base }]);
+    await setMode(ctx, base, RUN_MODE);
     await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
     const out = await fn(page);
     const status = out && out.status ? out.status : 'PASS';
@@ -252,7 +382,11 @@ async function finderFlow(page) {
   if (!(await waitFor(async () => (await dialog.count()) && dialog.isVisible(), 4000))) fail('finder modal did not open');
   let named = false;
   let answered = 0;
+  const leaks = new Set();
+  const dialogSel = 'bed-finder dialog[open], [data-finder-modal][open], dialog[open]:has(bed-finder)';
   for (let i = 0; i < 16; i++) {
+    for (const l of await entityLeaks(page, dialogSel)) leaks.add(l);
+    if (leaks.size) fail(`finder shows HTML entities as text (step ${answered + 1}): ${[...leaks].slice(0, 3).join(' | ')}`);
     const add = await firstVisible(dialog, ['.finder-result__add', '[data-finder-add]', 'button.btn--primary:has-text("Add")']);
     if (add) {
       const resultText = (await dialog.innerText()).replace(/\s+/g, ' ');
@@ -289,7 +423,7 @@ async function finderFlow(page) {
 }
 
 async function pdpFlow(page) {
-  await page.goto(`${new URL(page.url()).origin}/products/coniston-orthopaedic-dog-bed`, { waitUntil: 'load' });
+  await page.goto(`${new URL(page.url()).origin}/products/${CFG.pdpHandle}`, { waitUntil: 'load' });
   const priceSel = ['[data-price-wrap]', '.buy-box__price', '.price'];
   const priceEl = await firstVisible(page, priceSel);
   if (!priceEl) fail('no visible price in the buy box');
@@ -319,7 +453,7 @@ async function pdpFlow(page) {
 }
 
 async function drawerQtyFlow(page) {
-  await page.goto(`${new URL(page.url()).origin}/products/coniston-orthopaedic-dog-bed`, { waitUntil: 'load' });
+  await page.goto(`${new URL(page.url()).origin}/products/${CFG.cartHandle}`, { waitUntil: 'load' });
   const add = await firstVisible(page, ['product-form [data-add-button]', '[data-add-button]']);
   if (!add) fail('no Add to basket button');
   await add.click();
@@ -341,7 +475,7 @@ async function drawerQtyFlow(page) {
 }
 
 async function quickAddFlow(page) {
-  await page.goto(`${new URL(page.url()).origin}/collections/orthopaedic-dog-beds`, { waitUntil: 'load' });
+  await page.goto(`${new URL(page.url()).origin}${CFG.quickAddPath}`, { waitUntil: 'load' });
   const cards = page.locator('[data-product-card]').filter({ visible: true });
   if (!(await cards.count())) fail('no product cards on collection page');
   let btn = null;
@@ -398,12 +532,13 @@ async function searchFlow(page) {
   await opener.click();
   const input = await (async () => { await waitFor(async () => !!(await firstVisible(page, ['#SearchModalInput', 'search-modal input[type="search"]'])), 3000); return firstVisible(page, ['#SearchModalInput', 'search-modal input[type="search"]']); })();
   if (!input) fail('search modal input did not appear');
-  await input.pressSequentially('con', { delay: 60 });
+  await input.pressSequentially(CFG.searchTerm, { delay: 60 });
   const results = page.locator('[data-predictive-results]');
-  const ok = await waitFor(async () => (await results.isVisible()) && /Coniston/i.test(await results.innerText()), 5000);
-  if (!ok) fail('typing "con" did not show predictive results containing "Coniston"');
+  const expect = new RegExp(CFG.searchExpect, 'i');
+  const ok = await waitFor(async () => (await results.isVisible()) && expect.test(await results.innerText()), 5000);
+  if (!ok) fail(`typing "${CFG.searchTerm}" did not show predictive results containing "${CFG.searchExpect}"`);
   const expanded = await input.getAttribute('aria-expanded');
-  return { detail: `opened from ${via} · "con" → results incl. Coniston · aria-expanded=${expanded}` };
+  return { detail: `opened from ${via} · "${CFG.searchTerm}" → results incl. ${CFG.searchExpect} · aria-expanded=${expanded}` };
 }
 
 async function menuFlow(page) {
@@ -429,7 +564,7 @@ async function stickyFlow(page) {
   // main button is on screen, and never greets a visitor below the fold
   // with a disabled "Sold out" bar.
   const origin = new URL(page.url()).origin;
-  await page.goto(`${origin}/products/coniston-orthopaedic-dog-bed`, { waitUntil: 'load' });
+  await page.goto(`${origin}/products/${CFG.stickyHandle}`, { waitUntil: 'load' });
   const bar = page.locator('sticky-atc').first();
   if (!(await bar.count())) fail('no <sticky-atc> on the product page');
   const isShown = () => bar.evaluate((el) => el.classList.contains('is-visible') && !el.inert && el.getAttribute('aria-hidden') === 'false' && el.getBoundingClientRect().height > 0 && el.getBoundingClientRect().top < innerHeight);
@@ -470,14 +605,14 @@ async function stickyFlow(page) {
   if (!(await waitFor(isShown, 3000))) fail('sticky add-to-basket did not reappear after scrolling past the main Add button');
   notes.push('shows again after scrolling past it');
   // 4. jump straight past the button (reload with restored scroll / anchor link)
-  await page.goto(`${origin}/products/coniston-orthopaedic-dog-bed`, { waitUntil: 'load' });
+  await page.goto(`${origin}/products/${CFG.stickyHandle}`, { waitUntil: 'load' });
   await page.evaluate(() => { const b = document.querySelector('product-form [data-add-button]'); scrollTo(0, b.getBoundingClientRect().bottom + scrollY + 1200); });
   const jumpOk = await waitFor(isShown, 2000);
   notes.push(`after a jump past it (reload/anchor): ${jumpOk}`);
   // 5. a sold-out product never greets the visitor with a disabled bar
-  await page.goto(`${origin}/products/wensleydale-nesting-bed`, { waitUntil: 'load' });
+  if (CFG.soldOutHandle) await page.goto(`${origin}/products/${CFG.soldOutHandle}`, { waitUntil: 'load' });
   await sleep(400);
-  const soldOutBelow = await page.evaluate(() => { const b = document.querySelector('product-form [data-add-button]'); return !!b && b.disabled && b.getBoundingClientRect().top > innerHeight; });
+  const soldOutBelow = !!CFG.soldOutHandle && await page.evaluate(() => { const b = document.querySelector('product-form [data-add-button]'); return !!b && b.disabled && b.getBoundingClientRect().top > innerHeight; });
   let soldOutOk = true;
   if (soldOutBelow) {
     soldOutOk = await waitFor(isHidden, 1000);
@@ -487,33 +622,298 @@ async function stickyFlow(page) {
   return { status: jumpOk ? 'PASS' : 'WARN', detail: notes.join(' · ') };
 }
 
+// ------------------------------------------------------------------ colour + size PDP
+const escRe = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const pounds = (c) => (Number(c) / 100).toFixed(2);
+
+/**
+ * PDP with a colour and a size option: pick another colour, then a size whose price
+ * differs; the price, ?variant= and the variant that lands in the basket must all be
+ * the one for that colour + size.
+ */
+function pdpColourFlow(prod) {
+  return async (page) => {
+    const origin = new URL(page.url()).origin;
+    await page.goto(`${origin}${prod.url}`, { waitUntil: 'load' });
+    const cIdx = prod.options.findIndex(isColourName);
+    const sIdx = prod.options.findIndex(isSizeName);
+    if (cIdx < 0 || sIdx < 0) fail(`${prod.handle}: needs a colour and a size option (${prod.options.join(' / ')})`);
+    const picker = page.locator('variant-picker').filter({ visible: true }).first();
+    if (!(await picker.count())) fail('no visible variant-picker');
+    const urlVariant = () => { const m = page.url().match(/[?&]variant=(\d+)/); return m ? Number(m[1]) : null; };
+    const variantFor = (vals) => prod.variants.find((v) => vals.every((x, i) => x == null || v.options[i] === x));
+    const current = () => prod.variants.find((v) => v.id === urlVariant()) || prod.selected_or_first_available_variant;
+    const priceEl = await firstVisible(page, ['[data-price-wrap]', '.buy-box__price', '.price']);
+    if (!priceEl) fail('no visible price in the buy box');
+    const price = async () => (await priceEl.innerText()).replace(/\s+/g, ' ');
+    const choose = async (idx, value) => {
+      const group = picker.locator(`fieldset[data-option-index="${idx}"]`);
+      if (!(await group.count())) fail(`no fieldset[data-option-index="${idx}"] for "${prod.options[idx]}"`);
+      const target = group.locator(`[data-value-label][data-value="${value.replace(/["\\]/g, '\\$&')}"]`).filter({ visible: true }).first();
+      if (!(await target.count())) fail(`"${prod.options[idx]}" has no visible option "${value}"`);
+      await target.click();
+    };
+    const notes = [];
+    // 1. another colour (same size)
+    const start = current();
+    const colours = [...new Set(prod.variants.map((v) => v.options[cIdx]))];
+    const colour = colours.find((c) => c !== start.options[cIdx] && variantFor(start.options.map((x, i) => (i === cIdx ? c : x))));
+    if (!colour) fail(`no second colour with the size "${start.options[sIdx]}"`);
+    await choose(cIdx, colour);
+    const v1 = variantFor(start.options.map((x, i) => (i === cIdx ? colour : x)));
+    if (!(await waitFor(async () => urlVariant() === v1.id, 3000))) fail(`colour "${colour}" → URL variant ${urlVariant()}, expected ${v1.id} (${v1.title})`);
+    notes.push(`colour → ${colour} (variant ${v1.id})`);
+    // 2. a size with a different price, keeping that colour
+    const v2 = prod.variants.find((v) => v.options[cIdx] === colour && v.options[sIdx] !== v1.options[sIdx] && v.price !== v1.price && v.available)
+      || prod.variants.find((v) => v.options[cIdx] === colour && v.options[sIdx] !== v1.options[sIdx] && v.available);
+    if (!v2) fail(`no other size in "${colour}"`);
+    const before = await price();
+    await choose(sIdx, v2.options[sIdx]);
+    if (!(await waitFor(async () => urlVariant() === v2.id, 3000))) fail(`size "${v2.options[sIdx]}" → URL variant ${urlVariant()}, expected ${v2.id} (${v2.title})`);
+    const after = await price();
+    if (v2.price !== v1.price && !(await waitFor(async () => (await price()).replace(/,/g, '').includes(pounds(v2.price)) || (await price()).includes(String(v2.price / 100)), 3000))) fail(`price shows "${after.slice(0, 40)}", expected £${pounds(v2.price)} for ${v2.title}`);
+    notes.push(`size → ${v2.options[sIdx].slice(0, 24)}: "${before.slice(0, 16)}" → "${(await price()).slice(0, 16)}"`);
+    // 3. the basket gets exactly that variant
+    const add = await firstVisible(page, ['product-form [data-add-button]', '[data-add-button]', 'button[name="add"]']);
+    if (!add) fail('no visible Add to basket button');
+    await add.click();
+    if (!(await drawerHasLine(page))) fail('Add to basket did not open the drawer with the item');
+    const ids = await page.evaluate(() => fetch('/cart.js', { headers: { Accept: 'application/json' } }).then((r) => r.json()).then((c) => c.items.map((i) => i.variant_id)));
+    if (!ids.includes(v2.id)) fail(`basket holds variant(s) ${ids.join(',')} — expected ${v2.id} (${v2.title})`);
+    notes.push('basket has that variant');
+    return { detail: `${prod.handle.slice(0, 28)}: ${notes.join(' · ')}` };
+  };
+}
+
+// ------------------------------------------------------------------ finder matrix
+const STYLES = ['curl', 'lean', 'sprawl'];
+const STAGES = ['fine', 'slowing', 'diagnosed'];
+/** Never a finder answer for "which bed": kennels/day beds and the car seat. */
+const notABed = (p) => (p && /^Dog Houses/i.test(p.type || '') ? `product_type "${p.type}"` : p && /car seat/i.test(p.title || '') ? 'a car seat' : null);
+/** XS…XXL as 0…5 from a size label or title ("XL · 114 × 89cm", "Medium: Cocker…", "Bowfell XXL …"). */
+function sizeClass(text) {
+  const t = String(text || '').toLowerCase();
+  if (/\b(xxl|2xl|xx-?large|extra extra large)\b/.test(t)) return 5;
+  if (/\b(xl|x-?large|extra large)\b/.test(t)) return 4;
+  if (/\b(xs|x-?small|extra small)\b/.test(t)) return 0;
+  if (/\b(s|small)\b/.test(t)) return 1;
+  if (/\b(m|medium)\b/.test(t)) return 2;
+  if (/\b(l|large)\b/.test(t)) return 3;
+  return null;
+}
+
+/**
+ * Every style × stage × size answer through the theme's own finder (finder.js, via its
+ * lunova:finder:open event with step "result"), recorded and checked: there must be a
+ * result, and it must be a bed. Writes .out/finder-matrix[-real].json.
+ */
+async function finderMatrix(browser, base, vp, store) {
+  const name = `${PREFIX}finder style×stage×size@${vp.w}`;
+  const ctx = await newContext(browser, base, vp, { reducedMotion: 'reduce' });
+  const page = await ctx.newPage();
+  const w = watch(page, base);
+  const byHandle = new Map(store.products().map((p) => [p.handle, p]));
+  const records = [];
+  try {
+    await setMode(ctx, base, RUN_MODE);
+    await page.goto(`${base}/pages/bed-finder`, { waitUntil: 'load' });
+    let where = 'inline (/pages/bed-finder)';
+    if (!(await page.locator('bed-finder[mode="inline"]').count())) {
+      await page.goto(`${base}/`, { waitUntil: 'load' });
+      where = 'modal (/)';
+    }
+    if (!(await waitFor(async () => page.evaluate(() => !!customElements.get('bed-finder') && !!document.querySelector('bed-finder')), 8000))) fail('no <bed-finder> element (finder.js not loaded?)');
+    const hints = await page.evaluate(() => {
+      const ok = (l) => (Array.isArray(l) && l.length && l.every((h) => h && h.value) ? l : null);
+      let cfg = null;
+      try { cfg = JSON.parse(document.getElementById('finder-config').textContent); } catch { /* none */ }
+      return ok(cfg && cfg.sizeHints) || ok(window.Lunova && Lunova.settings && Lunova.settings.sizeHints) || ['XS', 'S', 'M', 'L', 'XL'].map((value) => ({ value }));
+    });
+    const sizes = hints.map((h) => h.value);
+    for (const style of STYLES) for (const stage of STAGES) for (const size of sizes) {
+      const r = await page.evaluate(async ({ style, stage, size }) => {
+        const root = document.querySelector('bed-finder[mode="inline"]') || document.querySelector('bed-finder');
+        root.querySelectorAll('.finder-result').forEach((el) => el.setAttribute('data-matrix-stale', ''));
+        const detail = { step: 'result', answers: { style, stage, size } };
+        if (window.Lunova && typeof Lunova.emit === 'function') Lunova.emit('lunova:finder:open', detail);
+        else document.dispatchEvent(new CustomEvent('lunova:finder:open', { detail }));
+        const txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
+        const leak = (el) => { const m = el && (el.innerText || '').match(/.{0,28}&(?:#\d+|#x[0-9a-f]+|amp|quot|lt|gt|apos|nbsp);.{0,8}/i); return m ? m[0] : null; };
+        const t0 = Date.now();
+        while (Date.now() - t0 < 12000) {
+          const res = root.querySelector('.finder-result:not([data-matrix-stale])');
+          if (res) {
+            if (res.classList.contains('finder-result--empty')) return { empty: true, heading: txt(res.querySelector('h2, h3')), text: txt(res).slice(0, 200), leak: leak(root) };
+            const link = res.querySelector('.finder-result__link');
+            const altView = res.querySelector('.finder-alt__view') || (root.querySelector('.finder-alt:not([data-matrix-stale]) .finder-alt__view'));
+            return {
+              href: link ? link.getAttribute('href') : null,
+              title: txt(link),
+              sizeLine: txt(res.querySelector('.finder-result__size')),
+              add: txt(res.querySelector('.finder-result__add, [data-finder-add]')),
+              altHref: altView ? altView.getAttribute('href') : null,
+              leak: leak(root),
+            };
+          }
+          await new Promise((ok) => setTimeout(ok, 50));
+        }
+        return { timeout: true, step: root.state ? root.state.step : null };
+      }, { style, stage, size });
+      const parse = (href) => {
+        if (!href) return { handle: null, variant: null };
+        const u = new URL(href, base);
+        const m = u.pathname.match(/\/products\/([^/?#]+)/);
+        return { handle: m ? decodeURIComponent(m[1]) : null, variant: Number(u.searchParams.get('variant')) || null };
+      };
+      const main = parse(r.href);
+      const alt = parse(r.altHref);
+      const prod = main.handle ? byHandle.get(main.handle) : null;
+      const altProd = alt.handle ? byHandle.get(alt.handle) : null;
+      const variant = prod && main.variant ? prod.variants.find((v) => v.id === main.variant) : null;
+      const rec = {
+        style, stage, size,
+        result: prod ? { handle: prod.handle, title: prod.title, type: prod.type, variant: variant ? variant.title : null, sizeLine: r.sizeLine } : main.handle ? { handle: main.handle, title: r.title, type: null, unknown: true } : null,
+        alternative: altProd ? { handle: altProd.handle, title: altProd.title, type: altProd.type } : alt.handle ? { handle: alt.handle, unknown: true } : null,
+        empty: r.empty ? { heading: r.heading } : null,
+        timeout: !!r.timeout,
+        problems: [],
+      };
+      // Size fit (WARN only): which dog the chosen size is for vs the answer. Breed-labelled
+      // sizes ("Large: Cocker Spaniel | …") must match; a size word may be one step up
+      // (the finder offers the next size when one is missing or sold out).
+      const asked = sizes.indexOf(size);
+      const label = variant && !variant.options.every((o) => o === 'Default Title') ? (prod.options.findIndex(isSizeName) > -1 ? variant.options[prod.options.findIndex(isSizeName)] : variant.title) : prod ? prod.title : '';
+      const fit = prod ? fitClass(label, hints) : null;
+      if (fit && asked > -1 && Math.abs(fit.cls - asked) >= (fit.via === 'breeds' ? 1 : 2)) rec.sizeFit = `asked ${size}, got "${label}" (${fit.via === 'breeds' ? `for ${hints[fit.cls] ? hints[fit.cls].value : '?'} dogs by its breeds` : 'by its size word'})`;
+      if (r.timeout) rec.problems.push(`no result within 12s (finder step: ${r.step})`);
+      else if (r.empty) rec.problems.push(`no bed: "${r.heading}"`);
+      else if (!main.handle) rec.problems.push('result has no product link');
+      const bad = notABed(prod);
+      if (bad) rec.problems.push(`result is ${bad}: ${prod.title}`);
+      const badAlt = notABed(altProd);
+      if (badAlt) rec.problems.push(`alternative is ${badAlt}: ${altProd.title}`);
+      if (r.leak) rec.leak = r.leak;
+      records.push(rec);
+    }
+    // ---- report
+    const failing = records.filter((r) => r.problems.length);
+    for (const r of failing) report('FAIL', 'matrix', `${PREFIX}finder ${r.style}/${r.stage}/${r.size}@${vp.w}`, r.problems.join(' · '));
+    const short = (r) => (r.result ? r.result.title.replace(/^The /, '').split(/\s+/).slice(0, 2).join(' ') : r.timeout ? '(timeout)' : '(none)');
+    console.log(`       finder matrix — ${where}, sizes ${sizes.join('/')}  (! = problem, ~ = size made for a different dog)`);
+    for (const style of STYLES) for (const stage of STAGES) {
+      const row = sizes.map((size) => { const r = records.find((x) => x.style === style && x.stage === stage && x.size === size); return `${size}:${short(r)}${r.problems.length ? '!' : r.sizeFit ? '~' : ''}`; });
+      console.log(`       ${`${style}/${stage}`.padEnd(18)} ${row.join(' | ')}`);
+    }
+    const counts = {};
+    for (const r of records) if (r.result) counts[r.result.title] = (counts[r.result.title] || 0) + 1;
+    const n = (pred) => records.filter(pred).length;
+    const summary = `${records.length} answers · ${records.length - failing.length} ok · ${n((r) => r.problems.some((x) => /Dog Houses/.test(x)))} dog house · ${n((r) => r.problems.some((x) => /car seat/.test(x)))} car seat · ${n((r) => r.empty || r.timeout || (!r.result && !r.empty))} no result · ${Object.keys(counts).length} distinct beds`;
+    const file = path.join(OUT_DIR, `finder-matrix${REAL ? '-real' : ''}.json`);
+    fs.mkdirSync(OUT_DIR, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ mode: RUN_MODE, viewport: vp, where, sizes, summary, distinct: counts, records }, null, 2));
+    const leaked = [...new Set(records.map((r) => r.leak).filter(Boolean))];
+    if (leaked.length) report('FAIL', 'matrix', `${PREFIX}finder result text@${vp.w}`, `HTML entity shown as text in ${records.filter((r) => r.leak).length}/${records.length} results: "${leaked.slice(0, 2).join('" | "')}"`);
+    const misfit = records.filter((r) => r.sizeFit && !r.problems.length);
+    if (misfit.length) report('WARN', 'matrix', `${PREFIX}finder size fit@${vp.w}`, `${misfit.length}/${records.length} answers get a size made for a different dog, e.g. ${misfit.slice(0, 3).map((r) => `${r.style}/${r.stage}/${r.size} → ${r.result.title.split(/\s+/).slice(0, 2).join(' ')} ${r.sizeFit.replace(/^asked \S+, got /, '')}`).join('; ')} (all in ${path.relative(HARNESS_DIR, path.join(OUT_DIR, `finder-matrix${REAL ? '-real' : ''}.json`))})`);
+    const js = [...w.pageErrors, ...w.console];
+    if (js.length) report('FAIL', 'matrix', name, `${summary} — but JS errors: ${js.slice(0, 2).join(' | ')}`);
+    else report(failing.length ? 'FAIL' : 'PASS', 'matrix', name, `${summary} → ${path.relative(HARNESS_DIR, file)}`);
+  } catch (e) {
+    report('FAIL', 'matrix', name, `${e.message.split('\n')[0]}${w.pageErrors.length ? ` · JS: ${w.pageErrors[0]}` : ''}`);
+  } finally {
+    await ctx.close();
+  }
+}
+
 // ------------------------------------------------------------------ main
+/** Pick the flows' products from the real catalogue (by shape, not handle). */
+function realConfig(store) {
+  const ps = store.products();
+  const by = (pred) => ps.find(pred) || null;
+  const multi = by((p) => p.options.length === 1 && isSizeName(p.options[0]) && p.variants.length >= 3 && p.price_varies && p.available) || by((p) => p.variants.length > 1 && p.available) || by((p) => p.available) || ps[0];
+  const colourFirst = by((p) => isColourName(p.options[0]) && p.options.some(isSizeName) && new Set(p.variants.map((v) => v.options[0])).size > 1 && p.price_varies);
+  const sizeFirst = by((p) => isSizeName(p.options[0]) && p.options.slice(1).some((n) => /^color$/i.test(n)) && p.price_varies)
+    || by((p) => isSizeName(p.options[0]) && p.options.slice(1).some(isColourName) && p.price_varies);
+  const soldOut = by((p) => !p.available);
+  const searchProd = multi;
+  return {
+    pdpHandle: multi.handle,
+    cartHandle: multi.handle,
+    stickyHandle: multi.handle,
+    soldOutHandle: soldOut ? soldOut.handle : null,
+    quickAddPath: '/collections/all',
+    searchTerm: searchProd.title.replace(/^The /, '').split(/\s+/)[0].slice(0, 5).toLowerCase(),
+    searchExpect: escRe(searchProd.title.replace(/^The /, '').split(/\s+/)[0]),
+    colourProducts: [colourFirst, sizeFirst].filter(Boolean),
+  };
+}
+
+async function launch(pw) {
+  if (!REAL) return pw.chromium.launch({ headless: true });
+  // Real mode: product images live on cdn.shopify.com, reachable only through the sandbox proxy.
+  // Chrome's own --proxy-server flag, not Playwright's proxy option: Playwright adds <-loopback>,
+  // which would send the local mock server through the proxy too (405s).
+  const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+  return pw.chromium.launch({ headless: true, args: ['--ignore-certificate-errors', ...(proxy ? [`--proxy-server=${proxy}`] : [])] });
+}
+
+/** Can the browser load a CDN image? Otherwise product images are swapped for placeholders. */
+async function probeCdn(browser, base, store) {
+  const img = store.products().map((p) => p.featured_image).find(Boolean);
+  if (!img) return 'live';
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
+  try {
+    const page = await ctx.newPage();
+    await page.goto(`${base}/__dev/health`);
+    const w = await page.evaluate((src) => new Promise((ok) => {
+      const i = new Image();
+      const t = setTimeout(() => ok(0), 15000);
+      i.onload = () => { clearTimeout(t); ok(i.naturalWidth); };
+      i.onerror = () => { clearTimeout(t); ok(0); };
+      i.src = src;
+    }), `${img.src}${img.src.includes('?') ? '&' : '?'}width=100`);
+    return w > 0 ? 'live' : 'placeholder';
+  } catch { return 'placeholder'; } finally { await ctx.close(); }
+}
+
 async function main() {
   const pw = loadPlaywright();
   if (!pw) { console.log('FAIL  setup  playwright not found (expected /opt/node22/lib/node_modules/playwright)'); process.exit(1); }
   let base = args.url ? String(args.url).replace(/\/$/, '') : null;
   let srv = null;
   if (!base) {
-    srv = await startServer({ port: 0, quiet: true, themeDir: path.resolve(args.theme || DEFAULT_THEME_DIR), log: () => {} });
+    srv = await startServer({ port: 0, quiet: true, real: REAL, themeDir: path.resolve(args.theme || DEFAULT_THEME_DIR), log: () => {} });
     base = srv.origin;
   }
-  console.log(`== Lunova browser tests — ${base}${axeSource ? ' · axe-core ' + require('axe-core').version : ' · axe-core not installed (a11y skipped)'}`);
+  const store = srv ? srv.store(RUN_MODE) : createStore({ real: REAL });
+  if (REAL) CFG = realConfig(store);
+  const pages = REAL ? realPages(store) : FIXTURE_PAGES;
+  console.log(`== Lunova browser tests — ${base} · ${REAL ? `REAL catalogue (${store.products().length} products, ${store.realMeta.source} ${store.realMeta.fetched_at})` : 'fixture catalogue'}${axeSource ? ' · axe-core ' + require('axe-core').version : ' · axe-core not installed (a11y skipped)'}`);
   let browser;
   try {
-    browser = await pw.chromium.launch({ headless: true });
+    browser = await launch(pw);
   } catch (e) {
     console.log(`FAIL  setup  could not launch Chromium: ${e.message.split('\n')[0]}`);
     if (srv) await srv.close();
     process.exit(1);
   }
+  if (REAL) {
+    cdnMode = await probeCdn(browser, base, store);
+    report(cdnMode === 'live' ? 'PASS' : 'WARN', 'setup', 'CDN images', cdnMode === 'live' ? `${CDN_HOST} reachable${process.env.HTTPS_PROXY ? ' through HTTPS_PROXY' : ''}` : `${CDN_HOST} unreachable — product images replaced by /__dev/placeholder-img`);
+  }
   try {
-    if (!ONLY || ONLY === 'pages') await checkPages(browser, base);
+    if (!ONLY || ONLY === 'pages') await checkPages(browser, base, pages);
     if (!ONLY || ONLY === 'flows') {
       const desk = VIEWPORTS[0]; const mob = VIEWPORTS[1];
       await flow(browser, base, 'finder→basket', mob, finderFlow);
       await flow(browser, base, 'finder→basket', desk, finderFlow);
       await flow(browser, base, 'pdp size→price/url→basket', mob, pdpFlow);
       await flow(browser, base, 'pdp size→price/url→basket', desk, pdpFlow);
+      for (const prod of CFG.colourProducts) {
+        const label = `pdp ${prod.options.join('+').toLowerCase()}→basket`;
+        await flow(browser, base, label, mob, pdpColourFlow(prod));
+        await flow(browser, base, label, desk, pdpColourFlow(prod));
+      }
       await flow(browser, base, 'drawer qty+ / remove', desk, drawerQtyFlow);
       await flow(browser, base, 'drawer qty+ / remove', mob, drawerQtyFlow);
       await flow(browser, base, 'quick-add from card', desk, quickAddFlow);
@@ -526,14 +926,15 @@ async function main() {
       await flow(browser, base, 'sticky ATC', mob, stickyFlow);
       await flow(browser, base, 'sticky ATC', desk, stickyFlow);
     }
+    if ((!ONLY || ONLY === 'matrix') && !args['no-matrix']) await finderMatrix(browser, base, VIEWPORTS[1], store);
   } finally {
     await browser.close();
     if (srv) await srv.close();
   }
   const count = (s) => results.filter((r) => r.status === s).length;
-  console.log(`\nSUMMARY pass=${count('PASS')} fail=${count('FAIL')} warn=${count('WARN')} skip=${count('SKIP')} → ${count('FAIL') ? 'FAIL' : 'PASS'}  (screenshots: ${path.relative(process.cwd(), SHOTS) || SHOTS})`);
+  console.log(`\nSUMMARY ${REAL ? '[real] ' : ''}pass=${count('PASS')} fail=${count('FAIL')} warn=${count('WARN')} skip=${count('SKIP')} → ${count('FAIL') ? 'FAIL' : 'PASS'}  (screenshots: ${path.relative(process.cwd(), SHOTS) || SHOTS})`);
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  fs.writeFileSync(path.join(OUT_DIR, 'browser-test.json'), JSON.stringify(results, null, 2));
+  fs.writeFileSync(path.join(OUT_DIR, `browser-test${REAL ? '-real' : ''}.json`), JSON.stringify(results, null, 2));
   process.exit(count('FAIL') ? 1 : 0);
 }
 

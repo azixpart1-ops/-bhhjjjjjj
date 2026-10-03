@@ -42,6 +42,43 @@
 
   assign finder_url = routes.root_url | append: '/pages/bed-finder' | replace: '//', '/'
   assign shop_link = section.settings.shop_link | default: routes.all_products_collection_url
+
+  comment
+    Sleep trial: the promise covers beds, not kennels, car seats or
+    personalised items. Each cart-line says whether it is covered in its
+    data-trial attribute (from snippets/trial-eligible), so the lines are
+    rendered first and the drawer words the trial from them.
+    Every line covered: the trust row says the usual N-night trial.
+    Some lines covered: it says Beds: N-night trial, and the other lines
+    say they are not part of it.
+    None covered: no trial claim in the drawer at all.
+    The added banner shows its trial sentence only for a covered line,
+    which cart.js reads from data-trial.
+  endcomment
+  assign trial_nights = settings.trial_nights | default: 0 | plus: 0
+  assign trial_on = false
+  if settings.trial_enable and trial_nights > 0
+    assign trial_on = true
+  endif
+  capture cart_lines_html
+    for item in cart.items
+      render 'cart-line', item: item, index: forloop.index, context: 'drawer'
+    endfor
+  endcapture
+  assign trial_cover = 'none'
+  if cart_lines_html contains 'data-trial="true"'
+    assign trial_cover = 'all'
+    if cart_lines_html contains 'data-trial="false"'
+      assign trial_cover = 'some'
+    endif
+  endif
+  if trial_on and trial_cover == 'some'
+    capture cart_lines_html
+      for item in cart.items
+        render 'cart-line', item: item, index: forloop.index, context: 'drawer', trial_note: true
+      endfor
+    endcapture
+  endif
 -%}
 {%- comment -%}
   Styles for every chrome dialog (menu, search, this drawer, quick add, email
@@ -81,9 +118,9 @@
               {%- render 'icon', name: 'check-circle', size: 22, class: 'cart-drawer__added-icon' -%}
               <div>
                 <p class="cart-drawer__added-title" data-cart-added-text></p>
-                {%- if section.settings.show_added_trial and settings.trial_enable and settings.trial_nights > 0 -%}
+                {%- if section.settings.show_added_trial and trial_on -%}
                   {%- capture added_terms -%}{%- render 'trial-terms' -%}{%- endcapture -%}
-                  <p class="cart-drawer__added-trial">{{ 'chrome.cart.added_trial' | t: nights: settings.trial_nights, terms: added_terms }}</p>
+                  <p class="cart-drawer__added-trial" data-cart-added-trial hidden>{{ 'chrome.cart.added_trial' | t: nights: trial_nights, terms: added_terms }}</p>
                 {%- endif -%}
               </div>
             </div>
@@ -97,9 +134,7 @@
 
             <h3 class="visually-hidden">{{ 'chrome.cart.items_heading' | t }}</h3>
             <ul class="cart-lines" role="list">
-              {%- for item in cart.items -%}
-                {%- render 'cart-line', item: item, index: forloop.index, context: 'drawer' -%}
-              {%- endfor -%}
+              {{- cart_lines_html -}}
             </ul>
 
             {%- if show_upsell -%}
@@ -252,8 +287,33 @@
           </div>
         {%- endif -%}
         {%- if section.settings.show_trust -%}
-          {%- comment -%} Delivery is already stated by the progress bar and the line above Checkout; two promises keep this to one line on a phone. {%- endcomment -%}
-          {%- render 'trust-list', items: 'trial,secure', layout: 'row', size: 'sm', class: 'cart-drawer__trust' -%}
+          {%- comment -%}
+            Delivery is already stated by the progress bar and the line above
+            Checkout; two promises keep this to one line on a phone. The trial
+            is worded from the lines (see the top of this file). This block
+            sits outside the re-rendered content, so cart.js copies
+            [data-cart-trust] across from every re-render.
+          {%- endcomment -%}
+          <div data-cart-trust>
+            {%- liquid
+              if trial_cover == 'some' and trial_on
+                capture trust_html
+                  render 'trust-list', items: 'trial,secure', layout: 'row', size: 'sm', class: 'cart-drawer__trust'
+                endcapture
+                assign trial_title = 'core.trust.trial_title' | t: nights: trial_nights
+                assign trial_needle = '>' | append: trial_title | append: '<'
+                if trust_html contains trial_needle
+                  assign beds_title = 'chrome.cart.trust_trial_beds' | t: nights: trial_nights
+                  assign beds_needle = '>' | append: beds_title | append: '<'
+                  echo trust_html | replace_first: trial_needle, beds_needle
+                else
+                  render 'trust-list', items: 'secure', layout: 'row', size: 'sm', class: 'cart-drawer__trust'
+                endif
+              else
+                render 'trust-list', items: 'trial,secure', layout: 'row', size: 'sm', class: 'cart-drawer__trust', basket: cart
+              endif
+            -%}
+          </div>
         {%- endif -%}
       </div>
 

@@ -6,7 +6,7 @@
 import crypto from 'node:crypto';
 import {
   liquidjs, RFloat, ColorDrop, MetafieldDrop, parseColor, rgbToHsl, hslToRgb, colorOut, toHex,
-  imageInfoFromUrl, modifyFont, makeFont,
+  imageInfoFromUrl, imageUrlWith, modifyFont, makeFont,
 } from './drops.mjs';
 import { escapeHtml, handleize, stripHtml } from './util.mjs';
 
@@ -234,7 +234,9 @@ function safeJson(value) {
     return v;
   };
   const s = JSON.stringify(value === undefined ? null : value, replacer);
+  // Shopify's json also escapes "/" as "\/" (live: "url":"\/products\/…").
   return (s === undefined ? 'null' : s)
+    .replace(/\//g, '\\/')
     .replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
     .replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
@@ -260,13 +262,7 @@ function resolveImageSource(env, input) {
 }
 
 function imageUrlFor(info, { width, height, crop, format }) {
-  const q = new URLSearchParams();
-  q.set('v', '1');
-  if (width) q.set('width', String(width));
-  if (height) q.set('height', String(height));
-  if (crop) q.set('crop', String(crop));
-  if (format) q.set('format', String(format));
-  return `/fixture-img/${encodeURIComponent(info.name)}?${q.toString()}`;
+  return imageUrlWith(info, { width, height, crop, format });
 }
 
 function srcDims(info, width, height) {
@@ -474,7 +470,7 @@ export function createShopifyFilters(env) {
           const qq = new URLSearchParams(base);
           qq.set('width', String(w));
           if (reqW && reqH) qq.set('height', String(Math.round(w * reqH / reqW)));
-          return `/fixture-img/${encodeURIComponent(info.name)}?${qq.toString()} ${w}w`;
+          return `${imageUrlWith(info, Object.fromEntries([...qq].filter(([k]) => k !== 'v')))} ${w}w`;
         }).join(', ');
       }
     }

@@ -204,6 +204,22 @@
         assign delivery_max = delivery_min
       endif
 
+      comment
+        Products the trial doesn't cover (snippets/trial-eligible ≡ Lunova.trialEligible).
+      endcomment
+      assign trial_excluded_json = ''
+      assign raw_excluded = settings.trial_excluded | default: '' | downcase | newline_to_br | split: '<br />'
+      for x in raw_excluded
+        assign xl = x | strip
+        if xl != ''
+          if trial_excluded_json != ''
+            assign trial_excluded_json = trial_excluded_json | append: ','
+          endif
+          assign xj = xl | json
+          assign trial_excluded_json = trial_excluded_json | append: xj
+        endif
+      endfor
+
       assign cutoff = settings.dispatch_cutoff_hour | default: 15 | plus: 0
       assign tz = settings.store_timezone | default: 'Europe/London' | strip
       if tz == ''
@@ -260,6 +276,7 @@
         trialFreeCollection: {{ settings.trial_free_collection | json }},
         trialTerms: {{ trial_terms | strip | json }},
         trialTermsShort: {{ trial_terms_short | strip | json }},
+        trialExcluded: [{{ trial_excluded_json }}],
         guaranteeEnabled: {{ settings.guarantee_enable | json }},
         guaranteeYears: {{ guarantee_years }},
         deliveryEnabled: {{ settings.delivery_promise_enable | json }},

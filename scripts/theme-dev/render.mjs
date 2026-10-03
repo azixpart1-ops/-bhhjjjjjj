@@ -5,7 +5,7 @@
 //   const r = new ThemeRenderer({ themeDir, store })
 //   const { html, status, issues } = r.renderPage(route, { cart })
 //
-// CLI:  node render.mjs /products/coniston-orthopaedic-dog-bed [--empty] [--out file.html]
+// CLI:  node render.mjs /products/coniston-orthopaedic-dog-bed [--empty | --real] [--out file.html]
 //       node render.mjs /cart --section cart-drawer
 //
 // Fidelity notes (what Shopify does that we emulate):
@@ -468,7 +468,9 @@ export class ThemeRenderer {
         if (!(size >= 1 && size <= 250)) R.issue('error', 'liquid-error', `paginate: page size must be 1–250 (got ${size}); Shopify caps collection pages at 50 products and 250 per pagination`);
         const per = Math.max(1, Math.min(250, size || 1));
         if (per > 50 && /products/.test(this.collToken.getText())) R.issue('warn', 'paginate-size', `paginate by ${per}: Shopify returns at most 50 products per page`);
-        const arr = coll == null ? [] : Array.isArray(coll) ? coll : (typeof coll === 'object' && coll[Symbol.iterator]) ? [...coll] : [];
+        // collection.products / search.results hold 50 items outside paginate (see shopifyLimited); paginate sees them all.
+        const full = coll && Array.isArray(coll._all) ? coll._all : coll;
+        const arr = full == null ? [] : Array.isArray(full) ? full : (typeof full === 'object' && full[Symbol.iterator]) ? [...full] : [];
         if (coll == null) R.issue('warn', 'paginate-nil', `paginate: "${this.collToken.getText()}" is nil`);
         const pg = R.paginate(arr.length, per, Number(opts.window_size) || 2);
         const slice = arr.slice(pg.current_offset, pg.current_offset + per);
@@ -628,11 +630,14 @@ export class ThemeRenderer {
       }
       v = pick;
     }
-    return String(v).replace(/\{\{\s*([\w.]+)\s*\}\}/g, (m, k) => {
+    const out = String(v).replace(/\{\{\s*([\w.]+)\s*\}\}/g, (m, k) => {
       if (k in named) return stringifyOut(named[k]);
       this.issue('warn', 'translation-arg', `translation en.${key} uses {{ ${k} }} but it was not passed`);
       return '';
     });
+    // Shopify HTML-escapes translations whose key doesn't end in _html (& < > " ' → &amp; … &#39;).
+    // Seen on the live store: "Your dog's name" | t | json → "Your dog&#39;s name".
+    return /_html$/.test(key) ? out : escapeHtml(out);
   }
 
   // ------------------------------------------------------------- settings
@@ -656,7 +661,7 @@ export class ThemeRenderer {
   }
 
   globalSettings() {
-    const key = [mtime(path.join(this.themeDir, 'config', 'settings_schema.json')), mtime(path.join(this.themeDir, 'config', 'settings_data.json')), this.store.empty].join('|');
+    const key = [mtime(path.join(this.themeDir, 'config', 'settings_schema.json')), mtime(path.join(this.themeDir, 'config', 'settings_data.json')), this.store.mode || this.store.empty].join('|');
     if (this._settings && this._settingsKey === key) return this._settings;
     const defs = this.settingsSchema().flatMap((g) => (Array.isArray(g.settings) ? g.settings : []));
     const current = this.settingsData().current || {};
@@ -1300,7 +1305,7 @@ function loadSystemTranslations() {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const url = new URL(args._[0] || '/', 'http://localhost:9292');
-  const store = createStore({ empty: !!args.empty });
+  const store = createStore({ empty: !!args.empty, real: !!args.real });
   const r = new ThemeRenderer({ themeDir: args.theme || DEFAULT_THEME_DIR, store });
   const route = resolveRoute(store, url.pathname, url.searchParams, { loggedIn: true });
   if (route.redirect) { console.error(`redirect → ${route.redirect}`); process.exit(0); }
@@ -1315,7 +1320,8 @@ async function main() {
   else process.stdout.write(html + '\n');
   for (const i of result.issues.list) console.error(formatIssue(i));
   console.error(`# ${url.pathname}${url.search} template=${route.template}${route.suffix ? '.' + route.suffix : ''} status=${route.status} errors=${result.issues.errors.length} warnings=${result.issues.warnings.length} locale=${r.localeSource || '-'}`);
-  process.exit(result.issues.errors.length ? 1 : 0);
+  // exitCode, not exit(): exit() would cut a large page short when stdout is a pipe.
+  process.exitCode = result.issues.errors.length ? 1 : 0;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {

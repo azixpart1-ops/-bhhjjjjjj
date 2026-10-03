@@ -1,23 +1,56 @@
 {%- comment -%}
-  Size hints from settings.size_hints — one size per line:
-    VALUE|Label|Weight|Breeds
+  Size hints and size-value parsing. One place decides what a size option
+  value means, so cards, the buy box, the size guide, the basket and the Bed
+  Finder all agree. Keep in step with Lunova.sizeParse / sizeHintIndex /
+  sizeHint / sizeLabel in assets/global.js (same rules, same tables).
+
+  settings.size_hints, one size per line:
+    VALUE|Label|Weight|Breeds|Min length (optional, cm)
     M|Medium|10–25kg|Cocker, Springer, Border Collie, Staffie
 
-  Modes
-    (no args)                → <script type="application/json" id="size-hints">[{value,label,weight,breeds}, …]</script>
-                               Render it once per page that needs it (it carries an id).
-    mode: 'json'             → the bare JSON array (used by layout/theme.liquid for Lunova.settings.sizeHints)
-    value: 'M', mode: 'inline' → "Cocker, Springer · 10–25kg" for that option value
-    value: 'M', mode: 'weight' | 'breeds' | 'label' → just that part
-    breeds: 2                → how many breeds the inline text lists (default 2; 0 = all)
+  ── Parsing a value ─────────────────────────────────────────────────────
+  A value splits at the first ' · ', ':', ' (', ' / ', ' – ', ' — ' or ' - ':
+    "Large · 91 × 69 × 24cm"                  label "Large",       detail "91 × 69 × 24cm"
+    "Medium: Springer Spaniel | Cockapoo"     label "Medium",      detail "Springer Spaniel, Cockapoo"
+    "Extra Large · 107 × 76 × 19cm"           label "Extra Large", rank XL
+    "One size · 80 × 80cm"                    label "One size",    one size
+    "XXL"                                     label "XXL",         detail ""
+  Rank (by label): XXS 1 < XS 2 < S 3 < M 4 < L 5 < XL 6 < XXL 7 < 3XL 8 < 4XL 9 < 5XL 10.
+  Words count too: Small, Medium, Large, Extra Large, X-Large, 2XL… One size /
+  Default Title rank 0. Anything else (Snug, Roomy) ranks -1.
 
-  Matching an option value to a line (case-insensitive):
-    - equals VALUE or Label ("Medium" ≡ "M");
-    - "2XL", "XXL", "3XL", "XXXL", "X-Large", "Extra extra large" fall into XL;
-      "X-Small" into XS;
-    - otherwise the first word is tried, so "Medium (75 × 60cm)" or
-      "M / Grey" still match.
-  Outputs nothing when there is no match.
+  ── Matching a value to a size-hint line (the dog it suits) ─────────────
+    1. The whole value equals a line's VALUE or Label.
+    2. Breeds in the detail: each breed votes for the line whose Breeds name
+       it (whole words, so "Golden Retriever" counts for "Retriever"). Most
+       votes wins; a tie goes to the line the label names, else the larger.
+       (Kentmere "Large: Cocker Spaniel | Cockapoo | Staffie" → M.)
+    3. Dimensions in the detail: the bed's length (longer of the first two
+       measurements; mm and inches converted) picks the largest line whose
+       minimum length it reaches. Minimum length is the line's 5th field, or
+       by rank: XS 0, S 55, M 70, L 85, XL 105, XXL 125, 3XL 140 (cm).
+       ("Large · 60 × 45cm" is a small bed → S.)
+    4. The label: equals a line's VALUE or Label, else the line of the same
+       rank; ranks above the largest line fall into it (XXL, 3XL → XL), below
+       the smallest into it (XXS → XS).
+    5. The first word ("Medium dog bed").
+
+  Modes
+    (no args)                  → <script type="application/json" id="size-hints">[…]</script> (render once per page)
+    mode: 'json'               → bare JSON array [{value,label,weight,breeds,min}] (layout → Lunova.settings.sizeHints;
+                                 min is the 5th field as text, '' when not given)
+    value: v, mode: 'parse'    → "rank|kind|label|detail"   kind: size | one | other. Split it on '|';
+                                 no field contains '|' (breed lists come back comma separated).
+    value: v, mode: 'size_label'  → the value's own size name as written ("Extra Large", "One size", "XL")
+    value: v, mode: 'label'    → display name: a line's Label when the value's size name is that
+                                 line's VALUE ("M" → "Medium"), otherwise the value's own size name.
+                                 Never renames a size ("Large: Cocker…" stays "Large").
+    value: v, mode: 'hint_label' → the matched line's Label ("Medium" for "Large: Cocker…")
+    value: v, mode: 'index'    → 0-based index of the matched line ('' when none)
+    value: v, mode: 'inline'   → "Cocker, Springer · 10–25kg" from the matched line (default when value is given)
+    value: v, mode: 'weight' | 'breeds' → that part of the matched line
+    breeds: 2                  → how many breeds inline/breeds list (default 2; 0 = all)
+  Hint modes output nothing when no line matches.
 {%- endcomment -%}
 {%- liquid
   assign raw = settings.size_hints | default: '' | newline_to_br | split: '<br />'
@@ -25,6 +58,8 @@
   if value != blank and mode == blank
     assign out_mode = 'inline'
   endif
+  assign rank_map = '|xxs=1|xx small=1|2xs=1|extra extra small=1|xs=2|x small=2|xsmall=2|extra small=2|s=3|sm=3|small=3|m=4|med=4|medium=4|l=5|lg=5|large=5|xl=6|x large=6|xlarge=6|extra large=6|xxl=7|2xl=7|xx large=7|xxlarge=7|extra extra large=7|3xl=8|xxxl=8|xxx large=8|4xl=9|xxxxl=9|5xl=10|one size=0|onesize=0|one size fits all=0|default title=0|os=0|'
+  assign min_map = '|1=0|2=0|3=55|4=70|5=85|6=105|7=125|8=140|9=155|10=170|'
 -%}
 {%- if out_mode == 'script' or out_mode == 'json' -%}
   {%- capture json -%}
@@ -38,7 +73,7 @@
       {%- if v == '' -%}{%- continue -%}{%- endif -%}
       {%- unless first -%},{%- endunless -%}
       {%- assign first = false -%}
-      {"value":{{ v | json }},"label":{{ parts[1] | default: '' | strip | json }},"weight":{{ parts[2] | default: '' | strip | json }},"breeds":{{ parts[3] | default: '' | strip | json }}}
+      {"value":{{ v | json }},"label":{{ parts[1] | default: '' | strip | json }},"weight":{{ parts[2] | default: '' | strip | json }},"breeds":{{ parts[3] | default: '' | strip | json }},"min":{{ parts[4] | default: '' | strip | json }}}
     {%- endfor -%}
     ]
   {%- endcapture -%}
@@ -49,79 +84,354 @@
   {%- endif -%}
 {%- else -%}
   {%- liquid
-    assign q = value | default: '' | downcase | replace: '-', ' ' | strip
-    case q
-      when '2xl', 'xxl', '3xl', 'xxxl', 'x large', 'extra extra large', 'xx large'
-        assign q = 'xl'
-      when 'x small', 'extra extra small', 'xxs', 'xx small'
-        assign q = 'xs'
-    endcase
-    assign q_first = q | split: ' ' | first | split: '/' | first | split: '(' | first | strip
-    case q_first
-      when '2xl', 'xxl', '3xl', 'xxxl'
-        assign q_first = 'xl'
-      when 'xxs'
-        assign q_first = 'xs'
-    endcase
-
-    assign hit = ''
-    assign hit_first = ''
-    for line in raw
-      assign l = line | strip
-      if l == ''
-        continue
-      endif
-      assign lparts = l | split: '|'
-      assign v = lparts[0] | default: '' | downcase | strip
-      assign lbl = lparts[1] | default: '' | downcase | strip
-      if hit == ''
-        if q == v or q == lbl
-          assign hit = l
-        endif
-      endif
-      if hit_first == '' and q_first != ''
-        if q_first == v or q_first == lbl
-          assign hit_first = l
+    comment
+      1. Parse: label before the first separator, detail after it.
+    endcomment
+    assign sv = value | default: '' | append: '' | strip
+    assign sv_lc = sv | downcase
+    assign seps = ' · ~:~ (~ / ~ – ~ — ~ - ' | split: '~'
+    assign best_len = sv.size
+    assign best_sep = ''
+    for sep in seps
+      if sv contains sep
+        assign pre = sv | split: sep | first | default: ''
+        if pre.size > 0 and pre.size < best_len
+          assign best_len = pre.size
+          assign best_sep = sep
         endif
       endif
     endfor
-    if hit == ''
-      assign hit = hit_first
+    assign p_label = sv
+    assign p_detail = ''
+    if best_sep != ''
+      assign p_label = sv | slice: 0, best_len | strip
+      assign d_start = best_len | plus: best_sep.size
+      assign p_detail = sv | slice: d_start, 1000 | strip
+      if best_sep == ' ('
+        assign d_last = p_detail | slice: -1, 1
+        if d_last == ')'
+          assign d_keep = p_detail.size | minus: 1
+          assign p_detail = p_detail | slice: 0, d_keep | strip
+        endif
+      endif
+      assign p_detail = p_detail | replace: ' | ', ', ' | replace: '|', ', '
+    endif
+
+    assign label_q = p_label | downcase | replace: '-', ' ' | remove: '.' | replace: '  ', ' ' | strip
+    assign p_rank = -1
+    assign rk_key = '|' | append: label_q | append: '='
+    if label_q != '' and rank_map contains rk_key
+      assign p_rank = rank_map | split: rk_key | last | split: '|' | first | plus: 0
+    endif
+    assign p_kind = 'other'
+    if p_rank > 0
+      assign p_kind = 'size'
+    elsif p_rank == 0
+      assign p_kind = 'one'
     endif
   -%}
-  {%- if hit != '' -%}
+  {%- if out_mode == 'parse' -%}
+    {%- assign p_label_out = p_label | replace: '|', '/' -%}
+    {{- p_rank | at_least: 0 }}|{{ p_kind }}|{{ p_label_out }}|{{ p_detail -}}
+  {%- elsif out_mode == 'size_label' -%}
+    {{- p_label -}}
+  {%- else -%}
     {%- liquid
-      assign parts = hit | split: '|'
-      assign h_label = parts[1] | default: '' | strip
-      assign h_weight = parts[2] | default: '' | strip
-      assign h_breeds = parts[3] | default: '' | strip
-      assign limit = breeds | default: 2 | plus: 0
-      if limit > 0 and h_breeds != ''
-        assign b_list = h_breeds | split: ','
-        assign b_out = ''
-        for b in b_list limit: limit
-          assign bs = b | strip
-          if bs == ''
-            continue
+      comment
+        2. The bed's length from the detail (or the whole value): "91 × 69 × 24cm" → 91.
+      endcomment
+      assign p_len = -1
+      assign d_srcs = p_detail | append: '~' | append: p_label | split: '~'
+      for d_src in d_srcs
+        if p_len >= 0
+          break
+        endif
+        assign dpart = d_src | downcase | replace: '×', 'x' | remove: ' ' | split: '/' | first | default: '' | split: ',' | first | default: ''
+        unless dpart contains 'x'
+          continue
+        endunless
+        assign dp = dpart | split: 'x'
+        assign da = dp[0] | default: '' | remove: 'cm' | remove: 'mm' | remove: 'in' | remove: '"' | remove: '(' | remove: ')'
+        assign db = dp[1] | default: '' | remove: 'cm' | remove: 'mm' | remove: 'in' | remove: '"' | remove: '(' | remove: ')'
+        assign da_chk = da | remove: '0' | remove: '1' | remove: '2' | remove: '3' | remove: '4' | remove: '5' | remove: '6' | remove: '7' | remove: '8' | remove: '9' | remove: '.'
+        assign db_chk = db | remove: '0' | remove: '1' | remove: '2' | remove: '3' | remove: '4' | remove: '5' | remove: '6' | remove: '7' | remove: '8' | remove: '9' | remove: '.'
+        if da == '' or db == '' or da_chk != '' or db_chk != ''
+          continue
+        endif
+        assign na = da | plus: 0
+        assign nb = db | plus: 0
+        assign p_len = na
+        if nb > na
+          assign p_len = nb
+        endif
+        if dpart contains 'mm'
+          assign p_len = p_len | divided_by: 10.0
+        elsif dpart contains 'in' or dpart contains '"'
+          assign p_len = p_len | times: 2.54
+        endif
+      endfor
+
+      comment
+        3. Match against the hint lines (see the header for the order).
+      endcomment
+      assign whole_q = sv_lc | replace: '-', ' ' | replace: '  ', ' ' | strip
+      assign v_breeds = p_detail | downcase | replace: '-', ' ' | split: ','
+      assign hit = ''
+      assign hit_i = ''
+      assign b_best = ''
+      assign b_best_i = ''
+      assign b_best_n = 0
+      assign b_best_lm = false
+      assign d_best = ''
+      assign d_best_i = ''
+      assign d_best_min = -1
+      assign d_lines = 0
+      assign r_hit = ''
+      assign r_hit_i = ''
+      assign l_hit = ''
+      assign l_hit_i = ''
+      assign r_max = ''
+      assign r_max_i = ''
+      assign r_max_rank = -1
+      assign r_min = ''
+      assign r_min_i = ''
+      assign r_min_rank = 99
+      assign abbr_label = ''
+      assign idx = -1
+      for line in raw
+        assign l = line | strip
+        if l == ''
+          continue
+        endif
+        assign lparts = l | split: '|'
+        assign v = lparts[0] | default: '' | downcase | replace: '-', ' ' | strip
+        if v == ''
+          continue
+        endif
+        assign idx = idx | plus: 1
+        assign lbl = lparts[1] | default: '' | downcase | replace: '-', ' ' | strip
+
+        if hit == '' and whole_q != ''
+          if whole_q == v or whole_q == lbl
+            assign hit = l
+            assign hit_i = idx
           endif
-          if b_out != ''
-            assign b_out = b_out | append: ', '
+        endif
+
+        comment
+          Line rank, from its VALUE or else its Label.
+        endcomment
+        assign h_rank = -1
+        assign hk = '|' | append: v | remove: '.' | append: '='
+        if rank_map contains hk
+          assign h_rank = rank_map | split: hk | last | split: '|' | first | plus: 0
+        else
+          assign hk = '|' | append: lbl | remove: '.' | append: '='
+          if lbl != '' and rank_map contains hk
+            assign h_rank = rank_map | split: hk | last | split: '|' | first | plus: 0
           endif
-          assign b_out = b_out | append: bs
-        endfor
-        assign h_breeds = b_out
+        endif
+        comment
+          Label: same VALUE / Label, else same rank (and the abbreviation's
+          Label for display).
+        endcomment
+        assign label_match = false
+        if label_q == ''
+          assign label_match = false
+        elsif label_q == v or label_q == lbl
+          assign label_match = true
+          if l_hit == ''
+            assign l_hit = l
+            assign l_hit_i = idx
+          endif
+          if abbr_label == '' and label_q == v
+            assign abbr_label = lparts[1] | default: '' | strip
+          endif
+        elsif p_rank > 0 and h_rank == p_rank
+          assign label_match = true
+          if r_hit == ''
+            assign r_hit = l
+            assign r_hit_i = idx
+          endif
+        endif
+
+        comment
+          Breed vote.
+        endcomment
+        assign h_breeds_raw = lparts[3] | default: '' | downcase | replace: '-', ' '
+        if p_detail != '' and h_breeds_raw != ''
+          assign h_breeds_list = h_breeds_raw | split: ','
+          assign votes = 0
+          for vb in v_breeds
+            assign nb_s = vb | replace: '  ', ' ' | strip
+            if nb_s == ''
+              continue
+            endif
+            assign nb_w = ' ' | append: nb_s | append: ' '
+            for hb in h_breeds_list
+              assign hb_s = hb | replace: '  ', ' ' | strip
+              if hb_s == ''
+                continue
+              endif
+              assign hb_w = ' ' | append: hb_s | append: ' '
+              if nb_w contains hb_w or hb_w contains nb_w
+                assign votes = votes | plus: 1
+                break
+              endif
+            endfor
+          endfor
+          if votes > 0
+            if votes > b_best_n
+              assign b_best = l
+              assign b_best_i = idx
+              assign b_best_n = votes
+              assign b_best_lm = label_match
+            elsif votes == b_best_n and b_best_lm == false
+              assign b_best = l
+              assign b_best_i = idx
+              assign b_best_lm = label_match
+            endif
+          endif
+        endif
+
+        comment
+          Minimum length: 5th field, else by rank.
+        endcomment
+        assign h_min = lparts[4] | default: '' | strip
+        assign h_chk = h_min | remove: '0' | remove: '1' | remove: '2' | remove: '3' | remove: '4' | remove: '5' | remove: '6' | remove: '7' | remove: '8' | remove: '9' | remove: '.'
+        if h_min == '' or h_chk != ''
+          assign h_min = ''
+          if h_rank > 0
+            assign mk = '|' | append: h_rank | append: '='
+            assign h_min = min_map | split: mk | last | split: '|' | first
+          endif
+        endif
+        if h_min != ''
+          assign h_min = h_min | plus: 0
+          assign d_lines = d_lines | plus: 1
+          if p_len >= 0 and h_min <= p_len and h_min > d_best_min
+            assign d_best = l
+            assign d_best_i = idx
+            assign d_best_min = h_min
+          endif
+        endif
+
+        comment
+          Largest and smallest ranked lines, for ranks beyond the list.
+        endcomment
+        if h_rank > 0 and h_rank > r_max_rank
+          assign r_max = l
+          assign r_max_i = idx
+          assign r_max_rank = h_rank
+        endif
+        if h_rank > 0 and h_rank < r_min_rank
+          assign r_min = l
+          assign r_min_i = idx
+          assign r_min_rank = h_rank
+        endif
+      endfor
+
+      if hit == '' and b_best != ''
+        assign hit = b_best
+        assign hit_i = b_best_i
+      endif
+      if hit == '' and d_best != '' and d_lines > 1
+        assign hit = d_best
+        assign hit_i = d_best_i
+      endif
+      if hit == '' and l_hit != ''
+        assign hit = l_hit
+        assign hit_i = l_hit_i
+      endif
+      if hit == '' and r_hit != ''
+        assign hit = r_hit
+        assign hit_i = r_hit_i
+      endif
+      if hit == '' and p_rank > 0 and r_max != '' and p_rank > r_max_rank
+        assign hit = r_max
+        assign hit_i = r_max_i
+      endif
+      if hit == '' and p_rank > 0 and r_min != '' and p_rank < r_min_rank
+        assign hit = r_min
+        assign hit_i = r_min_i
+      endif
+
+      comment
+        4. First word ("Medium dog bed").
+      endcomment
+      if hit == ''
+        assign fw = sv_lc | split: ' ' | first | default: '' | split: '/' | first | default: '' | split: '(' | first | default: '' | split: ':' | first | default: '' | strip
+        if fw != ''
+          assign fw_rank = -1
+          assign fk = '|' | append: fw | append: '='
+          if rank_map contains fk
+            assign fw_rank = rank_map | split: fk | last | split: '|' | first | plus: 0
+          endif
+          assign idx = -1
+          for line in raw
+            assign l = line | strip
+            if l == ''
+              continue
+            endif
+            assign lparts = l | split: '|'
+            assign v = lparts[0] | default: '' | downcase | replace: '-', ' ' | strip
+            if v == ''
+              continue
+            endif
+            assign idx = idx | plus: 1
+            assign lbl = lparts[1] | default: '' | downcase | replace: '-', ' ' | strip
+            assign hk = '|' | append: v | remove: '.' | append: '='
+            assign h_rank = -1
+            if rank_map contains hk
+              assign h_rank = rank_map | split: hk | last | split: '|' | first | plus: 0
+            endif
+            if fw == v or fw == lbl or fw_rank > 0 and fw_rank == h_rank
+              assign hit = l
+              assign hit_i = idx
+              break
+            endif
+          endfor
+        endif
       endif
     -%}
-    {%- case out_mode -%}
-      {%- when 'weight' -%}{{- h_weight | escape -}}
-      {%- when 'breeds' -%}{{- h_breeds | escape -}}
-      {%- when 'label' -%}{{- h_label | escape -}}
-      {%- else -%}
-        {%- if h_breeds != '' and h_weight != '' -%}
-          {{- h_breeds | escape }} · {{ h_weight | escape -}}
+    {%- if out_mode == 'label' -%}
+      {{- abbr_label | default: p_label | escape -}}
+    {%- elsif out_mode == 'index' -%}
+      {{- hit_i -}}
+    {%- elsif hit != '' -%}
+      {%- liquid
+        assign parts = hit | split: '|'
+        assign h_label = parts[1] | default: '' | strip
+        assign h_weight = parts[2] | default: '' | strip
+        assign h_breeds = parts[3] | default: '' | strip
+        assign limit = breeds | default: 2 | plus: 0
+        if limit > 0 and h_breeds != ''
+          assign b_list = h_breeds | split: ','
+          assign b_out = ''
+          for b in b_list limit: limit
+            assign bs = b | strip
+            if bs == ''
+              continue
+            endif
+            if b_out != ''
+              assign b_out = b_out | append: ', '
+            endif
+            assign b_out = b_out | append: bs
+          endfor
+          assign h_breeds = b_out
+        endif
+      -%}
+      {%- case out_mode -%}
+        {%- when 'weight' -%}{{- h_weight | escape -}}
+        {%- when 'breeds' -%}{{- h_breeds | escape -}}
+        {%- when 'hint_label' -%}{{- h_label | escape -}}
         {%- else -%}
-          {{- h_breeds | append: h_weight | escape -}}
-        {%- endif -%}
-    {%- endcase -%}
+          {%- if h_breeds != '' and h_weight != '' -%}
+            {{- h_breeds | escape }} · {{ h_weight | escape -}}
+          {%- else -%}
+            {{- h_breeds | append: h_weight | escape -}}
+          {%- endif -%}
+      {%- endcase -%}
+    {%- endif -%}
   {%- endif -%}
 {%- endif -%}

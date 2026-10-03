@@ -6,9 +6,12 @@
   Renders an <li>; wrap lines in <ul class="cart-lines" role="list">.
 
   Parameters
-    item      line_item (required)
-    index     1-based line number (forloop.index) (required)
-    context   'drawer' (default) | 'page' — only used to keep ids unique
+    item        line_item (required)
+    index       1-based line number (forloop.index) (required)
+    context     'drawer' (default) | 'page' — only used to keep ids unique
+    trial_note  true → an item the sleep trial doesn't cover says so under
+                its options (pass it when the basket mixes covered and
+                uncovered items, so a "Beds: 100-night trial" line is exact)
 
   JS hooks
     [data-line-key]              root; also data-line-index, data-quantity
@@ -19,6 +22,9 @@
     [data-line-remove]           remove link (its href works without JS)
     [data-line-error]            empty live region for a failed update
     [data-focus-key]             stable keys so focus survives a re-render
+    data-trial="true|false"      on the root: does the sleep trial cover this
+                                 item? (see below) The drawer only mentions
+                                 the trial for lines that say true.
 
   Honest numbers only: "Only 3 left" appears when the variant tracks stock,
   won't oversell (policy deny) and is at or under the low-stock threshold.
@@ -61,6 +67,31 @@
   if item.original_line_price != item.final_line_price
     assign discounted = true
   endif
+
+  comment
+    Sleep-trial cover, from the one shared test (snippets/trial-eligible:
+    the trial is on and the product is not excluded by Theme settings or a
+    trial:no tag). It also says whether the trial is switched on at all.
+    trial_personal only picks the wording of the note below.
+  endcomment
+  capture trial_eligible
+    render 'trial-eligible', product: item.product
+  endcapture
+  assign trial_ok = false
+  if trial_eligible == 'true'
+    assign trial_ok = true
+  endif
+  assign tr_hay = item.product.title | append: ' ' | append: item.product.type | downcase
+  assign trial_personal = false
+  if tr_hay contains 'personalised' or tr_hay contains 'personalized'
+    assign trial_personal = true
+  endif
+
+  assign trial_nights = settings.trial_nights | default: 0 | plus: 0
+  assign show_trial_note = false
+  if trial_note and trial_ok == false and settings.trial_enable and trial_nights > 0
+    assign show_trial_note = true
+  endif
 -%}
 <li
   class="cart-line"
@@ -70,6 +101,7 @@
   data-quantity="{{ item.quantity }}"
   data-variant-id="{{ item.variant_id }}"
   data-product-handle="{{ item.product.handle }}"
+  data-trial="{{ trial_ok }}"
 >
   <a href="{{ item.url }}" class="cart-line__media" tabindex="-1" aria-hidden="true">
     {%- render 'image',
@@ -136,6 +168,16 @@
           </li>
         {%- endfor -%}
       </ul>
+    {%- endif -%}
+
+    {%- if show_trial_note -%}
+      <p class="cart-line__note cart-line__trial-note">
+        {%- if trial_personal -%}
+          {{ 'chrome.cart.trial_excluded_personal' | t: nights: trial_nights }}
+        {%- else -%}
+          {{ 'chrome.cart.trial_excluded' | t: nights: trial_nights }}
+        {%- endif -%}
+      </p>
     {%- endif -%}
 
     {%- if low_stock -%}

@@ -4,12 +4,16 @@
 
     empty basket  → "Free UK delivery on orders over £40"
     below         → "You're £11 away from free UK delivery" + bar
-    reached       → "Free UK delivery unlocked" + full bar
+    reached       → nothing: the subtotal note already says "Free UK delivery
+                    on this order", and a full bar on every basket (when every
+                    bed costs more than the threshold) only pushes the items
+                    down. show_unlocked: true → one tick line, no bar.
 
   Parameters
-    cart     the cart object (required)
-    compact  true → tighter spacing
-    class    extra classes
+    cart           the cart object (required)
+    compact        true → tighter spacing
+    class          extra classes
+    show_unlocked  true → "Free UK delivery unlocked" line once reached
 
   Renders nothing when settings.free_shipping_enable is off or the threshold
   is 0. The threshold is in the store's currency (GBP); the theme does not
@@ -38,7 +42,12 @@
     assign threshold_money = threshold | money_without_trailing_zeros
     assign remaining_money = remaining | money_without_trailing_zeros
     assign total_money = total | money_without_trailing_zeros
+    assign render_bar = true
+    if unlocked and item_count > 0 and show_unlocked != true
+      assign render_bar = false
+    endif
   -%}
+  {%- if render_bar -%}
   <div
     class="free-shipping{% if unlocked %} is-unlocked{% endif %}{% if compact %} free-shipping--compact{% endif %}{% if class %} {{ class }}{% endif %}"
     data-free-shipping
@@ -56,7 +65,7 @@
         <span>{{ 'core.free_shipping.remaining_html' | t: amount: remaining_money }}</span>
       {%- endif -%}
     </p>
-    {%- if item_count > 0 -%}
+    {%- if item_count > 0 and unlocked == false -%}
       <div
         class="progress free-shipping__progress"
         role="progressbar"
@@ -70,4 +79,5 @@
       </div>
     {%- endif -%}
   </div>
+  {%- endif -%}
 {%- endif -%}

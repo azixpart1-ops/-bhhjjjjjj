@@ -1,10 +1,82 @@
 // Builds Shopify-shaped Liquid objects from fixtures/catalog.mjs.
-// createStore({ empty }) — empty:true models the real brand-new store:
-// zero products, only the automatic `all` + `frontpage` collections, the
-// default Shopify menus. Pages, blog and policies stay (content, not catalog).
+// createStore({ empty }) — empty:true models the brand-new store the theme was
+// built against: zero products, only the automatic `all` + `frontpage`
+// collections, the default Shopify menus. Pages, blog and policies stay
+// (content, not catalog).
+// createStore({ real }) — real:true loads the live catalogue
+// (.out/real-products.json, see fixtures/fetch-real.mjs): its products, options,
+// variants, CDN images, tags and types, with Shopify's default menus, the `all`
+// and `frontpage` collections (plus any other published collection), no
+// metafields, and every variant tracked with 5 in stock on a deny policy.
 import { SHOP, PRODUCTS, COLLECTIONS, PAGES, BLOGS, MENUS, EMPTY_MENUS, POLICIES, CUSTOMER } from './catalog.mjs';
+import { loadRealCatalog } from './fetch-real.mjs';
 import { ImageRegistry, MetafieldDrop, OptionValueDrop, productJson } from '../lib/drops.mjs';
 import { FIXTURE_IMG_DIR, stripHtml, handleize } from '../lib/util.mjs';
+
+/** Shopify returns at most 50 products from collection.products / search.results outside {% paginate %}. */
+export const SHOPIFY_PAGE_LIMIT = 50;
+/** Real-catalogue stock: the live store holds 5 of every variant (placeholder stock). */
+export const REAL_INVENTORY = 5;
+
+/**
+ * A list as Liquid sees it outside paginate: the first 50 items. The full list
+ * rides along as a hidden `_all` property for the paginate tag.
+ */
+export function shopifyLimited(list, limit = SHOPIFY_PAGE_LIMIT) {
+  const arr = list.slice(0, limit);
+  Object.defineProperty(arr, '_all', { value: list, enumerable: false });
+  return arr;
+}
+
+/**
+ * Media drop for an image: like Shopify, media.id is the media id (not the image id),
+ * and media.preview_image is the image. Cached so a product's media keep their identity.
+ */
+const mediaCache = new WeakMap();
+export function mediaOf(img) {
+  if (!img) return null;
+  if (!mediaCache.has(img)) mediaCache.set(img, { ...img, id: img.media_id, preview_image: img, media_type: 'image' });
+  return mediaCache.get(img);
+}
+
+const toPence = (v) => (v == null || v === '' ? null : Math.round(parseFloat(String(v)) * 100));
+
+/** products.json product → the record shape productView() reads. */
+function realRecord(p, pIdx, images) {
+  const opts = Array.isArray(p.options) ? p.options : [];
+  const isDefault = !opts.length || (opts.length === 1 && opts[0].name === 'Title' && p.variants.length === 1 && p.variants[0].title === 'Default Title');
+  const optionNames = isDefault ? ['Title'] : opts.map((o) => o.name);
+  const altById = new Map();
+  for (const v of p.variants) if (v.featured_image && v.featured_image.alt) altById.set(v.featured_image.id, v.featured_image.alt);
+  const imgs = (p.images || []).map((im, i) => images.remote({
+    id: im.id, mediaId: im.media_id, src: im.src, width: im.width, height: im.height,
+    alt: im.alt || altById.get(im.id) || p.title, position: im.position || i + 1, productId: p.id, variantIds: im.variant_ids || [],
+  })).filter(Boolean);
+  const variants = p.variants.map((v) => {
+    const values = isDefault ? ['Default Title'] : [v.option1, v.option2, v.option3].filter((x) => x != null);
+    const compare = toPence(v.compare_at_price);
+    const qty = REAL_INVENTORY;
+    return {
+      id: v.id,
+      title: v.title,
+      values,
+      price: toPence(v.price) || 0,
+      compare_at_price: compare && compare > 0 ? compare : null,
+      sku: v.sku || '',
+      tracked: true, qty, policy: 'deny',
+      available: v.available !== false && qty > 0,
+      mostChosen: false,
+      weight: Number(v.grams) || 0,
+      imageId: v.featured_image ? v.featured_image.id : null,
+    };
+  });
+  const tags = Array.isArray(p.tags) ? p.tags : String(p.tags || '').split(',').map((t) => t.trim()).filter(Boolean);
+  const raw = {
+    key: p.handle, real: true, title: p.title, handle: p.handle, type: p.product_type || '', vendor: p.vendor || '',
+    tags, body_html: p.body_html || '', options: isDefault ? [] : optionNames, created_at: p.created_at, published_at: p.published_at || p.created_at,
+  };
+  return { raw, id: p.id, pIdx, optionNames, variants, images: imgs };
+}
 
 export const SORT_OPTIONS = [
   { value: 'manual', name: 'Featured' },
@@ -37,12 +109,14 @@ function cartesian(options) {
   return options.reduce((acc, [, values]) => acc.flatMap((a) => values.map((v) => [...a, v])), [[]]);
 }
 
-export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
+export function createStore({ empty = false, real = false, imgDir = FIXTURE_IMG_DIR, realCatalog = null } = {}) {
+  if (empty) real = false;
   const images = new ImageRegistry(imgDir);
-  const rawProducts = empty ? [] : PRODUCTS;
+  const realCat = real ? (realCatalog || loadRealCatalog()) : null;
+  const rawProducts = empty || real ? [] : PRODUCTS;
 
   // ---------------------------------------------------------------- products
-  const records = rawProducts.map((raw, pIdx) => {
+  const records = real ? realCat.products.map((p, pIdx) => realRecord(p, pIdx, images)) : rawProducts.map((raw, pIdx) => {
     const id = 8800000000 + pIdx;
     const combos = cartesian(raw.options);
     const optionNames = raw.options.length ? raw.options.map(([n]) => n) : ['Title'];
@@ -130,9 +204,9 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
         weight_unit: 'kg',
         weight_in_unit: v.weight / 1000,
         url: `${url}?variant=${v.id}`,
-        featured_image: null,
-        featured_media: null,
-        image: null,
+        featured_image: v.imageId ? rec.images.find((m) => m.id === v.imageId) || null : null,
+        featured_media: v.imageId ? mediaOf(rec.images.find((m) => m.id === v.imageId)) : null,
+        image: v.imageId ? rec.images.find((m) => m.id === v.imageId) || null : null,
         selected: selectedVariantId != null && v.id === Number(selectedVariantId),
         matched: true,
         metafields: v.mostChosen ? { custom: { most_chosen: new MetafieldDrop(true, 'boolean') } } : {},
@@ -172,8 +246,8 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
     });
     const optionsByName = {};
     for (const o of optionsWithValues) { optionsByName[o.name] = o; optionsByName[o.name.toLowerCase()] = o; }
-    const media = rec.images;
-    const description = `<p>${raw.why}</p>${raw.descriptionExtra || ''}<p>Every PawLunova bed comes with our 100-night trial: sleep on it, and if it is not right we collect it free.</p>`;
+    const media = rec.images.map(mediaOf);
+    const description = raw.real ? raw.body_html : `<p>${raw.why}</p>${raw.descriptionExtra || ''}<p>Every PawLunova bed comes with our 100-night trial: sleep on it, and if it is not right we collect it free.</p>`;
 
     Object.assign(product, {
       id: rec.id,
@@ -184,7 +258,7 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
       description,
       content: description,
       type: raw.type,
-      vendor: 'PawLunova',
+      vendor: raw.vendor || 'PawLunova',
       tags: raw.tags,
       available: variants.some((v) => v.available),
       price: Math.min(...prices),
@@ -204,15 +278,15 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
       options: rec.optionNames,
       options_with_values: optionsWithValues,
       options_by_name: optionsByName,
-      featured_image: media[0] || null,
+      featured_image: rec.images[0] || null,
       featured_media: media[0] || null,
-      images: media,
+      images: rec.images,
       media,
       metafields: productMetafields(raw),
       collections: [],
       template_suffix: null,
       created_at: raw.created_at,
-      published_at: raw.created_at,
+      published_at: raw.published_at || raw.created_at,
       requires_selling_plan: false,
       selling_plan_groups: [],
       selected_selling_plan: null,
@@ -248,12 +322,25 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
 
   // ------------------------------------------------------------- collections
   const collectionRecords = [];
-  collectionRecords.push({
-    id: 4400000000, handle: 'all', title: 'Products', description: '', image: null,
-    keys: records.map((r) => r.raw.key), defaultSort: 'best-selling',
-  });
-  collectionRecords.push({ id: 4400000001, handle: 'frontpage', title: 'Home page', description: '', image: null, keys: [], defaultSort: 'manual' });
-  if (!empty) {
+  if (real) {
+    // Shopify's order for /collections/all (title A–Z on the live store), then any stragglers.
+    const order = (realCat.all || []).filter((h) => byKey.has(h));
+    for (const r of records) if (!order.includes(r.raw.key)) order.push(r.raw.key);
+    collectionRecords.push({ id: 4400000000, handle: 'all', title: 'Products', description: '', image: null, keys: order, defaultSort: 'manual' });
+    const listed = realCat.collections || [];
+    if (!listed.some((c) => c.handle === 'frontpage')) collectionRecords.push({ id: 4400000001, handle: 'frontpage', title: 'Home page', description: '', image: null, keys: [], defaultSort: 'manual' });
+    listed.forEach((c, i) => collectionRecords.push({
+      id: c.handle === 'frontpage' ? 4400000001 : 4400000010 + i, handle: c.handle, title: c.title || c.handle, description: c.description || '', image: null,
+      keys: (c.products || []).filter((h) => byKey.has(h)), defaultSort: 'manual',
+    }));
+  } else {
+    collectionRecords.push({
+      id: 4400000000, handle: 'all', title: 'Products', description: '', image: null,
+      keys: records.map((r) => r.raw.key), defaultSort: 'best-selling',
+    });
+    collectionRecords.push({ id: 4400000001, handle: 'frontpage', title: 'Home page', description: '', image: null, keys: [], defaultSort: 'manual' });
+  }
+  if (!empty && !real) {
     COLLECTIONS.forEach((c, i) => collectionRecords.push({
       id: 4400000010 + i, handle: c.handle, title: c.title, description: c.description,
       image: c.image, keys: c.products.filter((k) => byKey.has(k)), defaultSort: 'manual',
@@ -290,7 +377,7 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
       description: rec.description,
       image,
       featured_image: image || (base[0] && base[0].featured_image) || null,
-      products: sorted,
+      products: shopifyLimited(sorted),
       products_count: sorted.length,
       all_products_count: base.length,
       sort_by: sortBy,
@@ -340,6 +427,7 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
       { param: 'filter.v.price', label: 'Price', type: 'price_range' },
       { param: 'filter.v.option.size', label: 'Size', type: 'list', values: (l) => optionFilterValues(l, 'size'), test: (p, v) => p.variants.some((x) => x.available && x.options[p.options.findIndex((n) => n.toLowerCase() === 'size')] === v) },
       { param: 'filter.v.option.colour', label: 'Colour', type: 'list', values: (l) => optionFilterValues(l, 'colour'), test: (p, v) => p.variants.some((x) => x.options[p.options.findIndex((n) => n.toLowerCase() === 'colour')] === v) },
+      { param: 'filter.v.option.color', label: 'Color', type: 'list', values: (l) => optionFilterValues(l, 'color'), test: (p, v) => p.variants.some((x) => x.options[p.options.findIndex((n) => n.toLowerCase() === 'color')] === v) },
       { param: 'filter.p.product_type', label: 'Product type', type: 'list', values: (l) => [...new Set(l.map((p) => p.type))].sort(), test: (p, v) => p.type === v },
     ];
 
@@ -479,7 +567,7 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
   }
 
   function linklists(currentPath = null) {
-    const menus = empty ? EMPTY_MENUS : MENUS;
+    const menus = empty || real ? EMPTY_MENUS : MENUS;
     const list = Object.entries(menus).map(([handle, m]) => {
       const links = m.links.map((l) => linkDrop(l, currentPath));
       return { handle, title: m.title, links, levels: links.length ? 1 + Math.max(0, ...links.map((c) => c.levels)) : 0 };
@@ -507,7 +595,7 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
     return {
       performed,
       terms: q || '',
-      results,
+      results: shopifyLimited(results),
       results_count: results.length,
       types,
       filters: performed ? filters : [],
@@ -521,7 +609,9 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
     const terms = searchTerms(q);
     const lim = Math.max(1, Math.min(10, Number(limit) || 4));
     const pick = (arr) => arr.slice(0, lim);
-    const productsHit = types.includes('product') ? pick(products().filter((p) => matchProduct(p, terms))) : [];
+    // Like Shopify, title matches rank above matches in the description/tags/type.
+    const inTitle = (p) => terms.every((t) => p.title.toLowerCase().includes(t));
+    const productsHit = types.includes('product') ? pick(products().filter((p) => matchProduct(p, terms)).sort((a, b) => inTitle(b) - inTitle(a))) : [];
     const collectionsHit = types.includes('collection') ? pick(collectionRecords.filter((c) => !['frontpage'].includes(c.handle) && terms.every((t) => c.title.toLowerCase().includes(t))).map((c) => collectionView(c.handle))) : [];
     const pagesHit = types.includes('page') ? pick(pageList.filter((p) => terms.every((t) => p.title.toLowerCase().includes(t)))) : [];
     const articlesHit = types.includes('article') ? pick(blogList.flatMap((b) => b.articles).filter((a) => terms.every((t) => a.title.toLowerCase().includes(t)))) : [];
@@ -542,8 +632,10 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
     let list;
     if (intent === 'complementary') list = [];
     else {
+      // Shared finder: tags first, then the same product type (the real catalogue has no finder: tags).
       const finderTags = p.tags.filter((t) => t.startsWith('finder:'));
-      list = products().filter((x) => x.id !== p.id && x.available).sort((a, b) => b.tags.filter((t) => finderTags.includes(t)).length - a.tags.filter((t) => finderTags.includes(t)).length);
+      const score = (x) => x.tags.filter((t) => finderTags.includes(t)).length * 10 + (real && x.type && x.type === p.type ? 1 : 0);
+      list = products().filter((x) => x.id !== p.id && x.available).sort((a, b) => score(b) - score(a));
     }
     list = list.slice(0, Math.max(1, Math.min(10, Number(limit) || 4)));
     return { performed: true, 'performed?': true, products: list, products_count: list.length, intent };
@@ -598,6 +690,9 @@ export function createStore({ empty = false, imgDir = FIXTURE_IMG_DIR } = {}) {
 
   return {
     empty,
+    real,
+    mode: empty ? 'empty' : real ? 'real' : 'full',
+    realMeta: realCat ? realCat.meta : null,
     shop: SHOP,
     images,
     products,

@@ -6,6 +6,8 @@
 //   node check.mjs --no-theme-check
 //   node check.mjs --json          also write .out/check.json
 //   node check.mjs --verbose       print every warning (default caps each group)
+//   node check.mjs --real          also render-sweep the live catalogue (.out/real-products.json)
+//   node check.mjs --modes=real    choose the render-sweep catalogues (full,empty,real)
 //
 // Output lines are greppable:  ERROR [schema] sections/hero.liquid  message
 import fs from 'node:fs';
@@ -27,6 +29,7 @@ setThemeRootForRel(THEME);
 const ONLY = args.only ? new Set(String(args.only).split(',')) : null;
 const run = (name) => (!ONLY || ONLY.has(name)) && !(name === 'theme-check' && args['no-theme-check']);
 const VERBOSE = !!args.verbose;
+const MODES = args.modes ? String(args.modes).split(',').map((m) => m.trim()).filter((m) => ['full', 'empty', 'real'].includes(m)) : args.real ? ['full', 'empty', 'real'] : ['full', 'empty'];
 const CAP = VERBOSE ? Infinity : 40;
 
 // Sections rendered statically (layout {% section %}, Section Rendering by file name). Auto-detected + spec.
@@ -398,8 +401,35 @@ function collect(issues, mode, url) {
   }
 }
 
+/** JSON islands (<script type="application/json">) must parse: product data with quotes or odd characters breaks them. */
+function checkJsonIslands(html, mode, url) {
+  for (const m of String(html).matchAll(/<script\b[^>]*type=["']application\/(?:ld\+)?json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    const body = m[1].trim();
+    if (!body || /Liquid (syntax )?error/.test(body)) continue;
+    try { JSON.parse(body); } catch (e) {
+      const id = (m[0].match(/\bid=["']([^"']+)["']/) || [])[1] || (m[0].match(/type=["']([^"']+)["']/) || [])[1];
+      add('render', 'error', `JSON island ${id ? `#${id} ` : ''}does not parse: ${e.message.slice(0, 120)}`, { seen: [`${mode} ${url}`] });
+    }
+  }
+}
+
+/**
+ * Real-catalogue observations that aren't template errors but matter for the live store.
+ * Low-stock copy: the live catalogue holds 5 of every variant (placeholder stock?), so an
+ * "Only N left" line on every product page would be a false scarcity claim (CMA).
+ */
+function realCatalogueNotes(store, pages) {
+  const productPages = pages.filter((p) => p.out && /^\/products\/[^?]+$/.test(p.url));
+  const scarce = productPages.filter((p) => /\bonly\s+\d+\s+left\b/i.test(stripTags(p.out.html)));
+  const qtys = [...new Set(store.products().flatMap((p) => p.variants.map((v) => v.inventory_quantity)))];
+  if (scarce.length) {
+    add('real', 'warn', `"Only N left" shows on ${scarce.length}/${productPages.length} product pages; every real variant holds ${qtys.join('/')} in stock — if that is placeholder stock this is a false scarcity claim (settings.low_stock_threshold)`, { seen: scarce.slice(0, 3).map((p) => `real ${p.url}`) });
+  }
+}
+const stripTags = (html) => String(html || '').replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+
 function renderSweep(mode) {
-  const store = createStore({ empty: mode === 'empty' });
+  const store = createStore({ empty: mode === 'empty', real: mode === 'real' });
   const r = new ThemeRenderer({ themeDir: THEME, store });
   const empty = createCart();
   const full = createCart();
@@ -417,17 +447,21 @@ function renderSweep(mode) {
     renderCount++;
     collect(res.issues, mode, `${url}${opts.section ? ` [section ${opts.section}]` : ''}${opts.cart === full ? ' [cart:full]' : ''}`);
     const html = res.html == null ? '' : res.html;
+    checkJsonIslands(html, mode, `${url}${opts.section ? ` [section ${opts.section}]` : ''}`);
     if (opts.section && res.html == null) add('render', 'error', `Section Rendering returned nothing for section_id=${opts.section}`, { seen: [`${mode} ${url}`] });
     if (!opts.section && route.status === 200 && !/<\/html>/i.test(html) && route.template !== 'gift_card') add('render', 'warn', `${url}: output has no </html>`, { seen: [`${mode} ${url}`] });
     return { route, html };
   };
 
-  for (const [name, url] of routeCatalog(store)) visit(name, url);
+  const pages = routeCatalog(store).map(([name, url]) => ({ name, url, out: visit(name, url) }));
+  if (mode === 'real') realCatalogueNotes(store, pages);
   if (products.length) {
     visit('cart-full', '/cart', { cart: full });
     visit('home-full-cart', '/', { cart: full });
     visit('drawer-full', '/', { cart: full, section: 'cart-drawer' });
     for (const p of products) visit(`quick-add ${p.handle}`, p.url, { section: 'quick-add-product' });
+    // Bed Finder fallback beds (finder.js fetches <collection>?section_id=finder-products)
+    visit('finder-products', '/collections/all', { section: 'finder-products' });
   }
   visit('drawer-empty', '/', { section: 'cart-drawer' });
   // Predictive search (Section Rendering of predictive-search with predictive_search set)
@@ -529,14 +563,17 @@ async function main() {
   if (run('static')) summary.static = checkStatic(locale);
   if (run('locales')) summary.locales = checkLocales();
   if (run('render')) {
-    for (const mode of ['full', 'empty']) renderSweep(mode);
+    for (const mode of MODES) {
+      const { store } = renderSweep(mode);
+      if (mode === 'real') summary.real = { products: store.products().length, source: store.realMeta.source, fetched_at: store.realMeta.fetched_at };
+    }
     for (const { i, seen } of renderIssues.values()) add('render', i.level, `${i.kind}: ${i.message}`, { file: i.file, line: i.line, seen });
-    summary.render = { renders: renderCount };
+    summary.render = { renders: renderCount, modes: MODES };
   }
   if (run('theme-check')) summary.themeCheck = await runThemeCheck(locale);
 
   // ---- report
-  const order = ['json', 'schema', 'spec', 'contract', 'templates', 'settings', 'liquid', 'refs', 'i18n', 'perf', 'render', 'theme-check'];
+  const order = ['json', 'schema', 'spec', 'contract', 'templates', 'settings', 'liquid', 'refs', 'i18n', 'perf', 'render', 'real', 'theme-check'];
   const byCheck = new Map(order.map((c) => [c, []]));
   for (const r of results) { if (!byCheck.has(r.check)) byCheck.set(r.check, []); byCheck.get(r.check).push(r); }
   let errors = 0; let warnings = 0;

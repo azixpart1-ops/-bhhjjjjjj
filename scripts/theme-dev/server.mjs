@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Mock Shopify storefront for the Lunova theme.
 //
-//   node server.mjs [--port 9292] [--empty] [--theme ../../theme] [--quiet] [--logged-in]
+//   node server.mjs [--port 9292] [--empty | --real] [--theme ../../theme] [--quiet] [--logged-in]
 //
 // Pages: /, /products/:h, /collections(/:h), /cart, /search, /pages/:h, /blogs/:b(/:a),
 //        /policies/:h, /account/*, /password, /gift_cards/:code, anything else → 404 template.
@@ -9,9 +9,12 @@
 //        multipart; honours sections + sections_url), GET /products/:h.js,
 //        GET /search/suggest(?section_id=…), GET /recommendations/products(?section_id=…).
 // Section Rendering: ?section_id=<id> or ?sections=a,b on any page URL.
-// Modes: ?empty=1 / ?empty=0 switches the zero-products store for this browser (cookie).
+// Modes: full (fixture catalogue), empty (zero products), real (the live catalogue from
+//        .out/real-products.json — fixtures/fetch-real.mjs). --empty / --real pick the default;
+//        ?empty=1|0 and ?real=1|0 switch this browser (cookie theme_dev_mode).
 // Dev:   GET /__dev/errors → recent render issues as JSON; response headers
-//        X-Theme-Dev-Errors / X-Theme-Dev-Warnings on every rendered response.
+//        X-Theme-Dev-Errors / X-Theme-Dev-Warnings / X-Theme-Dev-Mode on every rendered response.
+//        GET /__dev/placeholder-img/<name>?width=&height= → neutral SVG stand-in for a CDN image.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -95,12 +98,18 @@ function readBody(req) {
 const normaliseItems = (items) => (Array.isArray(items) ? items : items && typeof items === 'object' ? Object.values(items) : []);
 
 // ------------------------------------------------------------------ server
-export function startServer({ port = 9292, host = '127.0.0.1', empty = false, themeDir = DEFAULT_THEME_DIR, quiet = false, loggedIn = false, log = console.log } = {}) {
+const MODES = ['full', 'empty', 'real'];
+
+export function startServer({ port = 9292, host = '127.0.0.1', empty = false, real = false, themeDir = DEFAULT_THEME_DIR, quiet = false, loggedIn = false, log = console.log } = {}) {
   let origin = `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`;
-  const stores = { full: createStore(), empty: createStore({ empty: true }) };
+  const defaultMode = empty ? 'empty' : real ? 'real' : 'full';
+  // Stores and renderers are built on first use (the real catalogue is only loaded when asked for).
+  const stores = {};
   const renderers = {};
-  const makeRenderers = () => { for (const m of ['full', 'empty']) renderers[m] = new ThemeRenderer({ themeDir, store: stores[m], origin }); };
-  makeRenderers();
+  const storeFor = (m) => (stores[m] = stores[m] || createStore({ empty: m === 'empty', real: m === 'real' }));
+  const rendererFor = (m) => (renderers[m] = renderers[m] || new ThemeRenderer({ themeDir, store: storeFor(m), origin }));
+  const makeRenderers = () => { for (const m of Object.keys(renderers)) delete renderers[m]; };
+  storeFor(defaultMode);
   const carts = new Map();
   const recent = [];
   const printed = new Set();
@@ -148,12 +157,19 @@ export function startServer({ port = 9292, host = '127.0.0.1', empty = false, th
     const cookies = parseCookies(req.headers.cookie);
     const setCookies = [];
 
-    // mode + cart + login
-    let mode = empty ? 'empty' : 'full';
-    if (q.has('empty')) { mode = q.get('empty') === '1' ? 'empty' : 'full'; setCookies.push(`theme_dev_empty=${mode === 'empty' ? 1 : 0}; Path=/; SameSite=Lax`); }
-    else if (cookies.theme_dev_empty) mode = cookies.theme_dev_empty === '1' ? 'empty' : 'full';
-    const store = stores[mode];
-    const renderer = renderers[mode];
+    // mode + cart + login. theme_dev_mode wins; the older theme_dev_empty cookie still works.
+    let mode = defaultMode;
+    if (MODES.includes(cookies.theme_dev_mode)) mode = cookies.theme_dev_mode;
+    else if (cookies.theme_dev_empty === '1') mode = 'empty';
+    else if (cookies.theme_dev_empty === '0' && mode === 'empty') mode = 'full';
+    const away = (m) => (defaultMode === m ? 'full' : defaultMode);
+    if (q.has('empty') || q.has('real')) {
+      if (q.has('empty')) mode = q.get('empty') === '1' ? 'empty' : away('empty');
+      if (q.has('real')) mode = q.get('real') === '1' ? 'real' : away('real');
+      setCookies.push(`theme_dev_mode=${mode}; Path=/; SameSite=Lax`, `theme_dev_empty=${mode === 'empty' ? 1 : 0}; Path=/; SameSite=Lax`);
+    }
+    const store = storeFor(mode);
+    const renderer = rendererFor(mode);
     let cart = cookies.cart && carts.get(cookies.cart);
     if (!cart) { cart = createCart(); carts.set(cart.token, cart); setCookies.push(`cart=${cart.token}; Path=/; SameSite=Lax`); }
     let isLoggedIn = loggedIn || cookies.theme_dev_customer === '1';
@@ -197,8 +213,15 @@ export function startServer({ port = 9292, host = '127.0.0.1', empty = false, th
     if (p.startsWith('/payment-icons/')) return send(res, 200, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 38 24"><rect width="38" height="24" rx="3" fill="#eee"/></svg>', 'image/svg+xml');
     if (p === '/favicon.ico') return send(res, 204, '');
     if (p === '/__dev/health') return send(res, 200, 'ok', 'text/plain');
+    if (p.startsWith('/__dev/placeholder-img/')) {
+      // Stand-in for a cdn.shopify.com image when the CDN can't be reached (browser-test --real).
+      const w = Math.max(1, Math.min(5760, Number(q.get('width')) || 800));
+      const h = Math.max(1, Math.min(5760, Number(q.get('height')) || w));
+      const label = escapeHtml(decodeURIComponent(p.slice(23)).slice(0, 60));
+      return send(res, 200, `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="#e9e4da"/><text x="50%" y="50%" fill="#8a8172" font-family="sans-serif" font-size="${Math.max(10, Math.round(w / 28))}" text-anchor="middle">${label}</text></svg>`, 'image/svg+xml');
+    }
     if (p === '/__dev/errors') return sendJson(res, 200, { mode, missingAssets: [...missingAssets], recent });
-    if (p === '/__dev/reset') { carts.clear(); recent.length = 0; printed.clear(); missingAssets.clear(); makeRenderers(); return sendJson(res, 200, { ok: true }); }
+    if (p === '/__dev/reset') { carts.clear(); recent.length = 0; printed.clear(); missingAssets.clear(); delete stores.real; makeRenderers(); return sendJson(res, 200, { ok: true }); }
 
     // ---------------------------------------------------------- cart API
     const sectionsFor = async (body) => {
@@ -354,7 +377,7 @@ export function startServer({ port = 9292, host = '127.0.0.1', empty = false, th
     }
     const r = renderer.renderPage(route, { cart });
     send(res, r.status, r.html, 'text/html; charset=utf-8', { ...baseHeaders, ...issueHeaders(r.issues), 'X-Theme-Dev-Template': `${route.directory ? route.directory + '/' : ''}${route.template}${route.suffix ? '.' + route.suffix : ''}`, 'X-Theme-Dev-Mode': mode });
-    return done(r.status, r.issues, ` tpl=${route.template}${route.suffix ? '.' + route.suffix : ''}${mode === 'empty' ? ' [empty]' : ''}`);
+    return done(r.status, r.issues, ` tpl=${route.template}${route.suffix ? '.' + route.suffix : ''}${mode !== 'full' ? ` [${mode}]` : ''}`);
   }
 
   const server = http.createServer((req, res) => {
@@ -369,7 +392,7 @@ export function startServer({ port = 9292, host = '127.0.0.1', empty = false, th
       const actual = server.address().port;
       origin = `http://${host === '0.0.0.0' ? 'localhost' : host}:${actual}`;
       if (actual !== port) makeRenderers();
-      resolve({ server, origin, port: actual, close: () => new Promise((r) => server.close(r)) });
+      resolve({ server, origin, port: actual, mode: defaultMode, store: (m = defaultMode) => storeFor(m), close: () => new Promise((r) => { if (server.closeAllConnections) server.closeAllConnections(); server.close(r); }) });
     });
   });
 }
@@ -377,10 +400,11 @@ export function startServer({ port = 9292, host = '127.0.0.1', empty = false, th
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const args = parseArgs(process.argv.slice(2));
   const port = Number(args.port || process.env.PORT || 9292);
-  startServer({ port, host: args.host || '127.0.0.1', empty: !!args.empty, themeDir: path.resolve(args.theme || DEFAULT_THEME_DIR), quiet: !!args.quiet, loggedIn: !!args['logged-in'] })
-    .then(({ origin }) => {
-      console.log(`Lunova mock storefront → ${origin}  (theme: ${path.resolve(args.theme || DEFAULT_THEME_DIR)}${args.empty ? ', EMPTY store' : ''})`);
-      console.log('  ?empty=1 / ?empty=0 switch fixture mode · ?login=1 signs in · /__dev/errors lists render issues');
+  startServer({ port, host: args.host || '127.0.0.1', empty: !!args.empty, real: !!args.real, themeDir: path.resolve(args.theme || DEFAULT_THEME_DIR), quiet: !!args.quiet, loggedIn: !!args['logged-in'] })
+    .then(({ origin, mode, store }) => {
+      const meta = mode === 'real' ? store('real').realMeta : null;
+      console.log(`Lunova mock storefront → ${origin}  (theme: ${path.resolve(args.theme || DEFAULT_THEME_DIR)}, ${mode === 'full' ? 'fixture catalogue' : mode === 'empty' ? 'EMPTY store' : `REAL catalogue: ${store('real').products().length} products, ${meta.source} ${meta.fetched_at}`})`);
+      console.log('  ?real=1|0 · ?empty=1|0 switch catalogue · ?login=1 signs in · /__dev/errors lists render issues');
     })
     .catch((e) => { console.error(`could not start: ${e.message}`); process.exit(1); });
 }

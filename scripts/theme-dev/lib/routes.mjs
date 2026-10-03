@@ -100,7 +100,7 @@ export function resolveRoute(store, pathname, query = new URLSearchParams(), { l
   return notFound();
 }
 
-/** The pages check.mjs renders and browser-test.mjs visits (both fixture modes). */
+/** The pages check.mjs renders (every fixture mode: full, empty, real). */
 export function routeCatalog(store) {
   const out = [
     ['home', '/'],
@@ -126,7 +126,18 @@ export function routeCatalog(store) {
     out.push([`blog-${b.handle}`, `/blogs/${b.handle}`]);
     for (const a of b.articles) out.push([`article-${a.handle.slice(0, 24)}`, `/blogs/${b.handle}/${a.handle}`]);
   }
-  if (!store.empty) {
+  if (store.real) {
+    for (const h of store.collectionHandles()) if (h !== 'all') out.push([`collection-${h}`, `/collections/${h}`]);
+    const sizeVal = (() => { const f = store.collectionView('all').filters.find((x) => x.param_name === 'filter.v.option.size'); return f && f.values[0] ? f.values[0].value : 'Medium'; })();
+    out.push(['collection-filtered', `/collections/all?filter.v.option.size=${encodeURIComponent(sizeVal)}&sort_by=price-ascending`]);
+    out.push(['collection-type', `/collections/all?filter.p.product_type=${encodeURIComponent(store.products()[0].type)}`]);
+    out.push(['collection-page2', '/collections/all?page=2']);
+    out.push(['collection-page3', '/collections/all?page=3']);
+    out.push(['search-page2', '/search?q=dog&page=2']);
+    for (const p of store.products()) out.push([`product-${p.handle.slice(0, 28)}`, p.url]);
+    const multi = store.products().find((p) => p.variants.length > 2);
+    if (multi) out.push(['product-variant-selected', `${multi.url}?variant=${multi.variants[1].id}`]);
+  } else if (!store.empty) {
     for (const h of store.collectionHandles()) if (!['all', 'frontpage'].includes(h)) out.push([`collection-${h}`, `/collections/${h}`]);
     out.push(['collection-filtered', '/collections/orthopaedic-dog-beds?filter.v.option.size=Medium&sort_by=price-ascending']);
     out.push(['collection-page2', '/collections/all?page=2']);

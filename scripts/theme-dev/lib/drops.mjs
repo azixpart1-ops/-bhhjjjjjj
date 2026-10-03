@@ -182,6 +182,48 @@ export class ImageRegistry {
     img.preview_image = img;
     return img;
   }
+  /**
+   * Image drop for a CDN image (real-catalogue mode): src stays the Shopify CDN URL,
+   * width/height come from products.json, and image_url adds &width= like Shopify.
+   */
+  remote({ id, mediaId = null, src, width, height, alt = '', position = 1, productId = null, variantIds = [] }) {
+    if (!src) return null;
+    const url = String(src).startsWith('//') ? `https:${src}` : String(src);
+    const base = url.split('?')[0];
+    const v = new URLSearchParams(url.split('?')[1] || '').get('v');
+    const name = decodeURIComponent(base.split('/').pop());
+    const info = { name, width: Number(width) || 1024, height: Number(height) || 1024, remote: true, base, v };
+    this.remoteByBase = this.remoteByBase || new Map();
+    this.remoteByBase.set(base, info);
+    const img = {
+      id: id || this.nextId++,
+      alt,
+      src: url,
+      url,
+      width: info.width,
+      height: info.height,
+      aspect_ratio: info.width / info.height, // full precision, as Shopify prints it
+      media_type: 'image',
+      position,
+      product_id: productId,
+      variants: [],
+      variant_ids: variantIds,
+      attached_to_variant: variantIds.length > 0,
+      'attached_to_variant?': variantIds.length > 0,
+      presentation: { focal_point: '50.0% 50.0%' },
+      media_id: mediaId || (id || 0) + 1,
+      toString() { return url; },
+      toJSON() { return url; },
+    };
+    img.preview_image = img;
+    return img;
+  }
+  /** Info for a CDN URL registered by remote() (any query string). */
+  remoteInfo(url) {
+    if (!this.remoteByBase) return null;
+    const u = String(url).startsWith('//') ? `https:${url}` : String(url);
+    return this.remoteByBase.get(u.split('?')[0].split('#')[0]) || null;
+  }
   /** Resolve an image_picker value like "shopify://shop_images/x.jpg". */
   fromSetting(value) {
     if (!value || typeof value !== 'string') return null;
@@ -194,8 +236,17 @@ export class ImageRegistry {
 /** Fixture image info from a URL produced by image_url (or image.src). */
 export function imageInfoFromUrl(registry, url) {
   const m = String(url).match(/\/fixture-img\/([^?#]+)/);
-  if (!m) return null;
+  if (!m) return registry.remoteInfo ? registry.remoteInfo(url) : null;
   return registry.info(decodeURIComponent(m[1]));
+}
+
+/** URL for an image (fixture file or CDN image) with Shopify's image_url params. */
+export function imageUrlWith(info, params) {
+  const q = new URLSearchParams();
+  if (info.remote) { if (info.v) q.set('v', info.v); } else q.set('v', '1');
+  for (const [k, val] of Object.entries(params || {})) if (val != null && val !== '' && val !== false) q.set(k, String(val));
+  if (info.remote) return `${info.base}?${q.toString()}`;
+  return `/fixture-img/${encodeURIComponent(info.name)}?${q.toString()}`;
 }
 
 // ---------------------------------------------------------------------------

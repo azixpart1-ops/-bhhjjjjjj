@@ -27,7 +27,8 @@
       settings.savings_format). "From £69" when sizes are priced differently.
     - Real ratings only (reviews.* metafields).
     - Low stock ONLY when the first available variant tracks inventory, stops
-      selling at zero (policy deny) and is at/under settings.low_stock_threshold.
+      selling at zero (policy deny) and is at/under settings.low_stock_threshold
+      and at most 2 (cards are stricter than the buy box).
     - Quick add: single variant → <form data-quick-add-single> posting to
       /cart/add (cart.js intercepts it; works without JS). Multi-variant → a link
       to the product (works without JS) that global.js turns into
@@ -83,38 +84,71 @@
 
     comment
       Options: find the size option by name (so a colour-first product doesn't
-      advertise its colours as sizes) and count colours.
+      advertise its colours as sizes) and count colours. Size values are
+      parsed by snippets/size-hints (mode parse: rank, kind, label, detail),
+      so Extra Large · 107 × 76 × 19cm reads Extra Large, values sort by size
+      rather than variant order (Sizes Small–XL), and a lone One size · 80 ×
+      80cm reads One size.
     endcomment
     assign size_idx = -1
     assign size_count = 0
-    assign size_first = ''
-    assign size_last = ''
     assign colour_count = 0
+    assign size_min_label = ''
+    assign size_max_label = ''
+    assign size_min_rank = 99
+    assign size_max_rank = 0
+    assign size_first_label = ''
+    assign size_last_label = ''
+    assign size_first_kind = ''
     for option in product.options_with_values
       assign opt_name = option.name | downcase
       if size_idx == -1 and opt_name contains 'size'
         assign size_idx = forloop.index0
         assign size_count = option.values.size
-        assign v_first = option.values.first
-        assign v_last = option.values.last
-        assign size_first = v_first.name | default: v_first | append: ''
-        assign size_last = v_last.name | default: v_last | append: ''
+        for ov in option.values
+          assign ov_s = ov.name | default: ov | append: ''
+          capture ov_parsed
+            render 'size-hints', value: ov_s, mode: 'parse'
+          endcapture
+          assign ov_parts = ov_parsed | split: '|'
+          assign ov_rank = ov_parts[0] | default: 0 | plus: 0
+          assign ov_label = ov_parts[2] | default: ov_s | strip
+          if forloop.first
+            assign size_first_label = ov_label
+            assign size_first_kind = ov_parts[1]
+          endif
+          assign size_last_label = ov_label
+          if ov_rank > 0
+            if ov_rank < size_min_rank
+              assign size_min_rank = ov_rank
+              assign size_min_label = ov_label
+            endif
+            if ov_rank > size_max_rank
+              assign size_max_rank = ov_rank
+              assign size_max_label = ov_label
+            endif
+          endif
+        endfor
       elsif opt_name contains 'colour' or opt_name contains 'color'
         assign colour_count = option.values.size
       endif
     endfor
-    if size_first.size > 8
-      assign size_first = size_first | split: ' ' | first | split: '(' | first
-    endif
-    if size_last.size > 8
-      assign size_last = size_last | split: ' ' | first | split: '(' | first
-    endif
 
     assign meta_text = ''
-    if size_idx >= 0 and size_count > 1
-      assign meta_text = 'core.card.sizes_range' | t: from: size_first, to: size_last
-    elsif size_idx >= 0 and size_count == 1
-      assign meta_text = 'core.card.size_single' | t: size: size_first
+    if size_idx >= 0
+      if size_count == 1
+        if size_first_kind == 'one'
+          assign meta_text = 'core.card.size_one' | t
+        else
+          assign meta_text = 'core.card.size_single' | t: size: size_first_label
+        endif
+      elsif size_max_rank > 0 and size_min_rank < size_max_rank
+        assign meta_text = 'core.card.sizes_range' | t: from: size_min_label, to: size_max_label
+      elsif size_max_rank == 0 and size_first_label != size_last_label
+        assign meta_text = 'core.card.sizes_range' | t: from: size_first_label, to: size_last_label
+      else
+        assign meta_text = 'core.card.sizes_count' | t: count: size_count
+      endif
     endif
     if colour_count > 1
       assign colour_text = 'core.card.colours' | t: count: colour_count
@@ -180,21 +214,15 @@
 
     comment
       Honest low stock: tracked by Shopify, can't oversell, at/under threshold.
+      Cards use a stricter bar than the product page (2 at most), so a grid
+      of beds is never a wall of red; the buy box shows the full threshold.
     endcomment
-    assign low_text = ''
+    assign low_qty = 0
     if settings.low_stock_enable and variant.available and variant.inventory_management == 'shopify' and variant.inventory_policy == 'deny'
       assign qty = variant.inventory_quantity | default: 0 | plus: 0
-      assign limit = settings.low_stock_threshold | default: 0 | plus: 0
+      assign limit = settings.low_stock_threshold | default: 0 | plus: 0 | at_most: 2
       if qty > 0 and qty <= limit
         assign low_qty = qty
-        if product.has_only_default_variant
-          assign low_text = 'core.card.low_stock' | t: count: qty
-        elsif size_idx >= 0
-          assign low_size = variant.options[size_idx]
-          assign low_text = 'pending'
-        else
-          assign low_text = 'core.card.low_stock_in' | t: count: qty, size: variant.title
-        endif
       endif
     endif
 
@@ -240,11 +268,45 @@
       assign custom_limit = 1
     endif
   -%}
-  {%- if low_text == 'pending' -%}
-    {%- capture low_label -%}{%- render 'size-hints', value: low_size, mode: 'label' -%}{%- endcapture -%}
-    {%- assign low_label = low_label | strip | default: low_size -%}
-    {%- assign low_text = 'core.card.low_stock_in' | t: count: low_qty, size: low_label -%}
-  {%- endif -%}
+  {%- liquid
+    comment
+      Name the variant the way the shopper reads it: the size's own name,
+      so Large rather than the whole Large: Cocker Spaniel value and Medium
+      for M, plus any other option, as in Green / Small. A one-size value
+      names nothing.
+    endcomment
+    assign low_text = ''
+    if low_qty > 0
+      assign low_name = ''
+      unless product.has_only_default_variant
+        for opt_val in variant.options
+          assign ov_name = opt_val
+          if forloop.index0 == size_idx
+            capture low_kind
+              render 'size-hints', value: opt_val, mode: 'parse'
+            endcapture
+            assign low_kind_parts = low_kind | split: '|'
+            if low_kind_parts[1] == 'one'
+              continue
+            endif
+            capture ov_name
+              render 'size-hints', value: opt_val, mode: 'label'
+            endcapture
+            assign ov_name = ov_name | strip | default: opt_val
+          endif
+          if low_name != ''
+            assign low_name = low_name | append: ' / '
+          endif
+          assign low_name = low_name | append: ov_name
+        endfor
+      endunless
+      if low_name == ''
+        assign low_text = 'core.card.low_stock' | t: count: low_qty
+      else
+        assign low_text = 'core.card.low_stock_in' | t: count: low_qty, size: low_name
+      endif
+    endif
+  -%}
   <div
     class="product-card{% if sold_out %} is-sold-out{% endif %}{% if has_secondary %} product-card--has-secondary{% endif %}{% if class %} {{ class }}{% endif %}"
     data-product-card
@@ -351,8 +413,12 @@
               <input type="hidden" name="quantity" value="1">
               <button type="submit" class="btn btn--secondary btn--sm btn--block product-card__quick-add">
                 {%- render 'icon', name: 'plus' -%}
-                <span>{{ 'core.card.add_to_basket' | t }}</span>
-                <span class="visually-hidden">{{ 'core.card.quick_add_for' | t: title: product.title }}</span>
+                {%- comment -%} A narrow card shows "Add" (base.css container query); the name always says it in full. {%- endcomment -%}
+                <span class="product-card__quick-add-label" aria-hidden="true">
+                  <span class="product-card__quick-add-long">{{ 'core.card.add_to_basket' | t }}</span>
+                  <span class="product-card__quick-add-short">{{ 'core.card.add_short' | t }}</span>
+                </span>
+                <span class="visually-hidden">{{ 'core.card.add_to_basket' | t }} {{ 'core.card.quick_add_for' | t: title: product.title }}</span>
               </button>
               <p class="product-card__error" role="alert" data-quick-add-error hidden></p>
             </form>

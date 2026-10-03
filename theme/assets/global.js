@@ -831,6 +831,35 @@
   };
   L.guaranteeEligible = L.foamBed;
 
+  /**
+   * Does the sleep trial cover this product? Same test as
+   * snippets/trial-eligible.liquid: the trial is on, and the product isn't
+   * tagged trial:no, its type doesn't contain a line of
+   * Lunova.settings.trialExcluded and none of its tags equals one; trial:yes
+   * includes it whatever the list says (trial:no still wins).
+   * Takes /products/x.js data ({type, tags}), the finder's product JSON, or a
+   * cart line ({product_type}; cart lines carry no tags, so only the type
+   * is checked there).
+   */
+  L.trialEligible = function (product) {
+    var s = L.settings || {};
+    if (s.trialEnabled === false || !(Number(s.trialNights) > 0)) return false;
+    if (!product) return true;
+    var tags = product.tags || [];
+    if (typeof tags === 'string') tags = tags.split(',');
+    tags = tags.map(function (t) { return String(t).trim().toLowerCase(); });
+    if (tags.indexOf('trial:no') !== -1) return false;
+    if (tags.indexOf('trial:yes') !== -1) return true;
+    var type = String(product.type || product.product_type || '').toLowerCase();
+    var lines = Array.isArray(s.trialExcluded) ? s.trialExcluded : [];
+    for (var i = 0; i < lines.length; i += 1) {
+      var l = String(lines[i] || '').trim().toLowerCase();
+      if (!l) continue;
+      if (type.indexOf(l) !== -1 || tags.indexOf(l) !== -1) return false;
+    }
+    return true;
+  };
+
   /** Exact figure for the basis line: "9.26p" / "£1.12" */
   L.perNightExact = function (cents) {
     var s = L.settings || {};
@@ -881,31 +910,231 @@
   });
 
   /* ------------------------------------------------------------------------
-     Size hints — Lunova.settings.sizeHints [{value,label,weight,breeds}]
-     Same matching as snippets/size-hints.liquid.
+     Sizes — one parser for every size option value, the same rules and
+     tables as snippets/size-hints.liquid (keep the two in step):
+
+     Lunova.sizeParse(value) → {value, label, detail, rank, kind, length}
+       "Large · 91 × 69 × 24cm" → label "Large", detail "91 × 69 × 24cm",
+       rank 5, kind 'size', length 91. Splits at the first ' · ', ':', ' (',
+       ' / ', ' – ', ' — ' or ' - '. Rank XXS 1 … M 4, L 5, XL 6, XXL 7, 3XL 8;
+       "Extra Large" ranks as XL; One size / Default Title → rank 0, kind
+       'one'; anything else rank -1, kind 'other'. Breed lists in the detail
+       come back comma separated.
+     Lunova.sizeHintIndex(value, hints?) → index of the size-hint line the
+       value suits, or -1: whole value = VALUE/Label → breed vote → bed
+       length against each line's minimum length → label (same VALUE/Label,
+       same rank, XXL/3XL into the largest) → first word.
+     Lunova.sizeHint(value) → that line ({value,label,weight,breeds}) or null.
+     Lunova.sizeLabel(value) → the size's display name: "Medium" for "M",
+       "Large" for "Large: Cocker Spaniel | …" (never another size's name).
+     Lunova.sizeMatch(values, want) → {value, index, kind: 'exact'|'larger'}
+       for a dog of size `want` (a hint VALUE such as the finder's "XL"):
+       the first value that suits it, else the smallest larger one; or null.
      ---------------------------------------------------------------------- */
-  var XL_ALIASES = ['2xl', 'xxl', '3xl', 'xxxl', 'x large', 'xx large', 'extra extra large'];
-  var XS_ALIASES = ['x small', 'xx small', 'xxs', 'extra extra small'];
+  var SIZE_SEPS = [' · ', ':', ' (', ' / ', ' – ', ' — ', ' - '];
+  var SIZE_RANKS = {
+    xxs: 1, 'xx small': 1, '2xs': 1, 'extra extra small': 1,
+    xs: 2, 'x small': 2, xsmall: 2, 'extra small': 2,
+    s: 3, sm: 3, small: 3,
+    m: 4, med: 4, medium: 4,
+    l: 5, lg: 5, large: 5,
+    xl: 6, 'x large': 6, xlarge: 6, 'extra large': 6,
+    xxl: 7, '2xl': 7, 'xx large': 7, xxlarge: 7, 'extra extra large': 7,
+    '3xl': 8, xxxl: 8, 'xxx large': 8,
+    '4xl': 9, xxxxl: 9,
+    '5xl': 10,
+    'one size': 0, onesize: 0, 'one size fits all': 0, 'default title': 0, os: 0
+  };
+  /* Shortest bed (cm) for each rank, unless a hint line gives its own 5th field. */
+  var SIZE_MIN_LENGTH = { 1: 0, 2: 0, 3: 55, 4: 70, 5: 85, 6: 105, 7: 125, 8: 140, 9: 155, 10: 170 };
+
+  function sizeKey(s) {
+    return String(s == null ? '' : s).toLowerCase().replace(/-/g, ' ').replace(/  /g, ' ').trim();
+  }
+
+  function sizeRankOf(label) {
+    var k = sizeKey(label).replace(/\./g, '');
+    return Object.prototype.hasOwnProperty.call(SIZE_RANKS, k) ? SIZE_RANKS[k] : -1;
+  }
+
+  /** "91 × 69 × 24cm" → 91 (cm): the longer of the first two measurements. */
+  function sizeLength(src) {
+    var d = String(src || '').toLowerCase().replace(/×/g, 'x').replace(/ /g, '');
+    d = d.split('/')[0].split(',')[0];
+    if (d.indexOf('x') < 0) return -1;
+    var parts = d.split('x');
+    function num(p) {
+      p = String(p || '').replace(/cm|mm|in|"|\(|\)/g, '');
+      return /^[0-9.]+$/.test(p) && !isNaN(parseFloat(p)) ? parseFloat(p) : NaN;
+    }
+    var a = num(parts[0]);
+    var b = num(parts[1]);
+    if (isNaN(a) || isNaN(b)) return -1;
+    var len = Math.max(a, b);
+    if (d.indexOf('mm') > -1) len = len / 10;
+    else if (d.indexOf('in') > -1 || d.indexOf('"') > -1) len = len * 2.54;
+    return len;
+  }
+
+  L.sizeParse = function (value) {
+    var raw = String(value == null ? '' : value).trim();
+    var at = -1;
+    var sep = '';
+    SIZE_SEPS.forEach(function (s) {
+      var i = raw.indexOf(s);
+      if (i > 0 && (at < 0 || i < at)) {
+        at = i;
+        sep = s;
+      }
+    });
+    var label = raw;
+    var detail = '';
+    if (at > 0) {
+      label = raw.slice(0, at).trim();
+      detail = raw.slice(at + sep.length).trim();
+      if (sep === ' (' && detail.slice(-1) === ')') detail = detail.slice(0, -1).trim();
+      detail = detail.split(' | ').join(', ').split('|').join(', ');
+    }
+    var rank = sizeRankOf(label);
+    var len = sizeLength(detail);
+    if (len < 0) len = sizeLength(label);
+    return {
+      value: raw,
+      label: label,
+      detail: detail,
+      rank: rank,
+      kind: rank > 0 ? 'size' : rank === 0 ? 'one' : 'other',
+      length: len >= 0 ? len : null
+    };
+  };
+
+  function sizeHintList(list) {
+    if (Array.isArray(list)) return list;
+    return L.settings && Array.isArray(L.settings.sizeHints) ? L.settings.sizeHints : [];
+  }
+
+  L.sizeHintIndex = function (value, list) {
+    var hints = sizeHintList(list);
+    var p = L.sizeParse(value);
+    if (!p.value || !hints.length) return -1;
+    var whole = sizeKey(p.value);
+    var labelQ = sizeKey(p.label).replace(/\./g, '');
+    var vBreeds = p.detail ? sizeKey(p.detail).split(',') : [];
+
+    var hit = -1;
+    var breed = { i: -1, n: 0, lm: false };
+    var dims = { i: -1, min: -1, lines: 0 };
+    var lHit = -1;
+    var rHit = -1;
+    var rMax = { i: -1, rank: -1 };
+    var rMin = { i: -1, rank: 99 };
+
+    hints.forEach(function (h, i) {
+      h = h || {};
+      var v = sizeKey(h.value);
+      var lbl = sizeKey(h.label);
+      if (!v) return;
+      if (hit < 0 && whole && (whole === v || whole === lbl)) hit = i;
+
+      var hRank = sizeRankOf(v);
+      if (hRank < 0 && lbl) hRank = sizeRankOf(lbl);
+      var labelMatch = !!labelQ && (labelQ === v || labelQ === lbl || (p.rank > 0 && hRank === p.rank));
+
+      /* Breed vote */
+      var hb = sizeKey(h.breeds);
+      if (p.detail && hb) {
+        var hList = hb.split(',');
+        var votes = 0;
+        vBreeds.forEach(function (b) {
+          b = b.replace(/  /g, ' ').trim();
+          if (!b) return;
+          var bw = ' ' + b + ' ';
+          for (var k = 0; k < hList.length; k += 1) {
+            var x = hList[k].replace(/  /g, ' ').trim();
+            if (!x) continue;
+            var xw = ' ' + x + ' ';
+            if (bw.indexOf(xw) > -1 || xw.indexOf(bw) > -1) {
+              votes += 1;
+              break;
+            }
+          }
+        });
+        if (votes > 0) {
+          if (votes > breed.n) breed = { i: i, n: votes, lm: labelMatch };
+          else if (votes === breed.n && !breed.lm) breed = { i: i, n: votes, lm: labelMatch };
+        }
+      }
+
+      /* Minimum length: the line's own (5th field), else by rank */
+      var min = h.min != null && h.min !== '' && !isNaN(Number(h.min)) ? Number(h.min) : hRank > 0 ? SIZE_MIN_LENGTH[hRank] : null;
+      if (min != null) {
+        dims.lines += 1;
+        if (p.length != null && min <= p.length && min > dims.min) {
+          dims.i = i;
+          dims.min = min;
+        }
+      }
+
+      if (lHit < 0 && labelQ && (labelQ === v || labelQ === lbl)) lHit = i;
+      if (hRank > 0) {
+        if (rHit < 0 && p.rank > 0 && hRank === p.rank) rHit = i;
+        if (hRank > rMax.rank) rMax = { i: i, rank: hRank };
+        if (hRank < rMin.rank) rMin = { i: i, rank: hRank };
+      }
+    });
+
+    if (hit < 0 && breed.i > -1) hit = breed.i;
+    if (hit < 0 && dims.i > -1 && dims.lines > 1) hit = dims.i;
+    if (hit < 0 && lHit > -1) hit = lHit;
+    if (hit < 0 && rHit > -1) hit = rHit;
+    if (hit < 0 && p.rank > 0 && rMax.i > -1 && p.rank > rMax.rank) hit = rMax.i;
+    if (hit < 0 && p.rank > 0 && rMin.i > -1 && p.rank < rMin.rank) hit = rMin.i;
+
+    /* First word ("Medium dog bed") */
+    if (hit < 0) {
+      var fw = p.value.toLowerCase().split(' ')[0].split('/')[0].split('(')[0].split(':')[0].trim();
+      if (fw) {
+        var fwRank = Object.prototype.hasOwnProperty.call(SIZE_RANKS, fw) ? SIZE_RANKS[fw] : -1;
+        for (var j = 0; j < hints.length && hit < 0; j += 1) {
+          var hv = sizeKey((hints[j] || {}).value);
+          if (!hv) continue;
+          var hl = sizeKey((hints[j] || {}).label);
+          var hr = Object.prototype.hasOwnProperty.call(SIZE_RANKS, hv.replace(/\./g, '')) ? SIZE_RANKS[hv.replace(/\./g, '')] : -1;
+          if (fw === hv || fw === hl || (fwRank > 0 && fwRank === hr)) hit = j;
+        }
+      }
+    }
+    return hit;
+  };
 
   L.sizeHint = function (value) {
-    var hints = Array.isArray(L.settings.sizeHints) ? L.settings.sizeHints : [];
-    var q = String(value || '').toLowerCase().replace(/-/g, ' ').trim();
-    if (!q || !hints.length) return null;
-    if (XL_ALIASES.indexOf(q) > -1) q = 'xl';
-    if (XS_ALIASES.indexOf(q) > -1) q = 'xs';
-    var first = q.split(' ')[0].split('/')[0].split('(')[0].trim();
-    if (['2xl', 'xxl', '3xl', 'xxxl'].indexOf(first) > -1) first = 'xl';
-    if (first === 'xxs') first = 'xs';
+    var hints = sizeHintList();
+    var i = L.sizeHintIndex(value, hints);
+    return i > -1 ? hints[i] : null;
+  };
 
-    function find(term) {
-      if (!term) return null;
-      for (var i = 0; i < hints.length; i += 1) {
-        var h = hints[i] || {};
-        if (String(h.value || '').toLowerCase().trim() === term || String(h.label || '').toLowerCase().trim() === term) return h;
-      }
-      return null;
+  L.sizeLabel = function (value) {
+    var p = L.sizeParse(value);
+    var q = sizeKey(p.label).replace(/\./g, '');
+    var hints = sizeHintList();
+    for (var i = 0; i < hints.length; i += 1) {
+      var h = hints[i] || {};
+      if (q && sizeKey(h.value) === q && h.label) return String(h.label).trim();
     }
-    return find(q) || find(first);
+    return p.label;
+  };
+
+  L.sizeMatch = function (values, want) {
+    var hints = sizeHintList();
+    var w = typeof want === 'number' ? want : L.sizeHintIndex(want, hints);
+    if (w < 0 || !Array.isArray(values)) return null;
+    var best = null;
+    for (var i = 0; i < values.length; i += 1) {
+      var idx = L.sizeHintIndex(values[i], hints);
+      if (idx === w) return { value: values[i], index: idx, kind: 'exact' };
+      if (idx > w && (!best || idx < best.index)) best = { value: values[i], index: idx, kind: 'larger' };
+    }
+    return best;
   };
 
   /* ------------------------------------------------------------------------
