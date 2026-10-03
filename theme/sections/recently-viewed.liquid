@@ -6,7 +6,9 @@
   leaves out the product you're on, fetches /products/<handle>.js for each
   and builds cards from the <template> below (same classes as the shared
   product card). Nothing stored → the section stays hidden.
-  Works on the product page and the basket page.
+  Works on the product page and the basket page. On the basket page it
+  leaves out every bed already in the basket (and keeps that in step as the
+  basket changes), so the row is only the shortlist they didn't add.
 {%- endcomment -%}
 {%- comment -%}
   On product templates main-product (first in product.json) already links
@@ -27,8 +29,15 @@
     assign cols = 4
   endif
   assign exclude = ''
+  assign current = ''
   if template.name == 'product' and product != blank
     assign exclude = product.handle
+    assign current = product.handle
+  elsif template.name == 'cart'
+    for item in cart.items
+      assign exclude = exclude | append: ',' | append: item.product.handle
+    endfor
+    assign exclude = exclude | remove_first: ','
   endif
   case settings.card_image_ratio
     when 'portrait'
@@ -67,6 +76,8 @@
       class="recently-viewed__body"
       data-section-id="{{ section.id }}"
       data-exclude="{{ exclude | escape }}"
+      data-current="{{ current | escape }}"
+      {%- if template.name == 'cart' %} data-cart-sync{% endif %}
       data-limit="{{ limit }}"
       data-quick-add="{{ quick }}"
       data-root="{{ routes.root_url }}"

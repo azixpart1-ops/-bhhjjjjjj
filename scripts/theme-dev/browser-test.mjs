@@ -256,6 +256,12 @@ async function finderFlow(page) {
     const add = await firstVisible(dialog, ['.finder-result__add', '[data-finder-add]', 'button.btn--primary:has-text("Add")']);
     if (add) {
       const resultText = (await dialog.innerText()).replace(/\s+/g, ' ');
+      // Store claims are filled from settings: no [token] may reach the shopper,
+      // and the trial line carries the returns wording from Theme settings.
+      const token = /\[[a-z_]+\]/.exec(resultText);
+      if (token) fail(`finder result shows an unfilled placeholder ${token[0]}`);
+      const terms = await page.evaluate(() => (window.Lunova && Lunova.settings && Lunova.settings.trialNights > 0 && Lunova.settings.trialTerms) || '');
+      if (terms && !resultText.includes(terms.replace(/\s+/g, ' ').trim())) fail(`finder result trial line is missing the trial terms ("${terms}")`);
       await add.click();
       if (!(await drawerHasLine(page))) fail(`added from finder result but cart drawer did not open with the item (answered ${answered} steps)`);
       const personal = /Bella/.test(resultText);

@@ -5,9 +5,12 @@
   your vet). Uncertainty reduction, plus FAQPage structured data (toggle).
 
   Blocks: question + answer (rich text) + "hide when this promise is off".
-  Text can use [trial_nights], [guarantee_years], [threshold], [cutoff],
-  [delivery_min], [delivery_max], [origin], [shop], [returns_policy]. A
-  question naming a promise that is switched off hides itself.
+  Text can use [trial_nights], [trial_terms], [trial_terms_short],
+  [guarantee_years], [threshold], [cutoff], [delivery_min], [delivery_max],
+  [origin], [shop], [returns_policy]. A question naming a promise that is
+  switched off hides itself. [trial_terms] is the returns wording from Theme
+  settings → Promises (snippets/trial-terms), so answers never promise free
+  collection or a full refund the store doesn't give.
 
   Returns policy: links only ever point at a refund policy that exists
   (shop.refund_policy). Until one is published in Settings → Policies,
@@ -22,7 +25,7 @@
   Uses native <details> (core .accordion) — keyboard and screen-reader
   friendly with no JS.
 {%- endcomment -%}
-{{ 'sections.css' | asset_url | stylesheet_tag }}
+{%- unless template.name == 'index' -%}{{ 'sections.css' | asset_url | stylesheet_tag }}{%- endunless -%}
 {%- if request.design_mode -%}
   {%- comment -%} Opens the question selected in the editor's sidebar. {%- endcomment -%}
   <script src="{{ 'sections.js' | asset_url }}" defer="defer"></script>
@@ -45,6 +48,14 @@
   assign ph_dmax = dmax | append: ''
   assign ph_origin = settings.origin_line | default: '' | strip | escape
   assign ph_shop = shop.name | escape
+  capture ph_terms
+    render 'trial-terms'
+  endcapture
+  capture ph_terms_short
+    render 'trial-terms', short: true
+  endcapture
+  assign ph_terms = ph_terms | strip | escape
+  assign ph_terms_short = ph_terms_short | strip | escape
   assign policy_url = shop.refund_policy.url | default: ''
   assign policy_word = 'home.faq.returns_policy' | t
   if policy_url != ''
@@ -86,6 +97,9 @@
         assign keep = false
       endif
       if raw contains '[trial_nights]' and on_trial == false
+        assign keep = false
+      endif
+      if raw contains '[trial_terms' and on_trial == false
         assign keep = false
       endif
       if raw contains '[guarantee_years]' and on_guarantee == false
@@ -210,14 +224,10 @@
                     assign a = a | append: a_free
                   endif
                 when 'trial'
-                  capture faq_terms
-                    render 'trial-terms'
-                  endcapture
-                  assign faq_terms = faq_terms | escape
                   if policy_url != ''
-                    assign a = 'home.faq.trial_a_html' | t: nights: ph_nights, policy_url: policy_url, terms: faq_terms
+                    assign a = 'home.faq.trial_a_html' | t: nights: ph_nights, policy_url: policy_url, terms: ph_terms
                   else
-                    assign a = 'home.faq.trial_a_nolink_html' | t: nights: ph_nights, terms: faq_terms
+                    assign a = 'home.faq.trial_a_nolink_html' | t: nights: ph_nights, terms: ph_terms
                   endif
                 when 'guarantee'
                   if policy_url != ''
@@ -233,8 +243,8 @@
               assign bi = key | remove_first: 'b:' | plus: 0
               assign block = section.blocks[bi]
               if block
-                  assign q = block.settings.question | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop
-                  assign a = block.settings.answer | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop | replace: '[returns_policy]', policy_word
+                  assign q = block.settings.question | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop
+                  assign a = block.settings.answer | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop | replace: '[returns_policy]', policy_word
                   if policy_url == ''
                     assign a = a | replace: ' href="/policies/refund-policy"', ''
                   endif
@@ -283,7 +293,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Order questions the way people buy: size, foam, washing, delivery, trial, guarantee, health. Text can use [trial_nights], [guarantee_years], [threshold], [cutoff], [delivery_min], [delivery_max], [origin] and [shop]. [returns_policy] links to your refund policy (Settings → Policies), and stays plain text until one is published. With no questions added, sensible defaults show."
+      "content": "Order questions the way people buy: size, foam, washing, delivery, trial, guarantee, health. Text can use [trial_nights], [guarantee_years], [threshold], [cutoff], [delivery_min], [delivery_max], [origin] and [shop]. [trial_terms] and [trial_terms_short] are the returns wording from Theme settings → Promises. [returns_policy] links to your refund policy (Settings → Policies), and stays plain text until one is published. With no questions added, sensible defaults show."
     },
     {
       "type": "select",
@@ -417,7 +427,7 @@
       "blocks": [
         { "type": "question" },
         { "type": "question", "settings": { "question": "What does 50kg/m³ actually mean?", "answer": "<p>It is how much foam is packed into every cubic metre. Density and firmness are not the same thing: a low-density foam can feel firm on day one and still collapse by month six. High-density foam keeps its structure under repeated weight, which is why a 50kg/m³ core is still supporting hips and elbows years later.</p>" } },
-        { "type": "question", "settings": { "question": "What if my dog just won't use it?", "answer": "<p>Then it goes back and you are not out of pocket. Let your dog sleep on it for up to [trial_nights] nights. If it isn't the bed for them, contact us inside that window and we will collect it and refund every penny.</p>", "promise": "trial" } }
+        { "type": "question", "settings": { "question": "What if my dog just won't use it?", "answer": "<p>Then it goes back. Let your dog sleep on it for up to [trial_nights] nights. [trial_terms] Just contact us inside that window.</p>", "promise": "trial" } }
       ]
     }
   ]

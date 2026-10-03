@@ -1735,7 +1735,7 @@
       /* The guarantee is on the foam: never promise it for a bed it doesn't cover. */
       if (product && typeof L.foamBed === 'function' && !L.foamBed(product)) years = 0;
       var parts = [];
-      if (nights > 0 && copy.riskText) parts.push(fill(copy.riskText, { nights: nights }));
+      if (nights > 0 && copy.riskText) parts.push(fill(copy.riskText, { nights: nights, trial_terms: s.trialTerms || '', trial_terms_short: s.trialTermsShort || '' }).replace(/\s+/g, ' ').trim());
       if (years > 0 && copy.guaranteeText) parts.push(fill(copy.guaranteeText, { years: years }));
       if (!parts.length) return null;
       return h('p', { class: 'finder-result__risk' }, [icon('shield', 'finder-result__risk-icon'), h('span', { text: parts.join(' ') })]);

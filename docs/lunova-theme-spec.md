@@ -196,7 +196,9 @@ theme/
   routes.cart_url, search: routes.search_url, predictiveSearch:
   routes.predictive_search_url, productRecommendations:
   routes.product_recommendations_url}` and `settings` = `{ freeShippingThreshold
-  (in minor units, number or null), trialNights, guaranteeYears, cutoffHour,
+  (in minor units, number or null), trialNights, trialFreeCollection,
+  trialTerms, trialTermsShort (plain text from snippets/trial-terms),
+  guaranteeYears, cutoffHour,
   dispatchDays: [1,2,3,4,5], deliveryMin, deliveryMax, holidays: ["YYYY-MM-DD"],
   lowStockThreshold, cartType: "drawer"|"page", perNight: bool, installments:
   {enabled, count, provider}, finderEnabled: bool }`.
@@ -243,8 +245,13 @@ Shared component classes (defined in base.css; others use, never redefine):
   when `.is-revealed`), `.placeholder-svg`.
 
 Each area's own CSS file is loaded **by its sections** with
-`{{ 'x.css' | asset_url | stylesheet_tag }}` (Shopify de-dupes) — except
-`chrome.css` which `theme.liquid` loads since chrome is on every page.
+`{{ 'x.css' | asset_url | stylesheet_tag }}` — except `chrome.css` which
+`theme.liquid` loads since chrome is on every page. `stylesheet_tag` does
+**not** de-dupe: each repeated link is downloaded once but parsed and applied
+again, which slows style recalculation. So on the home page (`template.name ==
+'index'`) `theme.liquid` links `sections.css` once in `<head>`, and the
+home-area sections wrap their own link in `{%- unless template.name == 'index'
+-%}`. Other templates keep the per-section links (two or three at most).
 No `!important` except `[hidden]{display:none!important}`.
 No selectors on bare elements outside base.css.
 

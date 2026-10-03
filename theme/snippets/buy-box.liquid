@@ -89,8 +89,8 @@
     assign trial_on = true
   endif
   comment
-    Returns wording from Theme settings → Promises (snippets/trial-terms):
-    [trial_terms] / [trial_terms_short] in block text.
+    Returns wording from Theme settings → Promises (snippets/trial-terms),
+    for the trial_terms and trial_terms_short tokens in block text.
   endcomment
   capture trial_terms
     render 'trial-terms'
@@ -291,13 +291,18 @@
       -%}
       <div class="pblock pblock--title"{% if block %} {{ block.shopify_attributes }}{% endif %}>
         {%- if badges.size > 0 or settings.finder_enable -%}
+          {%- comment -%}
+            The finder's match badge is revealed by global.js after load, so it
+            goes last (it never pushes the merchant's badges along), and on the
+            matched bed the row is kept open from first paint (the <head>
+            script sets html[data-finder-handle]), so the title doesn't drop.
+          {%- endcomment -%}
+          {%- if settings.finder_enable -%}
+            {%- style -%}
+              html[data-finder-handle="{{ product.handle | escape }}"] .buy-box__badges[data-finder-match-handle="{{ product.handle | escape }}"] { display: flex; min-height: var(--badge-row-h, 1.625rem); }
+            {%- endstyle -%}
+          {%- endif -%}
           <div class="buy-box__badges" data-finder-match-handle="{{ product.handle }}">
-            {%- if settings.finder_enable -%}
-              <span class="badge badge--match" data-finder-match-badge hidden>
-                {%- render 'icon', name: 'paw' -%}
-                <span data-finder-name="{{ 'product.title.match' | t }}">{{ 'product.title.match_default' | t }}</span>
-              </span>
-            {%- endif -%}
             {%- for b in badges limit: 3 -%}
               {%- if forloop.first -%}
                 {%- render 'badge', text: b, style: 'accent' -%}
@@ -305,6 +310,12 @@
                 {%- render 'badge', text: b -%}
               {%- endif -%}
             {%- endfor -%}
+            {%- if settings.finder_enable -%}
+              <span class="badge badge--match" data-finder-match-badge hidden>
+                {%- render 'icon', name: 'paw' -%}
+                <span data-finder-name="{{ 'product.title.match' | t }}">{{ 'product.title.match_default' | t }}</span>
+              </span>
+            {%- endif -%}
           </div>
         {%- endif -%}
         {%- if compact -%}

@@ -113,6 +113,7 @@
       var finder = L().finder;
       var result = data || (finder && typeof finder.get === 'function' ? finder.get() : null);
       if (!link || !result || !result.handle) {
+        line.classList.remove('is-ready');
         line.hidden = true;
         return;
       }
@@ -123,6 +124,7 @@
       link.textContent = name && named.indexOf('[name]') > -1 ? named.replace('[name]', name) : plain;
       link.href = productUrl(String(result.handle), result.variantId);
       line.hidden = false;
+      line.classList.add('is-ready');
     });
   }
 

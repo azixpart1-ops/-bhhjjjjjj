@@ -129,6 +129,17 @@
 
     {{ 'base.css' | asset_url | stylesheet_tag }}
     {{ 'chrome.css' | asset_url | stylesheet_tag }}
+    {%- comment -%}
+      The home page is built from the marketing sections, a dozen of which
+      would each link sections.css: stylesheet_tag doesn't de-dupe, and every
+      duplicate link is parsed and applied again (slower style recalcs). So
+      on index it is linked once here, where it also gets Early Hints, and
+      those sections skip their own link (unless template.name == 'index').
+      Other templates keep the per-section links.
+    {%- endcomment -%}
+    {%- if template.name == 'index' %}
+    {{ 'sections.css' | asset_url | stylesheet_tag }}
+    {%- endif %}
 
     {%- liquid
       comment
@@ -202,9 +213,26 @@
     {%- capture size_hints_json -%}{%- render 'size-hints', mode: 'json' -%}{%- endcapture -%}
     {%- assign size_hints_json = size_hints_json | strip -%}
     {%- if size_hints_json == '' -%}{%- assign size_hints_json = '[]' -%}{%- endif -%}
+    {%- capture trial_terms -%}{%- render 'trial-terms' -%}{%- endcapture -%}
+    {%- capture trial_terms_short -%}{%- render 'trial-terms', short: true -%}{%- endcapture -%}
 
     <script>
       document.documentElement.className = document.documentElement.className.replace('no-js', 'js');
+      {%- if settings.finder_enable %}
+      /* A returning finder user: mark <html> before the body parses, so the
+         match badge, size marker and hero resume line can reserve their
+         space in CSS instead of shifting the page when global.js reveals
+         them. global.js applyFinder() keeps these in step afterwards. */
+      try {
+        var lf = JSON.parse(localStorage.getItem('lunova:finder') || 'null');
+        if (lf && lf.handle) {
+          var de = document.documentElement;
+          de.setAttribute('data-finder-handle', String(lf.handle));
+          de.classList.add('has-finder-result');
+          if (lf.size) de.setAttribute('data-finder-size', String(lf.size));
+        }
+      } catch (e) {}
+      {%- endif %}
       window.Lunova = window.Lunova || {};
       Lunova.routes = {
         root: {{ routes.root_url | json }},
@@ -229,6 +257,9 @@
         freeShippingThreshold: {{ fs_threshold }},
         trialEnabled: {{ settings.trial_enable | json }},
         trialNights: {{ trial_nights }},
+        trialFreeCollection: {{ settings.trial_free_collection | json }},
+        trialTerms: {{ trial_terms | strip | json }},
+        trialTermsShort: {{ trial_terms_short | strip | json }},
         guaranteeEnabled: {{ settings.guarantee_enable | json }},
         guaranteeYears: {{ guarantee_years }},
         deliveryEnabled: {{ settings.delivery_promise_enable | json }},

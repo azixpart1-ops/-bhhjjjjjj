@@ -618,8 +618,8 @@
           var match = idx === chipIdx && recValue != null && label.getAttribute('data-value') === recValue;
           var chip = label.querySelector('[data-recommended-chip]');
           if (chip) chip.hidden = !match;
-          var popular = label.querySelector('[data-most-chosen-chip]');
-          if (popular) popular.hidden = match;
+          // "Most chosen" stays put: the finder's tag sits on the card's edge,
+          // so hiding it here would only shift the card's text.
           label.classList.toggle('is-recommended', match);
         });
       });
@@ -1567,13 +1567,19 @@
       this.clearBtn = this.section ? this.section.querySelector('[data-recent-clear]') : null;
       if (this.clearBtn) this.clearBtn.addEventListener('click', this.clear.bind(this));
 
-      var exclude = this.getAttribute('data-exclude') || '';
-      var limit = parseInt(this.getAttribute('data-limit'), 10) || 4;
-      var handles = recentList()
-        .filter(function (h) {
-          return h !== exclude;
-        })
-        .slice(0, limit);
+      // data-exclude is a comma-separated list: the product you're on, or on
+      // the basket page every bed already in the basket.
+      this.exclude = (this.getAttribute('data-exclude') || '').split(',').map(function (h) {
+        return h.trim();
+      }).filter(Boolean);
+      this.limit = parseInt(this.getAttribute('data-limit'), 10) || 4;
+      var handles = this.wanted();
+      if (this.hasAttribute('data-cart-sync')) {
+        this.offCart = on('lunova:cart:updated', function (e) {
+          var cart = e && e.detail && e.detail.cart;
+          if (cart && cart.items) self.syncCart(cart);
+        });
+      }
       if (!handles.length) {
         this.hide();
         return;
@@ -1583,7 +1589,8 @@
           function (entries) {
             if (!entries.some(function (en) { return en.isIntersecting; })) return;
             self.io.disconnect();
-            self.load(handles);
+            self.io = null;
+            self.load(self.wanted());
           },
           { rootMargin: '0px 0px 600px 0px' }
         );
@@ -1596,7 +1603,43 @@
 
     disconnectedCallback() {
       if (this.io) this.io.disconnect();
+      if (this.offCart) this.offCart();
       this._wired = false;
+    }
+
+    /** Stored handles minus the excluded ones, newest first, up to the limit. */
+    wanted() {
+      var ex = this.exclude || [];
+      return recentList()
+        .filter(function (h) {
+          return ex.indexOf(h) === -1;
+        })
+        .slice(0, this.limit || 4);
+    }
+
+    /** Basket page: keep the row to beds that aren't in the basket as it changes. */
+    syncCart(cart) {
+      var next = cart.items
+        .map(function (it) {
+          return it && it.handle;
+        })
+        .filter(Boolean);
+      this.exclude = next;
+      if (this.io) return; // not loaded yet: the observer reads wanted() when it fires
+      var handles = this.wanted();
+      var shown = this.list
+        ? qsa('[data-finder-match-handle]', this.list).map(function (el) {
+            return el.getAttribute('data-finder-match-handle');
+          })
+        : [];
+      if (handles.join(',') === shown.join(',') && !(this.section && this.section.hidden)) return;
+      if (!handles.length) {
+        this._seq = (this._seq || 0) + 1; // drop any load still in flight
+        if (this.list && !designMode()) this.list.textContent = '';
+        this.hide();
+        return;
+      }
+      this.load(handles);
     }
 
     hide() {
@@ -1612,6 +1655,7 @@
     load(handles) {
       var self = this;
       var root = this.root();
+      var seq = (this._seq = (this._seq || 0) + 1);
       Promise.all(
         handles.map(function (h) {
           return fetch(root + 'products/' + encodeURIComponent(h) + '.js', {
@@ -1627,6 +1671,7 @@
             });
         })
       ).then(function (results) {
+        if (seq !== self._seq) return; // a newer load (the basket changed) supersedes this one
         var gone = results.filter(function (r) { return r && r.__gone; }).map(function (r) { return r.__gone; });
         if (gone.length) {
           saveRecent(recentList().filter(function (h) { return gone.indexOf(h) === -1; }));
@@ -1784,8 +1829,9 @@
 
     clear() {
       saveRecent([]);
-      var exclude = this.getAttribute('data-exclude');
-      if (exclude) saveRecent([exclude]);
+      // On a product page the bed you're looking at stays your latest view.
+      var current = this.getAttribute('data-current');
+      if (current) saveRecent([current]);
       if (this.status) this.status.textContent = this.strings.cleared || '';
       if (this.section) {
         var heading = this.section.querySelector('h2');

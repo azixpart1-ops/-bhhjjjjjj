@@ -18,10 +18,12 @@
       and fills the order number (customer.js). Logged-in customers get their
       name and email filled in.
 
-  Quick-answer text can use [trial_nights], [guarantee_years], [threshold],
-  [cutoff], [delivery_min] and [delivery_max]. An answer naming a promise
-  that is switched off hides itself, as does one whose "Hide when" promise
-  is off.
+  Quick-answer text can use [trial_nights], [trial_terms],
+  [trial_terms_short], [guarantee_years], [threshold], [cutoff],
+  [delivery_min] and [delivery_max]. [trial_terms] is the returns wording
+  from Theme settings → Promises (snippets/trial-terms). An answer naming a
+  promise that is switched off hides itself, as does one whose "Hide when"
+  promise is off.
 {%- endcomment -%}
 {{ 'pages.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'customer.js' | asset_url }}" defer="defer"></script>
@@ -49,6 +51,14 @@
   assign ph_cutoff = ph_cutoff | strip
   assign ph_dmin = dmin | append: ''
   assign ph_dmax = dmax | append: ''
+  capture ph_terms
+    render 'trial-terms'
+  endcapture
+  capture ph_terms_short
+    render 'trial-terms', short: true
+  endcapture
+  assign ph_terms = ph_terms | strip | escape
+  assign ph_terms_short = ph_terms_short | strip | escape
 
   assign on_trial = false
   if settings.trial_enable and nights > 0
@@ -96,6 +106,9 @@
     assign raw = b.question | append: ' ' | append: b.answer
     assign keep = true
     if raw contains '[trial_nights]' and on_trial == false
+      assign keep = false
+    endif
+    if raw contains '[trial_terms' and on_trial == false
       assign keep = false
     endif
     if raw contains '[guarantee_years]' and on_guarantee == false
@@ -202,8 +215,8 @@
                   {%- unless answer_keys contains key -%}{%- continue -%}{%- endunless -%}
                   {%- liquid
                     assign b = block.settings
-                    assign q = b.question | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax
-                    assign a = b.answer | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | newline_to_br
+                    assign q = b.question | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax
+                    assign a = b.answer | default: '' | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | newline_to_br
                     assign link_url = ''
                     assign link_finder = false
                     case b.link_type
@@ -688,7 +701,7 @@
           "id": "answer",
           "label": "Short answer",
           "default": "Measure nose to base of tail while they're lying down, then add 15–20cm. Between two sizes? Go up.",
-          "info": "Can use [trial_nights], [guarantee_years], [threshold], [cutoff], [delivery_min] and [delivery_max]."
+          "info": "Can use [trial_nights], [trial_terms], [trial_terms_short], [guarantee_years], [threshold], [cutoff], [delivery_min] and [delivery_max]. [trial_terms] is the returns wording from Theme settings → Promises."
         },
         {
           "type": "select",

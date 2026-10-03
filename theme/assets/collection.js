@@ -1021,15 +1021,36 @@
       }
       if (!select || !data || !data.size || select.hasAttribute('data-touched')) return;
       var want = String(data.size).toLowerCase().trim();
-      Array.prototype.some.call(select.options, function (opt) {
-        var values = (opt.getAttribute('data-options') || '').toLowerCase().split('|');
-        var hit = values.some(function (v) {
-          v = v.trim();
+      // The finder stores the size-hint value ("M", "XL"); options may say
+      // "Medium" or "Rydal 2XL". Exact or prefix match first, then the
+      // spec §5.6 rule through Lunova.sizeHint (label ≡ value, 2XL/XXL → XL).
+      var wantHint = typeof L.sizeHint === 'function' ? L.sizeHint(data.size) : null;
+      var opts = Array.prototype.slice.call(select.options);
+      function valuesOf(opt) {
+        return (opt.getAttribute('data-options') || '').toLowerCase().split('|').map(function (v) {
+          return v.trim();
+        });
+      }
+      var pick = null;
+      opts.some(function (opt) {
+        var hit = valuesOf(opt).some(function (v) {
           return v === want || v.indexOf(want + ' ') === 0 || v.indexOf(want + '(') === 0;
         });
-        if (hit) select.value = opt.value;
+        if (hit) pick = opt;
         return hit;
       });
+      if (!pick && wantHint) {
+        var wantValue = String(wantHint.value || '').toLowerCase();
+        opts.some(function (opt) {
+          var hit = valuesOf(opt).some(function (v) {
+            var h = L.sizeHint(v);
+            return !!h && (h === wantHint || String(h.value || '').toLowerCase() === wantValue);
+          });
+          if (hit) pick = opt;
+          return hit;
+        });
+      }
+      if (pick) select.value = pick.value;
     }
 
     /* -- sticky checkout (phones) ---------------------------------------- */

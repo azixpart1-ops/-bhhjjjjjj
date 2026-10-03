@@ -477,6 +477,14 @@
 
     root.classList.toggle('has-finder-result', !!handle);
     root.classList.toggle('has-finder-name', !!name);
+    /* Same attributes the inline <head> script sets at first paint (CSS
+       reserves space for the match badge / resume line with them); kept in
+       step when the finder is retaken or cleared on the page. */
+    var size = data && data.size ? String(data.size) : '';
+    if (handle) root.setAttribute('data-finder-handle', handle);
+    else root.removeAttribute('data-finder-handle');
+    if (handle && size) root.setAttribute('data-finder-size', size);
+    else root.removeAttribute('data-finder-size');
   }
   L.applyFinder = applyFinder;
 

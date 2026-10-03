@@ -6,9 +6,11 @@
       don't hold: CAP Code 3.7 / 3.33ff, DMCC misleading actions);
     - every left-hand claim should be physical and checkable (density, cover,
       guarantee, trial) — no medical claims;
-    - rows can depend on a promise (trial / guarantee / free delivery) and hide
-      when that promise is switched off in Theme settings.
-  Placeholders in any cell: [trial_nights] [guarantee_years] [threshold].
+    - rows can depend on a promise (trial / free trial returns / guarantee /
+      free delivery) and hide when that promise is switched off in Theme
+      settings → Promises.
+  Placeholders in any cell: [trial_nights] [guarantee_years] [threshold]
+  [trial_terms] [trial_terms_short] (the returns wording, snippets/trial-terms).
 
   The default rows describe the memory-foam core, so on product pages
   ("Show on product pages" = auto) the section only renders for beds whose
@@ -50,6 +52,14 @@
   assign years_s = years | append: ''
   assign threshold_cents = settings.free_shipping_threshold | default: 0 | times: 100 | round
   assign threshold_money = threshold_cents | money_without_trailing_zeros
+  capture terms_s
+    render 'trial-terms'
+  endcapture
+  capture terms_short_s
+    render 'trial-terms', short: true
+  endcapture
+  assign terms_s = terms_s | strip | escape
+  assign terms_short_s = terms_short_s | strip | escape
 
   assign ours_label = section.settings.ours_label | default: ''
   if section.settings.use_product_title and product != blank and product.id != blank
@@ -67,6 +77,10 @@
     case req
       when 'trial'
         unless settings.trial_enable and nights > 0
+          assign ok = false
+        endunless
+      when 'free_return'
+        unless settings.trial_enable and nights > 0 and settings.trial_free_collection
           assign ok = false
         endunless
       when 'guarantee'
@@ -101,7 +115,7 @@
         <h2 class="h2" id="{{ section.id }}-heading">{{ section.settings.heading | escape }}</h2>
         {%- if section.settings.intro != blank -%}
           <div class="lede rte">
-            {{- section.settings.intro | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money -}}
+            {{- section.settings.intro | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', terms_short_s | replace: '[trial_terms]', terms_s -}}
           </div>
         {%- endif -%}
       </div>
@@ -137,7 +151,7 @@
                   {%- elsif b.ours_icon == 'cross' -%}
                     <span class="compare__mark compare__mark--no">{%- render 'icon', name: 'close' -%}<span class="visually-hidden">{{ 'product.compare.no' | t }}: </span></span>
                   {%- endif -%}
-                  <span>{{ b.ours | escape | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money }}</span>
+                  <span>{{ b.ours | escape | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', terms_short_s | replace: '[trial_terms]', terms_s }}</span>
                 </span>
               </td>
               <td role="cell" class="compare__cell compare__cell--theirs">
@@ -148,7 +162,7 @@
                   {%- elsif b.theirs_icon == 'cross' -%}
                     <span class="compare__mark compare__mark--no">{%- render 'icon', name: 'close' -%}<span class="visually-hidden">{{ 'product.compare.no' | t }}: </span></span>
                   {%- endif -%}
-                  <span>{{ b.theirs | escape | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money }}</span>
+                  <span>{{ b.theirs | escape | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', terms_short_s | replace: '[trial_terms]', terms_s }}</span>
                 </span>
               </td>
             </tr>
@@ -297,7 +311,8 @@
           "type": "text",
           "id": "ours",
           "label": "Ours",
-          "default": "50kg/m³ high-density memory foam core"
+          "default": "50kg/m³ high-density memory foam core",
+          "info": "Can use [trial_nights], [guarantee_years], [threshold], and [trial_terms_short] or [trial_terms] for the returns wording in Theme settings → Promises."
         },
         {
           "type": "select",
@@ -335,6 +350,7 @@
           "options": [
             { "value": "none", "label": "Always show" },
             { "value": "trial", "label": "Sleep trial" },
+            { "value": "free_return", "label": "Free trial returns" },
             { "value": "guarantee", "label": "Guarantee" },
             { "value": "free_delivery", "label": "Free delivery" }
           ],
@@ -389,7 +405,7 @@
             "ours_icon": "check",
             "theirs": "Who pays to send it back?",
             "theirs_icon": "none",
-            "requires": "trial"
+            "requires": "free_return"
           }
         },
         {
