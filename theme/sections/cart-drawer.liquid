@@ -131,6 +131,8 @@
             </p>
 
             {%- render 'free-shipping-bar', cart: cart, compact: true, class: 'cart-drawer__shipping' -%}
+            {%- comment -%} Once free delivery is unlocked: how far to the offer's minimum (snippets/offer). Never both bars. {%- endcomment -%}
+            {%- render 'offer', mode: 'cart_bar', cart: cart, compact: true, class: 'cart-drawer__shipping' -%}
 
             <h3 class="visually-hidden">{{ 'chrome.cart.items_heading' | t }}</h3>
             <ul class="cart-lines" role="list">
@@ -213,7 +215,14 @@
           </div>
 
           <div class="chrome-panel__footer cart-drawer__footer">
-            {%- if settings.show_compare_savings and total_savings > 0 -%}
+            {%- comment -%}
+              Discounts exactly as Shopify applied them (an automatic offer
+              shows up here by itself), named by the offer when it's the
+              running one: "Cosy Season Saving −£15.00". The savings
+              summary only adds up compare-at savings with them, so a lone
+              discount isn't said twice.
+            {%- endcomment -%}
+            {%- if settings.show_compare_savings and compare_savings > 0 and total_savings > 0 -%}
               <p class="cart-drawer__savings">
                 {%- render 'icon', name: 'tag', size: 16 -%}
                 {%- assign savings_money = total_savings | money_without_trailing_zeros -%}
@@ -222,11 +231,14 @@
             {%- endif -%}
 
             {%- if cart.cart_level_discount_applications.size > 0 -%}
-              <ul class="cart-drawer__discounts" role="list">
+              <ul class="cart-drawer__discounts" role="list" data-cart-discounts>
                 {%- for discount in cart.cart_level_discount_applications -%}
                   <li>
-                    <span>{{ 'chrome.cart.discount_label' | t }}: {{ discount.title | escape }}</span>
-                    <span>−{{ discount.total_allocated_amount | money }}</span>
+                    <span class="cart-drawer__discount-name">
+                      {%- render 'icon', name: 'tag', size: 16 -%}
+                      <span><span class="visually-hidden">{{ 'chrome.cart.discount_label' | t }}: </span>{%- render 'offer', mode: 'discount_title', title: discount.title -%}</span>
+                    </span>
+                    <span class="cart-drawer__discount-amount">−{{ discount.total_allocated_amount | money }}</span>
                   </li>
                 {%- endfor -%}
               </ul>
@@ -236,16 +248,25 @@
               <span>{{ 'chrome.cart.subtotal' | t }}</span>
               <span class="cart-drawer__subtotal-value">{{ cart.total_price | money }}</span>
             </div>
+            {%- comment -%}
+              Delivery choices said before checkout (snippets/delivery-options,
+              Theme settings → Promises → Delivery options). Without them, the
+              old one-liner about delivery stays in the fine print.
+            {%- endcomment -%}
+            {%- capture drawer_delivery -%}{%- render 'delivery-options', basket: cart, compact: true, class: 'cart-drawer__delivery' -%}{%- endcapture -%}
             <p class="cart-drawer__fineprint">
               {%- if cart.taxes_included -%}{{ 'chrome.cart.vat_included' | t }} {% endif -%}
-              {%- if settings.free_shipping_enable and threshold > 0 and cart.total_price >= threshold -%}
-                {{- 'chrome.cart.delivery_free' | t -}}
-              {%- else -%}
-                {{- 'chrome.cart.delivery_at_checkout' | t -}}
+              {%- if drawer_delivery == blank -%}
+                {%- if settings.free_shipping_enable and threshold > 0 and cart.total_price >= threshold -%}
+                  {{- 'chrome.cart.delivery_free' | t -}}
+                {%- else -%}
+                  {{- 'chrome.cart.delivery_at_checkout' | t -}}
+                {%- endif -%}
               {%- endif -%}
               {%- comment -%} Off by default: with no public codes the prompt sends shoppers off-site to hunt for one. {%- endcomment -%}
               {%- if settings.cart_show_discount_hint %} {{ 'chrome.cart.discount_codes' | t }}{%- endif -%}
             </p>
+            {{- drawer_delivery -}}
 
             <form action="{{ routes.cart_url }}" method="post" id="CartDrawerForm" class="cart-drawer__checkout-form" novalidate>
               <button type="submit" name="checkout" class="btn btn--primary btn--lg btn--block cart-drawer__checkout" data-focus-key="checkout">
@@ -253,6 +274,11 @@
                 <span>{{ 'chrome.cart.checkout' | t }}</span>
               </button>
             </form>
+            {%- comment -%} How they can pay, while Shopify has no payment marks to show (Theme settings → Social proof). {%- endcomment -%}
+            {%- assign drawer_pay_text = settings.payment_methods_text | default: '' | strip -%}
+            {%- if shop.enabled_payment_types.size == 0 and drawer_pay_text != '' -%}
+              <p class="trust-note cart-drawer__pay-text">{%- render 'icon', name: 'lock', size: 16 -%}<span>{{ drawer_pay_text | escape }}</span></p>
+            {%- endif -%}
           </div>
         {%- else -%}
           <div class="chrome-panel__body cart-drawer__empty">

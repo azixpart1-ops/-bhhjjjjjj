@@ -247,6 +247,17 @@
     assign threshold_cents = settings.free_shipping_threshold | times: 100 | round
   endif
   assign threshold_money = threshold_cents | money_without_trailing_zeros
+  comment
+    Delivery choices under the Add button (snippets/delivery-options, Theme
+    settings → Promises → Delivery options). When it's on, the stock line
+    leaves out its own free-delivery note, so delivery is said once.
+  endcomment
+  assign delivery_line_on = false
+  assign dl_std = settings.delivery_standard_text | default: '' | strip
+  assign dl_exp = settings.delivery_express_text | default: '' | strip
+  if dl_std != '' or dl_exp != ''
+    assign delivery_line_on = true
+  endif
   assign nights_s = nights | append: ''
   assign years_s = years | append: ''
   assign low_limit = 0
@@ -547,6 +558,12 @@
         {%- if bs.show_tax_note -%}
           <p class="buy-box__tax">{{ 'product.price.tax_included' | t }}</p>
         {%- endif -%}
+        {%- comment -%}
+          The running offer (Theme settings → Offer): the price this size
+          really comes to at checkout, or which size reaches the minimum.
+          product.js keeps it in step with the size and the basket.
+        {%- endcomment -%}
+        {%- render 'offer', mode: 'pdp', product: product, variant: current, cart: cart, size_idx: size_idx, class: 'buy-box__offer' -%}
       </div>
 
     {%- comment -%} ---------- Variant picker ---------- {%- endcomment -%}
@@ -642,7 +659,7 @@
               render 'delivery-promise', variant: current
             endcapture
           endunless
-          if threshold_cents > 0
+          if threshold_cents > 0 and delivery_line_on == false
             unless bs.show_free_delivery_note == false
               assign sl_free = true
             endunless
@@ -896,6 +913,17 @@
             {%- endif -%}
           {%- endform -%}
         </product-form>
+        {%- if delivery_line_on -%}
+          {%- liquid
+            assign dl_hide = false
+            if stock_state == 'out' or stock_state == 'backorder'
+              assign dl_hide = true
+            endif
+          -%}
+          <div class="buy-box__delivery-options" data-delivery-wrap{% if dl_hide %} hidden{% endif %}>
+            {%- render 'delivery-options', price: current.price, compact: compact -%}
+          </div>
+        {%- endif -%}
         {%- comment -%}
           Compact: the one-line risk reversal rides with the button, so the
           two stay together when the button sticks to the drawer's bottom edge.
@@ -988,11 +1016,37 @@
           assign pay_html = ''
         endif
       -%}
-      {%- if trust_html != blank or pay_html != blank -%}
+      {%- liquid
+        comment
+          Who you're buying from, and how you can pay, owner-entered (Theme
+          settings → Social proof → Who you are). The payment line only while
+          Shopify has no payment marks to show.
+        endcomment
+        assign pay_text = ''
+        if show_pay and pay_html == blank
+          assign pay_text = settings.payment_methods_text | default: '' | strip
+        endif
+        assign contact_line = settings.trust_contact_line | default: '' | strip
+        assign contact_url = pages.contact.url | default: ''
+      -%}
+      {%- if trust_html != blank or pay_html != blank or pay_text != '' or contact_line != '' -%}
         <div class="pblock pblock--trust"{% if block %} {{ block.shopify_attributes }}{% endif %}>
           <div class="buy-box__trust">
             {{ trust_html }}
             {{ pay_html }}
+            {%- if pay_text != '' -%}
+              <p class="trust-note buy-box__pay-text">{%- render 'icon', name: 'lock' -%}<span>{{ pay_text | escape }}</span></p>
+            {%- endif -%}
+            {%- if contact_line != '' -%}
+              <p class="trust-note buy-box__contact">
+                {%- render 'icon', name: 'chat' -%}
+                {%- if contact_url != '' -%}
+                  <a href="{{ contact_url }}">{{ contact_line | escape }}</a>
+                {%- else -%}
+                  <span>{{ contact_line | escape }}</span>
+                {%- endif -%}
+              </p>
+            {%- endif -%}
           </div>
         </div>
       {%- endif -%}

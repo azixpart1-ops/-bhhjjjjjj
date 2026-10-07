@@ -59,7 +59,15 @@ Output lines are meant to be grepped: `ERROR [schema] sections/hero.liquid  mess
   `?empty=1|0` and `?real=1|0` switch this browser (cookie `theme_dev_mode`, which wins over
   the older `theme_dev_empty`). Every page response says which one rendered in
   `X-Theme-Dev-Mode`. `?login=1` signs in the fixture customer.
-- **Carts** are in memory, one per `cart` cookie, for the life of the server.
+- **Carts** are in memory, one per `cart` cookie, for the life of the server. The store's
+  automatic discount is emulated the way Shopify applies it (`lib/cart.mjs`
+  `LIVE_AUTOMATIC_DISCOUNTS`: "Cosy Season Saving: £15 Off.", £15 off once the items subtotal
+  reaches £129, 3 Oct to 31 Oct 2026 23:59 UK): `total_price`, `total_discount`,
+  `cart_level_discount_applications` and `discount_applications` in Liquid and `/cart.js`.
+- **Per-browser overrides (cookies):** `theme_dev_settings` = URL-encoded JSON `{setting_id: value}`
+  replaces theme settings for every render in that browser (e.g. `{"offer_ends":"2020-01-01 00:00"}`);
+  `theme_dev_discounts` = URL-encoded JSON `[{title, amount, min, starts?, ends?}]` (pence, ISO dates)
+  replaces the emulated automatic discounts, or `none` for no discount.
 - **Dev endpoints:** `/__dev/errors` returns recent render issues as JSON. Every rendered
   response carries `X-Theme-Dev-Errors` and `X-Theme-Dev-Warnings` headers. `/__dev/reset`
   clears carts and caches and re-reads the real catalogue file.
@@ -357,6 +365,24 @@ reports WCAG 2.2 A/AA violations as WARN, or as FAIL with `--strict-a11y`.
   fold, hidden while it is in view, shown again once scrolled past (and after a jump past it),
   never shown below the fold for a sold-out product (390 and 1440).
 
+- **the offer** (Theme settings → Offer), pinned with the override cookies so the results don't
+  depend on today's date, on a size-only product with sizes either side of the £129 minimum:
+  - *pdp net price / nudge* (390, 1440): under the minimum only the quiet "Large (£149) qualifies
+    for £15 off" line shows and only qualifying size buttons carry "£15 off"; choosing a
+    qualifying size shows "£15 off at checkout — you pay £134" and hides the nudge (never both);
+  - *hidden after end date* (390): `offer_ends` in the past renders no `[data-offer]` element on the
+    product page, announcement bar or cards; a page rendered while the offer ran but read after
+    its end on the shopper's clock (`page.clock`) gets `html.offer-ended` and shows none of it;
+  - *basket bar + discount line* (390, 1440): under the minimum the basket page shows "£X away from
+    £15 off" and no free-delivery bar beside it; over it, Shopify's discount application reads
+    "Cosy Season Saving −£15.00" on the basket page and in the drawer, the goal bar goes, and the
+    product page stops offering "you pay…" (one discount per order);
+  - *one per order, no other discount* (390): once the basket has the discount no card badge or
+    size mark offers it again (`html.offer-applied`); with another discount in play (the
+    `_gad` cart attribute Google's automated discounts set, or a `?pv2=` landing link) the
+    product page, the "away from £15 off" bar and the offer banner say nothing about it
+    (`html.offer-other`), because the live discount combines with no other discount.
+
 **Finder matrix.** See [The finder matrix](#the-finder-matrix).
 
 **Offline limits.** Shopify font files (`/fonts/*`) aren't available and are ignored.
@@ -368,5 +394,7 @@ Third-party requests are blocked. Dynamic checkout and Shop Pay buttons are iner
   Pages always render as the live storefront.
 - Each product page uses one recommendation algorithm (shared `finder:` tags).
   Complementary recommendations are always empty.
-- Markets, selling plans, discounts, metaobjects and theme blocks (`blocks/`) are minimal.
+- Markets, selling plans, metaobjects and theme blocks (`blocks/`) are minimal. Discounts: only
+  automatic fixed-amount order discounts with a minimum (no codes, no line-level discounts, no
+  combinations).
 - A float literal is only typed as a float when it's written in the source (`2.0`).

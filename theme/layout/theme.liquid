@@ -1,6 +1,8 @@
 <!doctype html>
 <html class="no-js{% unless settings.animations %} no-motion{% endunless %}{% if request.design_mode %} is-design-mode{% endif %}" lang="{{ request.locale.iso_code }}">
   <head>
+ {%- if content_for_header contains 'tapita-seo-script-tags' -%}{%- include 'tapita-seo-schema' -%}{%- endif -%} 
+
     {%- render 'meta-tags' -%}
 
     {%- unless settings.type_heading_font.system? and settings.type_body_font.system? %}
@@ -229,6 +231,29 @@
     {%- capture size_hints_json -%}{%- render 'size-hints', mode: 'json' -%}{%- endcapture -%}
     {%- assign size_hints_json = size_hints_json | strip -%}
     {%- if size_hints_json == '' -%}{%- assign size_hints_json = '[]' -%}{%- endif -%}
+    {%- capture offer_facts -%}{%- render 'offer' -%}{%- endcapture -%}
+    {%- capture offer_basket -%}{%- render 'offer', mode: 'basket', cart: cart -%}{%- endcapture -%}
+    {%- liquid
+      comment
+        The offer (snippets/offer): Liquid's verdict plus the raw end date, so
+        the <head> script below can hide every [data-offer] element the
+        moment the end passes, even on a cached page.
+      endcomment
+      assign offer_f = offer_facts | strip | split: '|'
+      assign offer_b = offer_basket | strip | split: '|'
+      assign offer_active = false
+      if offer_f[0] == '1'
+        assign offer_active = true
+      endif
+      assign offer_applied = false
+      if offer_b[0] == '1'
+        assign offer_applied = true
+      endif
+      assign offer_other = false
+      if offer_b[3] == '1'
+        assign offer_other = true
+      endif
+    -%}
     {%- capture trial_terms -%}{%- render 'trial-terms' -%}{%- endcapture -%}
     {%- capture trial_terms_short -%}{%- render 'trial-terms', short: true -%}{%- endcapture -%}
 
@@ -302,8 +327,56 @@
         savingsFormat: {{ settings.savings_format | default: 'amount' | json }},
         showProductRatings: {{ settings.show_product_ratings | json }},
         animations: {{ settings.animations | json }},
-        sizeHints: {{ size_hints_json }}
+        sizeHints: {{ size_hints_json }},
+        sizeFitAllowance: {{ settings.size_fit_allowance | default: 0 | plus: 0 }},
+        delivery: {
+          standard: {{ settings.delivery_standard_text | default: '' | strip | json }},
+          express: {{ settings.delivery_express_text | default: '' | strip | json }},
+          times: {{ settings.delivery_times_note | default: '' | strip | json }}
+        },
+        offer: {
+          active: {{ offer_active | json }},
+          label: {{ offer_f[5] | default: '' | json }},
+          amount: {{ offer_f[1] | default: 0 | plus: 0 }},
+          min: {{ offer_f[2] | default: 0 | plus: 0 }},
+          ends: {{ settings.offer_ends | default: '' | strip | json }},
+          endLabel: {{ offer_f[4] | default: '' | json }},
+          countdown: {{ settings.offer_countdown | json }},
+          basket: { applied: {{ offer_applied | json }}, other: {{ offer_other | json }}, subtotal: {{ offer_b[1] | default: 0 | plus: 0 }}, products: [{{ offer_b[2] | default: '' }}] }
+        }
       };
+      /* The offer's end, to the minute in the store's time zone: from then
+         on html.offer-ended hides every [data-offer] element (base.css),
+         whatever a cached render still says. Lunova.offer (global.js)
+         keeps it live while the page stays open. */
+      (function (o, tz) {
+        var end = 0;
+        var m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?$/.exec(o.ends || '');
+        if (m) {
+          var wall = Date.UTC(+m[1], +m[2] - 1, +m[3], m[4] == null ? 23 : +m[4], m[5] == null ? 59 : +m[5]);
+          var offset = function (t) {
+            try {
+              var p = {};
+              new Intl.DateTimeFormat('en-GB', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })
+                .formatToParts(new Date(t)).forEach(function (x) { p[x.type] = +x.value; });
+              return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute) - Math.floor(t / 60000) * 60000;
+            } catch (e) { return 0; }
+          };
+          end = wall - offset(wall);
+          end = wall - offset(end);
+        }
+        o.endsAt = end;
+        var root = document.documentElement;
+        if (!o.active || (o.ends && !end) || (end && Date.now() >= end)) root.classList.add('offer-ended');
+        /* One per order, and it combines with no other discount: once the
+           basket has it (html.offer-applied), or another discount is in
+           play (html.offer-other: one on the basket, or a Google
+           automated-discount price, whose landing link carries ?pv2=),
+           nothing marked data-offer-promo promises it again. */
+        if (/[?&]pv2=/.test(location.search)) o.basket.other = true;
+        if (o.basket.applied) root.classList.add('offer-applied');
+        else if (o.basket.other) root.classList.add('offer-other');
+      })(Lunova.settings.offer, {{ tz | json }});
       Lunova.strings = {
         addToBasket: {{ 'core.js.add_to_basket' | t | json }},
         addToBasketPrice: {{ 'core.js.add_to_basket_price' | t | json }},
@@ -329,7 +402,12 @@
         dispatchOn: {{ 'core.delivery.dispatch_on' | t | json }},
         arrivalRange: {{ 'core.delivery.arrival_range' | t | json }},
         hoursMinutes: {{ 'core.delivery.hours_minutes' | t | json }},
-        minutes: {{ 'core.delivery.minutes' | t | json }}
+        minutes: {{ 'core.delivery.minutes' | t | json }},
+        offerEndsIn: {{ 'core.offer.ends_in' | t | json }},
+        offerTimeDh: {{ 'core.offer.time_dh' | t | json }},
+        offerTimeHm: {{ 'core.offer.time_hm' | t | json }},
+        offerTimeM: {{ 'core.offer.time_m' | t | json }},
+        deliveryFreeOver: {{ 'core.delivery_options.free_over' | t: amount: '[amount]' | json }}
       };
     </script>
 

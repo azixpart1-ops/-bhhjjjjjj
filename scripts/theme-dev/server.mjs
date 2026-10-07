@@ -9,6 +9,9 @@
 //        multipart; honours sections + sections_url), GET /products/:h.js,
 //        GET /search/suggest(?section_id=…), GET /recommendations/products(?section_id=…).
 // Section Rendering: ?section_id=<id> or ?sections=a,b on any page URL.
+// Overrides (per browser, cookies): theme_dev_settings = JSON {setting_id: value} changes theme
+//        settings for every render; theme_dev_discounts = JSON [{title, amount, min, starts, ends}]
+//        (pence, ISO dates) or "none" replaces the emulated automatic discounts (lib/cart.mjs).
 // Modes: full (fixture catalogue), empty (zero products), real (the live catalogue from
 //        .out/real-products.json — fixtures/fetch-real.mjs). --empty / --real pick the default;
 //        ?empty=1|0 and ?real=1|0 switch this browser (cookie theme_dev_mode).
@@ -172,6 +175,16 @@ export function startServer({ port = 9292, host = '127.0.0.1', empty = false, re
     const renderer = rendererFor(mode);
     let cart = cookies.cart && carts.get(cookies.cart);
     if (!cart) { cart = createCart(); carts.set(cart.token, cart); setCookies.push(`cart=${cart.token}; Path=/; SameSite=Lax`); }
+    // Dev overrides for this browser (browser-test uses them): theme settings
+    // for every render (theme_dev_settings = JSON {id: value}) and the store's
+    // automatic discounts (theme_dev_discounts = JSON array, or "none").
+    cart.devSettings = undefined;
+    cart.devDiscounts = undefined;
+    try { if (cookies.theme_dev_settings) cart.devSettings = JSON.parse(cookies.theme_dev_settings); } catch { /* ignore a bad cookie */ }
+    try {
+      if (cookies.theme_dev_discounts === 'none') cart.devDiscounts = [];
+      else if (cookies.theme_dev_discounts) cart.devDiscounts = JSON.parse(cookies.theme_dev_discounts);
+    } catch { /* ignore a bad cookie */ }
     let isLoggedIn = loggedIn || cookies.theme_dev_customer === '1';
     if (q.get('login') === '1') { isLoggedIn = true; setCookies.push('theme_dev_customer=1; Path=/; SameSite=Lax'); }
     const baseHeaders = setCookies.length ? { 'Set-Cookie': setCookies } : {};

@@ -799,6 +799,186 @@
   });
 
   /* ------------------------------------------------------------------------
+     Offer — Theme settings → Offer (snippets/offer.liquid renders it; this
+     keeps it honest while the page is open). Lunova.settings.offer carries
+     Liquid's verdict, amount and minimum (pence), the end (endsAt, worked out
+     in <head>) and the basket: {applied, subtotal}, kept in step with every
+     lunova:cart:updated. "applied" means Shopify itself has taken the
+     discount off the basket (a cart-level discount application whose title
+     contains the offer's name), so nothing here ever promises a discount
+     the basket isn't getting.
+     ---------------------------------------------------------------------- */
+  function offerCfg() {
+    return (L.settings && L.settings.offer) || null;
+  }
+
+  function offerAppliedIn(cart) {
+    var o = offerCfg();
+    var name = o && o.label ? String(o.label).toLowerCase() : '';
+    return ((cart && cart.cart_level_discount_applications) || []).some(function (d) {
+      var title = String((d && d.title) || '').toLowerCase();
+      return Number(d && d.total_allocated_amount) > 0 && (!name || title.indexOf(name) > -1);
+    });
+  }
+
+  /** Another discount on this basket: the live offer combines with none
+      (snippets/offer), so with one in play nothing promises it. Any other
+      discount (basket or line level), an applicable code, or Google's
+      automated-discount price kept in the _gad cart attribute. */
+  function offerOtherIn(cart) {
+    var o = offerCfg();
+    var name = o && o.label ? String(o.label).toLowerCase() : '';
+    if (!cart || offerAppliedIn(cart)) return false;
+    var other = function (app, amount) {
+      var title = String((app && app.title) || '').toLowerCase();
+      return Number(amount) > 0 && !!name && title.indexOf(name) === -1;
+    };
+    var apps = (cart.cart_level_discount_applications || []).some(function (d) { return other(d, d && d.total_allocated_amount); });
+    var lines = (cart.items || []).some(function (it) {
+      return (it.line_level_discount_allocations || []).some(function (a) { return other(a && a.discount_application, a && a.amount); });
+    });
+    var codes = (cart.discount_codes || []).some(function (c) { return c && c.applicable; });
+    var gad = !!(cart.attributes && cart.attributes._gad);
+    return apps || lines || codes || gad;
+  }
+
+  function offerClasses(basket) {
+    root.classList.toggle('offer-applied', !!basket.applied);
+    root.classList.toggle('offer-other', !basket.applied && !!basket.other);
+  }
+
+  L.offer = {
+    active: function (now) {
+      var o = offerCfg();
+      if (!o || !o.active || !(Number(o.amount) > 0)) return false;
+      if (o.ends && !o.endsAt) return false;
+      if (o.endsAt && (now || Date.now()) >= o.endsAt) return false;
+      return true;
+    },
+    basket: function () {
+      var o = offerCfg();
+      return (o && o.basket) || { applied: false, subtotal: 0 };
+    },
+    appliedIn: offerAppliedIn,
+    otherIn: offerOtherIn,
+    /**
+     * What to say for an item at `price` (pence, × quantity):
+     *   off      no offer running
+     *   applied  the basket already has it (one per order)
+     *   none     another discount is in play (they don't combine), or the
+     *            basket is over the minimum without it: settings don't match
+     *            the real discount, so say nothing
+     *   line     this item reaches the minimum on its own
+     *   basket   this plus the basket reaches it
+     *   below    neither (a bigger size might: the caller decides)
+     */
+    state: function (price, productId) {
+      var o = offerCfg();
+      if (!L.offer.active()) return 'off';
+      var b = L.offer.basket();
+      var min = Number(o.min) || 0;
+      var sub = Number(b.subtotal) || 0;
+      if (b.applied) return 'applied';
+      if (b.other) return 'none';
+      if (sub > 0 && sub >= min) return 'none';
+      if (price >= min) return 'line';
+      // Not for a bed already in the basket: that would read as "buy two".
+      var inBasket = productId != null && (b.products || []).map(Number).indexOf(Number(productId)) > -1;
+      if (sub > 0 && sub + price >= min && !inBasket) return 'basket';
+      return 'below';
+    },
+    net: function (price) {
+      var o = offerCfg();
+      return Math.max(0, Number(price) - (o ? Number(o.amount) || 0 : 0));
+    },
+    /** "ends in 1d 4h" for the final 72 hours, else null */
+    countdownText: function (now) {
+      var o = offerCfg();
+      if (!o || !o.countdown || !o.endsAt) return null;
+      var left = o.endsAt - (now || Date.now());
+      if (left <= 0 || left > 72 * 3600000) return null;
+      var mins = Math.max(1, Math.floor(left / 60000));
+      var d = Math.floor(mins / 1440);
+      var h = Math.floor((mins % 1440) / 60);
+      var m = mins % 60;
+      var time = d > 0
+        ? fill(str('offerTimeDh', '[days]d [hours]h'), { days: d, hours: h })
+        : h > 0
+          ? fill(str('offerTimeHm', '[hours]h [minutes]m'), { hours: h, minutes: m })
+          : fill(str('offerTimeM', '[minutes]m'), { minutes: m });
+      return fill(str('offerEndsIn', 'ends in [time]'), { time: time });
+    }
+  };
+
+  var offerTimer = null;
+  function tickOffer() {
+    var o = offerCfg();
+    if (!o) return;
+    if (!L.offer.active()) {
+      if (!root.classList.contains('offer-ended')) {
+        root.classList.add('offer-ended');
+        L.emit('lunova:offer:change', { ended: true });
+      }
+      if (offerTimer) {
+        clearInterval(offerTimer);
+        offerTimer = null;
+      }
+      return;
+    }
+    var text = L.offer.countdownText();
+    qsa('[data-offer-ends]').forEach(function (el) {
+      if (!el.hasAttribute('data-date-text')) el.setAttribute('data-date-text', el.textContent);
+      var dateText = el.getAttribute('data-date-text');
+      if (!text) {
+        el.textContent = dateText;
+        return;
+      }
+      // Keep the separator a slide may start with ("· ends Sat 31 Oct").
+      var lead = /^\s*·\s*/.exec(dateText);
+      el.textContent = (lead ? lead[0] : '') + text;
+    });
+  }
+
+  function initOffer() {
+    var o = offerCfg();
+    if (!o || !o.active) return;
+    tickOffer();
+    // Every minute while the page is open: the end (and the last-72-hours
+    // countdown when it's on) can't slip past an open tab.
+    if (!offerTimer && L.offer.active()) offerTimer = setInterval(tickOffer, 60000);
+  }
+
+  doc.addEventListener('visibilitychange', function () {
+    if (doc.visibilityState === 'visible') tickOffer();
+  });
+
+  function offerBasketFrom(cart) {
+    var o = offerCfg();
+    if (!o || !cart || typeof cart !== 'object' || !('items_subtotal_price' in cart)) return;
+    o.basket = {
+      applied: offerAppliedIn(cart),
+      // A Google price seen on landing (?pv2=, theme.liquid) stays in play.
+      other: offerOtherIn(cart) || (!!o.basket && !!o.basket.other && /[?&]pv2=/.test(location.search)),
+      subtotal: Number(cart.items_subtotal_price) || 0,
+      products: (cart.items || []).map(function (it) { return Number(it.product_id); })
+    };
+    offerClasses(o.basket);
+    L.emit('lunova:offer:change', { basket: o.basket });
+  }
+
+  L.on('lunova:cart:updated', function (e) {
+    offerBasketFrom(e && e.detail && e.detail.cart);
+  });
+
+  // Back/forward cache: the page can come back with an older basket than
+  // the one the offer was worked out for (one per order, other discounts).
+  window.addEventListener('pageshow', function (e) {
+    var o = offerCfg();
+    if (!e.persisted || !o || !o.active || typeof L.cart !== 'object' || typeof L.cart.get !== 'function') return;
+    L.cart.get().then(offerBasketFrom).catch(function () {});
+  });
+
+  /* ------------------------------------------------------------------------
      Per-night reframe — price ÷ (guarantee years × 365), honest rounding
      ---------------------------------------------------------------------- */
   L.perNight = function (cents) {
@@ -1500,6 +1680,7 @@
     nodes.forEach(function (node) {
       if (!node.isConnected || !node.querySelector) return;
       if (node.matches(PERSONAL) || node.querySelector(PERSONAL)) applyFinder(node);
+      if (qsaSelf('[data-offer-ends]', node).length) tickOffer();
       var countdowns = qsaSelf('[data-countdown]', node);
       if (countdowns.length) {
         if (est === undefined) est = L.delivery.estimate();
@@ -1531,6 +1712,7 @@
     applyFinder(scope || doc);
     initReveal(scope || doc);
     initCountdowns();
+    initOffer();
   }
 
   /* On first load this runs before finder.js has defined <bed-finder>, so

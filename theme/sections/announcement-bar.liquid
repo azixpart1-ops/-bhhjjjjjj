@@ -7,6 +7,10 @@
   out of the rotation. The countdown block is the real dispatch cut-off from
   the delivery-promise snippet (filled live by global.js).
 
+  The offer message (Theme settings → Offer, snippets/offer) states the
+  real end date ("ends Sat 31 Oct") and drops out by itself once it has
+  passed; a bar holding nothing but the offer hides with it.
+
   Rotation: fade every N seconds; pauses on hover and keyboard focus; any use
   of the arrows stops it for good; never moves for reduced-motion visitors.
   JS: <announcement-bar> in cart.js.
@@ -14,6 +18,7 @@
 {%- liquid
   assign threshold_cents = settings.free_shipping_threshold | default: 0 | times: 100
   assign slide_count = 0
+  assign offer_slides = 0
 -%}
 
 {%- capture slides_html -%}
@@ -21,6 +26,7 @@
     {%- liquid
       assign msg = ''
       assign is_countdown = false
+      assign is_offer = false
       case block.type
         when 'message'
           case block.settings.promise
@@ -45,6 +51,11 @@
               if settings.guarantee_enable and settings.guarantee_years > 0
                 assign msg = 'chrome.announcement.guarantee_html' | t: years: settings.guarantee_years
               endif
+            when 'offer'
+              capture msg
+                render 'offer', mode: 'announcement'
+              endcapture
+              assign is_offer = true
             when 'rating'
               if settings.store_rating != blank and settings.store_review_count != blank
                 assign r = settings.store_rating | escape
@@ -66,9 +77,11 @@
     -%}
     {%- if msg_check != blank -%}
       {%- assign slide_count = slide_count | plus: 1 -%}
+      {%- if is_offer -%}{%- assign offer_slides = offer_slides | plus: 1 -%}{%- endif -%}
       <div
-        class="announcement__slide{% if slide_count == 1 %} is-active{% endif %}{% if is_countdown %} announcement__slide--countdown{% endif %}"
+        class="announcement__slide{% if slide_count == 1 %} is-active{% endif %}{% if is_countdown %} announcement__slide--countdown{% endif %}{% if is_offer %} announcement__slide--offer{% endif %}"
         data-slide
+        {%- if is_offer %} data-offer data-offer-banner{% endif %}
         {{ block.shopify_attributes }}
       >
         {%- if block.settings.link != blank -%}
@@ -87,6 +100,7 @@
 
 {%- if slide_count > 0 -%}
   <announcement-bar
+    {%- if offer_slides == slide_count %} data-offer data-offer-banner{% endif %}
     class="announcement scheme-{{ section.settings.color_scheme }}{% if slide_count > 1 %} announcement--multi{% endif %}"
     role="region"
     aria-label="{{ 'chrome.announcement.label' | t }}"
@@ -202,10 +216,11 @@
             { "value": "free_delivery", "label": "Free delivery (theme settings)" },
             { "value": "trial", "label": "Sleep trial (theme settings)" },
             { "value": "guarantee", "label": "Guarantee (theme settings)" },
-            { "value": "rating", "label": "Store rating (theme settings)" }
+            { "value": "rating", "label": "Store rating (theme settings)" },
+            { "value": "offer", "label": "Offer (theme settings)" }
           ],
           "default": "custom",
-          "info": "Promise messages use the numbers in Theme settings → Promises and Proof, and hide themselves when that promise is switched off or left blank."
+          "info": "Promise messages use the numbers in Theme settings → Promises, Offer and Social proof, and hide themselves when that promise is switched off, left blank or (the offer) past its end date."
         },
         {
           "type": "inline_richtext",

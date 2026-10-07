@@ -89,6 +89,7 @@
     assign sort_keys = ''
     assign all_ranked = true
     assign has_dims = false
+    assign has_fit = false
     assign has_suits = false
     assign has_weight = false
     if size_idx >= 0
@@ -145,6 +146,25 @@
           assign s_suits = s_suits | strip
           assign s_weight = s_weight | strip
         endif
+        comment
+          Fits dogs up to: the bed length less the measuring rule's
+          allowance (Theme settings → Sizing), for sizes with measurements.
+        endcomment
+        assign s_fit = ''
+        assign sg_allow = settings.size_fit_allowance | default: 0 | plus: 0
+        if s_dims != '' and sg_allow > 0
+          capture sg_len
+            render 'size-hints', value: val, mode: 'length'
+          endcapture
+          assign sg_len = sg_len | strip | plus: 0
+          if sg_len > 0
+            assign sg_fit = sg_len | minus: sg_allow
+            if sg_fit >= 20
+              assign s_fit = '~' | append: sg_fit | append: 'cm'
+              assign has_fit = true
+            endif
+          endif
+        endif
         if s_dims != ''
           assign has_dims = true
         endif
@@ -154,7 +174,7 @@
         if s_weight != ''
           assign has_weight = true
         endif
-        assign row = val | append: '~~' | append: p_label | append: '~~' | append: s_dims | append: '~~' | append: s_suits | append: '~~' | append: s_weight
+        assign row = val | append: '~~' | append: p_label | append: '~~' | append: s_dims | append: '~~' | append: s_suits | append: '~~' | append: s_weight | append: '~~' | append: s_fit
         assign rows = rows | append: row | append: '^^'
         assign pos = forloop.index0 | plus: 100
         assign sk = p_rank | plus: 100 | append: '-' | append: pos
@@ -191,6 +211,9 @@
               {%- if has_dims -%}
                 <th scope="col" role="columnheader">{{ 'product.size_guide.col_dims' | t }}</th>
               {%- endif -%}
+              {%- if has_fit -%}
+                <th scope="col" role="columnheader">{{ 'product.size_guide.fit_heading' | t }}</th>
+              {%- endif -%}
               {%- if has_suits -%}
                 <th scope="col" role="columnheader">{{ 'product.size_guide.col_breeds' | t }}</th>
               {%- endif -%}
@@ -216,6 +239,7 @@
                 assign s_dims = r[2] | default: ''
                 assign s_suits = r[3] | default: ''
                 assign s_weight = r[4] | default: ''
+                assign s_fit = r[5] | default: ''
 
                 assign min_price = -1
                 assign any_available = false
@@ -242,6 +266,9 @@
                 </th>
                 {%- if has_dims -%}
                   <td role="cell" class="size-guide__dims" data-label="{{ 'product.size_guide.col_dims' | t }}">{{ s_dims | default: '—' | escape }}</td>
+                {%- endif -%}
+                {%- if has_fit -%}
+                  <td role="cell" class="size-guide__fit" data-label="{{ 'product.size_guide.fit_heading' | t }}">{{ s_fit | default: '—' | escape }}</td>
                 {%- endif -%}
                 {%- if has_suits -%}
                   <td role="cell" class="size-guide__breeds" data-label="{{ 'product.size_guide.col_breeds' | t }}">{{ s_suits | default: '—' | escape }}</td>
@@ -273,6 +300,10 @@
             {%- endfor -%}
           </tbody>
         </table>
+        {%- if has_fit -%}
+          {%- assign sg_allow_note = settings.size_fit_allowance | default: 0 | plus: 0 -%}
+          <p class="size-guide__fit-note small muted">{{ 'product.size_guide.fit_note' | t: cm: sg_allow_note }}</p>
+        {%- endif -%}
       {%- else -%}
         <p class="size-guide__single">{{ 'product.size_guide.no_sizes' | t }}</p>
       {%- endif -%}

@@ -101,6 +101,8 @@
     assign size_first_label = ''
     assign size_last_label = ''
     assign size_first_kind = ''
+    assign size_len_min = 0
+    assign size_len_max = 0
     for option in product.options_with_values
       assign opt_name = option.name | downcase
       if size_idx == -1 and opt_name contains 'size'
@@ -117,6 +119,25 @@
           if forloop.first
             assign size_first_label = ov_label
             assign size_first_kind = ov_parts[1]
+          endif
+          comment
+            The bed's length from a "Large · 71 × 58cm" value (the longer of
+            the first two measurements, cm only), for "50–71cm" on the card.
+          endcomment
+          assign ov_dim = ov_parts[3] | default: '' | downcase | replace: '×', 'x' | remove: ' '
+          if ov_dim contains 'x' and ov_dim contains 'cm'
+            assign ov_dims = ov_dim | remove: 'cm' | split: 'x'
+            assign ov_a = ov_dims[0] | plus: 0
+            assign ov_b = ov_dims[1] | plus: 0
+            assign ov_len = ov_a | at_least: ov_b | round
+            if ov_a > 0 and ov_b > 0
+              if size_len_min == 0 or ov_len < size_len_min
+                assign size_len_min = ov_len
+              endif
+              if ov_len > size_len_max
+                assign size_len_max = ov_len
+              endif
+            endif
           endif
           assign size_last_label = ov_label
           if ov_rank > 0
@@ -150,6 +171,17 @@
       else
         assign meta_text = 'core.card.sizes_count' | t: count: size_count
       endif
+    endif
+    if size_len_max > 0 and size_count > 1
+      if size_len_min == size_len_max
+        assign len_text = size_len_max | append: 'cm'
+      else
+        assign len_text = size_len_min | append: '–' | append: size_len_max | append: 'cm'
+      endif
+      if meta_text != ''
+        assign meta_text = meta_text | append: ' · '
+      endif
+      assign meta_text = meta_text | append: len_text
     endif
     if colour_count > 1
       assign colour_text = 'core.card.colours' | t: count: colour_count
@@ -185,6 +217,22 @@
       endif
     endfor
     assign custom_badge_list = custom_badges | split: '|'
+    comment
+      No metafield or tag: the product's own "Best for: …" sentence from its
+      description (most beds have one), first sentence only, so a grid of
+      similar beds still says who each one is for.
+    endcomment
+    if role == '' and settings.card_show_role and product.description contains 'Best for:'
+      assign role = product.description | split: 'Best for:' | last | split: '</p>' | first | strip_html | strip | split: '. ' | first | strip
+      assign role_end = role | slice: -1, 1
+      if role_end == '.'
+        assign role_keep = role.size | minus: 1
+        assign role = role | slice: 0, role_keep
+      endif
+      if role.size > 110
+        assign role = role | truncatewords: 14
+      endif
+    endif
 
     comment
       Saving on the variant that sets the displayed ("From") price.
@@ -355,7 +403,7 @@
         {%- if settings.card_show_role or role_explicit -%}
           <p class="product-card__role">
             <span class="product-card__role-label">{{ 'core.card.best_for' | t }}</span>
-            <span class="product-card__role-text">{{ role | escape }}</span>
+            <span class="product-card__role-text">{{ role | escape_once }}</span>
           </p>
         {%- endif -%}
       {%- endif -%}
@@ -385,6 +433,8 @@
           {%- if save_text != '' -%}
             {%- render 'badge', text: save_text, style: 'sale' -%}
           {%- endif -%}
+          {%- comment -%} The running offer (Theme settings → Offer): "£15 off", or "£15 off at £129+" when only the bigger sizes reach it. {%- endcomment -%}
+          {%- render 'offer', mode: 'badge', product: product -%}
         {%- endif -%}
       </div>
 

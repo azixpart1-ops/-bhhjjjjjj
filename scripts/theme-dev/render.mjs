@@ -662,7 +662,21 @@ export class ThemeRenderer {
     } catch { return { current: {} }; }
   }
 
-  globalSettings() {
+  /**
+   * Theme settings as Liquid sees them. `override` ({id: raw value}) replaces
+   * values for one render: the theme_dev_settings cookie (server.mjs puts it
+   * on the cart state as devSettings), e.g. an offer end date in the past.
+   */
+  globalSettings(override) {
+    const base = this.baseGlobalSettings();
+    if (!override || typeof override !== 'object' || !Object.keys(override).length) return base;
+    const defs = new Map(this.settingsSchema().flatMap((g) => (Array.isArray(g.settings) ? g.settings : [])).filter((d) => d.id).map((d) => [d.id, d]));
+    const out = { ...base };
+    for (const [k, v] of Object.entries(override)) out[k] = defs.has(k) ? this.resolveSetting(defs.get(k), v, true) : v;
+    return out;
+  }
+
+  baseGlobalSettings() {
     const key = [mtime(path.join(this.themeDir, 'config', 'settings_schema.json')), mtime(path.join(this.themeDir, 'config', 'settings_data.json')), this.store.mode || this.store.empty].join('|');
     if (this._settings && this._settingsKey === key) return this._settings;
     const defs = this.settingsSchema().flatMap((g) => (Array.isArray(g.settings) ? g.settings : []));
@@ -940,7 +954,7 @@ export class ThemeRenderer {
     const collection = route.collection || null;
     const product = route.product || null;
     const globals = {
-      settings: this.globalSettings(),
+      settings: this.globalSettings(cartState && cartState.devSettings),
       shop: shopDrop,
       request: {
         design_mode: false,

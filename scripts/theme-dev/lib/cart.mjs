@@ -151,27 +151,71 @@ function lineDrop(l, store) {
   };
 }
 
+/**
+ * Automatic discounts, as Shopify applies them to a cart: a fixed amount off
+ * the whole order once the items subtotal reaches a minimum, inside its
+ * start/end window. Mirrors the live store (store-facts: "Cosy Season Saving:
+ * £15 Off.", £15 off orders of £129+, 3 Oct → 31 Oct 2026 23:59 UK).
+ * A browser can replace the list with the theme_dev_discounts cookie (JSON
+ * array of {title, amount, min, starts?, ends?} in pence / ISO dates, or
+ * "none"), which server.mjs puts on the cart state as devDiscounts.
+ */
+export const LIVE_AUTOMATIC_DISCOUNTS = [
+  { title: 'Cosy Season Saving: £15 Off.', amount: 1500, min: 12900, starts: '2026-10-03T00:00:00+01:00', ends: '2026-10-31T23:59:00+00:00' },
+];
+
+function automaticDiscount(cart, store, subtotal, now = Date.now()) {
+  const list = cart.devDiscounts !== undefined ? cart.devDiscounts : (store.automaticDiscounts || LIVE_AUTOMATIC_DISCOUNTS);
+  if (!Array.isArray(list) || subtotal <= 0) return null;
+  for (const d of list) {
+    if (!d || !(Number(d.amount) > 0)) continue;
+    if (subtotal < (Number(d.min) || 0)) continue;
+    if (d.starts && now < Date.parse(d.starts)) continue;
+    if (d.ends && now >= Date.parse(d.ends)) continue;
+    // One automatic order discount at a time (no combinations emulated).
+    const amount = Math.min(Number(d.amount), subtotal);
+    return {
+      type: 'automatic',
+      key: `automatic-${String(d.title || 'discount').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      title: String(d.title || 'Discount'),
+      description: String(d.title || 'Discount'),
+      value: (Number(d.amount) / 100).toFixed(1),
+      created_at: '2026-10-03T00:00:00+01:00',
+      value_type: 'fixed_amount',
+      allocation_method: 'across',
+      target_selection: 'all',
+      target_type: 'line_item',
+      total_allocated_amount: amount,
+    };
+  }
+  return null;
+}
+
 export function cartDrop(cart, store) {
   pruneCart(cart, store);
   const items = cart.lines.map((l) => lineDrop(l, store));
-  const total = items.reduce((s, i) => s + i.final_line_price, 0);
+  const subtotal = items.reduce((s, i) => s + i.final_line_price, 0);
+  const disc = automaticDiscount(cart, store, subtotal);
+  const off = disc ? disc.total_allocated_amount : 0;
+  const total = subtotal - off;
+  const apps = disc ? [disc] : [];
   return {
     token: cart.token,
     item_count: items.reduce((s, i) => s + i.quantity, 0),
     items,
     items_count: items.length,
     total_price: total,
-    original_total_price: total,
-    items_subtotal_price: total,
+    original_total_price: subtotal,
+    items_subtotal_price: subtotal,
     checkout_charge_amount: total,
-    total_discount: 0,
+    total_discount: off,
     total_weight: items.reduce((s, i) => s + i.variant.weight * i.quantity, 0),
     currency: { iso_code: 'GBP', name: 'British Pound', symbol: '£' },
     note: cart.note || null,
     attributes: cart.attributes,
     requires_shipping: items.length > 0,
-    cart_level_discount_applications: [],
-    discount_applications: [],
+    cart_level_discount_applications: apps,
+    discount_applications: apps,
     'empty?': items.length === 0,
     taxes_included: true,
     duties_included: false,
@@ -229,13 +273,13 @@ export function cartJson(drop) {
     attributes: drop.attributes,
     original_total_price: drop.original_total_price,
     total_price: drop.total_price,
-    total_discount: 0,
+    total_discount: drop.total_discount || 0,
     total_weight: drop.total_weight,
     item_count: drop.item_count,
     items: drop.items.map(lineJson),
     requires_shipping: drop.requires_shipping,
     currency: 'GBP',
     items_subtotal_price: drop.items_subtotal_price,
-    cart_level_discount_applications: [],
+    cart_level_discount_applications: drop.cart_level_discount_applications || [],
   };
 }

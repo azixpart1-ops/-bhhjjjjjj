@@ -856,6 +856,194 @@ async function finderMatrix(browser, base, vp, store) {
   }
 }
 
+// ------------------------------------------------------------------ offer (Theme settings → Offer)
+// The offer must never be claimed where the basket won't get it. Each flow pins the
+// offer and the store's automatic discount with the dev cookies (server.mjs), so the
+// results don't depend on today's date: settings offer_* (theme_dev_settings) and a
+// £15-off-£129 automatic discount with no end (theme_dev_discounts).
+const OFFER = { label: 'Cosy Season Saving', amount: 1500, min: 12900 };
+const ukStamp = (ms) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ');
+const shortMoney = (c) => `£${Number(c) % 100 ? (Number(c) / 100).toFixed(2) : Number(c) / 100}`;
+
+async function offerCookies(ctx, base, { ends, discounts } = {}) {
+  const settings = {
+    offer_enable: true,
+    offer_label: OFFER.label,
+    offer_amount: OFFER.amount / 100,
+    offer_min_subtotal: OFFER.min / 100,
+    offer_ends: ends || ukStamp(Date.now() + 30 * 86400000),
+  };
+  const disc = discounts || [{ title: `${OFFER.label}: £15 Off.`, amount: OFFER.amount, min: OFFER.min }];
+  await ctx.addCookies([
+    { name: 'theme_dev_settings', value: encodeURIComponent(JSON.stringify(settings)), url: base },
+    { name: 'theme_dev_discounts', value: encodeURIComponent(JSON.stringify(disc)), url: base },
+  ]);
+}
+
+/** A size-only product with a size under the minimum and one at or over it. */
+function offerProduct(store) {
+  for (const p of store.products()) {
+    if (!p.available || p.options.length !== 1 || !isSizeName(p.options[0])) continue;
+    const vs = p.variants.filter((v) => v.available);
+    const below = vs.filter((v) => v.price < OFFER.min).sort((a, b) => a.price - b.price)[0];
+    const above = vs.filter((v) => v.price >= OFFER.min).sort((a, b) => a.price - b.price)[0];
+    if (below && above) return { handle: p.handle, below: { id: below.id, value: below.options[0], price: below.price }, above: { id: above.id, value: above.options[0], price: above.price } };
+  }
+  return null;
+}
+
+async function readOffer(page) {
+  return page.evaluate(() => {
+    const box = document.querySelector('[data-product-scope] [data-offer-pdp]');
+    if (!box) return null;
+    const vis = (el) => !!el && !el.hidden && el.getClientRects().length > 0 && getComputedStyle(el).display !== 'none';
+    const line = box.querySelector('[data-offer-line]');
+    const nudge = box.querySelector('[data-offer-nudge]');
+    return { state: box.getAttribute('data-state'), shown: vis(box), line: vis(line), nudge: vis(nudge), lineText: line ? line.innerText.replace(/\s+/g, ' ').trim() : '', nudgeText: nudge ? nudge.innerText.replace(/\s+/g, ' ').trim() : '' };
+  });
+}
+
+function offerPdpFlow(P) {
+  return async (page) => {
+    if (!P) return { status: 'SKIP', detail: 'no size-only product with sizes either side of the offer minimum' };
+    const origin = new URL(page.url()).origin;
+    await offerCookies(page.context(), origin);
+    // 1. below the minimum: one quiet line naming the size that qualifies, never the net line too
+    await page.goto(`${origin}/products/${P.handle}?variant=${P.below.id}`, { waitUntil: 'load' });
+    let o = await readOffer(page);
+    if (!o || !o.shown) fail(`price ${shortMoney(P.below.price)} is under the minimum but no offer nudge shows`);
+    if (o.state !== 'nudge' || !o.nudge || o.line) fail(`under the minimum: expected only the nudge, got state ${o.state} line=${o.line} nudge=${o.nudge}`);
+    if (!/qualifies for £15 off/.test(o.nudgeText) || !o.nudgeText.includes(shortMoney(P.above.price))) fail(`nudge text "${o.nudgeText}" doesn't name ${shortMoney(P.above.price)} qualifying for £15 off`);
+    const marks = await page.evaluate(() => [...document.querySelectorAll('[data-product-scope] variant-picker [data-value-label]')].map((l) => ({ v: l.getAttribute('data-value'), m: !!l.querySelector('[data-value-offer]:not([hidden])') })));
+    const markAbove = marks.find((m) => m.v === P.above.value);
+    const markBelow = marks.find((m) => m.v === P.below.value);
+    if (!markAbove || !markAbove.m || (markBelow && markBelow.m)) fail(`size marks wrong: ${JSON.stringify(marks).slice(0, 160)}`);
+    // 2. a size at or over the minimum: "£15 off at checkout — you pay £X", no nudge
+    await page.locator(`[data-product-scope] variant-picker [data-value-label][data-value="${P.above.value.replace(/"/g, '\\"')}"]`).filter({ visible: true }).first().click();
+    const net = shortMoney(P.above.price - OFFER.amount);
+    if (!(await waitFor(async () => { o = await readOffer(page); return o && o.state === 'line'; }, 3000))) fail(`choosing ${P.above.value} (${shortMoney(P.above.price)}) didn't show the net price (state ${o && o.state})`);
+    if (!o.line || o.nudge) fail(`over the minimum: line=${o.line} nudge=${o.nudge} (never both)`);
+    if (!/£15 off at checkout/.test(o.lineText) || !o.lineText.includes(`you pay ${net}`)) fail(`net line "${o.lineText}" should say £15 off at checkout — you pay ${net}`);
+    // 3. back under: nudge again
+    await page.locator(`[data-product-scope] variant-picker [data-value-label][data-value="${P.below.value.replace(/"/g, '\\"')}"]`).filter({ visible: true }).first().click();
+    if (!(await waitFor(async () => { o = await readOffer(page); return o && o.state === 'nudge' && !o.line; }, 3000))) fail('switching back under the minimum did not return to the nudge');
+    return { detail: `${P.handle}: ${P.below.value} → "${o.nudgeText.slice(0, 44)}" · ${P.above.value} → "…you pay ${net}" · marks on qualifying sizes only` };
+  };
+}
+
+function offerEndedFlow(P) {
+  return async (page) => {
+    if (!P) return { status: 'SKIP', detail: 'no product with sizes either side of the offer minimum' };
+    const origin = new URL(page.url()).origin;
+    const ctx = page.context();
+    // 1. Liquid: an end date in the past (settings override) → nothing rendered anywhere
+    await offerCookies(ctx, origin, { ends: '2020-01-01 00:00' });
+    await page.goto(`${origin}/products/${P.handle}?variant=${P.above.id}`, { waitUntil: 'load' });
+    const pdpLeft = await page.locator('[data-offer]').count();
+    if (pdpLeft) fail(`offer ended (offer_ends 2020-01-01) but ${pdpLeft} [data-offer] element(s) still render on the product page`);
+    const ann = await page.locator('announcement-bar').allInnerTexts();
+    if (ann.some((t) => /£15 off/.test(t))) fail('offer ended but the announcement bar still advertises it');
+    await page.goto(`${origin}${CFG.quickAddPath}`, { waitUntil: 'load' });
+    const badges = await page.locator('.badge--offer').count();
+    if (badges) fail(`offer ended but ${badges} card badge(s) still show it`);
+    // 2. JS: a page rendered while the offer ran, read after its end on the shopper's clock
+    const ends = Date.now() + 2 * 86400000;
+    await offerCookies(ctx, origin, { ends: ukStamp(ends) });
+    await page.clock.install({ time: new Date(ends + 3600000) });
+    await page.goto(`${origin}/products/${P.handle}?variant=${P.above.id}`, { waitUntil: 'load' });
+    const rendered = await page.locator('[data-offer-pdp]').count();
+    const ended = await page.evaluate(() => document.documentElement.classList.contains('offer-ended'));
+    const visible = await page.locator('[data-offer]').filter({ visible: true }).count();
+    if (!rendered) fail('control: with a future end date the server should still render the offer');
+    if (!ended || visible) fail(`past the end on the shopper's clock: html.offer-ended=${ended}, ${visible} offer element(s) still visible`);
+    return { detail: `past end (setting) → 0 offer elements on PDP, bar and cards · rendered but past end (clock) → html.offer-ended, ${rendered} hidden` };
+  };
+}
+
+function offerCartFlow(P) {
+  return async (page) => {
+    if (!P) return { status: 'SKIP', detail: 'no product with sizes either side of the offer minimum' };
+    const origin = new URL(page.url()).origin;
+    const ctx = page.context();
+    await offerCookies(ctx, origin);
+    const add = (id) => ctx.request.post(`${origin}/cart/add.js`, { data: { items: [{ id, quantity: 1 }] } });
+    // 1. under the minimum: the goal bar, never beside the free-delivery bar
+    await add(P.below.id);
+    await page.goto(`${origin}/cart`, { waitUntil: 'load' });
+    const bar = page.locator('[data-offer-bar]').filter({ visible: true });
+    if (!(await bar.count())) fail(`basket ${shortMoney(P.below.price)} is under ${shortMoney(OFFER.min)} but no "away from £15 off" bar`);
+    const barText = (await bar.first().innerText()).replace(/\s+/g, ' ');
+    const away = shortMoney(OFFER.min - P.below.price);
+    if (!barText.includes(`${away} away from £15 off`)) fail(`goal bar "${barText.slice(0, 80)}" should say ${away} away from £15 off`);
+    if (await page.locator('[data-free-shipping]:not([data-offer-bar])').filter({ visible: true }).count()) fail('offer bar and free-delivery bar both show');
+    if (await page.locator('.cart__discounts').count()) fail('a discount line shows before Shopify applied any discount');
+    // 2. over the minimum: Shopify's own discount application, named by the offer
+    await add(P.above.id);
+    await page.goto(`${origin}/cart`, { waitUntil: 'load' });
+    const line = page.locator('.cart__discounts li').first();
+    if (!(await line.count())) fail('the automatic discount applied but no discount line shows on the basket page');
+    const lineText = (await line.innerText()).replace(/\s+/g, ' ');
+    if (!lineText.includes(OFFER.label) || !lineText.includes('−£15.00')) fail(`discount line "${lineText}" should read "${OFFER.label} −£15.00"`);
+    if (await page.locator('[data-offer-bar]').count()) fail('goal bar still shows once the discount is applied');
+    // 3. the drawer says the same after an add from the product page, and the PDP stops promising another £15
+    await page.goto(`${origin}/products/${P.handle}?variant=${P.above.id}`, { waitUntil: 'load' });
+    const o = await readOffer(page);
+    if (o && o.line) fail('basket already has the discount, but the product page still offers "£15 off — you pay…"');
+    await page.locator('product-form [data-add-button]').first().click();
+    if (!(await drawerHasLine(page))) fail('drawer did not open');
+    const dl = page.locator('cart-drawer [data-cart-discounts] li').first();
+    if (!(await waitFor(async () => (await dl.count()) > 0, 4000))) fail('drawer shows no discount line');
+    const dText = (await dl.innerText()).replace(/\s+/g, ' ');
+    if (!dText.includes(OFFER.label) || !dText.includes('−£15.00')) fail(`drawer discount line "${dText}"`);
+    const deliv = await page.locator('cart-drawer [data-delivery-options]').filter({ visible: true }).count();
+    return { status: deliv ? 'PASS' : 'WARN', detail: `under → "${barText.slice(0, 40)}…" · over → "${lineText}" (page + drawer) · PDP state ${o ? o.state : 'none'}${deliv ? ' · drawer delivery line' : ' · WARN no delivery line in drawer'}` };
+  };
+}
+
+/**
+ * One per order, and it combines with no other discount (the live discount's
+ * Combinations are all off): once the basket has it, card badges and size
+ * marks stop promising it; with another discount in play (Google's automated
+ * discount: the _gad cart attribute, or its ?pv2= landing link) the product
+ * page, the goal bar and the offer banner say nothing about it at all.
+ */
+function offerOneDiscountFlow(P) {
+  return async (page) => {
+    if (!P) return { status: 'SKIP', detail: 'no product with sizes either side of the offer minimum' };
+    const origin = new URL(page.url()).origin;
+    const ctx = page.context();
+    await offerCookies(ctx, origin);
+    const visibleCount = (sel) => page.locator(sel).filter({ visible: true }).count();
+    const add = (id) => ctx.request.post(`${origin}/cart/add.js`, { data: { items: [{ id, quantity: 1 }] } });
+    // control: an empty basket shows the card badges
+    await page.goto(`${origin}${CFG.quickAddPath}`, { waitUntil: 'load' });
+    const before = await visibleCount('.badge--offer');
+    if (!before) fail('control: no offer badge on any card with an empty basket');
+    // 1. applied → no card badge, no size mark promises a second £15
+    await add(P.above.id);
+    await page.goto(`${origin}${CFG.quickAddPath}`, { waitUntil: 'load' });
+    const after = await visibleCount('.badge--offer');
+    if (after) fail(`the basket already has the £15 off, but ${after} card badge(s) still offer it`);
+    await page.goto(`${origin}/products/${P.handle}?variant=${P.below.id}`, { waitUntil: 'load' });
+    const marks = await visibleCount('[data-product-scope] [data-value-offer]');
+    if (marks) fail(`the basket already has the £15 off, but ${marks} size mark(s) still offer it`);
+    // 2. another discount in play (the _gad attribute) → nothing promises it
+    await ctx.request.post(`${origin}/cart/clear.js`);
+    await ctx.request.post(`${origin}/cart/update.js`, { data: { attributes: { _gad: 'test' } } });
+    await add(P.below.id);
+    await page.goto(`${origin}/products/${P.handle}?variant=${P.above.id}`, { waitUntil: 'load' });
+    if (await visibleCount('[data-product-scope] [data-offer-pdp]')) fail('another discount is on the basket (_gad), but the product page still promises £15 off');
+    if (await visibleCount('[data-offer-banner]')) fail('another discount is on the basket (_gad), but the offer banner still shows');
+    await page.goto(`${origin}/cart`, { waitUntil: 'load' });
+    if (await visibleCount('[data-offer-bar]')) fail('another discount is on the basket (_gad), but the "away from £15 off" bar still shows');
+    // 3. a Google automated-discount landing link (?pv2=) with an empty basket
+    await ctx.request.post(`${origin}/cart/clear.js`);
+    await page.goto(`${origin}/products/${P.handle}?variant=${P.above.id}&pv2=test`, { waitUntil: 'load' });
+    if (await visibleCount('[data-product-scope] [data-offer-pdp]')) fail('Google discount landing (?pv2=) but the product page still promises £15 off');
+    return { detail: `card badges ${before} → 0 once applied · no size marks · _gad: no PDP line, banner or goal bar · ?pv2=: no PDP line` };
+  };
+}
+
 // ------------------------------------------------------------------ main
 /** Pick the flows' products from the real catalogue (by shape, not handle). */
 function realConfig(store) {
@@ -956,6 +1144,13 @@ async function main() {
       await flow(browser, base, 'mobile menu + Escape', mob, menuFlow);
       await flow(browser, base, 'sticky ATC', mob, stickyFlow);
       await flow(browser, base, 'sticky ATC', desk, stickyFlow);
+      const offerP = offerProduct(store);
+      await flow(browser, base, 'offer: pdp net price / nudge', mob, offerPdpFlow(offerP));
+      await flow(browser, base, 'offer: pdp net price / nudge', desk, offerPdpFlow(offerP));
+      await flow(browser, base, 'offer: hidden after end date', mob, offerEndedFlow(offerP));
+      await flow(browser, base, 'offer: basket bar + discount line', mob, offerCartFlow(offerP));
+      await flow(browser, base, 'offer: basket bar + discount line', desk, offerCartFlow(offerP));
+      await flow(browser, base, 'offer: one per order, no other discount', mob, offerOneDiscountFlow(offerP));
     }
     if ((!ONLY || ONLY === 'matrix') && !args['no-matrix']) await finderMatrix(browser, base, VIEWPORTS[1], store);
   } finally {

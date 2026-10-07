@@ -167,6 +167,8 @@
             <div class="cart__main">
               <div class="cart__shipping" data-cart-swap="shipping">
                 {%- render 'free-shipping-bar', cart: cart -%}
+                {%- comment -%} Once free delivery is unlocked: how far to the offer's minimum (snippets/offer). Never both bars. {%- endcomment -%}
+                {%- render 'offer', mode: 'cart_bar', cart: cart -%}
               </div>
 
               <h2 class="visually-hidden">{{ 'collection.cart.items_heading' | t }}</h2>
@@ -263,7 +265,13 @@
                 <h2 class="h4 cart__summary-title" id="CartSummaryTitle-{{ sid }}">{{ 'collection.cart.summary_heading' | t }}</h2>
 
                 <div class="cart__totals" data-cart-swap="summary">
-                  {%- if settings.show_compare_savings and total_savings > 0 -%}
+                  {%- comment -%}
+                    Discounts exactly as Shopify applied them, named by the
+                    offer when it's the running one. The savings summary
+                    only when compare-at savings add to them, so a lone
+                    discount isn't said twice.
+                  {%- endcomment -%}
+                  {%- if settings.show_compare_savings and compare_savings > 0 and total_savings > 0 -%}
                     <p class="cart__savings">
                       {%- render 'icon', name: 'tag' -%}
                       {%- assign savings_money = total_savings | money_without_trailing_zeros -%}
@@ -275,8 +283,8 @@
                     <ul class="cart__discounts" role="list">
                       {%- for discount in cart.cart_level_discount_applications -%}
                         <li>
-                          <span>{%- render 'icon', name: 'tag' -%}{{ discount.title | escape }}</span>
-                          <span>−{{ discount.total_allocated_amount | money }}</span>
+                          <span>{%- render 'icon', name: 'tag' -%}<span class="visually-hidden">{{ 'chrome.cart.discount_label' | t }}: </span>{%- render 'offer', mode: 'discount_title', title: discount.title -%}</span>
+                          <span class="cart__discount-amount">−{{ discount.total_allocated_amount | money }}</span>
                         </li>
                       {%- endfor -%}
                     </ul>
@@ -287,8 +295,15 @@
                     <span class="cart__subtotal-value">{{ cart.total_price | money }}</span>
                   </div>
 
+                  {%- comment -%}
+                    Delivery choices before checkout (snippets/delivery-options).
+                    When they show, the fine print leaves delivery to them.
+                  {%- endcomment -%}
+                  {%- capture page_delivery -%}{%- render 'delivery-options', basket: cart, class: 'cart__delivery-options' -%}{%- endcapture -%}
                   <p class="cart__fineprint">
-                    {%- if cart.taxes_included -%}
+                    {%- if page_delivery != blank -%}
+                      {%- if cart.taxes_included -%}{{ 'chrome.cart.vat_included' | t }}{%- endif -%}
+                    {%- elsif cart.taxes_included -%}
                       {%- if free_unlocked -%}{{ 'collection.cart.tax_included_free' | t }}{%- else -%}{{ 'collection.cart.tax_included' | t }}{%- endif -%}
                     {%- else -%}
                       {%- if free_unlocked -%}{{ 'collection.cart.tax_excluded_free' | t }}{%- else -%}{{ 'collection.cart.tax_excluded' | t }}{%- endif -%}
@@ -296,6 +311,7 @@
                     {%- comment -%} Off by default: with no public codes the prompt sends shoppers off-site to hunt for one. {%- endcomment -%}
                     {%- if settings.cart_show_discount_hint %} {{ 'collection.cart.discount_codes' | t }}{%- endif -%}
                   </p>
+                  {{- page_delivery -}}
                 </div>
 
                 <button type="submit" name="checkout" class="btn btn--primary btn--lg btn--block cart__checkout" data-cart-checkout>
@@ -342,6 +358,11 @@
 
               {%- if section.settings.show_payment_icons -%}
                 {%- render 'payment-icons', class: 'cart__payments' -%}
+                {%- comment -%} No marks to show: the owner's own line on how to pay (Theme settings → Social proof). {%- endcomment -%}
+                {%- assign page_pay_text = settings.payment_methods_text | default: '' | strip -%}
+                {%- if shop.enabled_payment_types.size == 0 and page_pay_text != '' -%}
+                  <p class="trust-note cart__pay-text">{%- render 'icon', name: 'lock' -%}<span>{{ page_pay_text | escape }}</span></p>
+                {%- endif -%}
               {%- endif -%}
             </aside>
           </div>

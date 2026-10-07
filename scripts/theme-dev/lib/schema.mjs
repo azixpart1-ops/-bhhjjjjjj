@@ -54,7 +54,7 @@ export function validateSettings(settings, out, ctx) {
     if (!SETTING_TYPES.has(s.type)) { out.error('schema', `${at}: unknown type "${s.type}"`, { file }); return; }
     if (SIDEBAR.has(s.type)) {
       if (typeof s.content !== 'string' || !s.content.trim()) out.error('schema', `${at}: ${s.type} needs "content"${s.label ? ' (it uses content, not label)' : ''}`, { file });
-      if (s.content && s.content.length > 500) out.warn('schema', `${at}: ${s.type} content is very long`, { file });
+      if (s.content && s.content.length > 500) out.error('schema', `${at}: ${s.type} content is ${s.content.length} characters; Shopify rejects the whole section over 500 (the async upload job drops it silently)`, { file });
       return;
     }
     if (typeof s.id !== 'string' || !s.id) { out.error('schema', `${at}: missing id`, { file }); return; }

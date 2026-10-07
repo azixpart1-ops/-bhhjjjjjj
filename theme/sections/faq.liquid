@@ -51,6 +51,19 @@
   assign ph_dmax = dmax | append: ''
   assign ph_origin = settings.origin_line | default: '' | strip | escape
   assign ph_shop = shop.name | escape
+  comment
+    Delivery options (Theme settings → Promises → Delivery options): the
+    token delivery_options is the standard and express wording joined with
+    a dot, and delivery_times the confirmed transit times (blank until set).
+  endcomment
+  assign do_std = settings.delivery_standard_text | default: '' | strip | escape
+  assign do_exp = settings.delivery_express_text | default: '' | strip | escape
+  assign ph_doptions = do_std
+  if do_std != '' and do_exp != ''
+    assign ph_doptions = ph_doptions | append: ' · '
+  endif
+  assign ph_doptions = ph_doptions | append: do_exp
+  assign ph_dtimes = settings.delivery_times_note | default: '' | strip | escape
   capture ph_terms
     render 'trial-terms'
   endcapture
@@ -141,6 +154,9 @@
       if raw contains '[origin]' and on_origin == false
         assign keep = false
       endif
+      if raw contains '[delivery_options]' and ph_doptions == ''
+        assign keep = false
+      endif
       case b.promise
         when 'trial'
           if on_trial == false
@@ -156,6 +172,10 @@
           endif
         when 'dispatch'
           if on_dispatch == false
+            assign keep = false
+          endif
+        when 'no_dispatch'
+          if on_dispatch
             assign keep = false
           endif
         when 'origin'
@@ -233,6 +253,7 @@
               assign q = k_q | t: nights: ph_nights, years: ph_years
               case dk
                 when 'delivery'
+                  assign used_options = false
                   if on_dispatch
                     if dmax <= 1
                       assign a = 'home.faq.delivery_cutoff_next_html' | t: cutoff: ph_cutoff
@@ -243,10 +264,36 @@
                       endif
                       assign a = 'home.faq.delivery_cutoff_html' | t: cutoff: ph_cutoff, days: range
                     endif
+                  elsif ph_doptions != ''
+                    comment
+                      The delivery choices before checkout, and their times
+                      once the merchant has confirmed them.
+                    endcomment
+                    assign do_times = ''
+                    if ph_dtimes != ''
+                      assign do_times = ph_dtimes
+                      assign do_last = ph_dtimes | slice: -1, 1
+                      unless do_last == '.'
+                        assign do_times = do_times | append: '.'
+                      endunless
+                      assign do_times = do_times | append: ' '
+                    endif
+                    assign a = 'home.faq.delivery_options_html' | t: options: ph_doptions, times: do_times
+                    assign used_options = true
+                    comment
+                      Without confirmed times the answer can't say how
+                      quickly, so the question doesn't ask it.
+                    endcomment
+                    if ph_dtimes == ''
+                      assign q = 'home.faq.delivery_options_q' | t
+                    endif
                   else
                     assign a = 'home.faq.delivery_plain_html' | t
                   endif
-                  if on_free
+                  comment
+                    The delivery-options answer already says what's free.
+                  endcomment
+                  if on_free and used_options == false
                     assign a_free = 'home.faq.delivery_free_html' | t: amount: ph_threshold
                     assign a = a | append: a_free
                   endif
@@ -270,8 +317,8 @@
               assign bi = key | remove_first: 'b:' | plus: 0
               assign block = section.blocks[bi]
               if block
-                  assign q = block.settings.question | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop
-                  assign a = block.settings.answer | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop | replace: '[returns_policy]', policy_word
+                  assign q = block.settings.question | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop | replace: '[delivery_options]', ph_doptions | replace: '[delivery_times]', ph_dtimes
+                  assign a = block.settings.answer | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop | replace: '[returns_policy]', policy_word | replace: '[delivery_options]', ph_doptions | replace: '[delivery_times]', ph_dtimes
                   if policy_url == ''
                     assign a = a | replace: ' href="/policies/refund-policy"', ''
                   endif
@@ -320,7 +367,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Order questions the way people buy: size, foam, washing, delivery, trial, guarantee, health. Text can use [trial_nights], [guarantee_years], [threshold], [cutoff], [delivery_min], [delivery_max], [origin] and [shop]. [trial_terms] and [trial_terms_short] are the returns wording from Theme settings → Promises. [returns_policy] links to your refund policy (Settings → Policies), and stays plain text until one is published. With no questions added, sensible defaults show."
+      "content": "Order questions the way people buy: size, foam, washing, delivery, trial, guarantee, health. Text can use [trial_nights], [guarantee_years], [threshold], [cutoff], [delivery_min], [delivery_max], [delivery_options], [delivery_times], [origin] and [shop]. [trial_terms] and [trial_terms_short] are the returns wording from Theme settings → Promises. [returns_policy] links to your refund policy (Settings → Policies), plain text until one is published. With no questions added, defaults show."
     },
     {
       "type": "select",
@@ -441,6 +488,7 @@
             { "value": "guarantee", "label": "Guarantee" },
             { "value": "free_delivery", "label": "Free delivery" },
             { "value": "dispatch", "label": "Dispatch cut-off" },
+            { "value": "no_dispatch", "label": "Dispatch cut-off is off" },
             { "value": "origin", "label": "Origin line" }
           ],
           "default": "none"

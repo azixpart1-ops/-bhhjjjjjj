@@ -1411,6 +1411,18 @@
     connectedCallback() {
       var self = this;
       this.slides = Array.prototype.slice.call(this.querySelectorAll('[data-slide]'));
+      // An offer whose end has passed (html.offer-ended, a cached render),
+      // or that another discount rules out (html.offer-other: they don't
+      // combine), leaves the rotation, so the bar never pauses on an empty slide.
+      var rootCl = document.documentElement.classList;
+      if (rootCl.contains('offer-ended') || rootCl.contains('offer-other')) {
+        var live = this.slides.filter(function (sl) { return !sl.hasAttribute('data-offer'); });
+        if (live.length && live.length < this.slides.length) {
+          this.slides.forEach(function (sl) { sl.classList.remove('is-active'); });
+          live[0].classList.add('is-active');
+        }
+        this.slides = live;
+      }
       this.region = this.querySelector('[data-slides]');
       this.index = Math.max(0, this.slides.findIndex(function (s) { return s.classList.contains('is-active'); }));
       this.autoplay = this.getAttribute('data-autoplay') === 'true';

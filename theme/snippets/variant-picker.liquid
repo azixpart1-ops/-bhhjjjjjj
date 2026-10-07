@@ -118,6 +118,52 @@
   if compact
     assign uid = uid | append: '-c'
   endif
+
+  comment
+    The running offer (snippets/offer): sizes that reach its minimum get a
+    quiet "£15 off" beside their price, only where sizes are priced
+    differently, and not once the basket already has it (one per order) or
+    is over the minimum without it. product.js refreshes the marks.
+  endcomment
+  capture vp_offer_raw
+    render 'offer'
+  endcapture
+  capture vp_basket_raw
+    render 'offer', mode: 'basket', cart: cart
+  endcapture
+  assign vp_offer = vp_offer_raw | strip | split: '|'
+  assign vp_basket = vp_basket_raw | strip | split: '|'
+  assign offer_marks = false
+  assign offer_min = vp_offer[2] | default: 0 | plus: 0
+  if vp_offer[0] == '1' and show_prices
+    assign offer_marks = true
+    assign vp_basket_sub = vp_basket[1] | default: 0 | plus: 0
+    if vp_basket[0] == '1' or vp_basket[3] == '1'
+      assign offer_marks = false
+    elsif vp_basket_sub > 0 and vp_basket_sub >= offer_min
+      assign offer_marks = false
+    endif
+  endif
+  comment
+    Only worth marking when some sizes miss the minimum: on a bed where
+    every size qualifies the line under the price says it once.
+  endcomment
+  if product.price_min >= offer_min
+    assign offer_marks = false
+  endif
+  if vp_offer[0] == '1' and show_prices and product.price_min < offer_min
+    assign offer_amount_money = vp_offer[1] | default: 0 | plus: 0 | money_without_trailing_zeros
+    assign offer_mark_text = 'core.offer.size_mark' | t: amount: offer_amount_money
+    assign offer_mark_sr = 'core.offer.size_mark_sr' | t: amount: offer_amount_money
+  endif
+
+  comment
+    Fit line (Theme settings → Sizing → Measuring rule): a size whose value
+    gives the bed's length, like Large · 71 × 58cm, also says it fits dogs
+    up to about 51cm: the store's own rule (dog nose to base of tail plus
+    20cm is the bed length) worked backwards. Nothing without measurements.
+  endcomment
+  assign fit_allow = settings.size_fit_allowance | default: 0 | plus: 0
 -%}
 {%- unless product.has_only_default_variant or product == blank -%}
   {%- if settings.finder_enable -%}
@@ -421,8 +467,28 @@
                         </span>
                       {%- endif -%}
                     </span>
+                    {%- liquid
+                      assign fit_cm = 0
+                      if fit_allow > 0 and detail != ''
+                        capture fit_len
+                          render 'size-hints', value: val, mode: 'length'
+                        endcapture
+                        assign fit_len = fit_len | strip | plus: 0
+                        if fit_len > 0
+                          assign fit_cm = fit_len | minus: fit_allow
+                        endif
+                      endif
+                    -%}
                     {%- if h_own != '' -%}
-                      <span class="size-option__hint">{{ h_own | escape }}</span>
+                      <span class="size-option__hint">
+                        {{- h_own | escape -}}
+                        {%- if fit_cm >= 20 -%}
+                          <span class="size-option__fit">
+                            <span aria-hidden="true"> · {{ 'product.picker.fit' | t: cm: fit_cm }}</span>
+                            <span class="visually-hidden">. {{ 'product.picker.fit_sr' | t: cm: fit_cm }}</span>
+                          </span>
+                        {%- endif -%}
+                      </span>
                     {%- elsif h_breeds != '' or h_weight != '' -%}
                       <span class="size-option__hint">
                         {{- h_breeds -}}
@@ -434,6 +500,12 @@
                   <span class="size-option__end">
                     {%- if show_prices and row_v -%}
                       <span class="size-option__price" data-value-price>{{ row_v.price | money }}</span>
+                    {%- endif -%}
+                    {%- if offer_mark_text and row_v -%}
+                      <span class="size-option__offer" data-offer data-offer-promo data-value-offer data-min="{{ offer_min }}"{% unless offer_marks and row_v.price >= offer_min %} hidden{% endunless %}>
+                        <span aria-hidden="true">{{- offer_mark_text -}}</span>
+                        <span class="visually-hidden">{{ offer_mark_sr }}</span>
+                      </span>
                     {%- endif -%}
                     <span class="size-option__state" data-value-state data-visible-state>
                       {%- if state == 'sold-out' %}{{ 'product.buy.sold_out' | t }}{% elsif state == 'unavailable' %}{{ 'product.buy.unavailable' | t }}{% endif -%}

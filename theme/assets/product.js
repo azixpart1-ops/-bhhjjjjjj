@@ -342,6 +342,103 @@
     });
   }
 
+  /* ------------------------------------------------------------------------
+     The running offer (snippets/offer mode pdp, Lunova.offer in global.js)
+     and the delivery line (snippets/delivery-options), kept in step with
+     the size, the quantity and the basket.
+     ---------------------------------------------------------------------- */
+  function offerConfig() {
+    return (L.settings && L.settings.offer) || null;
+  }
+
+  /** The cheapest available variant that reaches the minimum: same other
+      options (colour) first, then any. Mirrors snippets/offer. */
+  function offerNudgeVariant(data, v, min) {
+    var best = null;
+    var any = null;
+    (data.variants || []).forEach(function (x) {
+      if (!x.available || x.price < min || (v && x.id === v.id)) return;
+      var same = (x.options || []).every(function (o, i) {
+        return i === data.sizeIndex || !v || o === v.options[i];
+      });
+      if (same && (!best || x.price < best.price)) best = x;
+      if (!any || x.price < any.price) any = x;
+    });
+    return best || any;
+  }
+
+  function updateOffer(scope, data, v) {
+    var o = offerConfig();
+    qsa('[data-offer-pdp]', scope).forEach(function (el) {
+      var line = el.querySelector('[data-offer-line]');
+      var lineText = el.querySelector('[data-offer-line-text]');
+      var sub = el.querySelector('[data-offer-sub]');
+      var nudge = el.querySelector('[data-offer-nudge]');
+      var nudgeText = el.querySelector('[data-offer-nudge-text]');
+      var price = v ? v.price * quantityIn(scope) : 0;
+      var state = o && v && L.offer && typeof L.offer.state === 'function' ? L.offer.state(price, data.id) : 'off';
+      var nudgeV = null;
+      if (state === 'below') {
+        nudgeV = offerNudgeVariant(data, v, Number(o.min) || 0);
+        state = nudgeV ? 'nudge' : 'none';
+      }
+      if (state === 'line' && v && !v.available) state = 'none';
+      var amount = o ? moneyShort(o.amount) : '';
+      var putLine = function (tpl, vars) {
+        if (!lineText) return;
+        if (typeof L.fillInto === 'function') L.fillInto(lineText, tpl, vars);
+        else lineText.textContent = fill(tpl, vars);
+      };
+      if (state === 'line') putLine(el.getAttribute('data-tpl-line'), { amount: amount, net: moneyShort(L.offer.net(price)) });
+      else if (state === 'basket') putLine(el.getAttribute('data-tpl-basket'), { amount: amount });
+      if (nudgeText && state === 'applied') nudgeText.textContent = fill(el.getAttribute('data-tpl-applied'), { amount: amount });
+      if (nudgeText && state === 'nudge') {
+        var name = data.sizeIndex >= 0 ? sizeLabelFor(nudgeV.options[data.sizeIndex]) : variantDisplayTitle(data, nudgeV);
+        nudgeText.textContent = fill(el.getAttribute('data-tpl-nudge'), { size: name, price: moneyShort(nudgeV.price), amount: amount });
+      }
+      var showLine = state === 'line' || state === 'basket';
+      var showNudge = state === 'nudge' || state === 'applied';
+      if (line) line.hidden = !showLine;
+      if (sub) sub.hidden = !showLine;
+      if (nudge) nudge.hidden = !showNudge;
+      el.hidden = !showLine && !showNudge;
+      el.setAttribute('data-state', state);
+    });
+  }
+
+  /** Size buttons: the "£15 off" mark on sizes that reach the minimum. */
+  function offerMarks(picker, data) {
+    var o = offerConfig();
+    qsa('[data-value-offer]', picker).forEach(function (mark) {
+      var label = mark.closest('[data-value-label]');
+      var fs = mark.closest('fieldset[data-option-index]');
+      var idx = fs ? parseInt(fs.getAttribute('data-option-index'), 10) : -1;
+      var value = label ? label.getAttribute('data-value') : null;
+      var sel = picker.selected ? picker.selected.slice() : [];
+      var pv = null;
+      if (idx >= 0 && value != null) {
+        sel[idx] = value;
+        pv = findVariant(data, sel) || cheapestWith(data, idx, value);
+      }
+      var show = !!(o && pv && L.offer && typeof L.offer.state === 'function' && L.offer.state(pv.price) === 'line');
+      mark.hidden = !show;
+    });
+  }
+
+  function updateDeliveryOptions(scope, v) {
+    if (!v) return;
+    var strs = L.strings || {};
+    qsa('[data-delivery-options]', scope).forEach(function (el) {
+      var std = el.querySelector('[data-delivery-standard]');
+      if (!std) return;
+      var threshold = parseInt(el.getAttribute('data-threshold'), 10) || 0;
+      var below = threshold > 0 && v.price * quantityIn(scope) < threshold;
+      std.textContent = below
+        ? fill(decode(strs.deliveryFreeOver || ''), { amount: moneyShort(threshold) })
+        : decode(el.getAttribute('data-standard') || '');
+    });
+  }
+
   function updateScope(scope, data, v) {
     if (!scope || !data) return;
     scope.__lunovaVariant = v;
@@ -388,6 +485,9 @@
         if (L.delivery && typeof L.delivery.render === 'function') L.delivery.render(cd);
       });
     });
+
+    updateOffer(scope, data, v);
+    updateDeliveryOptions(scope, v);
 
     if (v) {
       qsa('[data-free-delivery]', scope).forEach(function (el) {
@@ -644,6 +744,7 @@
           }
         });
       });
+      offerMarks(this, data);
     }
 
     applyFinder(fromEvent) {
@@ -2147,6 +2248,17 @@
   on('shopify:block:select', function (e) {
     var details = e.target && e.target.querySelector ? e.target.querySelector('details.product-accordion') : null;
     if (details) details.open = true;
+  });
+
+  on('lunova:offer:change', function () {
+    qsa('[data-product-scope], [data-quick-add-product]').forEach(function (scope) {
+      var data = productData(scope);
+      if (!data) return;
+      updateOffer(scope, data, currentVariant(scope, data));
+      qsa('variant-picker', scope).forEach(function (picker) {
+        if (picker.data) offerMarks(picker, picker.data);
+      });
+    });
   });
 
   on('lunova:finder:complete', function () {
