@@ -8,7 +8,8 @@
        standard review metafields, written by Judge.me, Okendo, Loox, Yotpo,
        Stamped and Shopify Product Reviews.
 
-  Product ratings also obey settings.show_product_ratings.
+  Product ratings also obey settings.show_product_ratings. Nothing renders
+  with fewer than 5 reviews (reviews.rating_count >= 5).
 
   Parameters
     product      product object
@@ -50,11 +51,13 @@
     assign n_display = n_num
   endif
 
+  comment
+    Never fewer than 5 real reviews behind a score (audit P0-1): one or two
+    reviews make a 5.0 that means nothing. Applies to store-level overrides
+    too, whose count must be a real number from the reviews app.
+  endcomment
   assign ok = false
-  if r > 0 and n_num > 0
-    assign ok = true
-  endif
-  if from_override and r > 0
+  if r > 0 and n_num >= 5
     assign ok = true
   endif
   if r > 5

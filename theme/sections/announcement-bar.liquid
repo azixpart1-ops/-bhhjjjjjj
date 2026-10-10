@@ -1,132 +1,78 @@
 {%- comment -%}
-  Announcement bar — the store's promises, one at a time.
+  Announcement bar: ONE static line. No rotation, no countdown, no offer
+  (the offer lives in the buy box for the size picked, snippets/offer).
 
-  Promise messages are built from Theme settings → Promises / Proof, never
-  typed in here, so the bar can't claim a trial, guarantee, delivery offer or
-  rating the store doesn't have. A promise that's switched off simply drops
-  out of the rotation. The countdown block is the real dispatch cut-off from
-  the delivery-promise snippet (filled live by global.js).
+  Message "Our promises" (the default) is built from Theme settings, never
+  typed in, so the bar can't claim a delivery, trial or collection promise
+  the store doesn't make. With the published policies it reads:
+    "Free UK delivery over £40 · 100 nights to decide · Free collection"
+  Each part drops out when its setting is off:
+    Free UK delivery over £X   free_shipping_enable + free_shipping_threshold
+                               ("Free UK delivery" when the threshold is 0)
+    N nights to decide         trial_enable + trial_nights
+    Free collection            trial_free_collection (with the trial on)
+  "Custom text" shows the text setting instead. A bar with nothing to say
+  renders nothing (an editor note in the theme editor).
 
-  The offer message (Theme settings → Offer, snippets/offer) states the
-  real end date ("ends Sat 31 Oct") and drops out by itself once it has
-  passed; a bar holding nothing but the offer hides with it.
-
-  Rotation: fade every N seconds; pauses on hover and keyboard focus; any use
-  of the arrows stops it for good; never moves for reduced-motion visitors.
-  JS: <announcement-bar> in cart.js.
+  The <announcement-bar> element (assets/cart.js) is inert with one line.
 {%- endcomment -%}
 {%- liquid
-  assign threshold_cents = settings.free_shipping_threshold | default: 0 | times: 100
-  assign slide_count = 0
-  assign offer_slides = 0
+  assign ab = section.settings
+  assign ab_msg = ''
+  if ab.message == 'custom'
+    assign ab_msg = ab.text | default: ''
+  else
+    assign ab_parts = ''
+    if settings.free_shipping_enable
+      assign ab_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round
+      if ab_threshold > 0
+        assign ab_amount = ab_threshold | money_without_trailing_zeros
+        assign ab_part = 'chrome.announcement.part_delivery_over' | t: amount: ab_amount
+      else
+        assign ab_part = 'chrome.announcement.part_delivery_all' | t
+      endif
+      assign ab_parts = ab_parts | append: '|' | append: ab_part
+    endif
+    assign ab_nights = settings.trial_nights | default: 0 | plus: 0
+    if settings.trial_enable and ab_nights > 0
+      assign ab_part = 'chrome.announcement.part_trial' | t: nights: ab_nights
+      assign ab_parts = ab_parts | append: '|' | append: ab_part
+      if settings.trial_free_collection
+        assign ab_part = 'chrome.announcement.part_collection' | t
+        assign ab_parts = ab_parts | append: '|' | append: ab_part
+      endif
+    endif
+    assign ab_list = ab_parts | remove_first: '|' | split: '|'
+    assign ab_msg = ab_list | join: ' · '
+  endif
+  assign ab_check = ab_msg | strip_html | strip
 -%}
 
-{%- capture slides_html -%}
-  {%- for block in section.blocks -%}
-    {%- liquid
-      assign msg = ''
-      assign is_countdown = false
-      assign is_offer = false
-      case block.type
-        when 'message'
-          case block.settings.promise
-            when 'free_delivery'
-              if settings.free_shipping_enable
-                if threshold_cents > 0
-                  assign amount = threshold_cents | money_without_trailing_zeros
-                  assign msg = 'chrome.announcement.free_delivery_html' | t: amount: amount
-                else
-                  assign msg = 'chrome.announcement.free_delivery_all_html' | t
-                endif
-              endif
-            when 'trial'
-              if settings.trial_enable and settings.trial_nights > 0
-                capture ab_terms
-                  render 'trial-terms', short: true
-                endcapture
-                assign ab_terms = ab_terms | escape
-                assign msg = 'chrome.announcement.trial_html' | t: nights: settings.trial_nights, terms_short: ab_terms
-              endif
-            when 'guarantee'
-              if settings.guarantee_enable and settings.guarantee_years > 0
-                assign msg = 'chrome.announcement.guarantee_html' | t: years: settings.guarantee_years
-              endif
-            when 'offer'
-              capture msg
-                render 'offer', mode: 'announcement'
-              endcapture
-              assign is_offer = true
-            when 'rating'
-              if settings.store_rating != blank and settings.store_review_count != blank
-                assign r = settings.store_rating | escape
-                assign c = settings.store_review_count | escape
-                assign msg = 'chrome.announcement.rating_html' | t: rating: r, count: c
-              endif
-            else
-              assign msg = block.settings.text
-          endcase
-        when 'countdown'
-          if settings.delivery_promise_enable
-            capture msg
-              render 'delivery-promise', compact: true, class: 'announcement__countdown'
-            endcapture
-            assign is_countdown = true
-          endif
-      endcase
-      assign msg_check = msg | strip_html | strip
-    -%}
-    {%- if msg_check != blank -%}
-      {%- assign slide_count = slide_count | plus: 1 -%}
-      {%- if is_offer -%}{%- assign offer_slides = offer_slides | plus: 1 -%}{%- endif -%}
-      <div
-        class="announcement__slide{% if slide_count == 1 %} is-active{% endif %}{% if is_countdown %} announcement__slide--countdown{% endif %}{% if is_offer %} announcement__slide--offer{% endif %}"
-        data-slide
-        {%- if is_offer %} data-offer data-offer-banner{% endif %}
-        {{ block.shopify_attributes }}
-      >
-        {%- if block.settings.link != blank -%}
-          {%- comment -%} Links inside rich text would nest anchors; flatten them. {%- endcomment -%}
-          <a class="announcement__msg announcement__link" href="{{ block.settings.link }}">
-            <div class="announcement__text">{{ msg | replace: '<a ', '<span ' | replace: '</a>', '</span>' }}</div>
-            {%- render 'icon', name: 'arrow-right', size: 14, class: 'announcement__arrow-icon' -%}
-          </a>
-        {%- else -%}
-          <div class="announcement__msg"><div class="announcement__text">{{ msg }}</div></div>
-        {%- endif -%}
-      </div>
-    {%- endif -%}
-  {%- endfor -%}
-{%- endcapture -%}
-
-{%- if slide_count > 0 -%}
+{%- if ab_check != blank -%}
   <announcement-bar
-    {%- if offer_slides == slide_count %} data-offer data-offer-banner{% endif %}
-    class="announcement scheme-{{ section.settings.color_scheme }}{% if slide_count > 1 %} announcement--multi{% endif %}"
+    class="announcement scheme-{{ ab.color_scheme }}"
     role="region"
     aria-label="{{ 'chrome.announcement.label' | t }}"
-    data-autoplay="{{ section.settings.autoplay }}"
-    data-speed="{{ section.settings.speed }}"
-    data-desktop="{{ section.settings.desktop_layout }}"
-    style="--ann-pt: {{ section.settings.padding_top }}px; --ann-pb: {{ section.settings.padding_bottom }}px;"
+    style="--ann-pt: {{ ab.padding_top }}px; --ann-pb: {{ ab.padding_bottom }}px;"
   >
     <div class="page-width announcement__inner">
-      {%- if slide_count > 1 -%}
-        <button type="button" class="announcement__nav announcement__nav--prev" data-prev aria-label="{{ 'chrome.announcement.previous' | t }}">
-          {%- render 'icon', name: 'chevron-left', size: 16 -%}
-        </button>
-      {%- endif -%}
-      <div class="announcement__slides" data-slides aria-live="off">
-        {{- slides_html -}}
+      <div class="announcement__slides">
+        <div class="announcement__slide is-active" data-slide>
+          {%- if ab.link != blank -%}
+            {%- comment -%} Links inside rich text would nest anchors; flatten them. {%- endcomment -%}
+            <a class="announcement__msg announcement__link" href="{{ ab.link }}">
+              <div class="announcement__text">{{ ab_msg | replace: '<a ', '<span ' | replace: '</a>', '</span>' }}</div>
+              {%- render 'icon', name: 'arrow-right', size: 14, class: 'announcement__arrow-icon' -%}
+            </a>
+          {%- else -%}
+            <div class="announcement__msg"><div class="announcement__text">{{ ab_msg }}</div></div>
+          {%- endif -%}
+        </div>
       </div>
-      {%- if slide_count > 1 -%}
-        <button type="button" class="announcement__nav announcement__nav--next" data-next aria-label="{{ 'chrome.announcement.next' | t }}">
-          {%- render 'icon', name: 'chevron-right', size: 16 -%}
-        </button>
-      {%- endif -%}
     </div>
   </announcement-bar>
 {%- elsif request.design_mode -%}
-  <div class="announcement announcement--empty scheme-{{ section.settings.color_scheme }}">
+  <div class="announcement announcement--empty scheme-{{ ab.color_scheme }}">
     <p class="page-width announcement__inner small">{{ 'chrome.announcement.empty_editor' | t }}</p>
   </div>
 {%- endif -%}
@@ -139,8 +85,33 @@
   "enabled_on": {
     "groups": ["header"]
   },
-  "max_blocks": 6,
   "settings": [
+    {
+      "type": "paragraph",
+      "content": "One line, always on screen. Our promises is built from Theme settings (free delivery threshold, trial nights, free collection), so it changes when they do and never claims a promise that is switched off."
+    },
+    {
+      "type": "select",
+      "id": "message",
+      "label": "Message",
+      "options": [
+        { "value": "promises", "label": "Our promises (theme settings)" },
+        { "value": "custom", "label": "Custom text" }
+      ],
+      "default": "promises"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "text",
+      "label": "Custom text",
+      "default": "Named for the Lakes, built for real sleep",
+      "info": "Only used when Message is Custom text. Keep store-wide claims in theme settings, and no countdowns or offers here."
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "Link"
+    },
     {
       "type": "select",
       "id": "color_scheme",
@@ -152,34 +123,6 @@
         { "value": "white", "label": "White" }
       ],
       "default": "moss"
-    },
-    {
-      "type": "select",
-      "id": "desktop_layout",
-      "label": "Desktop layout",
-      "options": [
-        { "value": "rotate", "label": "One message at a time" },
-        { "value": "row", "label": "All messages in a row" }
-      ],
-      "default": "rotate",
-      "info": "Mobile always shows one message at a time."
-    },
-    {
-      "type": "checkbox",
-      "id": "autoplay",
-      "label": "Rotate automatically",
-      "default": true,
-      "info": "Pauses on hover and keyboard focus, stops once a shopper uses the arrows, and never moves for visitors who prefer reduced motion."
-    },
-    {
-      "type": "range",
-      "id": "speed",
-      "label": "Time per message",
-      "min": 4,
-      "max": 10,
-      "step": 1,
-      "unit": "s",
-      "default": 5
     },
     {
       "type": "range",
@@ -202,66 +145,9 @@
       "default": 0
     }
   ],
-  "blocks": [
-    {
-      "type": "message",
-      "name": "Message",
-      "settings": [
-        {
-          "type": "select",
-          "id": "promise",
-          "label": "Message",
-          "options": [
-            { "value": "custom", "label": "Custom text" },
-            { "value": "free_delivery", "label": "Free delivery (theme settings)" },
-            { "value": "trial", "label": "Sleep trial (theme settings)" },
-            { "value": "guarantee", "label": "Guarantee (theme settings)" },
-            { "value": "rating", "label": "Store rating (theme settings)" },
-            { "value": "offer", "label": "Offer (theme settings)" }
-          ],
-          "default": "custom",
-          "info": "Promise messages use the numbers in Theme settings → Promises, Offer and Social proof, and hide themselves when that promise is switched off, left blank or (the offer) past its end date."
-        },
-        {
-          "type": "inline_richtext",
-          "id": "text",
-          "label": "Custom text",
-          "default": "Named for the Lakes, built for real sleep",
-          "info": "Only used when Message is Custom text. Keep store-wide claims in theme settings."
-        },
-        {
-          "type": "url",
-          "id": "link",
-          "label": "Link"
-        }
-      ]
-    },
-    {
-      "type": "countdown",
-      "name": "Dispatch countdown",
-      "limit": 1,
-      "settings": [
-        {
-          "type": "paragraph",
-          "content": "Shows the real time left to order for same-day dispatch, worked out from the cut-off, dispatch days and holidays in Theme settings → Promises. Hidden when the delivery promise is switched off."
-        },
-        {
-          "type": "url",
-          "id": "link",
-          "label": "Link"
-        }
-      ]
-    }
-  ],
   "presets": [
     {
-      "name": "Announcement bar",
-      "blocks": [
-        { "type": "message", "settings": { "promise": "free_delivery" } },
-        { "type": "countdown" },
-        { "type": "message", "settings": { "promise": "trial" } },
-        { "type": "message", "settings": { "promise": "guarantee" } }
-      ]
+      "name": "Announcement bar"
     }
   ]
 }

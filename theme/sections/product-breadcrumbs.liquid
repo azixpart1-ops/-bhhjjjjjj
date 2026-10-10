@@ -1,0 +1,50 @@
+{%- comment -%}
+  Breadcrumb trail above the product: Home / Dog Beds / {category} / {product}.
+  Gives every product page a visible link back to its collection pages.
+  The matching BreadcrumbList structured data is in snippets/product-jsonld.liquid.
+{%- endcomment -%}
+{%- if product != blank -%}
+  {%- capture pl_parent_handle -%}{%- render 'product-parent-handle', product: product -%}{%- endcapture -%}
+  {%- liquid
+    assign pl_parent_handle = pl_parent_handle | strip
+    assign pl_parent = collections[pl_parent_handle]
+    assign pl_hub = collections['dog-beds']
+    assign pl_title = product.title | split: ' | ' | first | strip
+  -%}
+  <nav class="page-width product-crumbs" aria-label="Breadcrumb">
+    <ol class="product-crumbs__list" role="list">
+      <li><a href="{{ routes.root_url }}">{{ 'general.home' | t }}</a></li>
+      {%- if product.type contains 'Dog Beds' and pl_hub.url != blank -%}
+        <li><a href="{{ pl_hub.url }}">{{ pl_hub.title | split: ' | ' | first | strip | escape }}</a></li>
+      {%- endif -%}
+      {%- if pl_parent_handle != '' and pl_parent.url != blank -%}
+        <li><a href="{{ pl_parent.url }}">{{ pl_parent.title | split: ' | ' | first | strip | escape }}</a></li>
+      {%- endif -%}
+      <li><span aria-current="page">{{ pl_title | escape }}</span></li>
+    </ol>
+  </nav>
+  <style>
+    .product-crumbs { padding-top: 0.75rem; }
+    .product-crumbs__list { display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.375rem; margin: 0; padding: 0; list-style: none; font-size: 0.8125rem; }
+    .product-crumbs__list li { display: inline-flex; align-items: center; gap: 0.375rem; min-width: 0; }
+    .product-crumbs__list li + li::before { content: "/"; color: var(--fg-muted, #6b6b6b); }
+    .product-crumbs__list a { display: inline-flex; align-items: center; min-height: 44px; color: var(--fg-muted, #6b6b6b); text-decoration: none; }
+    .product-crumbs__list a:hover { text-decoration: underline; }
+    .product-crumbs__list [aria-current] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; color: var(--fg-muted, #6b6b6b); }
+  </style>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Product breadcrumbs",
+  "enabled_on": {
+    "templates": ["product"]
+  },
+  "settings": [],
+  "presets": [
+    {
+      "name": "Product breadcrumbs"
+    }
+  ]
+}
+{% endschema %}

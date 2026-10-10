@@ -1,41 +1,38 @@
 {%- comment -%}
-  Per-night price reframe: "about 9p a night over the 5-year guarantee".
+  Per-night price, ONE line: "About 8p a night over the 5-year foam guarantee"
+  with the working one tap away (the info mark):
+    "£149 ÷ 1,826 nights (5 years) = 8.16p a night. A way of seeing the
+     cost over the guaranteed life of the foam, not a payment plan."
 
   Honest by construction:
-    - only shows when settings.show_per_night AND the guarantee is switched on
+    - only for a product the foam guarantee covers (snippets/foam-bed:
+      custom.foam_guarantee first, then the older description/tag rule).
+      No product → nothing: a price is never "over the guarantee" unchecked;
+    - only when settings.show_per_night AND the guarantee is switched on
       with a length > 0 (the guarantee is the basis of the sum);
-    - rounds to the nearest penny and says "about";
-    - the exact working is one tap away: "£169.00 ÷ (5 years × 365 nights)
-      = 9.26p a night", with a plain note that it is not a payment plan.
-
-    - only for a bed the foam guarantee covers, when `product` is passed
-      (snippets/foam-bed: its description gives the "no-flatten guarantee",
-      or tag guarantee:yes; guarantee:no, a non-bed type or a car seat never).
-      A nest bed's price is not "over the guarantee".
+    - nights = years × 365¼, so 5 years = 1,826 nights; whole pence,
+      rounded half up, never 0p, and it says "about".
 
   Parameters
     price     price in minor units (pence). Required.
-    product   the product the price belongs to. Pass it wherever there is
-              one: without it the guarantee-coverage test is skipped.
-    compact   true → smaller, single line (cards, sticky bar)
+    product   the product the price belongs to (default: the page's product)
+    compact   true → smaller (cards, sticky bar)
     class     extra classes
 
   JS: global.js updates [data-per-night] inside the product section on
-  lunova:variant:change (amount + basis), using Lunova.perNight().
+  lunova:variant:change ([data-per-night-amount] and the basis), with
+  Lunova.perNight() / Lunova.perNightExact(), the same sums.
 {%- endcomment -%}
 {%- liquid
   assign cents = price | default: 0 | plus: 0
   assign years = settings.guarantee_years | default: 0 | plus: 0
   assign show = false
-  if settings.show_per_night and settings.guarantee_enable and years > 0 and cents > 0
-    assign show = true
-  endif
-  if show and product != blank
+  if settings.show_per_night and settings.guarantee_enable and years > 0 and cents > 0 and product != blank
     capture pn_foam
       render 'foam-bed', product: product
     endcapture
-    if pn_foam != 'true'
-      assign show = false
+    if pn_foam == 'true'
+      assign show = true
     endif
   endif
 -%}
@@ -45,7 +42,7 @@
       Integer arithmetic only, so no engine float quirks can creep into a
       price claim. Round half up to the nearest penny; never show 0p.
     endcomment
-    assign nights = years | times: 365
+    assign nights = years | times: 1461 | divided_by: 4
     assign twice_nights = nights | times: 2
     assign rounded = cents | times: 2 | plus: nights | divided_by: twice_nights | floor
     if rounded < 1
@@ -61,16 +58,23 @@
       endif
       assign exact_text = whole | append: '.' | append: frac | append: 'p'
     else
-      assign amount = rounded | money
-      assign exact_text = rounded | money
+      assign amount = rounded | money_without_trailing_zeros
+      assign exact_text = rounded | money_without_trailing_zeros
     endif
-    assign price_money = cents | money
+    assign price_money = cents | money_without_trailing_zeros
+    if nights >= 1000
+      assign n_th = nights | divided_by: 1000
+      assign n_rest = nights | modulo: 1000 | prepend: '00' | slice: -3, 3
+      assign nights_text = n_th | append: ',' | append: n_rest
+    else
+      assign nights_text = nights | append: ''
+    endif
   -%}
   <div
     class="per-night{% if compact %} per-night--compact{% endif %}{% if class %} {{ class }}{% endif %}"
     data-per-night
     data-price="{{ cents }}"
-    data-basis-template="{{ 'core.per_night.basis' | t: price: '[price]', years: years, exact: '[exact]' }}"
+    data-basis-template="{{ 'core.per_night.basis' | t: price: '[price]', nights: nights_text, years: years, exact: '[exact]' }}"
   >
     <details class="per-night__details">
       <summary class="per-night__summary">
@@ -79,10 +83,10 @@
           {{- 'core.per_night.label_html' | t: amount: amount, years: years -}}
           <span class="per-night__end">&nbsp;{%- render 'icon', name: 'info', class: 'per-night__more' -%}</span>
         </span>
-        <span class="visually-hidden">— {{ 'core.per_night.toggle_hint' | t }}</span>
+        <span class="visually-hidden">({{ 'core.per_night.toggle_hint' | t }})</span>
       </summary>
       <p class="per-night__basis" data-per-night-basis>
-        {{- 'core.per_night.basis' | t: price: price_money, years: years, exact: exact_text -}}
+        {{- 'core.per_night.basis' | t: price: price_money, nights: nights_text, years: years, exact: exact_text -}}
       </p>
     </details>
   </div>

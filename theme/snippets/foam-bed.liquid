@@ -1,58 +1,83 @@
 {%- comment -%}
-  The one "is this a foam bed the foam guarantee covers?" test, shared by
-  everything that makes a foam-specific claim about a product: the foam
-  guarantee line and per-night price (buy box, cards, finder result via
-  Lunova.foamBed), the foam tagline fallback, the cost reframe, the
-  mechanism diagram and the comparison table.
+  The one "does the 5-year foam guarantee cover this product?" test, shared
+  by everything that makes a foam-guarantee claim about a product: the
+  guarantee line and trust row, the per-night price (buy box, finder result
+  via Lunova.foamBed), "year five", the foam tagline fallback, the cost
+  reframe, the mechanism diagram and the comparison table.
 
-  A word like "orthopaedic" in a title, type or tag is not evidence of a
-  guarantee (egg-crate beds, car seats and nest beds carry it too), so the
-  test reads what the product itself promises:
-    1. tag "guarantee:no"  → never (wins over everything)
-    2. tag "guarantee:yes" → always
-    3. not a bed           → never: the product type's first part (before
-                             " > ") doesn't mention "bed" ("Dog Houses > …"),
-                             or it's a car seat (tag "dog car seat" /
-                             "car seat", or "car seat" in the title)
-    4. its description promises it: contains "no-flatten guarantee"
-  Anything else → not covered. Tag a product guarantee:yes when its
-  description words the guarantee differently.
+  The refund policy gives the guarantee "on every PawLunova memory foam
+  bed", so the test reads what the product's own data says, in this order:
+    1. metafield custom.foam_guarantee (true or false): decides, whatever
+       else the product says
+    2. metafield custom.core_type set to anything that isn't memory foam
+       ("Egg-crate foam", "Fibre", "Mesh") → not covered
+    3. (metafield blank) the older rule:
+       a. tag "guarantee:no"  → never (wins)
+       b. tag "guarantee:yes" → always
+       c. not a bed           → never: the product type's first part (before
+                                " > ") doesn't mention "bed" ("Dog Houses > …"),
+                                or it's a car seat (tag "dog car seat" /
+                                "car seat", or "car seat" in the title)
+       d. its description promises it: contains "no-flatten guarantee"
+  Anything else → not covered. A word like "orthopaedic" in a title, type
+  or tag is never evidence of a guarantee.
 
   Output: the word "true" when covered, nothing otherwise. Capture it:
     {%- capture is_foam -%}{%- render 'foam-bed', product: product -%}{%- endcapture -%}
     {%- if is_foam == 'true' -%} … {%- endif -%}
 
   Keep in step with Lunova.foamBed() in assets/global.js and the finder's
-  product JSON (snippets/finder-product-json).
+  product JSON (snippets/finder-product-json), which carries this answer.
 {%- endcomment -%}
 {%- liquid
   if product != blank
-    assign fb_tags = product.tags | join: ',' | downcase | prepend: ',' | append: ','
     assign fb_ok = false
-    if fb_tags contains ',guarantee:no,'
-      assign fb_ok = false
-    elsif fb_tags contains ',guarantee:yes,'
+    assign fb_decided = false
+    assign fb_mf = product.metafields.custom.foam_guarantee.value
+    if fb_mf == true
       assign fb_ok = true
-    else
-      assign fb_bed = true
-      assign fb_type = product.type | default: '' | downcase | strip
-      assign fb_first = fb_type | split: '>' | first | default: '' | strip
-      if fb_first != ''
-        unless fb_first contains 'bed'
-          assign fb_bed = false
+      assign fb_decided = true
+    elsif fb_mf == false
+      assign fb_decided = true
+    endif
+
+    if fb_decided == false
+      assign fb_core = product.metafields.custom.core_type.value | default: '' | append: '' | strip | downcase
+      if fb_core != ''
+        unless fb_core contains 'memory foam'
+          assign fb_decided = true
         endunless
       endif
-      assign fb_title = product.title | default: '' | downcase
-      if fb_tags contains ',dog car seat,' or fb_tags contains ',car seat,' or fb_title contains 'car seat'
-        assign fb_bed = false
-      endif
-      if fb_bed
-        assign fb_desc = product.description | default: '' | downcase
-        if fb_desc contains 'no-flatten guarantee' or fb_desc contains 'no flatten guarantee'
-          assign fb_ok = true
+    endif
+
+    if fb_decided == false
+      assign fb_tags = product.tags | join: ',' | downcase | prepend: ',' | append: ','
+      if fb_tags contains ',guarantee:no,'
+        assign fb_ok = false
+      elsif fb_tags contains ',guarantee:yes,'
+        assign fb_ok = true
+      else
+        assign fb_bed = true
+        assign fb_type = product.type | default: '' | downcase | strip
+        assign fb_first = fb_type | split: '>' | first | default: '' | strip
+        if fb_first != ''
+          unless fb_first contains 'bed'
+            assign fb_bed = false
+          endunless
+        endif
+        assign fb_title = product.title | default: '' | downcase
+        if fb_tags contains ',dog car seat,' or fb_tags contains ',car seat,' or fb_title contains 'car seat'
+          assign fb_bed = false
+        endif
+        if fb_bed
+          assign fb_desc = product.description | default: '' | downcase
+          if fb_desc contains 'no-flatten guarantee' or fb_desc contains 'no flatten guarantee'
+            assign fb_ok = true
+          endif
         endif
       endif
     endif
+
     if fb_ok
       echo 'true'
     endif

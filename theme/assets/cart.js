@@ -1,5 +1,5 @@
 /*
- * Lunova — cart.js (chrome area)
+ * Lunova: cart.js (chrome area)
  *
  * Loaded once on every page by layout/theme.liquid. Holds the behaviour for
  * the parts of the store that are always there:
@@ -9,7 +9,7 @@
  *   <quick-add-drawer>  size picker drawer for product cards
  *   <site-header>       sticky/condensing header, dropdown navigation
  *   <menu-drawer>       mobile menu
- *   <announcement-bar>  rotating promises
+ *   <announcement-bar>  the one static line (rotation only if a bar ever holds 2+ slides)
  *   footer accordions, links-to-/cart → drawer, single-variant quick add
  *
  * Exposes Lunova.chromeDialog { open(host, opts), close(host, opts) } which

@@ -28,7 +28,7 @@ and Chromium from `/opt/pw-browsers`. Don't run `playwright install`.
 | `node lib/finder-engine.mjs` | Prints the finder's pick for every answer, headless, on the committed real catalogue (`--full` for the fixture catalogue) |
 | `node render.mjs <path>` | Renders one URL to stdout and prints its issues to stderr (`--empty`, `--real`, `--cart`, `--section <id>`, `--out file.html`) |
 | `node fixtures/fetch-real.mjs` | Downloads the live catalogue into `.out/real-products.json` (`--offline` copies the snapshot, `--check` prints what the file holds) |
-| `npm run test:harness` | Self-tests for the harness's Shopify emulation (Ruby maths, render scoping, paginate, forms, cart rules, schema rules) and the headless finder matrix on the real catalogue (`test/finder-matrix.test.mjs`) |
+| `npm run test:harness` | Self-tests for the harness's Shopify emulation (Ruby maths, render scoping, paginate, forms, cart rules, schema rules), the headless finder matrix on the real catalogue (`test/finder-matrix.test.mjs`) and the October 2026 audit plumbing (`test/audit.test.mjs`: metafield typing and the real overlay, whole-pound money in Liquid and `Lunova.money`, `Lunova.delivery.window` working days and bank holidays, the foam-guarantee and delivery claim gates) |
 | `npm test` | Self-tests, then `check.mjs`, then `browser-test.mjs` |
 
 Output lines are meant to be grepped: `ERROR [schema] sections/hero.liquid  message`,
@@ -87,7 +87,14 @@ Wensleydale are sold out, and Ambleside XL sells on backorder. Two products have
 compare-at prices. Tags cover `finder:*`, `best-for:*`, `badge:Most popular` and `guarantee:yes`
 (on the eight orthopaedic beds, so the foam guarantee and per-night lines still render).
 Metafields cover `reviews.rating`, `custom.best_for`, `tagline`, `benefits`, `specs`,
-`care` and `variant custom.most_chosen`. Images are served from `/assets/img`.
+`care` and `variant custom.most_chosen`, plus representative October 2026 `custom.*`
+values (Admin API shape, `custom` / `variantCustom` in `catalog.mjs`): Coniston is the
+low-entry bed with the real Coniston subtitle, "Worth it?", Q&A, liner, feel and
+variant sleep areas; Ambleside the guarantee memory foam bed with a 50kg/m³ density and
+1 to 2 dispatch days; Langdale the egg-crate bed (`foam_guarantee` false beats its
+`guarantee:yes` tag); Kendal the partner-warehouse bed with no dispatch days (no dates);
+the Windermere cooling bed a partner bed with 3 to 5 dispatch days. Images are served
+from `/assets/img`.
 
 The catalogue also reproduces mess from the live store, as recorded in the README:
 
@@ -140,7 +147,14 @@ store.
 - **Products** keep exactly the options (name, position, values), variants (id, title,
   option1–3, sku, prices in pence, compare-at), images (CDN `src`, width, height, alt, media
   id, variant images), tags, `product_type`, vendor, `body_html`, handle and url from the
-  live data. Their metafields are empty, because the store has none.
+  live data.
+- **Metafields:** `fixtures/real-metafields.json` (the Admin API export of every product's
+  and variant's `custom.*` metafields, keyed by handle and variant id; `REAL_METAFIELDS`
+  env var to point elsewhere) is merged into `product.metafields.custom` and
+  `variant.metafields.custom`, typed the way Shopify's Liquid hands them over
+  (`metafieldDrop` in `fixtures/store.mjs`): `boolean` → true/false, `number_integer` →
+  number, `list.*` → array, `json` → object/array, text types → string. Each is a drop
+  with `.value` and `.type` that prints its value; empty values are left out (blank).
 - **Stock:** every variant is tracked (`inventory_management: 'shopify'`, `inventory_policy:
   'deny'`) with `inventory_quantity: 5`, which is what the live store holds today.
 - **Collections:** `all` holds every product in the live order (title A–Z) and `frontpage`
@@ -225,7 +239,8 @@ Liquid verdicts in the product JSON (`foam`, `trial`, `personalised`), the size 
   than one step up;
 - a per-night sum or guarantee line would show on a bed the foam rule doesn't cover, or a
   trial line on a product the trial doesn't cover. Both rules are restated in the test from
-  the raw product data (description, type, tags), so the Liquid, the JS and the stated
+  the raw product data (description, type, tags, and the `custom.foam_guarantee` /
+  `custom.core_type` metafields, which decide first), so the Liquid, the JS and the stated
   rule must all agree, for every product, not only the ones picked;
 - a reason line runs two sentences together (`/\.[A-Z]/`);
 - curl and lean get the same bed for more than 2 of the 5 sizes at any stage.
@@ -327,6 +342,11 @@ fallback when the dog's own size is missing or sold out, so it is not flagged.
    preset as a merchant would add it. Every `application/json` or `ld+json` island in the
    output must parse. In real mode a `[real]` group adds observations about the store, for
    example "Only N left" showing on every product page while every variant holds 5.
+   An `[audit]` group (October 2026 audit, every catalogue with products) fails on
+   "Only N left" anywhere and on a same-day dispatch claim on a product page whose
+   product lacks `custom.ships_same_day` = true, and warns on whole-pound prices printed
+   with ".00" and on em dashes in visible text. It also fails when settings_data fills
+   `store_rating` / `store_review_count`, and warns when low stock is switched on.
 6. **finder:** the headless finder matrix (see [The finder matrix](#the-finder-matrix)) for
    each catalogue with products.
 7. **theme-check:** `@shopify/theme-check-node` runs on a copy of the theme with
@@ -367,21 +387,25 @@ reports WCAG 2.2 A/AA violations as WARN, or as FAIL with `--strict-a11y`.
 
 - **the offer** (Theme settings → Offer), pinned with the override cookies so the results don't
   depend on today's date, on a size-only product with sizes either side of the £129 minimum:
-  - *pdp net price / nudge* (390, 1440): under the minimum only the quiet "Large (£149) qualifies
-    for £15 off" line shows and only qualifying size buttons carry "£15 off"; choosing a
-    qualifying size shows "£15 off at checkout — you pay £134" and hides the nudge (never both);
+  - *pdp this-size line* (390, 1440): under the minimum nothing shows (and no size mark on
+    that size); choosing a qualifying size shows exactly "£15 off this size at checkout, until
+    <date>" (`[data-offer-size]`, kept in step by `Lunova.offer.update`); back under, it goes;
   - *hidden after end date* (390): `offer_ends` in the past renders no `[data-offer]` element on the
     product page, announcement bar or cards; a page rendered while the offer ran but read after
     its end on the shopper's clock (`page.clock`) gets `html.offer-ended` and shows none of it;
   - *basket bar + discount line* (390, 1440): under the minimum the basket page shows "£X away from
     £15 off" and no free-delivery bar beside it; over it, Shopify's discount application reads
-    "Cosy Season Saving −£15.00" on the basket page and in the drawer, the goal bar goes, and the
-    product page stops offering "you pay…" (one discount per order);
+    "Cosy Season Saving −£15" (whole pounds) on the basket page and in the drawer, the goal bar
+    goes, and the product page stops offering "£15 off this size" (one discount per order);
   - *one per order, no other discount* (390): once the basket has the discount no card badge or
     size mark offers it again (`html.offer-applied`); with another discount in play (the
     `_gad` cart attribute Google's automated discounts set, or a `?pv2=` landing link) the
-    product page, the "away from £15 off" bar and the offer banner say nothing about it
-    (`html.offer-other`), because the live discount combines with no other discount.
+    product page and the "away from £15 off" bar say nothing about it (`html.offer-other`),
+    because the live discount combines with no other discount.
+- **delivery dates** (390, 1440): an own-stock bed's delivery line carries working-day arrival
+  dates filled in by `Lunova.delivery.window` ("Free standard delivery: arrives Thu 15 Oct to
+  Mon 19 Oct", never a Saturday or Sunday, no same-day wording); a partner-warehouse bed with
+  no dispatch days shows no dates ("…partner warehouse; delivery time shown at checkout").
 
 **Finder matrix.** See [The finder matrix](#the-finder-matrix).
 

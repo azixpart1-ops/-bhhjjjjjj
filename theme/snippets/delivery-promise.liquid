@@ -1,24 +1,31 @@
 {%- comment -%}
-  Delivery promise with an honest dispatch countdown.
+  Dispatch countdown, OFF by default (Theme settings → Promises → Dispatch
+  countdown, delivery_promise_enable). It is a same-day dispatch claim, so
+  even when switched on it only renders for a bed whose own data says it
+  leaves the same day: product metafield custom.ships_same_day = true (for
+  the basket: every line's product). Anywhere else it renders nothing.
 
   Server renders a true, timeless fallback ("Order by 3pm Mon–Fri for same-day
   dispatch"). global.js then replaces the text with a live line computed from
   the merchant's real cut-off, dispatch days, holidays and delivery window in
   the store's time zone:
-    "Order within 2h 14m for dispatch today — arrives Thu 8 Oct–Sat 10 Oct"
-    "Order now for dispatch tomorrow (Mon) — arrives Tue 6 Oct–Thu 8 Oct"
-  It updates every 30s, never resets on reload, and is hidden entirely when
-  settings.delivery_promise_enable is off.
+    "Order within 2h 14m for dispatch today, arrives Thu 8 Oct to Sat 10 Oct"
+  It updates every 30s and never resets on reload.
+
+  The dated delivery line every product page shows is snippets/delivery-estimate.
 
   Parameters
+    product   the product (defaults to variant.product, then the page's product)
     variant   optional; when it is unavailable the line starts hidden
               (global.js re-shows it on lunova:variant:change to an available one)
+    basket    pass cart instead of a product: every line must ship same day
     compact   true → small single line (cards, drawer, sticky bar)
     class     extra classes
     mode      'time' → outputs only the cut-off time text ("3pm"; blank when the
               cut-off hour is 0, i.e. no same-day dispatch)
               'days' → outputs only the dispatch days text ("Mon–Fri")
-              (used by trust-list; no markup)
+              (used by trust-list and copy placeholders; no markup; callers
+              only use them while delivery_promise_enable is on)
 {%- endcomment -%}
 {%- liquid
   assign hour = settings.dispatch_cutoff_hour | default: 15 | plus: 0
@@ -89,7 +96,31 @@
   {{- time_text -}}
 {%- elsif mode == 'days' -%}
   {{- days_text -}}
-{%- elsif settings.delivery_promise_enable and count > 0 -%}
+{%- else -%}
+  {%- liquid
+    comment
+      Same-day only where the bed's own data says so.
+    endcomment
+    assign dp_same_day = false
+    if basket.items
+      if basket.items.size > 0
+        assign dp_same_day = true
+        for dp_item in basket.items
+          unless dp_item.product.metafields.custom.ships_same_day.value == true
+            assign dp_same_day = false
+            break
+          endunless
+        endfor
+      endif
+    else
+      assign dp_p = product | default: variant.product
+      if dp_p != blank and dp_p.metafields.custom.ships_same_day.value == true
+        assign dp_same_day = true
+      endif
+    endif
+  -%}
+{%- endif -%}
+{%- if mode != 'time' and mode != 'days' and settings.delivery_promise_enable and count > 0 and dp_same_day -%}
   {%- liquid
     assign starts_hidden = false
     if variant != blank and variant.available == false

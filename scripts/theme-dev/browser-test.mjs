@@ -894,40 +894,40 @@ function offerProduct(store) {
 
 async function readOffer(page) {
   return page.evaluate(() => {
-    const box = document.querySelector('[data-product-scope] [data-offer-pdp]');
-    if (!box) return null;
+    const box = document.querySelector('[data-product-scope] [data-offer-size]');
+    if (!box) return { state: 'absent', shown: false, line: false, lineText: '' };
     const vis = (el) => !!el && !el.hidden && el.getClientRects().length > 0 && getComputedStyle(el).display !== 'none';
-    const line = box.querySelector('[data-offer-line]');
-    const nudge = box.querySelector('[data-offer-nudge]');
-    return { state: box.getAttribute('data-state'), shown: vis(box), line: vis(line), nudge: vis(nudge), lineText: line ? line.innerText.replace(/\s+/g, ' ').trim() : '', nudgeText: nudge ? nudge.innerText.replace(/\s+/g, ' ').trim() : '' };
+    const text = box.querySelector('[data-offer-size-text]');
+    return { state: box.getAttribute('data-state'), shown: vis(box), line: vis(box), lineText: text ? text.innerText.replace(/\s+/g, ' ').trim() : '' };
   });
 }
 
+/**
+ * The buy box's one offer line (snippets/offer mode pdp, Lunova.offer.update): "£15 off
+ * this size at checkout, until Sat 31 Oct" only for a size whose own price reaches the
+ * minimum; nothing at all for any other size (no nudge, no net price).
+ */
 function offerPdpFlow(P) {
   return async (page) => {
     if (!P) return { status: 'SKIP', detail: 'no size-only product with sizes either side of the offer minimum' };
     const origin = new URL(page.url()).origin;
     await offerCookies(page.context(), origin);
-    // 1. below the minimum: one quiet line naming the size that qualifies, never the net line too
+    // 1. below the minimum: nothing
     await page.goto(`${origin}/products/${P.handle}?variant=${P.below.id}`, { waitUntil: 'load' });
     let o = await readOffer(page);
-    if (!o || !o.shown) fail(`price ${shortMoney(P.below.price)} is under the minimum but no offer nudge shows`);
-    if (o.state !== 'nudge' || !o.nudge || o.line) fail(`under the minimum: expected only the nudge, got state ${o.state} line=${o.line} nudge=${o.nudge}`);
-    if (!/qualifies for £15 off/.test(o.nudgeText) || !o.nudgeText.includes(shortMoney(P.above.price))) fail(`nudge text "${o.nudgeText}" doesn't name ${shortMoney(P.above.price)} qualifying for £15 off`);
+    if (o.shown) fail(`price ${shortMoney(P.below.price)} is under the minimum but the offer line shows: "${o.lineText}"`);
     const marks = await page.evaluate(() => [...document.querySelectorAll('[data-product-scope] variant-picker [data-value-label]')].map((l) => ({ v: l.getAttribute('data-value'), m: !!l.querySelector('[data-value-offer]:not([hidden])') })));
     const markAbove = marks.find((m) => m.v === P.above.value);
     const markBelow = marks.find((m) => m.v === P.below.value);
-    if (!markAbove || !markAbove.m || (markBelow && markBelow.m)) fail(`size marks wrong: ${JSON.stringify(marks).slice(0, 160)}`);
-    // 2. a size at or over the minimum: "£15 off at checkout — you pay £X", no nudge
+    if (markBelow && markBelow.m) fail(`size mark on ${P.below.value}, which is under the minimum: ${JSON.stringify(marks).slice(0, 160)}`);
+    // 2. a size at or over the minimum: "£15 off this size at checkout, until …"
     await page.locator(`[data-product-scope] variant-picker [data-value-label][data-value="${P.above.value.replace(/"/g, '\\"')}"]`).filter({ visible: true }).first().click();
-    const net = shortMoney(P.above.price - OFFER.amount);
-    if (!(await waitFor(async () => { o = await readOffer(page); return o && o.state === 'line'; }, 3000))) fail(`choosing ${P.above.value} (${shortMoney(P.above.price)}) didn't show the net price (state ${o && o.state})`);
-    if (!o.line || o.nudge) fail(`over the minimum: line=${o.line} nudge=${o.nudge} (never both)`);
-    if (!/£15 off at checkout/.test(o.lineText) || !o.lineText.includes(`you pay ${net}`)) fail(`net line "${o.lineText}" should say £15 off at checkout — you pay ${net}`);
-    // 3. back under: nudge again
+    if (!(await waitFor(async () => { o = await readOffer(page); return o.shown; }, 3000))) fail(`choosing ${P.above.value} (${shortMoney(P.above.price)}) didn't show the offer line (state ${o.state})`);
+    if (!/^£15 off this size at checkout, until (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} [A-Z][a-z]{2}$/.test(o.lineText)) fail(`offer line "${o.lineText}" should read "£15 off this size at checkout, until <date>"`);
+    // 3. back under: gone again
     await page.locator(`[data-product-scope] variant-picker [data-value-label][data-value="${P.below.value.replace(/"/g, '\\"')}"]`).filter({ visible: true }).first().click();
-    if (!(await waitFor(async () => { o = await readOffer(page); return o && o.state === 'nudge' && !o.line; }, 3000))) fail('switching back under the minimum did not return to the nudge');
-    return { detail: `${P.handle}: ${P.below.value} → "${o.nudgeText.slice(0, 44)}" · ${P.above.value} → "…you pay ${net}" · marks on qualifying sizes only` };
+    if (!(await waitFor(async () => { o = await readOffer(page); return !o.shown; }, 3000))) fail('switching back under the minimum left the offer line showing');
+    return { detail: `${P.handle}: ${P.below.value} → nothing · ${P.above.value} → "${(o.lineText || '£15 off this size at checkout').slice(0, 52)}" · back → nothing${markAbove && markAbove.m ? ' · size mark on the qualifying size' : ''}` };
   };
 }
 
@@ -951,7 +951,7 @@ function offerEndedFlow(P) {
     await offerCookies(ctx, origin, { ends: ukStamp(ends) });
     await page.clock.install({ time: new Date(ends + 3600000) });
     await page.goto(`${origin}/products/${P.handle}?variant=${P.above.id}`, { waitUntil: 'load' });
-    const rendered = await page.locator('[data-offer-pdp]').count();
+    const rendered = await page.locator('[data-offer-size]').count();
     const ended = await page.evaluate(() => document.documentElement.classList.contains('offer-ended'));
     const visible = await page.locator('[data-offer]').filter({ visible: true }).count();
     if (!rendered) fail('control: with a future end date the server should still render the offer');
@@ -983,18 +983,18 @@ function offerCartFlow(P) {
     const line = page.locator('.cart__discounts li').first();
     if (!(await line.count())) fail('the automatic discount applied but no discount line shows on the basket page');
     const lineText = (await line.innerText()).replace(/\s+/g, ' ');
-    if (!lineText.includes(OFFER.label) || !lineText.includes('−£15.00')) fail(`discount line "${lineText}" should read "${OFFER.label} −£15.00"`);
+    if (!lineText.includes(OFFER.label) || !/−£15(?!\.)/.test(lineText)) fail(`discount line "${lineText}" should read "${OFFER.label} −£15" (whole pounds)`);
     if (await page.locator('[data-offer-bar]').count()) fail('goal bar still shows once the discount is applied');
     // 3. the drawer says the same after an add from the product page, and the PDP stops promising another £15
     await page.goto(`${origin}/products/${P.handle}?variant=${P.above.id}`, { waitUntil: 'load' });
     const o = await readOffer(page);
-    if (o && o.line) fail('basket already has the discount, but the product page still offers "£15 off — you pay…"');
+    if (o && o.shown) fail('basket already has the discount, but the product page still offers "£15 off this size"');
     await page.locator('product-form [data-add-button]').first().click();
     if (!(await drawerHasLine(page))) fail('drawer did not open');
     const dl = page.locator('cart-drawer [data-cart-discounts] li').first();
     if (!(await waitFor(async () => (await dl.count()) > 0, 4000))) fail('drawer shows no discount line');
     const dText = (await dl.innerText()).replace(/\s+/g, ' ');
-    if (!dText.includes(OFFER.label) || !dText.includes('−£15.00')) fail(`drawer discount line "${dText}"`);
+    if (!dText.includes(OFFER.label) || !/−£15(?!\.)/.test(dText)) fail(`drawer discount line "${dText}" should read "${OFFER.label} −£15"`);
     const deliv = await page.locator('cart-drawer [data-delivery-options]').filter({ visible: true }).count();
     return { status: deliv ? 'PASS' : 'WARN', detail: `under → "${barText.slice(0, 40)}…" · over → "${lineText}" (page + drawer) · PDP state ${o ? o.state : 'none'}${deliv ? ' · drawer delivery line' : ' · WARN no delivery line in drawer'}` };
   };
@@ -1032,15 +1032,62 @@ function offerOneDiscountFlow(P) {
     await ctx.request.post(`${origin}/cart/update.js`, { data: { attributes: { _gad: 'test' } } });
     await add(P.below.id);
     await page.goto(`${origin}/products/${P.handle}?variant=${P.above.id}`, { waitUntil: 'load' });
-    if (await visibleCount('[data-product-scope] [data-offer-pdp]')) fail('another discount is on the basket (_gad), but the product page still promises £15 off');
-    if (await visibleCount('[data-offer-banner]')) fail('another discount is on the basket (_gad), but the offer banner still shows');
+    if (await visibleCount('[data-product-scope] [data-offer-size]')) fail('another discount is on the basket (_gad), but the product page still promises £15 off');
     await page.goto(`${origin}/cart`, { waitUntil: 'load' });
     if (await visibleCount('[data-offer-bar]')) fail('another discount is on the basket (_gad), but the "away from £15 off" bar still shows');
     // 3. a Google automated-discount landing link (?pv2=) with an empty basket
     await ctx.request.post(`${origin}/cart/clear.js`);
     await page.goto(`${origin}/products/${P.handle}?variant=${P.above.id}&pv2=test`, { waitUntil: 'load' });
-    if (await visibleCount('[data-product-scope] [data-offer-pdp]')) fail('Google discount landing (?pv2=) but the product page still promises £15 off');
-    return { detail: `card badges ${before} → 0 once applied · no size marks · _gad: no PDP line, banner or goal bar · ?pv2=: no PDP line` };
+    if (await visibleCount('[data-product-scope] [data-offer-size]')) fail('Google discount landing (?pv2=) but the product page still promises £15 off');
+    return { detail: `card badges ${before} → 0 once applied · no size marks · _gad: no PDP line or goal bar · ?pv2=: no PDP line` };
+  };
+}
+
+// ------------------------------------------------------------------ delivery dates (snippets/delivery-estimate)
+/** An own-stock bed with dates, and a partner-warehouse bed without dispatch days (no dates). */
+function deliveryProducts(store) {
+  const mf = (p, k) => { const c = p.metafields && p.metafields.custom; return c && c[k] ? c[k].value : null; };
+  const ps = store.products().filter((p) => p.available);
+  const own = ps.find((p) => /own stock/i.test(String(mf(p, 'ships_from') || ''))) || ps.find((p) => !mf(p, 'ships_from')) || null;
+  const partner = ps.find((p) => /partner/i.test(String(mf(p, 'ships_from') || '')) && mf(p, 'dispatch_days_min') == null && mf(p, 'dispatch_days_max') == null) || null;
+  return { own: own && own.handle, partner: partner && partner.handle };
+}
+
+/**
+ * The delivery line under the price: dates filled in by Lunova.delivery.window from the
+ * element's data (working days only), "Free standard delivery: arrives Thu 15 Oct to Mon 19 Oct";
+ * a partner-warehouse bed without dispatch days shows no dates at all. Never same-day wording.
+ */
+function deliveryFlow(D) {
+  return async (page) => {
+    if (!D.own) return { status: 'SKIP', detail: 'no own-stock product' };
+    const origin = new URL(page.url()).origin;
+    const read = () => page.evaluate(() => [...document.querySelectorAll('[data-product-scope] [data-delivery-estimate]')].filter((el) => el.getClientRects().length).map((el) => ({
+      dates: el.getAttribute('data-dates'),
+      lines: [...el.querySelectorAll('[data-delivery-text]')].map((t) => t.innerText.replace(/\s+/g, ' ').trim()),
+    })));
+    await page.goto(`${origin}/products/${D.own}`, { waitUntil: 'load' });
+    let est = [];
+    const day = '(Mon|Tue|Wed|Thu|Fri) \\d{1,2} [A-Z][a-z]{2}';
+    const re = new RegExp(`arrives ${day}( to ${day})?$`);
+    await waitFor(async () => { est = await read(); return est.length && re.test(est[0].lines[0] || ''); }, 3000);
+    if (!est.length) fail(`${D.own}: no delivery line on the product page`);
+    const std = est[0].lines[0] || '';
+    if (!re.test(std)) fail(`${D.own}: delivery line "${std}" has no working-day arrival dates`);
+    if (/Sat|Sun/.test(std)) fail(`${D.own}: an arrival date falls on a weekend: "${std}"`);
+    if (/same[- ]day/i.test(est.flatMap((e) => e.lines).join(' '))) fail(`${D.own}: same-day wording in the delivery line`);
+    let partnerText = 'no partner bed';
+    if (D.partner) {
+      await page.goto(`${origin}/products/${D.partner}`, { waitUntil: 'load' });
+      const p = await read();
+      if (!p.length) fail(`${D.partner}: no delivery line`);
+      else {
+        partnerText = p[0].lines.join(' / ');
+        if (p[0].dates !== 'false' || /arrives/.test(partnerText)) fail(`${D.partner}: partner warehouse without dispatch days shows dates: "${partnerText}"`);
+        if (!/partner warehouse; delivery time shown at checkout/.test(partnerText)) fail(`${D.partner}: partner line "${partnerText}"`);
+      }
+    }
+    return { detail: `${D.own}: "${est[0].lines.join(' / ').slice(0, 90)}" · ${D.partner || '-'}: "${partnerText.slice(0, 70)}"` };
   };
 }
 
@@ -1145,12 +1192,15 @@ async function main() {
       await flow(browser, base, 'sticky ATC', mob, stickyFlow);
       await flow(browser, base, 'sticky ATC', desk, stickyFlow);
       const offerP = offerProduct(store);
-      await flow(browser, base, 'offer: pdp net price / nudge', mob, offerPdpFlow(offerP));
-      await flow(browser, base, 'offer: pdp net price / nudge', desk, offerPdpFlow(offerP));
+      await flow(browser, base, 'offer: pdp this-size line', mob, offerPdpFlow(offerP));
+      await flow(browser, base, 'offer: pdp this-size line', desk, offerPdpFlow(offerP));
       await flow(browser, base, 'offer: hidden after end date', mob, offerEndedFlow(offerP));
       await flow(browser, base, 'offer: basket bar + discount line', mob, offerCartFlow(offerP));
       await flow(browser, base, 'offer: basket bar + discount line', desk, offerCartFlow(offerP));
       await flow(browser, base, 'offer: one per order, no other discount', mob, offerOneDiscountFlow(offerP));
+      const deliveryP = deliveryProducts(store);
+      await flow(browser, base, 'delivery dates', mob, deliveryFlow(deliveryP));
+      await flow(browser, base, 'delivery dates', desk, deliveryFlow(deliveryP));
     }
     if ((!ONLY || ONLY === 'matrix') && !args['no-matrix']) await finderMatrix(browser, base, VIEWPORTS[1], store);
   } finally {

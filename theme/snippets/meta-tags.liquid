@@ -66,8 +66,24 @@
   {%- if current_page != 1 %} &ndash; {{ 'accessibility.page' | t: page: current_page }}{% endif -%}
   {%- if needs_shop %} &ndash; {{ shop.name }}{% endif -%}
 </title>
-{%- if page_description %}
-<meta name="description" content="{{ page_description | escape }}">
+{%- comment -%}
+  Meta description: the page SEO description. On the homepage, the last line of the store
+  description, so two drafts saved in Preferences never run together. Then a fallback.
+{%- endcomment -%}
+{%- liquid
+  assign meta_desc = page_description
+  if template.name == 'index' and shop.description != blank
+    assign meta_desc = shop.description | newline_to_br | split: '<br />' | last | strip
+  endif
+  if meta_desc == blank and collection and collection.description != blank
+    assign meta_desc = collection.description | strip_html | strip_newlines | truncate: 155
+  endif
+  if meta_desc == blank and shop.description != blank
+    assign meta_desc = shop.description | newline_to_br | split: '<br />' | last | strip
+  endif
+-%}
+{%- if meta_desc != blank %}
+<meta name="description" content="{{ meta_desc | escape }}">
 {%- endif %}
 <link rel="canonical" href="{{ canonical_url }}">
 

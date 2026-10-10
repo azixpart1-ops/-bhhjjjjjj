@@ -26,8 +26,10 @@
                                  item? (see below) The drawer only mentions
                                  the trial for lines that say true.
 
-  Honest numbers only: "Only 3 left" appears when the variant tracks stock,
-  won't oversell (policy deny) and is at or under the low-stock threshold.
+  Low stock is opt-in (Theme settings → Low stock, off by default with a
+  threshold of 0) and never states a count: "Low stock" only appears when the
+  variant tracks stock, won't oversell (policy deny) and is at or under the
+  threshold.
 {%- endcomment -%}
 {%- liquid
   assign ctx = context | default: 'drawer'
@@ -164,7 +166,7 @@
         {%- for allocation in item.line_level_discount_allocations -%}
           <li>
             {%- render 'icon', name: 'tag', size: 14 -%}
-            <span>{{ allocation.discount_application.title | escape }} (−{{ allocation.amount | money }})</span>
+            <span>{{ allocation.discount_application.title | escape }} (−{{ allocation.amount | money_without_trailing_zeros }})</span>
           </li>
         {%- endfor -%}
       </ul>
@@ -250,14 +252,14 @@
   <div class="cart-line__prices">
     {%- if discounted -%}
       <span class="visually-hidden">{{ 'accessibility.was_price' | t }}</span>
-      <s class="cart-line__was">{{ item.original_line_price | money }}</s>
+      <s class="cart-line__was">{{ item.original_line_price | money_without_trailing_zeros }}</s>
       <span class="visually-hidden">{{ 'accessibility.sale_price' | t }}</span>
     {%- elsif compare_line > item.final_line_price -%}
       <span class="visually-hidden">{{ 'accessibility.was_price' | t }}</span>
-      <s class="cart-line__was">{{ compare_line | money }}</s>
+      <s class="cart-line__was">{{ compare_line | money_without_trailing_zeros }}</s>
       <span class="visually-hidden">{{ 'accessibility.sale_price' | t }}</span>
     {%- endif -%}
-    <span class="cart-line__price">{{ item.final_line_price | money }}</span>
+    <span class="cart-line__price">{{ item.final_line_price | money_without_trailing_zeros }}</span>
     {%- if compare_saving > 0 and settings.show_compare_savings -%}
       {%- liquid
         if settings.savings_format == 'percent'

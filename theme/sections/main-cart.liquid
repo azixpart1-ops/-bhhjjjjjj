@@ -104,7 +104,9 @@
   endif
 
   comment
-    The same-day dispatch countdown is for stock beds: a basket where every
+    The same-day dispatch countdown (off by default) is only for beds whose
+    data says they leave the same day (custom.ships_same_day, checked per
+    line in snippets/delivery-promise). A basket where every
     line is made to order (personalised, tagged made-to-order, or with a
     custom.lead_time_days lead time; as the buy box decides) doesn't get it.
   endcomment
@@ -219,7 +221,7 @@
                                   data-options="{{ v.options | json | escape }}"
                                   {%- if v.id == upsell_first.id %} selected{% endif %}
                                 >
-                                  {{- v.title | escape }} · {{ v.price | money -}}
+                                  {{- v.title | escape }} · {{ v.price | money_without_trailing_zeros -}}
                                 </option>
                               {%- endfor -%}
                             </select>
@@ -284,7 +286,7 @@
                       {%- for discount in cart.cart_level_discount_applications -%}
                         <li>
                           <span>{%- render 'icon', name: 'tag' -%}<span class="visually-hidden">{{ 'chrome.cart.discount_label' | t }}: </span>{%- render 'offer', mode: 'discount_title', title: discount.title -%}</span>
-                          <span class="cart__discount-amount">−{{ discount.total_allocated_amount | money }}</span>
+                          <span class="cart__discount-amount">−{{ discount.total_allocated_amount | money_without_trailing_zeros }}</span>
                         </li>
                       {%- endfor -%}
                     </ul>
@@ -292,7 +294,7 @@
 
                   <div class="cart__subtotal">
                     <span>{{ 'collection.cart.subtotal' | t }}</span>
-                    <span class="cart__subtotal-value">{{ cart.total_price | money }}</span>
+                    <span class="cart__subtotal-value">{{ cart.total_price | money_without_trailing_zeros }}</span>
                   </div>
 
                   {%- comment -%}
@@ -342,7 +344,7 @@
                 </div>
 
                 {%- if section.settings.show_delivery and mto_all == false -%}
-                  {%- render 'delivery-promise', compact: true, class: 'cart__delivery' -%}
+                  {%- render 'delivery-promise', compact: true, class: 'cart__delivery', basket: cart -%}
                 {%- endif -%}
               </div>
 
@@ -374,7 +376,7 @@
           <div class="cart-sticky" data-cart-sticky hidden>
             <div class="cart-sticky__total">
               <span class="cart-sticky__label">{{ 'collection.cart.subtotal' | t }}</span>
-              <span class="cart-sticky__value" data-cart-swap="sticky-total">{{ cart.total_price | money }}</span>
+              <span class="cart-sticky__value" data-cart-swap="sticky-total">{{ cart.total_price | money_without_trailing_zeros }}</span>
             </div>
             <button type="submit" form="CartForm-{{ sid }}" name="checkout" class="btn btn--primary cart-sticky__btn">
               {%- render 'icon', name: 'lock' -%}

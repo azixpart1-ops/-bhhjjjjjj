@@ -6,12 +6,98 @@
 // createStore({ real }) — real:true loads the live catalogue
 // (.out/real-products.json, see fixtures/fetch-real.mjs): its products, options,
 // variants, CDN images, tags and types, with Shopify's default menus, the `all`
-// and `frontpage` collections (plus any other published collection), no
-// metafields, and every variant tracked with 5 in stock on a deny policy.
+// and `frontpage` collections (plus any other published collection), the
+// custom.* metafields from fixtures/real-metafields.json (Admin API export, typed
+// like Shopify's Liquid: see metafieldDrop), and every variant tracked with 5 in
+// stock on a deny policy.
 import { SHOP, PRODUCTS, COLLECTIONS, PAGES, BLOGS, MENUS, EMPTY_MENUS, POLICIES, CUSTOMER } from './catalog.mjs';
 import { loadRealCatalog } from './fetch-real.mjs';
 import { ImageRegistry, MetafieldDrop, OptionValueDrop, productJson } from '../lib/drops.mjs';
 import { FIXTURE_IMG_DIR, stripHtml, handleize } from '../lib/util.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/** The custom.* metafield overlay for the real catalogue: { products: {handle: {key: {type, value}}},
+ *  variants: {variantId: {key: {type, value}}} }, values as the Admin API returns them (strings). */
+export const REAL_METAFIELDS_FILE = process.env.REAL_METAFIELDS || path.join(path.dirname(fileURLToPath(import.meta.url)), 'real-metafields.json');
+
+let metafieldOverlayCache = null;
+/** The overlay, read once per file change; empty when the file is missing or broken. */
+export function loadMetafieldOverlay(file = REAL_METAFIELDS_FILE) {
+  let mtime = 0;
+  try { mtime = fs.statSync(file).mtimeMs; } catch { return { products: {}, variants: {} }; }
+  if (metafieldOverlayCache && metafieldOverlayCache.file === file && metafieldOverlayCache.mtime === mtime) return metafieldOverlayCache.data;
+  let data = { products: {}, variants: {} };
+  try {
+    const j = JSON.parse(fs.readFileSync(file, 'utf8'));
+    data = { products: j.products || {}, variants: j.variants || {} };
+  } catch (e) {
+    process.stderr.write(`real-metafields: ${file} could not be read (${e.message}); no metafields merged\n`);
+  }
+  metafieldOverlayCache = { file, mtime, data };
+  return data;
+}
+
+function parseJsonValue(v) {
+  if (v == null || typeof v !== 'string') return v;
+  try { return JSON.parse(v); } catch { return v; }
+}
+
+/** One scalar of a metafield type, typed the way Shopify's Liquid hands it to a theme. */
+function typedScalar(type, v) {
+  if (v == null) return null;
+  switch (type) {
+    case 'boolean': return v === true || String(v).trim().toLowerCase() === 'true';
+    case 'number_integer': { const n = parseInt(String(v), 10); return Number.isNaN(n) ? null : n; }
+    case 'number_decimal': { const n = parseFloat(String(v)); return Number.isNaN(n) ? null : n; }
+    case 'rating': {
+      const r = typeof v === 'object' ? v : parseJsonValue(String(v));
+      return r && typeof r === 'object' ? { rating: Number(r.value ?? r.rating), scale_min: Number(r.scale_min ?? 1), scale_max: Number(r.scale_max ?? 5) } : null;
+    }
+    case 'json':
+    case 'dimension':
+    case 'weight':
+    case 'volume':
+    case 'money':
+      return typeof v === 'string' ? parseJsonValue(v) : v;
+    default: return typeof v === 'string' ? v : String(v);
+  }
+}
+
+/**
+ * A Shopify-typed metafield drop from an Admin API style {type, value} pair (value
+ * as a string, or already typed). Like Shopify's Liquid:
+ *   boolean → true/false · number_integer / number_decimal → number ·
+ *   list.* → array of typed items (.value) · json → object/array (.value) ·
+ *   single_line_text_field / multi_line_text_field and others → string.
+ * The drop exposes .value and .type, and prints its value. null for an empty value.
+ */
+export function metafieldDrop(entry) {
+  if (entry == null) return null;
+  if (entry instanceof MetafieldDrop) return entry;
+  const type = String(entry.type || 'single_line_text_field');
+  let value = entry.value;
+  if (type.startsWith('list.')) {
+    const itemType = type.slice(5);
+    const arr = Array.isArray(value) ? value : parseJsonValue(value);
+    value = Array.isArray(arr) ? arr.map((x) => typedScalar(itemType, x)).filter((x) => x != null) : [];
+  } else {
+    value = typedScalar(type, value);
+  }
+  if (value == null || (typeof value === 'string' && value === '')) return null;
+  return new MetafieldDrop(value, type);
+}
+
+/** {key: {type, value}} → {key: MetafieldDrop}, dropping empty values. */
+export function metafieldNamespace(entries) {
+  const out = {};
+  for (const [k, e] of Object.entries(entries || {})) {
+    const d = metafieldDrop(e);
+    if (d) out[k] = d;
+  }
+  return out;
+}
 
 /** Shopify returns at most 50 products from collection.products / search.results outside {% paginate %}. */
 export const SHOPIFY_PAGE_LIMIT = 50;
@@ -42,7 +128,7 @@ export function mediaOf(img) {
 const toPence = (v) => (v == null || v === '' ? null : Math.round(parseFloat(String(v)) * 100));
 
 /** products.json product → the record shape productView() reads. */
-function realRecord(p, pIdx, images) {
+function realRecord(p, pIdx, images, overlay = null) {
   const opts = Array.isArray(p.options) ? p.options : [];
   const isDefault = !opts.length || (opts.length === 1 && opts[0].name === 'Title' && p.variants.length === 1 && p.variants[0].title === 'Default Title');
   const optionNames = isDefault ? ['Title'] : opts.map((o) => o.name);
@@ -74,7 +160,9 @@ function realRecord(p, pIdx, images) {
   const raw = {
     key: p.handle, real: true, title: p.title, handle: p.handle, type: p.product_type || '', vendor: p.vendor || '',
     tags, body_html: p.body_html || '', options: isDefault ? [] : optionNames, created_at: p.created_at, published_at: p.published_at || p.created_at,
+    custom: (overlay && overlay.products && overlay.products[p.handle]) || null,
   };
+  for (const v of variants) v.custom = (overlay && overlay.variants && overlay.variants[String(v.id)]) || null;
   return { raw, id: p.id, pIdx, optionNames, variants, images: imgs };
 }
 
@@ -109,14 +197,15 @@ function cartesian(options) {
   return options.reduce((acc, [, values]) => acc.flatMap((a) => values.map((v) => [...a, v])), [[]]);
 }
 
-export function createStore({ empty = false, real = false, imgDir = FIXTURE_IMG_DIR, realCatalog = null } = {}) {
+export function createStore({ empty = false, real = false, imgDir = FIXTURE_IMG_DIR, realCatalog = null, metafieldOverlay = null } = {}) {
   if (empty) real = false;
   const images = new ImageRegistry(imgDir);
   const realCat = real ? (realCatalog || loadRealCatalog()) : null;
   const rawProducts = empty || real ? [] : PRODUCTS;
 
   // ---------------------------------------------------------------- products
-  const records = real ? realCat.products.map((p, pIdx) => realRecord(p, pIdx, images)) : rawProducts.map((raw, pIdx) => {
+  const overlay = real ? (metafieldOverlay || loadMetafieldOverlay()) : null;
+  const records = real ? realCat.products.map((p, pIdx) => realRecord(p, pIdx, images, overlay)) : rawProducts.map((raw, pIdx) => {
     const id = 8800000000 + pIdx;
     const combos = cartesian(raw.options);
     const optionNames = raw.options.length ? raw.options.map(([n]) => n) : ['Title'];
@@ -140,6 +229,7 @@ export function createStore({ empty = false, real = false, imgDir = FIXTURE_IMG_
         sku: `PL-${raw.key.toUpperCase()}-${handleize(title).toUpperCase() || 'DEFAULT'}`,
         tracked, qty, policy, available, mostChosen,
         weight: 3000 + vIdx * 800,
+        custom: (raw.variantCustom && (raw.variantCustom[title] || raw.variantCustom[size])) || null,
       };
     });
     const imgs = raw.images.map(([file, alt], i) => images.image(file, { alt, position: i + 1, productId: id })).filter(Boolean);
@@ -166,8 +256,16 @@ export function createStore({ empty = false, real = false, imgDir = FIXTURE_IMG_
     if (raw.benefits) custom.benefits = new MetafieldDrop(raw.benefits, 'list.single_line_text_field');
     if (raw.specs) custom.specs = new MetafieldDrop(raw.specs, 'multi_line_text_field');
     if (raw.care) custom.care = new MetafieldDrop(raw.care, 'multi_line_text_field');
+    // custom.* in Admin API shape ({key: {type, value}}): the real-metafields overlay, or a fixture's own.
+    Object.assign(custom, metafieldNamespace(raw.custom));
     if (Object.keys(custom).length) mf.custom = custom;
     return mf;
+  }
+
+  function variantMetafields(v) {
+    const custom = metafieldNamespace(v.custom);
+    if (v.mostChosen) custom.most_chosen = new MetafieldDrop(true, 'boolean');
+    return Object.keys(custom).length ? { custom } : {};
   }
 
   /** Build a product drop; selectedVariantId sets selected_variant (from ?variant=). */
@@ -209,7 +307,7 @@ export function createStore({ empty = false, real = false, imgDir = FIXTURE_IMG_
         image: v.imageId ? rec.images.find((m) => m.id === v.imageId) || null : null,
         selected: selectedVariantId != null && v.id === Number(selectedVariantId),
         matched: true,
-        metafields: v.mostChosen ? { custom: { most_chosen: new MetafieldDrop(true, 'boolean') } } : {},
+        metafields: variantMetafields(v),
         unit_price: null,
         unit_price_measurement: null,
         store_availabilities: [],

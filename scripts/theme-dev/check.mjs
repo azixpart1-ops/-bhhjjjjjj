@@ -261,6 +261,11 @@ function checkSettings() {
       if (!dp.value.presets || !dp.value.presets[cur]) add('settings', 'error', `current refers to missing preset "${cur}"`, { file: df });
       cur = (dp.value.presets || {})[cur] || {};
     }
+    // Audit guardrails (Oct 2026): no store rating without a reviews app behind it; low stock opt-in.
+    for (const k of ['store_rating', 'store_review_count']) {
+      if (cur && String(cur[k] || '').trim()) add('audit', 'error', `settings_data current.${k} is "${cur[k]}": must stay blank (no rating or count without 5+ real reviews from a reviews app)`, { file: df });
+    }
+    if (cur && cur.low_stock_enable === true) add('audit', 'warn', 'settings_data current.low_stock_enable is on: only with real inventory, and the copy never shows a count', { file: df });
     for (const [k, v] of Object.entries(cur || {})) {
       if (['sections', 'content_for_index', 'blocks'].includes(k)) continue;
       const d = all.get(k);
@@ -431,6 +436,39 @@ function realCatalogueNotes(store, pages) {
 }
 const stripTags = (html) => String(html || '').replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
+/**
+ * October 2026 audit guardrails, on every rendered page with products (all catalogues):
+ *   ERROR  "Only N left" anywhere (P0-2: low stock is opt-in, never a count)
+ *   ERROR  "same-day dispatch" on a product page whose product lacks custom.ships_same_day
+ *   WARN   a whole-pound price printed with ".00" (£149.00; P0 / S12: whole pounds)
+ *   WARN   an em dash (U+2014) in visible text (house style)
+ * Hidden text counts too: Liquid can't know what JS will reveal.
+ */
+function auditNotes(store, pages, mode) {
+  const visible = (p) => stripTags(String(p.out.html || '').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' '));
+  const withHtml = pages.filter((p) => p.out && p.out.html);
+  const scarce = withHtml.filter((p) => /\bonly\s+\d+\s+left\b/i.test(visible(p)));
+  if (scarce.length) add('audit', 'error', `"Only N left" shows on ${scarce.length} page(s): low stock must be opt-in and never a count`, { seen: scarce.slice(0, 4).map((p) => `${mode} ${p.url}`) });
+  const sameDay = withHtml.filter((p) => {
+    const m = /^\/products\/([^/?#]+)/.exec(p.url);
+    if (!m || !/same[- ]day dispatch|dispatched the same day|out the same day/i.test(visible(p))) return false;
+    const prod = store.productByHandle(decodeURIComponent(m[1]));
+    const v = prod && prod.metafields && prod.metafields.custom && prod.metafields.custom.ships_same_day;
+    return !(v && v.value === true);
+  });
+  if (sameDay.length) add('audit', 'error', `a same-day dispatch claim on ${sameDay.length} product page(s) whose product has no custom.ships_same_day = true`, { seen: sameDay.slice(0, 4).map((p) => `${mode} ${p.url}`) });
+  const pence = withHtml.filter((p) => /£\d[\d,]*\.00(?!\d)/.test(visible(p)));
+  if (pence.length) {
+    const ex = (p) => (visible(p).match(/.{0,30}£\d[\d,]*\.00(?!\d).{0,20}/) || [''])[0].trim();
+    add('audit', 'warn', `whole-pound price printed with ".00" on ${pence.length} page(s), e.g. "${ex(pence[0])}"`, { seen: pence.slice(0, 4).map((p) => `${mode} ${p.url}`) });
+  }
+  const dashes = withHtml.filter((p) => visible(p).includes('\u2014'));
+  if (dashes.length) {
+    const ex = (p) => (visible(p).match(/.{0,40}\u2014.{0,30}/) || [''])[0].trim();
+    add('audit', 'warn', `em dash in visible text on ${dashes.length} page(s), e.g. "${ex(dashes[0])}"`, { seen: dashes.slice(0, 4).map((p) => `${mode} ${p.url}`) });
+  }
+}
+
 function renderSweep(mode) {
   const store = createStore({ empty: mode === 'empty', real: mode === 'real' });
   const r = new ThemeRenderer({ themeDir: THEME, store });
@@ -458,6 +496,7 @@ function renderSweep(mode) {
 
   const pages = routeCatalog(store).map(([name, url]) => ({ name, url, out: visit(name, url) }));
   if (mode === 'real') realCatalogueNotes(store, pages);
+  if (products.length) auditNotes(store, pages, mode);
   if (products.length) {
     visit('cart-full', '/cart', { cart: full });
     visit('home-full-cart', '/', { cart: full });

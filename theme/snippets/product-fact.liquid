@@ -1,0 +1,132 @@
+{%- comment -%}
+  One fact about a product, from its own data only (custom.* metafields,
+  the metafield contract in docs/audit-oct-contract.md), or nothing.
+  Every claim block asks this instead of reading metafields itself, so a
+  blank metafield always hides the element and nothing is ever guessed.
+
+  Usage (capture it; empty output = don't show the element):
+    {%- capture density -%}{%- render 'product-fact', product: product, key: 'density' -%}{%- endcapture -%}
+    {%- if density != blank -%}<dt>Density</dt><dd>{{ density }}kg/m³</dd>{%- endif -%}
+
+  Keys and what comes out
+    guarantee     "true" when the foam guarantee covers it (snippets/foam-bed)
+    per_night     "true" when a per-night line may show: guarantee + settings
+                  show_per_night + guarantee_enable (snippets/per-night prints it)
+    density       density_kg_m3 as a whole number ("50"); only with a value
+    liner         "true" when has_liner is true
+    wash_temp     wash_temp as a whole number ("30")
+    low_entry     "true" when low_entry is true
+    entry_height  entry_height_cm as a whole number
+    non_slip      "true" when non_slip is true
+    same_day      "true" when ships_same_day is true
+    partner       "true" when ships_from is "Partner warehouse"
+    feel          feel 1 to 5 as a whole number
+    subtitle      subtitle, else the older custom.tagline
+    best_for      custom.best_for, else the older tag "best-for:…"
+    core_type, foam_depth, cover_type, shape, ships_from
+                  the text as stored (escaped)
+    sleep_style   the list joined with ", " (escaped)
+    worth_it      the multi-line text, escaped, line breaks as <br>
+    qa_count      how many {q, a} pairs custom.qa holds ("0" when none)
+  Read custom.qa itself for the pairs: product.metafields.custom.qa.value is
+  an array of {"q", "a"} objects.
+
+  Parameters: product (default: the page's product), key
+{%- endcomment -%}
+{%- liquid
+  assign pf_p = product
+  assign pf_key = key
+  if pf_p == blank
+    assign pf_key = ''
+  endif
+  assign pf_m = pf_p.metafields.custom
+  case pf_key
+    when 'guarantee'
+      render 'foam-bed', product: pf_p
+    when 'per_night'
+      assign pf_years = settings.guarantee_years | default: 0 | plus: 0
+      if settings.show_per_night and settings.guarantee_enable and pf_years > 0
+        render 'foam-bed', product: pf_p
+      endif
+    when 'density'
+      assign pf_v = pf_m.density_kg_m3.value | append: '' | strip
+      if pf_v != '' and pf_v != '0'
+        echo pf_v
+      endif
+    when 'wash_temp'
+      assign pf_v = pf_m.wash_temp.value | append: '' | strip
+      if pf_v != '' and pf_v != '0'
+        echo pf_v
+      endif
+    when 'entry_height'
+      assign pf_v = pf_m.entry_height_cm.value | append: '' | strip
+      if pf_v != '' and pf_v != '0'
+        echo pf_v
+      endif
+    when 'feel'
+      assign pf_v = pf_m.feel.value | append: '' | strip
+      if pf_v != ''
+        assign pf_n = pf_v | plus: 0
+        if pf_n >= 1 and pf_n <= 5
+          echo pf_n
+        endif
+      endif
+    when 'liner'
+      if pf_m.has_liner.value == true
+        echo 'true'
+      endif
+    when 'low_entry'
+      if pf_m.low_entry.value == true
+        echo 'true'
+      endif
+    when 'non_slip'
+      if pf_m.non_slip.value == true
+        echo 'true'
+      endif
+    when 'same_day'
+      if pf_m.ships_same_day.value == true
+        echo 'true'
+      endif
+    when 'partner'
+      assign pf_v = pf_m.ships_from.value | default: '' | append: '' | downcase
+      if pf_v contains 'partner'
+        echo 'true'
+      endif
+    when 'subtitle'
+      assign pf_v = pf_m.subtitle.value | default: pf_m.tagline.value | default: '' | append: '' | strip
+      echo pf_v | escape
+    when 'best_for'
+      assign pf_v = pf_m.best_for.value | default: '' | append: '' | strip
+      if pf_v == ''
+        for pf_t in pf_p.tags
+          assign pf_tl = pf_t | downcase
+          if pf_tl contains 'best-for:'
+            assign pf_v = pf_t | split: ':' | last | strip
+            break
+          endif
+        endfor
+      endif
+      echo pf_v | escape
+    when 'core_type', 'foam_depth', 'cover_type', 'shape', 'ships_from'
+      assign pf_v = pf_m[pf_key].value | default: '' | append: '' | strip
+      echo pf_v | escape
+    when 'sleep_style'
+      assign pf_list = pf_m.sleep_style.value
+      if pf_list != blank
+        assign pf_v = pf_list | join: ', '
+        echo pf_v | escape
+      endif
+    when 'worth_it'
+      assign pf_v = pf_m.worth_it.value | default: '' | append: '' | strip
+      if pf_v != ''
+        echo pf_v | escape | newline_to_br
+      endif
+    when 'qa_count'
+      assign pf_list = pf_m.qa.value
+      if pf_list != blank and pf_list.size > 0
+        echo pf_list.size
+      else
+        echo '0'
+      endif
+  endcase
+-%}

@@ -189,11 +189,27 @@
   <div class="page-width collection-hero__inner">
     <div class="collection-hero__text">
       {%- if section.settings.show_breadcrumbs -%}
+        {%- liquid
+          comment
+            The "All beds" crumb goes to the Dog Beds hub collection once it
+            exists and has products (the SEO parent of every category), else
+            to /collections/all. It is left out on the hub and on "all".
+          endcomment
+          assign crumb_hub = collections['dog-beds']
+          assign crumb_hub_url = routes.all_products_collection_url
+          if crumb_hub.url != blank and crumb_hub.all_products_count > 0
+            assign crumb_hub_url = crumb_hub.url
+          endif
+          assign show_hub_crumb = true
+          if collection.handle == 'all' or collection.handle == 'dog-beds'
+            assign show_hub_crumb = false
+          endif
+        -%}
         <nav class="collection-hero__crumbs" aria-label="{{ 'collection.hero.breadcrumb' | t }}">
           <ol class="collection-hero__crumb-list" role="list">
             <li><a href="{{ routes.root_url }}">{{ 'general.home' | t }}</a></li>
-            {%- if collection.handle != 'all' -%}
-              <li><a href="{{ routes.all_products_collection_url }}">{{ 'collection.hero.all_beds' | t }}</a></li>
+            {%- if show_hub_crumb -%}
+              <li><a href="{{ crumb_hub_url }}">{{ 'collection.hero.all_beds' | t }}</a></li>
             {%- endif -%}
             <li><span aria-current="page">{{ title | escape }}</span></li>
           </ol>
@@ -303,13 +319,13 @@
             "name": {{ 'general.home' | t | json }},
             "item": {{ origin | append: routes.root_url | json }}
           },
-          {%- if collection.handle != 'all' -%}
+          {%- if show_hub_crumb -%}
           {%- assign crumb_pos = 3 -%}
           {
             "@type": "ListItem",
             "position": 2,
             "name": {{ 'collection.hero.all_beds' | t | json }},
-            "item": {{ origin | append: routes.all_products_collection_url | json }}
+            "item": {{ origin | append: crumb_hub_url | json }}
           },
           {%- endif -%}
           {

@@ -23,8 +23,25 @@ export const STAGES = ['fine', 'slowing', 'diagnosed'];
 
 const tagsOf = (raw) => (Array.isArray(raw.tags) ? raw.tags : String(raw.tags || '').split(',')).map((t) => String(t).trim().toLowerCase()).filter(Boolean);
 
-/** The foam-guarantee rule as the brief states it (snippets/foam-bed, Lunova.foamBed). */
+/** A custom.* metafield value from raw data: Admin API shape {type, value}, a drop, or plain. */
+function customValue(raw, key) {
+  const ns = raw.custom || (raw.metafields && raw.metafields.custom) || null;
+  if (!ns || ns[key] == null) return null;
+  const e = ns[key];
+  const v = e && typeof e === 'object' && 'value' in e ? e.value : e;
+  return v == null || v === '' ? null : v;
+}
+
+/**
+ * The foam-guarantee rule as the contract states it (snippets/foam-bed, Lunova.foamBed):
+ * custom.foam_guarantee decides when set; a core_type that isn't memory foam → not
+ * covered; otherwise the older rule (tags, bed type, "no-flatten guarantee" in the copy).
+ */
 export function foamRule(raw) {
+  const fg = customValue(raw, 'foam_guarantee');
+  if (fg != null) return fg === true || String(fg).toLowerCase() === 'true';
+  const core = customValue(raw, 'core_type');
+  if (core != null && !/memory foam/i.test(String(core))) return false;
   const tags = tagsOf(raw);
   if (tags.includes('guarantee:no')) return false;
   if (tags.includes('guarantee:yes')) return true;
@@ -136,6 +153,9 @@ export function matrixGrid(result, sizes) {
   return rows;
 }
 
-export function rawByHandle(products) {
-  return new Map((products || []).map((p) => [p.handle, { ...p, body_html: p.body_html ?? stripHtml(p.description || '') }]));
+/** handle → the product's own data for the independent rules; `overlay` adds its custom.*
+ *  metafields ({products: {handle: {key: {type, value}}}}, fixtures/real-metafields.json). */
+export function rawByHandle(products, overlay = null) {
+  const mf = (overlay && overlay.products) || {};
+  return new Map((products || []).map((p) => [p.handle, { ...p, body_html: p.body_html ?? stripHtml(p.description || ''), custom: p.custom || mf[p.handle] || null }]));
 }

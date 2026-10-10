@@ -1,0 +1,234 @@
+{%- comment -%}
+  Delivery dates for one product, said before the order (P0-3, PDP-11):
+    "Free standard delivery: arrives Thu 15 Oct to Mon 19 Oct"
+    "Express £6.99: arrives Tue 13 Oct to Wed 14 Oct"
+  The dates are worked out in the browser (Lunova.delivery.window in
+  global.js, working days only: no Saturdays, Sundays or England & Wales
+  bank holidays), from the data attributes below, so a cached page never
+  shows yesterday's dates. Without JavaScript the line states the working-day
+  ranges instead: "Free standard delivery: dispatched in 1 to 2 working days,
+  then 4 to 6 working days".
+
+  Where the numbers come from (never guessed):
+    dispatch   custom.dispatch_days_min / _max (product metafields) when set;
+               otherwise, unless the bed ships from the partner warehouse,
+               the published policy: Theme settings → Promises → Delivery
+               dates (delivery_dispatch_min / _max, 1 to 2 working days)
+    Standard   delivery_min_days / delivery_max_days (4 to 6 working days
+               after dispatch), price delivery_standard_price (£4.99);
+               free when the variant's price reaches the free-delivery
+               threshold (free_shipping_enable + free_shipping_threshold, £40)
+    Express    delivery_express_min / _max (2 to 3), delivery_express_price
+               (£6.99); only for own-stock beds, when delivery_express_enable
+    Partner    custom.ships_from "Partner warehouse" with no dispatch days:
+               no dates at all, "Tracked delivery from our partner warehouse;
+               delivery time shown at checkout" ("Free, tracked …" only when
+               the threshold rule holds). With dispatch days: dates, partner
+               wording, no Express line.
+  It never says same-day dispatch: a dispatch minimum of 0 counts today
+  only when custom.ships_same_day is true and it is before the cut-off
+  (dispatch_cutoff_hour); otherwise the count starts at 1.
+
+  Parameters
+    product   the product (defaults to variant.product, then the global product)
+    variant   the variant shown (defaults to selected or first available)
+    compact   smaller type (quick add)
+    class     extra classes
+
+  JS contract (Lunova.delivery.updateEstimates(root, variant) fills it; global.js
+  calls it on load, on lunova:variant:change and for injected content):
+    [data-delivery-estimate]   root: data-dates "true"|"false", data-dispatch-min,
+                               data-dispatch-max, data-same-day, data-free-from
+                               (pence), data-free-enabled, data-estimate-price (pence),
+                               data-tpl-range ("[from] to [to]"), and without
+                               dates data-tpl-nodates-free / -paid
+    [data-delivery-line]       "standard" | "express": data-transit-min/max,
+                               data-tpl-free / data-tpl-paid ([dates], [price]),
+                               data-cost (formatted price)
+    [data-delivery-text]       the sentence JS replaces
+{%- endcomment -%}
+{%- liquid
+  assign de_p = product | default: variant.product
+  if de_p == blank
+    assign de_p = product
+  endif
+  assign de_v = variant | default: de_p.selected_or_first_available_variant
+
+  assign de_mf = de_p.metafields.custom
+  assign de_from = de_mf.ships_from.value | default: '' | strip | downcase
+  assign de_partner = false
+  if de_from contains 'partner'
+    assign de_partner = true
+  endif
+
+  assign de_dmin_s = de_mf.dispatch_days_min.value | append: '' | strip
+  assign de_dmax_s = de_mf.dispatch_days_max.value | append: '' | strip
+  assign de_has_days = false
+  if de_dmin_s != '' or de_dmax_s != ''
+    assign de_has_days = true
+    if de_dmin_s == ''
+      assign de_dmin_s = de_dmax_s
+    endif
+    if de_dmax_s == ''
+      assign de_dmax_s = de_dmin_s
+    endif
+    assign de_dmin = de_dmin_s | plus: 0
+    assign de_dmax = de_dmax_s | plus: 0
+  else
+    assign de_dmin = settings.delivery_dispatch_min | default: 1 | plus: 0
+    assign de_dmax = settings.delivery_dispatch_max | default: 2 | plus: 0
+  endif
+  if de_dmin < 0
+    assign de_dmin = 0
+  endif
+  if de_dmax < de_dmin
+    assign de_dmax = de_dmin
+  endif
+
+  assign de_same_day = false
+  if de_mf.ships_same_day.value == true
+    assign de_same_day = true
+  endif
+  if de_dmin == 0 and de_same_day == false
+    assign de_dmin = 1
+    if de_dmax < 1
+      assign de_dmax = 1
+    endif
+  endif
+
+  assign de_dates = true
+  if de_partner and de_has_days == false
+    assign de_dates = false
+  endif
+
+  assign de_tmin = settings.delivery_min_days | default: 4 | plus: 0
+  assign de_tmax = settings.delivery_max_days | default: 6 | plus: 0
+  if de_tmax < de_tmin
+    assign de_tmax = de_tmin
+  endif
+  assign de_xmin = settings.delivery_express_min | default: 2 | plus: 0
+  assign de_xmax = settings.delivery_express_max | default: 3 | plus: 0
+  if de_xmax < de_xmin
+    assign de_xmax = de_xmin
+  endif
+
+  assign de_threshold = 0
+  if settings.free_shipping_enable
+    assign de_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round
+  endif
+  assign de_price = de_v.price | default: 0 | plus: 0
+  assign de_free = false
+  if settings.free_shipping_enable and de_price >= de_threshold
+    assign de_free = true
+  endif
+
+  assign de_std_cost = settings.delivery_standard_price | default: '' | strip | remove: '£' | times: 100 | round
+  assign de_std_money = de_std_cost | money_without_trailing_zeros
+  assign de_exp_cost = settings.delivery_express_price | default: '' | strip | remove: '£' | times: 100 | round
+  assign de_exp_money = de_exp_cost | money_without_trailing_zeros
+  assign de_express = false
+  if settings.delivery_express_enable and de_exp_cost > 0 and de_partner == false
+    assign de_express = true
+  endif
+
+  comment
+    Working-day ranges for the no-JS sentence, such as 1 to 2 working days,
+    1 working day or 3 working days.
+  endcomment
+  assign de_pairs = de_dmin | append: ',' | append: de_dmax | append: ',' | append: de_tmin | append: ',' | append: de_tmax | append: ',' | append: de_xmin | append: ',' | append: de_xmax | split: ','
+  assign de_txts = ''
+  for de_i in (0..2)
+    assign de_a_i = de_i | times: 2
+    assign de_b_i = de_a_i | plus: 1
+    assign de_a = de_pairs[de_a_i] | plus: 0
+    assign de_b = de_pairs[de_b_i] | plus: 0
+    if de_a == de_b and de_a == 1
+      assign de_t = 'core.delivery_estimate.one_day' | t
+    elsif de_a == de_b
+      assign de_t = 'core.delivery_estimate.n_days' | t: n: de_a
+    else
+      assign de_t = 'core.delivery_estimate.range' | t: min: de_a, max: de_b
+    endif
+    assign de_txts = de_txts | append: de_t | append: '|'
+  endfor
+  assign de_txt_list = de_txts | split: '|'
+  assign de_dispatch_txt = de_txt_list[0]
+  assign de_transit_txt = de_txt_list[1]
+  assign de_express_txt = de_txt_list[2]
+
+  if de_partner
+    assign de_key = 'partner'
+  else
+    assign de_key = 'standard'
+  endif
+  assign de_k_free = 'core.delivery_estimate.' | append: de_key | append: '_free_dates'
+  assign de_k_paid = 'core.delivery_estimate.' | append: de_key | append: '_paid_dates'
+  assign de_tpl_free = de_k_free | t: dates: '[dates]', price: '[price]'
+  assign de_tpl_paid = de_k_paid | t: dates: '[dates]', price: '[price]'
+  assign de_tpl_express = 'core.delivery_estimate.express_dates' | t: dates: '[dates]', price: '[price]'
+-%}
+{%- if de_p != blank and de_v != blank -%}
+  <div
+    class="delivery-options delivery-estimate{% if compact %} delivery-options--compact{% endif %}{% if class %} {{ class }}{% endif %}"
+    data-delivery-estimate
+    data-dates="{{ de_dates }}"
+    data-dispatch-min="{{ de_dmin }}"
+    data-dispatch-max="{{ de_dmax }}"
+    data-same-day="{{ de_same_day }}"
+    data-free-from="{{ de_threshold }}"
+    data-free-enabled="{{ settings.free_shipping_enable }}"
+    data-estimate-price="{{ de_price }}"
+    data-tpl-range="{{ 'core.delivery_estimate.date_range' | t: from: '[from]', to: '[to]' | escape }}"
+    {%- if de_dates == false %}
+      data-tpl-nodates-free="{{ 'core.delivery_estimate.partner_free_no_dates' | t | escape }}"
+      data-tpl-nodates-paid="{{ 'core.delivery_estimate.partner_paid_no_dates' | t | escape }}"
+    {%- endif %}
+  >
+    {%- render 'icon', name: 'truck', class: 'delivery-options__icon' -%}
+    <div class="delivery-options__text">
+      <span class="visually-hidden">{{ 'core.delivery_options.label' | t }}: </span>
+      <p
+        class="delivery-options__main delivery-estimate__line"
+        data-delivery-line="standard"
+        data-transit-min="{{ de_tmin }}"
+        data-transit-max="{{ de_tmax }}"
+        data-cost="{{ de_std_money | escape }}"
+        data-tpl-free="{{ de_tpl_free | escape }}"
+        data-tpl-paid="{{ de_tpl_paid | escape }}"
+      >
+        <span data-delivery-text>
+          {%- if de_dates == false -%}
+            {%- if de_free -%}
+              {{- 'core.delivery_estimate.partner_free_no_dates' | t -}}
+            {%- else -%}
+              {{- 'core.delivery_estimate.partner_paid_no_dates' | t -}}
+            {%- endif -%}
+          {%- else -%}
+            {%- assign de_k_days = 'core.delivery_estimate.' | append: de_key -%}
+            {%- if de_free -%}
+              {%- assign de_k_days = de_k_days | append: '_free_days' -%}
+            {%- else -%}
+              {%- assign de_k_days = de_k_days | append: '_paid_days' -%}
+            {%- endif -%}
+            {{- de_k_days | t: dispatch: de_dispatch_txt, transit: de_transit_txt, price: de_std_money -}}
+          {%- endif -%}
+        </span>
+      </p>
+      {%- if de_express -%}
+        <p
+          class="delivery-options__times delivery-estimate__line"
+          data-delivery-line="express"
+          data-transit-min="{{ de_xmin }}"
+          data-transit-max="{{ de_xmax }}"
+          data-cost="{{ de_exp_money | escape }}"
+          data-tpl-free="{{ de_tpl_express | escape }}"
+          data-tpl-paid="{{ de_tpl_express | escape }}"
+        >
+          <span data-delivery-text>
+            {{- 'core.delivery_estimate.express_days' | t: dispatch: de_dispatch_txt, transit: de_express_txt, price: de_exp_money -}}
+          </span>
+        </p>
+      {%- endif -%}
+    </div>
+  </div>
+{%- endif -%}

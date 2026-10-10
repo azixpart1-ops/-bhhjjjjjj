@@ -104,10 +104,18 @@
 
   var moneyFormatCache = null;
 
-  L.money = function (cents, format) {
+  /**
+   * Lunova.money(cents, format?) → the store's money format the way Liquid's
+   * `money_without_trailing_zeros` prints it: whole pounds lose ".00"
+   * (14900 → "£149", 104900 → "£1,049"), any other amount keeps its pence
+   * (499 → "£4.99", 450 → "£4.50"). Pass opts {pence: true} as a third
+   * argument for the full `money` form ("£149.00"); Lunova.moneyFull does the same.
+   */
+  L.money = function (cents, format, opts) {
     if (typeof cents === 'string') cents = cents.replace('.', '');
     var value = parseInt(cents, 10);
     if (isNaN(value)) value = 0;
+    var keepPence = !!(opts && opts.pence);
     var fmt = format ? decodeFormat(format) : (moneyFormatCache = moneyFormatCache || decodeFormat(L.moneyFormat || '£{{amount}}'));
     var match = fmt.match(/\{\{\s*(\w+)\s*\}\}/);
     if (!match) return fmt;
@@ -115,6 +123,7 @@
     function withDelimiters(number, precision, thousands, decimal) {
       thousands = thousands == null ? ',' : thousands;
       decimal = decimal == null ? '.' : decimal;
+      if (precision > 0 && !keepPence && number % 100 === 0) precision = 0;
       var negative = number < 0;
       var fixed = (Math.abs(number) / 100).toFixed(precision);
       var parts = fixed.split('.');
@@ -150,6 +159,11 @@
         amount = withDelimiters(value, 2);
     }
     return fmt.replace(match[0], amount);
+  };
+
+  /** The full `money` form, pence always shown ("£149.00"): only where a sum must show its working. */
+  L.moneyFull = function (cents, format) {
+    return L.money(cents, format, { pence: true });
   };
 
   /* ------------------------------------------------------------------------
@@ -722,10 +736,17 @@
       };
     },
 
-    /** "Thu 8 Oct" for a civil date from estimate() */
+    /** "Thu 8 Oct" for a civil date from estimate() / window(). English pages
+        build it by hand, the way Liquid's date filter prints it ("%a %-d %b"),
+        so browsers don't add a comma ("Thu, 8 Oct") or write "Sept". */
     format: function (date, opts) {
       var lang = root.getAttribute('lang') || 'en-GB';
       if (/^en$/i.test(lang)) lang = 'en-GB';
+      if (!opts && /^en/i.test(lang)) {
+        var wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getUTCDay()];
+        var mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getUTCMonth()];
+        return wd + ' ' + date.getUTCDate() + ' ' + mo;
+      }
       try {
         return new Intl.DateTimeFormat(lang, Object.assign({ weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }, opts || {})).format(date);
       } catch (e) {
@@ -769,8 +790,173 @@
       var target = el.querySelector('[data-countdown-text]') || el;
       fillInto(target, msg.template, msg.vars);
       el.hidden = false;
+    },
+
+    /** Is this civil date (from window()/civil()) a working day? Mon to Fri, not a bank holiday. */
+    isWorkingDay: function (date) {
+      return isWorkingDay(date);
+    },
+
+    /**
+     * Lunova.delivery.window({dispatchMin, dispatchMax, transitMin, transitMax, from, sameDay, cutoffHour})
+     *   → {earliest, latest, dispatchEarliest, dispatchLatest, earliestText, latestText, text}
+     * Arrival dates for an order placed at `from` (a Date, or "YYYY-MM-DD";
+     * default now), in the store's time zone, counting WORKING days only:
+     * no Saturdays, Sundays or England & Wales bank holidays (BANK_HOLIDAYS
+     * below, plus any Theme settings → holiday_dates). Dispatch is
+     * dispatchMin..dispatchMax working days after the order day, delivery
+     * transitMin..transitMax working days after dispatch. A dispatchMin of 0
+     * (same-day) counts only with sameDay true, on a working day before the
+     * cut-off hour (default Lunova.settings.cutoffHour, 15); otherwise 1.
+     * Dates are civil dates (Date at 12:00 UTC); *Text is "Thu 15 Oct";
+     * text is "Thu 15 Oct to Mon 19 Oct" (or one date when they match;
+     * opts.rangeTemplate "[from] to [to]" words the range).
+     * Returns null when the numbers are missing or not numbers.
+     */
+    window: function (opts) {
+      opts = opts || {};
+      var num = function (v) {
+        var n = parseInt(v, 10);
+        return isNaN(n) || n < 0 ? null : n;
+      };
+      var dMin = num(opts.dispatchMin);
+      var dMax = num(opts.dispatchMax);
+      var tMin = num(opts.transitMin);
+      var tMax = num(opts.transitMax);
+      if (dMin == null && dMax == null) return null;
+      if (tMin == null && tMax == null) return null;
+      if (dMin == null) dMin = dMax;
+      if (dMax == null || dMax < dMin) dMax = dMin;
+      if (tMin == null) tMin = tMax;
+      if (tMax == null || tMax < tMin) tMax = tMin;
+
+      var start;
+      var afterCutoff = true;
+      var cutoff = opts.cutoffHour != null ? Number(opts.cutoffHour) : Number((L.settings || {}).cutoffHour);
+      if (isNaN(cutoff)) cutoff = 15;
+      if (typeof opts.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(opts.from)) {
+        var bits = opts.from.split('-').map(Number);
+        start = civil(bits[0], bits[1], bits[2]);
+      } else {
+        var when = opts.from instanceof Date ? opts.from : new Date();
+        var p = storeNowParts(when, (L.settings || {}).timezone || 'Europe/London');
+        start = civil(p.y, p.m, p.d);
+        afterCutoff = p.h >= cutoff;
+      }
+      /* Same-day dispatch is never assumed: only with sameDay, on a working
+         day, before the cut-off. */
+      var sameDayOk = !!opts.sameDay && isWorkingDay(start) && !afterCutoff;
+      if (dMin === 0 && !sameDayOk) dMin = 1;
+      if (dMax < dMin) dMax = dMin;
+
+      var dispatchEarliest = addWorkingDays(start, dMin);
+      var dispatchLatest = addWorkingDays(start, dMax);
+      var earliest = addWorkingDays(dispatchEarliest, tMin);
+      var latest = addWorkingDays(dispatchLatest, tMax);
+      var a = L.delivery.format(earliest);
+      var b = L.delivery.format(latest);
+      return {
+        earliest: earliest,
+        latest: latest,
+        dispatchEarliest: dispatchEarliest,
+        dispatchLatest: dispatchLatest,
+        earliestText: a,
+        latestText: b,
+        text: a === b ? a : fill(opts.rangeTemplate || str('deliveryRange', '[from] to [to]'), { from: a, to: b })
+      };
+    },
+
+    /**
+     * Fill every [data-delivery-estimate] in root (snippets/delivery-estimate)
+     * for `variant` ({price, available}; optional: the element's own
+     * data-estimate-price is used otherwise). Free or paid standard delivery follows
+     * the price against data-free-from; dates come from window().
+     */
+    updateEstimates: function (root, variant) {
+      qsaSelf('[data-delivery-estimate]', root || doc).forEach(function (el) {
+        if (variant && variant.price != null) el.setAttribute('data-estimate-price', String(variant.price));
+        var price = Number(el.getAttribute('data-estimate-price')) || 0;
+        var freeOn = el.getAttribute('data-free-enabled') !== 'false';
+        var freeFrom = Number(el.getAttribute('data-free-from')) || 0;
+        var free = freeOn && price >= freeFrom;
+        var dated = el.getAttribute('data-dates') !== 'false';
+        qsa('[data-delivery-line]', el).forEach(function (line) {
+          var text = line.querySelector('[data-delivery-text]');
+          if (!text) return;
+          if (!dated) {
+            /* No dates for this bed: the partner wording, free or not. */
+            var tplNo = decodeEntities(el.getAttribute(free ? 'data-tpl-nodates-free' : 'data-tpl-nodates-paid') || '');
+            if (tplNo) text.textContent = tplNo;
+            return;
+          }
+          var w = L.delivery.window({
+            dispatchMin: el.getAttribute('data-dispatch-min'),
+            dispatchMax: el.getAttribute('data-dispatch-max'),
+            transitMin: line.getAttribute('data-transit-min'),
+            transitMax: line.getAttribute('data-transit-max'),
+            sameDay: el.getAttribute('data-same-day') === 'true',
+            rangeTemplate: decodeEntities(el.getAttribute('data-tpl-range') || '') || null
+          });
+          if (!w) return;
+          var tpl = decodeEntities(line.getAttribute(free ? 'data-tpl-free' : 'data-tpl-paid') || '');
+          if (!tpl) return;
+          text.textContent = fill(tpl, { dates: w.text, price: decodeEntities(line.getAttribute('data-cost') || '') });
+        });
+        el.setAttribute('data-filled', 'true');
+      });
     }
   };
+
+  /* England & Wales bank holidays, 2026 and 2027 (gov.uk). Saturdays and
+     Sundays are skipped anyway. EXTEND THIS LIST AFTER 2027: once the last
+     date here has passed, the dates shown stop skipping bank holidays
+     (Theme settings → holiday_dates can carry the next ones meanwhile). */
+  var BANK_HOLIDAYS = ['2026-12-25', '2026-12-28', '2027-01-01', '2027-03-26', '2027-03-29', '2027-05-03', '2027-05-31', '2027-08-30', '2027-12-27', '2027-12-28'];
+
+  function closedDays() {
+    var map = {};
+    BANK_HOLIDAYS.forEach(function (d) { map[d] = true; });
+    var extra = (L.settings && Array.isArray(L.settings.holidays)) ? L.settings.holidays : [];
+    extra.forEach(function (h) {
+      var d = String(h).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) map[d] = true;
+    });
+    return map;
+  }
+
+  function isWorkingDay(date) {
+    var wd = date.getUTCDay();
+    return wd >= 1 && wd <= 5 && !closedDays()[ymd(date)];
+  }
+
+  /** n working days after `from` (n = 0: `from` itself, or the next working day). */
+  function addWorkingDays(from, n) {
+    var date = from;
+    var guard = 0;
+    if (n <= 0) {
+      while (!isWorkingDay(date) && guard < 60) {
+        date = addDays(date, 1);
+        guard += 1;
+      }
+      return date;
+    }
+    var added = 0;
+    while (added < n && guard < 240) {
+      date = addDays(date, 1);
+      guard += 1;
+      if (isWorkingDay(date)) added += 1;
+    }
+    return date;
+  }
+
+  var entityBox = null;
+  function decodeEntities(s) {
+    s = String(s || '');
+    if (s.indexOf('&') === -1) return s;
+    entityBox = entityBox || doc.createElement('textarea');
+    entityBox.innerHTML = s;
+    return entityBox.value;
+  }
 
   var countdownTimer = null;
   function tickCountdowns() {
@@ -891,6 +1077,32 @@
       var o = offerCfg();
       return Math.max(0, Number(price) - (o ? Number(o.amount) || 0 : 0));
     },
+    /**
+     * Lunova.offer.update(root, priceCents, opts?) → 'line' | 'none'
+     * Shows or hides every [data-offer-size] line in root (snippets/offer,
+     * mode pdp: "£15 off this size at checkout, until Sat 31 Oct") for the
+     * size now picked. It shows only when that price reaches the minimum on
+     * its own and the basket can still get the offer (state() === 'line');
+     * any other size hides it. opts.available === false (a sold-out size)
+     * hides it too. Call it on every size change; global.js also does so on
+     * lunova:variant:change and again whenever the basket or the offer
+     * changes (lunova:offer:change), from each line's data-offer-price.
+     */
+    update: function (root, price, opts) {
+      opts = opts || {};
+      var result = 'none';
+      qsaSelf('[data-offer-size]', root || doc).forEach(function (el) {
+        var cents = price == null ? Number(el.getAttribute('data-offer-price')) || 0 : Number(price) || 0;
+        var available = opts.available == null ? el.getAttribute('data-available') !== 'false' : opts.available !== false;
+        el.setAttribute('data-offer-price', String(cents));
+        el.setAttribute('data-available', available ? 'true' : 'false');
+        var show = available && L.offer.state(cents, el.getAttribute('data-product-id')) === 'line';
+        el.hidden = !show;
+        el.setAttribute('data-state', show ? 'line' : 'none');
+        if (show) result = 'line';
+      });
+      return result;
+    },
     /** "ends in 1d 4h" for the final 72 hours, else null */
     countdownText: function (now) {
       var o = offerCfg();
@@ -979,39 +1191,57 @@
   });
 
   /* ------------------------------------------------------------------------
-     Per-night reframe — price ÷ (guarantee years × 365), honest rounding
+     Per-night reframe: price ÷ nights over the foam guarantee, honest
+     rounding. Nights = years × 365¼ (5 years = 1,826), the same sum as
+     snippets/per-night. Callers only show it for a product Lunova.foamBed()
+     covers.
      ---------------------------------------------------------------------- */
+  function guaranteeNights() {
+    var years = Number((L.settings || {}).guaranteeYears) || 0;
+    return years > 0 ? Math.floor((years * 1461) / 4) : 0;
+  }
+  L.guaranteeNights = guaranteeNights;
+
+  /** "8p" (whole pence) / "£1.12"; null when switched off or not computable. */
   L.perNight = function (cents) {
     var s = L.settings || {};
-    var years = Number(s.guaranteeYears) || 0;
+    var nights = guaranteeNights();
     var value = Number(cents);
-    if (!s.perNight || years <= 0 || !(value > 0)) return null;
-    var pence = Math.round(value / (years * 365));
+    if (!s.perNight || nights <= 0 || !(value > 0)) return null;
+    var pence = Math.floor((value * 2 + nights) / (2 * nights));
     if (pence < 1) pence = 1;
     return pence < 100 ? fill(str('pence', '[amount]p'), { amount: pence }) : L.money(pence);
   };
 
   /**
    * Does the foam guarantee cover this product? The same test as
-   * snippets/foam-bed.liquid (keep the two in step). A word such as
-   * "orthopaedic" in a title, type or tag is not evidence of the guarantee,
-   * so it reads what the product itself promises:
+   * snippets/foam-bed.liquid (keep the two in step):
    *   1. a precomputed verdict: `foam` true/false (the finder's product JSON
    *      carries the Liquid snippet's answer, so the two can't disagree);
-   *   2. tag guarantee:no → never (wins); tag guarantee:yes → always;
-   *   3. not a bed → never: the type's first part (before " > ") doesn't
-   *      mention "bed" ("Dog Houses > …"), or it's a car seat (tag "dog car
-   *      seat" / "car seat", or "car seat" in the title);
-   *   4. its description (`description` or `body_html`) contains
+   *   2. the product's custom.foam_guarantee metafield, when the object
+   *      carries it (`foam_guarantee` / `foamGuarantee` true/false) decides;
+   *   3. a core type that isn't memory foam (`core_type` / `coreType`,
+   *      e.g. "Egg-crate foam") → never;
+   *   4. tag guarantee:no → never (wins); tag guarantee:yes → always;
+   *   5. not a bed → never: the type's first part (before " > ") doesn't
+   *      mention "bed" ("Dog Houses > …"), or it's a car seat;
+   *   6. its description (`description` or `body_html`) contains
    *      "no-flatten guarantee".
-   * Anything else → not covered. `product` is /products/x.js data, the
-   * finder's product JSON, or any object with title, type (or product_type),
-   * tags (array or comma string) and description. Gate per-night figures and
-   * guarantee lines on this.
+   * Anything else → not covered. /products/x.js data has no metafields, so
+   * prefer the finder JSON verdict where there is one. Gate per-night
+   * figures and guarantee lines on this.
    */
   L.foamBed = function (product) {
     if (!product) return false;
     if (typeof product.foam === 'boolean') return product.foam;
+    var fg = product.foam_guarantee != null ? product.foam_guarantee : product.foamGuarantee;
+    if (fg && typeof fg === 'object' && 'value' in fg) fg = fg.value;
+    if (fg === true || fg === 'true') return true;
+    if (fg === false || fg === 'false') return false;
+    var core = product.core_type != null ? product.core_type : product.coreType;
+    if (core && typeof core === 'object' && 'value' in core) core = core.value;
+    core = String(core || '').trim().toLowerCase();
+    if (core && core.indexOf('memory foam') === -1) return false;
     var tags = product.tags || [];
     if (typeof tags === 'string') tags = tags.split(',');
     tags = tags.map(function (t) { return String(t).trim().toLowerCase(); });
@@ -1059,17 +1289,15 @@
     return true;
   };
 
-  /** Exact figure for the basis line: "9.26p" / "£1.12" */
+  /** Exact figure for the basis line: "8.16p" / "£1.12" */
   L.perNightExact = function (cents) {
-    var s = L.settings || {};
-    var years = Number(s.guaranteeYears) || 0;
+    var nights = guaranteeNights();
     var value = Number(cents);
-    if (years <= 0 || !(value > 0)) return null;
-    var nights = years * 365;
+    if (nights <= 0 || !(value > 0)) return null;
     var hundredths = Math.floor((value * 200 + nights) / (2 * nights));
     return hundredths < 10000
       ? fill(str('pence', '[amount]p'), { amount: (hundredths / 100).toFixed(2) })
-      : L.money(Math.round(value / nights));
+      : L.money(Math.floor((value * 2 + nights) / (2 * nights)));
   };
 
   function updatePerNight(scope, cents) {
@@ -1094,18 +1322,33 @@
 
   /* Product area emits lunova:variant:change {sectionId, variant}; keep the
      per-night line and dispatch countdown in that section in step. */
+  function variantScope(sectionId) {
+    if (!sectionId) return null;
+    var scope = doc.getElementById('shopify-section-' + sectionId);
+    if (scope) return scope;
+    var el = doc.querySelector('[data-section-id="' + String(sectionId).replace(/"/g, '') + '"]');
+    return el ? el.closest('[data-product-scope], [data-quick-add-product], .shopify-section') || el : null;
+  }
+
   L.on('lunova:variant:change', function (e) {
     var d = e.detail || {};
-    if (!d.sectionId) return;
-    var scope = doc.getElementById('shopify-section-' + d.sectionId);
+    var scope = variantScope(d.sectionId);
     if (!scope) return;
     var v = d.variant;
     if (v && v.price != null) updatePerNight(scope, v.price);
+    if (v && v.price != null) L.offer.update(scope, v.price, { available: v.available !== false });
+    if (v) L.delivery.updateEstimates(scope, v);
     qsa('[data-countdown]', scope).forEach(function (el) {
       if (v && v.available === false) el.setAttribute('data-unavailable', '');
       else el.removeAttribute('data-unavailable');
       L.delivery.render(el);
     });
+  });
+
+  /* The basket or the offer changed (one per order, another discount, the
+     end passing): re-check every "£15 off this size" line at its own price. */
+  L.on('lunova:offer:change', function () {
+    L.offer.update(doc);
   });
 
   /* ------------------------------------------------------------------------
@@ -1681,6 +1924,8 @@
       if (!node.isConnected || !node.querySelector) return;
       if (node.matches(PERSONAL) || node.querySelector(PERSONAL)) applyFinder(node);
       if (qsaSelf('[data-offer-ends]', node).length) tickOffer();
+      if (qsaSelf('[data-delivery-estimate]', node).length) L.delivery.updateEstimates(node);
+      if (qsaSelf('[data-offer-size]', node).length) L.offer.update(node);
       var countdowns = qsaSelf('[data-countdown]', node);
       if (countdowns.length) {
         if (est === undefined) est = L.delivery.estimate();
@@ -1713,6 +1958,7 @@
     initReveal(scope || doc);
     initCountdowns();
     initOffer();
+    L.delivery.updateEstimates(scope || doc);
   }
 
   /* On first load this runs before finder.js has defined <bed-finder>, so

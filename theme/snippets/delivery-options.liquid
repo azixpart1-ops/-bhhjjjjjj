@@ -1,64 +1,83 @@
 {%- comment -%}
-  Delivery choices, said before checkout: "Free standard UK delivery ·
-  Express delivery £6.99 at checkout", plus the transit times once the
-  merchant has confirmed them. Everything comes from Theme settings →
-  Promises → Delivery options; each part hides when blank, and the whole
-  line when both are.
+  Delivery choices, said before checkout.
 
-  The standard part is only claimed once the item (or basket) reaches the
-  free-delivery amount; below it the line says "Free UK delivery on orders
-  over £40" instead (product.js keeps that in step with the size chosen).
+  For a product (product page, quick add: pass product, or let the page's
+  product be used) it renders snippets/delivery-estimate: the real dates
+  for that bed, "Free standard delivery: arrives Thu 15 Oct to Mon 19 Oct"
+  and "Express £6.99: arrives …", or the partner-warehouse wording.
+
+  For the basket (pass basket: cart) it is one line from Theme settings →
+  Promises → Delivery options: "Free standard UK delivery · Express
+  delivery £6.99 at checkout", plus the times note when there is one. The
+  standard part is only claimed once the basket reaches the free-delivery
+  amount; below it the line says "Free standard UK delivery on orders over
+  £40" instead. Each part hides when blank, and the whole line when both are.
 
   Parameters
-    price    pence: an item on the product page (variant price)
-    basket   pass cart: the basket's total decides instead
+    product  a product: renders delivery-estimate for it
+    variant  with product: the variant shown (default: selected or first available)
+    price    pence, without product: an item's price decides free delivery
+    basket   pass cart: the basket's total decides instead (no dates)
     compact  smaller type (basket drawer, quick add)
     class    extra classes
 {%- endcomment -%}
 {%- liquid
-  assign d_std = settings.delivery_standard_text | default: '' | strip
-  assign d_exp = settings.delivery_express_text | default: '' | strip
-  assign d_times = settings.delivery_times_note | default: '' | strip
-
-  assign d_threshold = 0
-  if settings.free_shipping_enable and settings.free_shipping_threshold > 0
-    assign d_threshold = settings.free_shipping_threshold | times: 100 | round
-  endif
-  assign d_amount = price | default: 0 | plus: 0
-  if basket != blank and basket.item_count != blank
-    assign d_amount = basket.total_price | default: 0
-  endif
-
-  assign d_std_shown = d_std | escape
-  if d_std != '' and d_threshold > 0 and d_amount < d_threshold
-    assign d_threshold_money = d_threshold | money_without_trailing_zeros
-    assign d_std_shown = 'core.delivery_options.free_over' | t: amount: d_threshold_money
+  comment
+    An empty array is truthy in Liquid, so an empty basket still counts as a basket.
+  endcomment
+  assign d_is_basket = false
+  if basket.items
+    assign d_is_basket = true
   endif
 -%}
-{%- if d_std != '' or d_exp != '' -%}
-  <div
-    class="delivery-options{% if compact %} delivery-options--compact{% endif %}{% if class %} {{ class }}{% endif %}"
-    data-delivery-options
-    data-threshold="{{ d_threshold }}"
-    data-standard="{{ d_std | escape }}"
-  >
-    {%- render 'icon', name: 'truck', class: 'delivery-options__icon' -%}
-    <div class="delivery-options__text">
-      <p class="delivery-options__main">
-        <span class="visually-hidden">{{ 'core.delivery_options.label' | t }}: </span>
-        {%- if d_std != '' -%}
-          <span data-delivery-standard>{{ d_std_shown }}</span>
+{%- if d_is_basket == false and product != blank and product.variants -%}
+  {%- render 'delivery-estimate', product: product, variant: variant, compact: compact, class: class -%}
+{%- else -%}
+  {%- liquid
+    assign d_std = settings.delivery_standard_text | default: '' | strip
+    assign d_exp = settings.delivery_express_text | default: '' | strip
+    assign d_times = settings.delivery_times_note | default: '' | strip
+
+    assign d_threshold = 0
+    if settings.free_shipping_enable and settings.free_shipping_threshold > 0
+      assign d_threshold = settings.free_shipping_threshold | times: 100 | round
+    endif
+    assign d_amount = price | default: 0 | plus: 0
+    if d_is_basket
+      assign d_amount = basket.total_price | default: 0
+    endif
+
+    assign d_std_shown = d_std | escape
+    if d_std != '' and d_threshold > 0 and d_amount < d_threshold
+      assign d_threshold_money = d_threshold | money_without_trailing_zeros
+      assign d_std_shown = 'core.delivery_options.free_over' | t: amount: d_threshold_money
+    endif
+  -%}
+  {%- if d_std != '' or d_exp != '' -%}
+    <div
+      class="delivery-options{% if compact %} delivery-options--compact{% endif %}{% if class %} {{ class }}{% endif %}"
+      data-delivery-options
+      data-threshold="{{ d_threshold }}"
+      data-standard="{{ d_std | escape }}"
+    >
+      {%- render 'icon', name: 'truck', class: 'delivery-options__icon' -%}
+      <div class="delivery-options__text">
+        <p class="delivery-options__main">
+          <span class="visually-hidden">{{ 'core.delivery_options.label' | t }}: </span>
+          {%- if d_std != '' -%}
+            <span data-delivery-standard>{{ d_std_shown }}</span>
+          {%- endif -%}
+          {%- if d_std != '' and d_exp != '' -%}
+            <span class="delivery-options__sep" aria-hidden="true"> · </span><span class="visually-hidden">, </span>
+          {%- endif -%}
+          {%- if d_exp != '' -%}
+            <span>{{ d_exp | escape }}</span>
+          {%- endif -%}
+        </p>
+        {%- if d_times != '' -%}
+          <p class="delivery-options__times">{{ d_times | escape }}</p>
         {%- endif -%}
-        {%- if d_std != '' and d_exp != '' -%}
-          <span class="delivery-options__sep" aria-hidden="true"> · </span><span class="visually-hidden">, </span>
-        {%- endif -%}
-        {%- if d_exp != '' -%}
-          <span>{{ d_exp | escape }}</span>
-        {%- endif -%}
-      </p>
-      {%- if d_times != '' -%}
-        <p class="delivery-options__times">{{ d_times | escape }}</p>
-      {%- endif -%}
+      </div>
     </div>
-  </div>
+  {%- endif -%}
 {%- endif -%}

@@ -1,7 +1,7 @@
 {%- comment -%}
   The store's current offer (Theme settings → Offer), in one place, so the
-  product page, size buttons, cards, basket and announcement bar all say
-  the same thing and all stop on the same minute.
+  product page, size buttons, cards and basket all say the same thing and
+  all stop on the same minute. The announcement bar never carries it.
 
   The offer is only ever described from settings that mirror a real Shopify
   discount (a fixed amount off orders over a minimum, with an end date). It
@@ -21,16 +21,19 @@
                         active 1/0; end_epoch 0 when no end; end_label "Sat 31 Oct".
     'basket'          → "applied|items_subtotal|product_id,product_id|other" for cart (pass cart);
                         other 1 when another discount is in play (see below)
-    'pdp'             → the buy box's offer lines for product + variant (+ cart)
+    'pdp'             → the buy box's one line for product + variant (+ cart):
+                        "£15 off this size at checkout, until Sat 31 Oct" for a
+                        size whose price reaches the minimum, nothing for any
+                        other size (contract in the mode below)
     'badge'           → the product card's badge for product ('' when none)
     'cart_bar'        → goal-gradient bar "You're £20 away from £15 off" for cart,
                         only when below the minimum and not yet applied
     'discount_title'  → how to name a discount application (pass title):
                         the offer's name when the title contains it, else the title
-    'announcement'    → the announcement bar's message ('' when inactive)
     'ends'            → "ends Sat 31 Oct" with its live countdown hook ('' when no end)
 
-  Parameters: product, variant, cart, title, compact, class, size_idx (pdp, optional)
+  Parameters: product, variant, cart, title, compact, class
+  (size_idx is still accepted from older callers and ignored)
 {%- endcomment -%}
 {%- liquid
   assign o_mode = mode | default: 'facts'
@@ -155,16 +158,6 @@
       <span class="offer-ends" data-offer-ends>{{ 'core.offer.ends' | t: date: o_end_label }}</span>
     {%- endif -%}
 
-  {%- when 'announcement' -%}
-    {%- if o_active -%}
-      {%- if o_min > 0 -%}
-        {{- 'core.offer.announcement_html' | t: amount: o_amount_money, min: o_min_money -}}
-      {%- else -%}
-        {{- 'core.offer.announcement_all_html' | t: amount: o_amount_money -}}
-      {%- endif -%}
-      {%- if o_end > 0 %} <span class="offer-ends" data-offer-ends>· {{ 'core.offer.ends' | t: date: o_end_label }}</span>{%- endif -%}
-    {%- endif -%}
-
   {%- when 'badge' -%}
     {%- liquid
       comment
@@ -192,6 +185,24 @@
     -%}
 
   {%- when 'pdp' -%}
+    {%- comment -%}
+      One line under the price, for the size picked:
+        "£15 off this size at checkout, until Sat 31 Oct"
+      Only when that variant's own price reaches the minimum, it can be
+      bought, and the basket can still get the offer (not already applied:
+      one per order; no other discount in play: they don't combine). Any
+      other size: nothing shows. The element is still printed (hidden) when
+      some size of this product qualifies, so the line can come back when
+      that size is picked; a product with no qualifying size prints nothing.
+
+      Contract (Lunova.offer.update in global.js keeps it in step):
+        [data-offer-size]            root, hidden unless the size qualifies
+          data-min / data-amount     pence; data-product-id; data-offer-price (pence)
+          data-state                 'line' (showing) | 'none'
+        [data-offer-size-text]       the sentence (the same for every size)
+      It also carries data-offer (hidden once the end passes, html.offer-ended)
+      and data-offer-promo (hidden by html.offer-applied / html.offer-other).
+    {%- endcomment -%}
     {%- if o_active and product != blank -%}
       {%- liquid
         assign v = variant | default: product.selected_or_first_available_variant
@@ -200,163 +211,50 @@
         if cart != blank
           assign basket_sub = cart.items_subtotal_price | default: 0
         endif
-
-        comment
-          The size option (for naming the size that qualifies).
-        endcomment
-        assign p_size_idx = size_idx
-        if p_size_idx == blank
-          assign p_size_idx = -1
-          for option in product.options_with_values
-            assign on_lc = option.name | downcase
-            if on_lc contains 'size'
-              assign p_size_idx = forloop.index0
-              break
-            endif
-          endfor
-        endif
-
-        comment
-          The cheapest available variant that reaches the minimum: same
-          other options (colour) first, then any.
-        endcomment
-        assign nudge_v = nil
-        assign nudge_any = nil
-        for nv in product.variants
-          if nv.available and nv.price >= o_min and nv.id != v.id
-            assign same = true
-            for o in nv.options
-              assign o_i = forloop.index0
-              assign o_cur = v.options[o_i]
-              if o_i != p_size_idx and o != o_cur
-                assign same = false
-              endif
-            endfor
-            if same
-              if nudge_v == nil or nv.price < nudge_v.price
-                assign nudge_v = nv
-              endif
-            endif
-            if nudge_any == nil or nv.price < nudge_any.price
-              assign nudge_any = nv
-            endif
+        assign any_qualifies = false
+        for pv in product.variants
+          if pv.available and pv.price >= o_min
+            assign any_qualifies = true
+            break
           endif
         endfor
-        if nudge_v == nil
-          assign nudge_v = nudge_any
-        endif
-
-        comment
-          applied: Shopify has already taken it off this basket (one per order)
-          line:    this size reaches the minimum on its own → net price
-          basket:  this plus what's in the basket reaches it
-          nudge:   a bigger size reaches it
-          A basket already over the minimum WITHOUT the discount applied
-          means these settings don't match the real discount: say nothing.
-          With another discount in play, html.offer-other hides the block
-          and Lunova.offer.state says none, so it stays quiet too.
-        endcomment
-        assign with_basket = basket_sub | plus: v_price
-        comment
-          basket only for something else in the basket: with this same bed
-          already in, it would read as a nudge to buy a second one.
-        endcomment
-        assign in_basket = false
-        if cart != blank
-          for it in cart.items
-            if it.product_id == product.id
-              assign in_basket = true
-            endif
-          endfor
-        endif
         assign state = 'none'
-        if o_applied
-          assign state = 'applied'
-        elsif basket_sub >= o_min and basket_sub > 0
-          assign state = 'none'
-        elsif v_price >= o_min
+        if v.available and v_price >= o_min and o_applied == false and o_other == false
           assign state = 'line'
-        elsif basket_sub > 0 and with_basket >= o_min and in_basket == false
-          assign state = 'basket'
-        elsif nudge_v != nil
-          assign state = 'nudge'
-        endif
-        if v.available == false and state == 'line'
-          assign state = 'none'
-        endif
-
-        assign net = v_price | minus: o_amount | at_least: 0
-        assign net_money = net | money_without_trailing_zeros
-
-        assign nudge_name = ''
-        assign nudge_price = ''
-        if nudge_v != nil
-          if p_size_idx >= 0
-            assign nudge_raw = nudge_v.options[p_size_idx]
-            capture nudge_name
-              render 'size-hints', value: nudge_raw, mode: 'size_label'
-            endcapture
-            assign nudge_name = nudge_name | strip | default: nudge_raw
-          elsif product.has_only_default_variant == false
-            assign nudge_name = nudge_v.title
+          if basket_sub > 0 and basket_sub >= o_min
+            comment
+              The basket is already over the minimum without Shopify applying
+              the offer: these settings don't match the real discount.
+            endcomment
+            assign state = 'none'
           endif
-          assign nn_lc = nudge_name | downcase
-          if nn_lc == nudge_name
-            assign nudge_name = nudge_name | capitalize
-          endif
-          assign nudge_price = nudge_v.price | money_without_trailing_zeros
         endif
-
-        assign tpl_line = 'core.offer.line' | t: amount: '[amount]', net: '[net]'
-        assign tpl_nudge = 'core.offer.nudge' | t: size: '[size]', price: '[price]', amount: '[amount]'
-        assign tpl_applied = 'core.offer.applied' | t: amount: '[amount]'
-        assign tpl_basket = 'core.offer.with_basket' | t: amount: '[amount]'
-
-        assign note = settings.offer_note | default: '' | strip
       -%}
-      <div
-        class="offer-pdp{% if class %} {{ class }}{% endif %}"
-        data-offer
-        data-offer-pdp
-        data-state="{{ state }}"
-        data-tpl-line="{{ tpl_line | escape }}"
-        data-tpl-nudge="{{ tpl_nudge | escape }}"
-        data-tpl-applied="{{ tpl_applied | escape }}"
-        data-tpl-basket="{{ tpl_basket | escape }}"
-        {%- if state == 'none' %} hidden{% endif %}
-      >
-        <p class="offer-pdp__line" data-offer-line{% unless state == 'line' or state == 'basket' %} hidden{% endunless %}>
-          {%- render 'icon', name: 'tag', class: 'offer-pdp__icon' -%}
-          <span data-offer-line-text>
-            {%- if state == 'basket' -%}
-              {{- 'core.offer.with_basket' | t: amount: o_amount_money -}}
-            {%- elsif state == 'line' -%}
-              {{- 'core.offer.line_html' | t: amount: o_amount_money, net: net_money -}}
-            {%- endif -%}
-          </span>
-        </p>
-        <p class="offer-pdp__sub" data-offer-sub{% unless state == 'line' or state == 'basket' %} hidden{% endunless %}>
-          {%- if o_label != '' -%}<span>{{ o_label | escape }}</span>{%- endif -%}
-          {%- if o_end > 0 -%}
-            {%- if o_label != '' %} · {% endif -%}
-            <span class="offer-ends" data-offer-ends>{{ 'core.offer.ends' | t: date: o_end_label }}</span>
-          {%- endif -%}
-          {%- if note != '' -%}
-            {%- if o_label != '' or o_end > 0 %}. {% endif -%}
-            <span>{{ note | escape }}</span>
-          {%- endif -%}
-        </p>
-        <p class="offer-pdp__nudge" data-offer-nudge{% unless state == 'nudge' or state == 'applied' %} hidden{% endunless %}>
-          {%- render 'icon', name: 'tag', class: 'offer-pdp__icon' -%}
-          <span data-offer-nudge-text>
-            {%- if state == 'applied' -%}
-              {{- 'core.offer.applied' | t: amount: o_amount_money -}}
-            {%- elsif state == 'nudge' -%}
-              {{- 'core.offer.nudge' | t: size: nudge_name, price: nudge_price, amount: o_amount_money -}}
-            {%- endif -%}
-          </span>
-        </p>
-      </div>
+      {%- if any_qualifies -%}
+        <div
+          class="offer-pdp offer-size{% if class %} {{ class }}{% endif %}"
+          data-offer
+          data-offer-promo
+          data-offer-size
+          data-min="{{ o_min }}"
+          data-amount="{{ o_amount }}"
+          data-product-id="{{ product.id }}"
+          data-offer-price="{{ v_price }}"
+          data-state="{{ state }}"
+          {%- unless state == 'line' %} hidden{% endunless %}
+        >
+          <p class="offer-pdp__line">
+            {%- render 'icon', name: 'tag', class: 'offer-pdp__icon' -%}
+            <span data-offer-size-text>
+              {%- if o_end > 0 -%}
+                {{- 'core.offer.size_line_html' | t: amount: o_amount_money, date: o_end_label -}}
+              {%- else -%}
+                {{- 'core.offer.size_line_open_html' | t: amount: o_amount_money -}}
+              {%- endif -%}
+            </span>
+          </p>
+        </div>
+      {%- endif -%}
     {%- endif -%}
 
   {%- when 'cart_bar' -%}

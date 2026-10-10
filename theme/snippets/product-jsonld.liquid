@@ -188,27 +188,42 @@
               "name": {{ shop.name | json }},
               "item": {{ request.origin | append: routes.root_url | json }}
             },
-            {%- if collection and collection.url != blank -%}
+            {%- comment -%}
+              Home / Dog Beds / {category} / {product}, the same trail as
+              sections/product-breadcrumbs: the category comes from the product
+              type (snippets/product-parent-handle), not from the collection the
+              shopper arrived through, so every product has one stable trail.
+            {%- endcomment -%}
+            {%- capture pl_parent_handle -%}{%- render 'product-parent-handle', product: product -%}{%- endcapture -%}
+            {%- assign pl_parent_handle = pl_parent_handle | strip -%}
+            {%- assign pl_parent = collections[pl_parent_handle] -%}
+            {%- assign pl_hub = collections['dog-beds'] -%}
+            {%- assign pl_pos = 1 -%}
+            {%- if product.type contains 'Dog Beds' and pl_hub.url != blank -%}
+            {%- assign pl_pos = pl_pos | plus: 1 -%}
             {
               "@type": "ListItem",
-              "position": 2,
-              "name": {{ collection.title | split: ' | ' | first | strip | json }},
-              "item": {{ request.origin | append: collection.url | json }}
+              "position": {{ pl_pos }},
+              "name": {{ pl_hub.title | split: ' | ' | first | strip | json }},
+              "item": {{ request.origin | append: pl_hub.url | json }}
             },
-            {
-              "@type": "ListItem",
-              "position": 3,
-              "name": {{ title | json }},
-              "item": {{ base_url | json }}
-            }
-            {%- else -%}
-            {
-              "@type": "ListItem",
-              "position": 2,
-              "name": {{ title | json }},
-              "item": {{ base_url | json }}
-            }
             {%- endif -%}
+            {%- if pl_parent_handle != '' and pl_parent.url != blank -%}
+            {%- assign pl_pos = pl_pos | plus: 1 -%}
+            {
+              "@type": "ListItem",
+              "position": {{ pl_pos }},
+              "name": {{ pl_parent.title | split: ' | ' | first | strip | json }},
+              "item": {{ request.origin | append: pl_parent.url | json }}
+            },
+            {%- endif -%}
+            {%- assign pl_pos = pl_pos | plus: 1 -%}
+            {
+              "@type": "ListItem",
+              "position": {{ pl_pos }},
+              "name": {{ title | json }},
+              "item": {{ base_url | json }}
+            }
           ]
         }
       ]

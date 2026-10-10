@@ -8,12 +8,13 @@
 // for what fails.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createStore } from '../fixtures/store.mjs';
+import { createStore, loadMetafieldOverlay } from '../fixtures/store.mjs';
 import { fromSnapshot, REAL_FIXTURE } from '../fixtures/fetch-real.mjs';
 import { loadFinderEngine } from '../lib/finder-engine.mjs';
 import { runFinderMatrix, matrixGrid, rawByHandle, foamRule } from '../lib/finder-matrix.mjs';
 
 const catalogue = fromSnapshot(REAL_FIXTURE);
+const overlay = loadMetafieldOverlay();
 
 test('the fixture is the shape of the live catalogue', () => {
   const ps = catalogue.products;
@@ -37,7 +38,7 @@ test('finder matrix on the real catalogue: 3 styles × 3 stages × 5 sizes', asy
   assert.equal(eng.sizes.length, 5, `sizes from Theme settings → Sizing (${eng.sizes.join('/')})`);
   const fallback = eng.cfg.fallback.length;
   assert.ok(fallback >= 50, `every bed reaches the finder, past Shopify's 50-a-page limit (${fallback} candidates)`);
-  const result = runFinderMatrix(eng, { raw: rawByHandle(catalogue.products) });
+  const result = runFinderMatrix(eng, { raw: rawByHandle(catalogue.products, overlay) });
   t.diagnostic(result.summary);
   for (const line of matrixGrid(result, eng.sizes)) t.diagnostic(line);
   assert.deepEqual(result.problems, []);

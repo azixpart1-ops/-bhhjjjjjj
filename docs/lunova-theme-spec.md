@@ -261,7 +261,8 @@ Vanilla JS, no frameworks, no build step. ES2019+, no modules needed.
 `global.js` defines on `window.Lunova`:
 
 ```js
-Lunova.money(cents)                      // formats with Lunova.moneyFormat
+Lunova.money(cents)                      // Lunova.moneyFormat, whole pounds: 14900 → "£149", 499 → "£4.99", 104900 → "£1,049" (= Liquid money_without_trailing_zeros)
+Lunova.moneyFull(cents)                  // pence always ("£149.00"), only where a sum shows its working
 Lunova.fetchJSON(url, opts)               // fetch w/ JSON headers, throws on !ok with {status, description}
 Lunova.cart = {
   get(): Promise<cart>,
@@ -275,8 +276,17 @@ Lunova.finder = { get(): {dogName, style, stage, size, handle, variantId, ts}|nu
 Lunova.trapFocus(container) -> release()
 Lunova.lockScroll() / Lunova.unlockScroll()
 Lunova.debounce(fn, ms)
-Lunova.delivery = { estimate(now = new Date()) -> {cutoffMs, dispatchDate, arriveFrom, arriveTo} }  // uses Lunova.settings
-Lunova.perNight(cents) -> string|null      // "9p" / "£0.12" style, null if disabled
+Lunova.delivery = {
+  estimate(now) -> {cutoffMs, dispatchDate, arriveFrom, arriveTo}   // dispatch countdown only (off by default)
+  window({dispatchMin, dispatchMax, transitMin, transitMax, from?, sameDay?, cutoffHour?, rangeTemplate?})
+    -> {earliest, latest, dispatchEarliest, dispatchLatest, earliestText, latestText, text} | null   // §9.3
+  updateEstimates(root, variant?)          // fills every [data-delivery-estimate] in root (§9.3)
+  isWorkingDay(date), format(date)          // Mon to Fri, not a bank holiday · "Thu 15 Oct"
+}
+Lunova.offer.update(root, priceCents, {available}?) -> 'line'|'none'   // the buy box's "£15 off this size" line (§9.2)
+Lunova.perNight(cents) -> string|null      // "8p" / "£1.12", whole pence over years × 365¼ nights (1,826 for 5), null if disabled
+Lunova.perNightExact(cents)                // "8.16p" for the basis line; Lunova.guaranteeNights() → 1826
+Lunova.foamBed(product) -> bool            // snippets/foam-bed's rule (§9.4); the finder JSON carries the Liquid verdict
 Lunova.sectionsUrl(sectionIds[]) -> url for ?sections=
 ```
 
@@ -342,7 +352,7 @@ needed by the quick-add drawer — chrome's `quick-add` section includes it.
 {% render 'image', image: img, widths: '360,540,720,960,1200', sizes: '(min-width: 990px) 50vw, 100vw', class: '', loading: 'lazy'|'eager', fetchpriority: 'high'|'auto', alt: '', aspect: 1|null, crop: 'center'|nil %}
   → <img> with srcset via image_url; if image blank renders placeholder_svg_tag('product-1'…)
 {% render 'price', product: p, variant: v (optional), show_from: true, show_save: true, size: 'sm'|'md'|'lg' %}
-  → .price markup; "From £X" when price_varies & no variant; compare/save per settings
+  → .price markup; "From £X" when price_varies & no variant; compare/save per settings; whole pounds (money_without_trailing_zeros)
 {% render 'rating', product: p, size: 'sm'|'md', show_count: true %}
   → nothing if no reviews.rating metafield
 {% render 'product-card', product: p, image_ratio: settings.card_image_ratio, show_quick_add: true, lazy: true, heading_level: 'h3', role_label: '' %}
@@ -351,9 +361,11 @@ needed by the quick-add drawer — chrome's `quick-add` section includes it.
     low-stock), rating, price, size range text (e.g. "S–XL"), quick-add button
     (emits lunova:quickadd:open; single-variant products add directly).
 {% render 'badge', text: '', style: 'accent'|'sale'|'muted'|'match' %}
-{% render 'per-night', price: cents %}   → "about 9p a night over 5 years" + footnote ref; nothing if disabled
+{% render 'per-night', price: cents, product: p %}   → ONE line "About 8p a night over the 5-year foam guarantee" + (i) basis; nothing unless the foam guarantee covers p (§9.4)
+{% render 'delivery-estimate', product: p, variant: v %}   → dated delivery line, partner wording (§9.3)
+{% render 'delivery-options', product: p %} → the same as delivery-estimate; {% render 'delivery-options', basket: cart %} → the basket's one-line delivery choices
 {% render 'delivery-promise', variant: v, compact: false %}
-  → <p data-countdown>…</p> placeholder text that JS fills; no-JS fallback "Order by 3pm Mon–Fri for same-day dispatch"
+  → dispatch countdown, OFF by default; even when on, only for a product with custom.ships_same_day = true (basket: every line)
 {% render 'free-shipping-bar', cart: cart %}   → bar + message (server-side computed, JS-free)
 {% render 'trust-list', items: 'trial,guarantee,delivery,secure', layout: 'row'|'stack', size: 'sm'|'md' %}
   → reads settings for numbers; hides items whose setting is disabled
@@ -381,14 +393,23 @@ Layout:      page_width (select 1200|1320|1440, 1320), radius (range 0–24 step
              button_shape (select pill|soft|square, pill), animations (checkbox, true)
 Promises:    trial_enable (true), trial_nights (number 100), guarantee_enable (true), guarantee_years (number 5),
              free_shipping_enable (true), free_shipping_threshold (number 40, major units),
-             delivery_promise_enable (false until the merchant confirms real dispatch times), dispatch_cutoff_hour (range 0–23, 15),
-             dispatch_days (text "1,2,3,4,5"; 0 = Sunday), delivery_min_days (number 1), delivery_max_days (number 3),
-             holiday_dates (textarea, one YYYY-MM-DD per line), origin_line (text, "" — e.g. "Made in Yorkshire"; hidden if blank)
+             delivery_promise_enable (false: the same-day countdown, and only for custom.ships_same_day beds), dispatch_cutoff_hour (range 0–23, 15),
+             dispatch_days (text "1,2,3,4,5"; 0 = Sunday), holiday_dates (textarea, one YYYY-MM-DD per line),
+             Delivery dates (§9.3): delivery_dispatch_min (number 1), delivery_dispatch_max (number 2),
+             delivery_min_days (number 4), delivery_max_days (number 6)  ← Standard, working days after dispatch,
+             delivery_standard_price (text "4.99"), delivery_express_enable (true), delivery_express_price (text "6.99"),
+             delivery_express_min (number 2), delivery_express_max (number 3),
+             delivery_standard_text / delivery_express_text / delivery_times_note (the basket's delivery line),
+             origin_line (text, "", e.g. "Made in Yorkshire"; hidden if blank)
 Pricing:     show_compare_savings (true), savings_format (select amount|percent, amount),
              show_per_night (true), show_installments (false), installments_count (range 2–4, 3),
              installments_provider (text "Klarna")
-Proof:       store_rating (text ""), store_review_count (text ""), show_product_ratings (true)
-Scarcity:    low_stock_enable (true), low_stock_threshold (range 1–20, 3 — kept low so it only fires on genuine scarcity)
+Proof:       store_rating (text "", stays blank), store_review_count (text "", stays blank), show_product_ratings (true;
+             snippets/rating renders nothing under 5 reviews: reviews.rating_count >= 5)
+Scarcity:    low_stock_enable (FALSE, opt-in), low_stock_threshold (range 0–20, 0 = never). The copy never states a
+             count: "Low stock" / "Low stock in Medium" (audit P0-2: no "Only N left" anywhere)
+Offer:       offer_enable, offer_label, offer_amount, offer_min_subtotal, offer_ends ("YYYY-MM-DD HH:MM" UK), offer_note,
+             offer_countdown (false). Mirrors the real automatic discount (£15 off £129+, ends 2026-10-31 23:59).
 Sizing:      size_hints (textarea; lines "VALUE|Label|Weight|Breeds", default:
              "XS|Extra small|Up to 5kg|Chihuahua, Yorkie, Pomeranian
               S|Small|5–10kg|Jack Russell, Dachshund, Pug, Shih Tzu
@@ -415,6 +436,8 @@ or multi-line text, one per line) · `custom.specs` (multi-line "Label: value") 
 `custom.care` (rich text / multi-line) · `variant.metafields.custom.most_chosen`
 (boolean). Tags: `badge:<text>`, `best-for:<text>`,
 `finder:curl|lean|sprawl`, `finder:fine|slowing|diagnosed`.
+Plus the October 2026 `custom.*` metafields (product and variant), listed with
+the rules that read them in §9.1.
 
 ---
 
@@ -483,3 +506,161 @@ or multi-line text, one per line) · `custom.specs` (multi-line "Label: value") 
 5. Every psychology lever you were assigned is present, honest, and switchable.
 6. Final report: files written, contract assumptions you relied on, anything
    you needed from another area that the contract didn't cover, known gaps.
+
+---
+
+## 9. October 2026 audit: shared contracts (core)
+
+The mobile conversion audit (docs/PawLunova_Mobile_Conversion_Audit_Oct2026.pdf,
+contract in docs/audit-oct-contract.md) changes what the theme may claim. These
+are the pieces every builder codes against. Rule zero: every factual claim about
+a product comes from that product's own data (description, metafields, options,
+tags) or the published policies; when the data is blank, the element hides.
+House style: British spelling, no em dashes, whole-pound prices.
+
+### 9.1 Metafields (namespace `custom`) and what each one allows
+
+Product: `subtitle` (supersedes `tagline`) · `best_for` · `core_type` (Memory foam |
+Egg-crate foam | Crumb memory foam | Fibre | Mesh) · `foam_guarantee` (boolean) ·
+`density_kg_m3` (integer) · `foam_depth` · `feel` (1 to 5) · `has_liner` (boolean) ·
+`cover_type` · `wash_temp` (integer) · `non_slip` (boolean) · `low_entry` (boolean) ·
+`entry_height_cm` (integer) · `sleep_style` (list) · `shape` · `ships_from` (Own stock |
+Partner warehouse) · `dispatch_days_min` / `dispatch_days_max` (integer) ·
+`ships_same_day` (boolean) · `worth_it` (multi-line) · `qa` (json `[{"q","a"}]`).
+Variant: `sleep_area` · `suits_breeds` · `suits_weight`. Older keys stay valid:
+`tagline`, `benefits`, `specs`, `care`, `most_chosen`.
+
+In Liquid always read `.value` and compare booleans with `== true` / `== false`
+(never `!= blank` on a boolean: Shopify treats `false` as blank). Integers and
+text: `| append: ''` then test `!= ''`.
+
+| Element | Shows only when |
+|---|---|
+| Foam guarantee line, "year five", per-night, guarantee in the trust row | `snippets/foam-bed` says true (§9.4) |
+| Density figure / "Density isn't firmness" | `density_kg_m3` has a value |
+| Waterproof liner bullet / spec row | `has_liner` is true |
+| 30°C (any wash temperature) | `wash_temp` has a value |
+| Low-entry bullet, chip, filter | `low_entry` is true (step-in height only with `entry_height_cm`) |
+| Non-slip base | `non_slip` is true |
+| Delivery dates | §9.3 (`ships_from`, `dispatch_days_*`) |
+| Same-day dispatch, cut-off countdown | `ships_same_day` is true AND Theme settings → `delivery_promise_enable` |
+| Stars and review count | `reviews.rating_count` >= 5 from a reviews app (`snippets/rating`) |
+
+`snippets/product-fact` answers these for you:
+`{%- capture d -%}{%- render 'product-fact', product: product, key: 'density' -%}{%- endcapture -%}`
+gives "50" or nothing. Keys: `guarantee`, `per_night`, `liner`, `low_entry`,
+`non_slip`, `same_day`, `partner` ("true" or nothing); `density`, `wash_temp`,
+`entry_height`, `feel` (whole numbers or nothing); `subtitle` (falls back to
+`tagline`), `best_for` (falls back to the `best-for:` tag), `core_type`,
+`foam_depth`, `cover_type`, `shape`, `ships_from`, `sleep_style` (joined ", "),
+`worth_it` (escaped, `<br>` line breaks), `qa_count`. For the Q&A pairs read
+`product.metafields.custom.qa.value` (an array of `{q, a}`).
+
+### 9.2 Prices and the offer
+
+- Every storefront price prints with `money_without_trailing_zeros` (£149, £4.99,
+  £1,049) and in JS with `Lunova.money` (same output). `money_with_currency` stays
+  only in structured data; JSON-LD keeps numeric prices.
+- Offer (Theme settings → Offer, mirroring the automatic discount): the buy box
+  calls `{% render 'offer', mode: 'pdp', product: product, variant: current, cart: cart %}`.
+  It prints ONE line, "£15 off this size at checkout, until Sat 31 Oct", only when
+  that variant's own price reaches the minimum, it is available, the offer is
+  running and the basket can still get it (not already applied: one per order;
+  no other discount in play). Any other size: nothing visible. Contract:
+  `[data-offer-size]` (root, `hidden` unless it qualifies; `data-min`,
+  `data-amount`, `data-offer-price` in pence, `data-product-id`, `data-state`
+  'line' | 'none') and `[data-offer-size-text]`. On a size change call
+  `Lunova.offer.update(scope, variant.price, {available: variant.available})`;
+  global.js also does it on `lunova:variant:change` (from the section with id
+  `shopify-section-<sectionId>`, or the element with `data-section-id`) and on
+  `lunova:offer:change`. No nudge, no net price, no offer in the announcement bar.
+- The old `[data-offer-pdp]` / `data-tpl-*` markup is gone; product.js's
+  `updateOffer()` now finds nothing and can be deleted.
+- Basket: the discount line comes only from Shopify's
+  `cart.cart_level_discount_applications` ("Cosy Season Saving −£15");
+  `{% render 'offer', mode: 'cart_bar', cart: cart %}` is the "£X away from £15 off"
+  goal bar (below the minimum, never beside the free-delivery bar). Card badge:
+  `mode: 'badge'`.
+
+### 9.3 Delivery dates
+
+`{% render 'delivery-estimate', product: product, variant: current %}` (or
+`delivery-options` with `product:`) prints, for example:
+
+- own stock: "Free standard delivery: arrives Thu 15 Oct to Mon 19 Oct" and
+  "Express £6.99: arrives Tue 13 Oct to Wed 14 Oct";
+- below the free threshold: "Standard delivery £4.99: arrives …";
+- `ships_from` "Partner warehouse" with dispatch days: "Free, tracked delivery
+  from our partner warehouse: arrives …" (no Express line);
+- `ships_from` "Partner warehouse" with NO dispatch days: no dates at all,
+  "Tracked delivery from our partner warehouse; delivery time shown at checkout"
+  ("Free, tracked …" only when the price reaches the free threshold).
+
+Numbers: dispatch = `dispatch_days_min/max` when set, else Theme settings
+`delivery_dispatch_min/max` (policy 1 to 2 working days, not for partner beds);
+Standard = `delivery_min_days/max_days` (4 to 6) after dispatch; Express =
+`delivery_express_min/max` (2 to 3). Free when the variant's price is at or above
+`free_shipping_threshold` (£40). A dispatch minimum of 0 only counts today with
+`ships_same_day` true, on a working day before `dispatch_cutoff_hour`.
+
+The dates are filled in by JS (cached pages stay right); without JS the line
+states the working-day ranges ("dispatched in 1 to 2 working days, then 4 to 6
+working days"). Contract: `[data-delivery-estimate]` (`data-dates`,
+`data-dispatch-min/max`, `data-same-day`, `data-free-from`, `data-free-enabled`,
+`data-estimate-price`, `data-tpl-range`, `data-tpl-nodates-free/-paid`) holding
+`[data-delivery-line="standard"|"express"]` (`data-transit-min/max`, `data-cost`,
+`data-tpl-free`, `data-tpl-paid`) and `[data-delivery-text]`.
+`Lunova.delivery.updateEstimates(root, variant)` refills it; global.js runs it on
+load, on `lunova:variant:change` and for injected HTML (quick add). Neither
+element uses a bare `data-price` attribute: product.js rewrites every
+`[data-price]` (except `[data-per-night]`) as a price block.
+
+`Lunova.delivery.window({dispatchMin, dispatchMax, transitMin, transitMax, from})`
+counts working days only: no Saturdays, Sundays or England & Wales bank holidays
+(hard-coded for 2026 to 2027 in global.js `BANK_HOLIDAYS`, plus Theme settings
+`holiday_dates`; the list needs extending after 2027). `from` is a Date or
+"YYYY-MM-DD" (default now, store time zone); dispatch is N working days after the
+order day (an order on a Saturday dispatches from Monday). Returns civil dates
+(12:00 UTC) and `text` ("Thu 15 Oct to Mon 19 Oct"), or null without numbers.
+
+The dispatch countdown (`delivery-promise`) stays off by default and never
+renders for a product without `ships_same_day` true.
+
+### 9.4 Claim gates
+
+- `snippets/foam-bed` (= `Lunova.foamBed`): `custom.foam_guarantee` decides when
+  set (true: covered, false: not); a `core_type` that isn't memory foam → not
+  covered; only when both are blank, the older rule (tags guarantee:no/yes, bed
+  type, car seat, "no-flatten guarantee" in the description).
+- `snippets/per-night`: ONE line, "About 8p a night over the 5-year foam
+  guarantee" (whole pence, price ÷ 1,826 nights for 5 years, i.e. years × 365¼),
+  basis behind the (i): "£149 ÷ 1,826 nights (5 years) = 8.16p a night. A way of
+  seeing the cost over the guaranteed life of the foam, not a payment plan."
+  Renders nothing without a product the foam guarantee covers, or with
+  show_per_night / guarantee_enable off. The audit removes it from collection
+  cards (product-card).
+- `snippets/trial-eligible`: unchanged and independent of the foam guarantee
+  (refund policy: 100 nights on everything except personalised items).
+- `snippets/rating`: nothing under 5 reviews; store_rating stays blank.
+- Low stock: off by default, threshold 0, never a count.
+
+### 9.5 Announcement bar
+
+One static line from Theme settings ("Our promises"): "Free UK delivery over £40
+· 100 nights to decide · Free collection", each part dropping out when its
+promise is off. No rotation, no countdown, no offer. `sections/header-group.json`
+holds just this bar and the header.
+
+### 9.6 Harness
+
+`fixtures/store.mjs` merges `fixtures/real-metafields.json` into real-mode
+products and variants (`metafieldDrop` types them like Shopify: boolean, integer,
+list → array, json → object, text → string; drops expose `.value` and `.type`).
+The fixture catalogue carries custom.* values on Coniston (low entry, subtitle,
+"Worth it?", Q&A, variant sleep areas), Ambleside (guarantee memory foam, density
+50, dispatch 1 to 2), Langdale (egg-crate, foam_guarantee false), Kendal (partner,
+no dispatch days) and the Windermere cooling bed (partner, 3 to 5 days).
+`check.mjs` adds `[audit]` checks (no "Only N left", no same-day claim without
+`ships_same_day`, ".00" prices and em dashes as warnings); `browser-test.mjs`
+checks the offer line and the delivery dates; `test/audit.test.mjs` covers the
+metafield typing, money, the working-day maths and the claim gates.
