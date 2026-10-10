@@ -7,9 +7,9 @@ October 2026 build: the mobile conversion audit
 
 | What | Where | State |
 |---|---|---|
-| Live theme **SEO update - ready to publish (9 Oct 2026)** | Online Store → Themes (id 208641360214) | Published. Old first draft plus the 9 to 10 Oct SEO edits. Not touched by this build. |
-| The 7 Oct Lunova theme | id 208130998614 | Unpublished. Superseded by this build. |
-| **This build** (repo `theme/`) | not uploaded | Zip `theme/` and upload it as a NEW unpublished theme. Preview, then publish. |
+| Live theme **Lunova - Mobile audit build (10 Oct 2026)** | Online Store → Themes (id 208711778646) | Published by the owner at 20:12 on 10 Oct. This build, uploaded from a zip of `theme/` (repo commit c2ff099). |
+| Previous live theme "SEO update - ready to publish (9 Oct 2026)" | id 208641360214 | Unpublished. Its 9 to 10 Oct SEO edits and app embeds are carried into this build (`docs/audit-oct-merge-log.md`). |
+| The 7 Oct Lunova theme | id 208130998614 | Unpublished. Superseded. |
 | 24 `custom.*` metafield definitions, 551 product and 46 variant values | Settings → Custom data | Live. Filled only from each product's own description; blank means unknown. Full record and rules in `docs/audit-oct-data-log.md`. |
 | New collection `low-entry-dog-beds` "Low Step-In Dog Beds" | `/collections/low-entry-dog-beds` | Live, smart rule on `custom.low_entry` = true (5 beds). |
 | Orthopaedic collection | `/collections/orthopaedic-dog-beds` | New manual order (Grasmere, Ambleside, Coniston, Langdale, Nocturne, then memory foam high to low, then egg-crate), new intro and description. |
@@ -19,6 +19,25 @@ October 2026 build: the mobile conversion audit
 | 18 older collections, 12 pages, 4 menus, 21 redirects | as before | Live (see `content/manifest.json`). |
 
 Every revert recipe is in `docs/audit-oct-data-log.md`.
+
+## Do now: star ratings (legal)
+
+A reviews app wrote star ratings to about 30 beds at 18:44 on 10 Oct: 4 to 10 reviews each,
+mostly 4.7 stars. The store's first real order was on 3 Oct and it has about 20 orders, most of
+them for Ambleside, Grasmere and Coniston; many rated beds (Ennerdale 10 reviews, Borrowdale,
+Crummock, Easedale 6 each) have never been sold here. Those reviews cannot be from PawLunova
+buyers. Showing them as PawLunova reviews, or marking them up for Google, is a banned practice
+under the DMCC Act 2024 (fines up to 10% of turnover), and the audit (S11) says the same.
+
+The published build was uploaded with ratings on; the repo now ships them off. Until the reviews
+are genuine buyer reviews:
+1. Theme settings → Social proof → untick **Show product star ratings** (removes the stars on cards
+   and the rating in the theme's product structured data).
+2. In TrustShop and Loox: unpublish the imported reviews (or uninstall the app you are not
+   keeping) and switch off their rich-snippet / structured-data output, which currently adds
+   `aggregateRating` to every product page.
+3. Collect real reviews with the day-14 and day-60 emails in `content/emails/`, then publish
+   `review-policy` and switch the stars back on.
 
 ## What changed in this build
 

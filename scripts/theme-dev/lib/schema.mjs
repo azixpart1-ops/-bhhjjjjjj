@@ -388,7 +388,7 @@ export const CONTRACT_SETTINGS = {
   holiday_dates: ['textarea'], origin_line: ['text'],
   show_compare_savings: ['checkbox', true], savings_format: ['select', 'amount'], show_per_night: ['checkbox', true],
   show_installments: ['checkbox', false], installments_count: ['range', 3], installments_provider: ['text', 'Klarna'],
-  store_rating: ['text'], store_review_count: ['text'], show_product_ratings: ['checkbox', true],
+  store_rating: ['text'], store_review_count: ['text'], show_product_ratings: ['checkbox', false],
   // Low stock is opt-in and never shows by default (Oct 2026 audit, P0-2: no "Only N left";
   // placeholder stock of 5 on every variant would make it a false scarcity claim).
   low_stock_enable: ['checkbox', false], low_stock_threshold: ['range', 0],
