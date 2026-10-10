@@ -1,0 +1,242 @@
+{%- comment -%}
+  One filter group in the filter form (snippets/facets, part 'panel').
+
+  Parameters
+    filter     the filter (list or price_range); not used in mode 'features'
+    results    collection or search (mode 'features')
+    sid        section id, for unique ids
+    index      1-based position, for unique ids
+    open       true → the group starts open
+    mode       'features': one "Features" group gathering every true/false
+               filter (Low step-in, Waterproof liner, Non-slip base…) as a
+               single tick box each, the way a shopper thinks of them,
+               instead of one "Yes / No" group per metafield (audit COL-04)
+
+  Every control is a checkbox or number field in the GET form, so it works
+  without JavaScript; collection.js applies changes in place.
+{%- endcomment -%}
+{%- liquid
+  assign g_id = 'Facet-' | append: sid | append: '-' | append: index
+  assign currency_symbol = cart.currency.symbol | default: '£'
+  assign g_active = 0
+  if mode == 'features'
+    assign group_key = 'features'
+    assign g_label = 'collection.filters.features' | t
+    for bf in results.filters
+      if bf.type == 'boolean'
+        for bv in bf.active_values
+          if bv.value == '1' or bv.value == 'true'
+            assign g_active = g_active | plus: 1
+          endif
+        endfor
+      endif
+    endfor
+  else
+    assign group_key = filter.param_name | default: filter.label | handle
+    capture g_label
+      render 'col-filter-label', filter: filter
+    endcapture
+    if filter.type == 'price_range'
+      if filter.min_value.value != nil or filter.max_value.value != nil
+        assign g_active = 1
+      endif
+    else
+      assign g_active = filter.active_values.size
+    endif
+  endif
+  assign g_open = open
+  if g_active > 0
+    assign g_open = true
+  endif
+-%}
+<details class="facets-group" data-group="{{ group_key | escape }}"{% if g_open %} open{% endif %}>
+  <summary class="facets-group__summary">
+    <span class="facets-group__label">{{ g_label }}</span>
+    {%- if g_active > 0 -%}
+      <span class="facets-group__count">
+        <span aria-hidden="true">{{ g_active }}</span>
+        <span class="visually-hidden">{{ 'collection.facets.selected_count' | t: count: g_active }}</span>
+      </span>
+    {%- endif -%}
+    {%- render 'icon', name: 'chevron-down', class: 'facets-group__chevron' -%}
+  </summary>
+
+  <div class="facets-group__content" id="{{ g_id }}">
+    {%- if mode == 'features' -%}
+      <fieldset class="facets-list">
+        <legend class="visually-hidden">{{ g_label }}</legend>
+        <ul class="facets-list__values" role="list" data-values>
+          {%- assign bf_n = 0 -%}
+          {%- for bf in results.filters -%}
+            {%- if bf.type == 'boolean' -%}
+              {%- for value in bf.values -%}
+                {%- if value.value == '1' or value.value == 'true' -%}
+                  {%- liquid
+                    assign bf_n = bf_n | plus: 1
+                    assign v_id = g_id | append: '-' | append: bf_n
+                    assign v_disabled = false
+                    if value.count == 0 and value.active == false
+                      assign v_disabled = true
+                    endif
+                  -%}
+                  <li class="facets-list__item{% if v_disabled %} is-disabled{% endif %}">
+                    <input
+                      class="facets-list__check"
+                      type="checkbox"
+                      id="{{ v_id }}"
+                      name="{{ value.param_name }}"
+                      value="{{ value.value | escape }}"
+                      {%- if value.active %} checked{% endif %}
+                      {%- if v_disabled %} disabled{% endif %}
+                    >
+                    <label class="facets-list__label" for="{{ v_id }}">
+                      <span class="facets-list__text">{%- render 'col-filter-label', filter: bf, mode: 'feature' -%}</span>
+                      <span class="facets-list__count">
+                        <span aria-hidden="true">{{ value.count }}</span>
+                        <span class="visually-hidden">{{ 'collection.facets.value_count' | t: count: value.count }}</span>
+                      </span>
+                    </label>
+                  </li>
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </fieldset>
+
+    {%- elsif filter.type == 'price_range' -%}
+      {%- liquid
+        assign max_major = filter.range_max | default: 0 | divided_by: 100.0 | ceil
+        assign min_val = ''
+        if filter.min_value.value != nil
+          assign min_val = filter.min_value.value | money_without_currency | remove: ',' | remove: '.00'
+        endif
+        assign max_val = ''
+        if filter.max_value.value != nil
+          assign max_val = filter.max_value.value | money_without_currency | remove: ',' | remove: '.00'
+        endif
+        assign max_money = filter.range_max | money_without_trailing_zeros
+      -%}
+      <fieldset class="facets-price" data-price-range data-max="{{ max_major }}">
+        <legend class="visually-hidden">{{ g_label }}</legend>
+        <div class="facets-price__fields">
+          <div class="facets-price__field">
+            <label class="facets-price__label" for="{{ g_id }}-min">{{ 'collection.facets.price_from' | t }}</label>
+            <span class="facets-price__input-wrap">
+              <span class="facets-price__currency" aria-hidden="true">{{ currency_symbol }}</span>
+              <input
+                class="input facets-price__input"
+                type="number"
+                inputmode="decimal"
+                id="{{ g_id }}-min"
+                name="{{ filter.min_value.param_name }}"
+                value="{{ min_val }}"
+                placeholder="0"
+                min="0"
+                max="{{ max_major }}"
+                step="any"
+                data-price-min
+              >
+            </span>
+          </div>
+          <span class="facets-price__dash" aria-hidden="true">–</span>
+          <div class="facets-price__field">
+            <label class="facets-price__label" for="{{ g_id }}-max">{{ 'collection.facets.price_to' | t }}</label>
+            <span class="facets-price__input-wrap">
+              <span class="facets-price__currency" aria-hidden="true">{{ currency_symbol }}</span>
+              <input
+                class="input facets-price__input"
+                type="number"
+                inputmode="decimal"
+                id="{{ g_id }}-max"
+                name="{{ filter.max_value.param_name }}"
+                value="{{ max_val }}"
+                placeholder="{{ max_major }}"
+                min="0"
+                max="{{ max_major }}"
+                step="any"
+                data-price-max
+              >
+            </span>
+          </div>
+        </div>
+        <p class="facets-price__note">{{ 'collection.facets.price_note' | t: amount: max_money }}</p>
+      </fieldset>
+
+    {%- else -%}
+      {%- liquid
+        assign visible_limit = 8
+        assign total_values = filter.values.size
+        assign is_swatch = false
+        if filter.presentation == 'swatch'
+          assign is_swatch = true
+        endif
+        assign is_image = false
+        if filter.presentation == 'image'
+          assign is_image = true
+        endif
+      -%}
+      <fieldset class="facets-list">
+        <legend class="visually-hidden">{{ g_label }}</legend>
+        <ul class="facets-list__values" role="list" data-values>
+          {%- for value in filter.values -%}
+            {%- liquid
+              assign v_handle = value.value | handle
+              assign v_id = g_id | append: '-' | append: v_handle | append: '-' | append: forloop.index
+              assign v_disabled = false
+              if value.count == 0 and value.active == false
+                assign v_disabled = true
+              endif
+              assign v_extra = false
+              if forloop.index > visible_limit and value.active == false
+                assign v_extra = true
+              endif
+            -%}
+            <li class="facets-list__item{% if v_extra %} facets-list__item--extra{% endif %}{% if v_disabled %} is-disabled{% endif %}">
+              <input
+                class="facets-list__check"
+                type="checkbox"
+                id="{{ v_id }}"
+                name="{{ value.param_name }}"
+                value="{{ value.value | escape }}"
+                {%- if value.active %} checked{% endif %}
+                {%- if v_disabled %} disabled{% endif %}
+              >
+              <label class="facets-list__label" for="{{ v_id }}">
+                {%- if is_swatch and value.swatch.color != blank -%}
+                  <span class="facets-list__swatch" style="--swatch: {{ value.swatch.color }}" aria-hidden="true"></span>
+                {%- elsif is_swatch and value.swatch.image != blank -%}
+                  <span class="facets-list__swatch facets-list__swatch--image" aria-hidden="true">
+                    {%- render 'image', image: value.swatch.image, widths: '48,72', sizes: '24px', decorative: true, aspect: 1 -%}
+                  </span>
+                {%- elsif is_image and value.image != blank -%}
+                  <span class="facets-list__swatch facets-list__swatch--image" aria-hidden="true">
+                    {%- render 'image', image: value.image, widths: '48,72', sizes: '24px', decorative: true, aspect: 1 -%}
+                  </span>
+                {%- endif -%}
+                <span class="facets-list__text">{{ value.label | escape }}</span>
+                <span class="facets-list__count">
+                  <span aria-hidden="true">{{ value.count }}</span>
+                  <span class="visually-hidden">{{ 'collection.facets.value_count' | t: count: value.count }}</span>
+                </span>
+              </label>
+            </li>
+          {%- endfor -%}
+        </ul>
+        {%- if total_values > visible_limit -%}
+          <button
+            type="button"
+            class="link facets-list__more"
+            aria-expanded="false"
+            aria-controls="{{ g_id }}"
+            data-facets-more
+            data-label-more="{{ 'collection.facets.show_all' | t: count: total_values }}"
+            data-label-less="{{ 'collection.facets.show_fewer' | t }}"
+          >
+            {{- 'collection.facets.show_all' | t: count: total_values -}}
+          </button>
+        {%- endif -%}
+      </fieldset>
+    {%- endif -%}
+  </div>
+</details>

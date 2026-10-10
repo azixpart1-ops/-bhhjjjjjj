@@ -1,0 +1,98 @@
+{%- comment -%}
+  "Complete their bed" (audit PDP-23, S05 add-ons): one add-on product picked
+  in the block (e.g. the Kirkstone 5-Step Foam Dog Stairs), offered only
+  where it makes sense:
+    - never on the add-on's own page, and never when it can't be bought;
+    - only on dog beds (product type starting "Dog Beds");
+    - with "Beds for stiff or older dogs" (the default): only on a bed whose
+      own data says so: custom.low_entry, a raised bed (custom.shape
+      Elevated), the tag "dog bed for older dogs", or custom.best_for
+      mentioning stiff, older or senior dogs. "Every bed" drops that test.
+  Its price and name come from the add-on itself; one size adds straight to
+  the basket (cart.js form[data-quick-add-single]), more open quick add.
+  A spare cover can be added as a second block once one is sold.
+
+  Parameters
+    product   the bed on this page
+    addon     the add-on product (block setting)
+    heading   e.g. "Complete their bed"
+    note      one line about who it's for
+    show_on   'older' | 'all'
+{%- endcomment -%}
+{%- liquid
+  assign cb_ok = false
+  if product != blank and addon != blank and addon.id != blank and addon.id != product.id and addon.available
+    assign cb_type = product.type | default: '' | downcase
+    if cb_type contains 'dog beds'
+      assign cb_ok = true
+    endif
+  endif
+  if cb_ok and show_on != 'all'
+    assign cb_ok = false
+    capture cb_low
+      render 'product-fact', product: product, key: 'low_entry'
+    endcapture
+    capture cb_shape
+      render 'product-fact', product: product, key: 'shape'
+    endcapture
+    capture cb_best
+      render 'product-fact', product: product, key: 'best_for'
+    endcapture
+    assign cb_best = cb_best | downcase
+    assign cb_tags = product.tags | join: '|' | downcase | prepend: '|' | append: '|'
+    if cb_low == 'true' or cb_shape == 'Elevated' or cb_tags contains '|dog bed for older dogs|'
+      assign cb_ok = true
+    elsif cb_best contains 'stiff' or cb_best contains 'older' or cb_best contains 'senior'
+      assign cb_ok = true
+    endif
+  endif
+-%}
+{%- if cb_ok -%}
+  {%- liquid
+    assign cb_title = addon.title | split: ' | ' | first | strip
+    assign cb_v = addon.selected_or_first_available_variant
+    assign cb_img = addon.featured_media.preview_image
+    assign cb_id = 'PdpComplete-' | append: product.id
+  -%}
+  <div class="pdp-complete" role="group" aria-labelledby="{{ cb_id }}">
+    <h2 class="h4 pdp-complete__heading" id="{{ cb_id }}">{{ heading | default: 'Complete their bed' | escape }}</h2>
+    <div class="pdp-complete__item">
+      <a class="pdp-complete__media" href="{{ addon.url }}" tabindex="-1" aria-hidden="true">
+        {%- if cb_img -%}
+          {%- render 'image', image: cb_img, widths: '120,180,240', sizes: '88px', class: 'pdp-complete__img', loading: 'lazy', alt: '', aspect: 1 -%}
+        {%- else -%}
+          {{ 'product-1' | placeholder_svg_tag: 'placeholder-svg pdp-complete__img' }}
+        {%- endif -%}
+      </a>
+      <div class="pdp-complete__body">
+        <p class="pdp-complete__title">
+          <a href="{{ addon.url }}">{{ cb_title | escape }}</a>
+          <span class="pdp-complete__price">
+            {%- if addon.price_varies -%}{{ 'general.from' | t }} {% endif -%}
+            {{- addon.price_min | money_without_trailing_zeros -}}
+          </span>
+        </p>
+        {%- if note != blank -%}
+          <p class="pdp-complete__note">{{ note | escape }}</p>
+        {%- endif -%}
+        {%- if addon.has_only_default_variant or addon.variants.size == 1 -%}
+          <form action="{{ routes.cart_add_url }}" method="post" class="pdp-complete__form" data-quick-add-single data-product-handle="{{ addon.handle }}">
+            <input type="hidden" name="id" value="{{ cb_v.id }}">
+            <input type="hidden" name="quantity" value="1">
+            <button type="submit" class="btn btn--secondary btn--sm pdp-complete__add">
+              {%- render 'icon', name: 'plus' -%}
+              <span>{{ 'product.complete.add' | t }}</span>
+              <span class="visually-hidden">{{ cb_title | escape }}</span>
+            </button>
+            <p class="product-card__error pdp-complete__error" role="alert" data-quick-add-error hidden></p>
+          </form>
+        {%- else -%}
+          <a href="{{ addon.url }}" class="btn btn--secondary btn--sm pdp-complete__add" data-quick-add data-handle="{{ addon.handle }}" data-url="{{ addon.url }}">
+            <span>{{ 'product.complete.choose' | t }}</span>
+            <span class="visually-hidden">{{ cb_title | escape }}</span>
+          </a>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+{%- endif -%}

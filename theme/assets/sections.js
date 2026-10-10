@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Lunova — sections.js
+   Lunova - sections.js
    Small, progressive behaviour for the homepage & marketing sections.
    Everything here is optional: each section reads and works without it.
 

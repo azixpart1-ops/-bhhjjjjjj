@@ -1,5 +1,5 @@
 /*
- * Lunova — popup.js (chrome area)
+ * Lunova - popup.js (chrome area)
  *
  * <email-popup>: a polite, honest email capture.
  *   - desktop: shows when the pointer leaves through the top of the window

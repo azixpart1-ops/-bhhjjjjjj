@@ -1,0 +1,54 @@
+{%- comment -%}
+  Size help under the size cards (audit PDP-10, S05 "Size help"):
+    "Not sure? Take the 30-second Bed Finder, or send us a photo of them
+     asleep and we'll tell you the size."
+  The finder part opens the Bed Finder (only while it is switched on); the
+  second part opens WhatsApp with a message already started:
+    "Hi, which size Coniston should I get? My dog is a ___, about ___kg."
+  The number is the main-product block's WhatsApp number (digits with the
+  country code, no + or spaces), the contact policy's +44 7598 327268 by
+  default. A blank number leaves the WhatsApp part out.
+
+  Parameters
+    product      the product
+    short_name   the bed's short name ("Coniston")
+    whatsapp     the number, e.g. 447598327268
+{%- endcomment -%}
+{%- liquid
+  assign sh_num = whatsapp | default: '' | remove: '+' | remove: ' ' | remove: '-' | strip
+  assign sh_name = short_name | default: product.title | strip
+  assign sh_url = ''
+  if sh_num != ''
+    assign sh_msg = 'product.size_help.whatsapp_message' | t: name: sh_name
+    assign sh_msg = sh_msg | replace: '&#39;', "'" | replace: '&amp;', '&' | replace: '&quot;', '"'
+    assign sh_enc = sh_msg | url_encode | replace: '+', '%20'
+    assign sh_url = 'https://wa.me/' | append: sh_num | append: '?text=' | append: sh_enc
+  endif
+  assign sh_finder = false
+  if settings.finder_enable
+    assign sh_finder = true
+  endif
+-%}
+{%- if sh_finder or sh_url != '' -%}
+  <p class="pdp-size-help" data-finder-prompt>
+    {%- render 'icon', name: 'chat', class: 'pdp-size-help__icon' -%}
+    <span class="pdp-size-help__text">
+      {{- 'product.size_help.lead' | t -}}
+      {%- if sh_finder -%}
+        {{- ' ' -}}
+        <span data-finder-prompt-default><button type="button" class="link pdp-size-help__link" data-open-finder>{{ 'product.size_help.finder' | t }}</button></span>
+        {%- comment -%} no whitespace between the two, so ", or" follows the link {%- endcomment -%}
+        <span data-finder-prompt-result hidden><button type="button" class="link pdp-size-help__link" data-open-finder data-finder-step="1">{{ 'product.size_help.finder_again' | t }}</button></span>
+        {%- if sh_url != '' -%}{{ 'product.size_help.or' | t }}{%- else -%}.{%- endif -%}
+      {%- endif -%}
+      {%- if sh_url != '' -%}
+        {{- ' ' -}}
+        <a class="pdp-size-help__link" href="{{ sh_url }}" target="_blank" rel="noopener" data-size-help-whatsapp>
+          {%- if sh_finder -%}{{ 'product.size_help.photo' | t }}{%- else -%}{{ 'product.size_help.photo_first' | t }}{%- endif -%}
+          <span class="visually-hidden"> ({{ 'product.size_help.opens_whatsapp' | t }})</span>
+        </a>
+        {{- ' ' -}}{{- 'product.size_help.tail' | t -}}
+      {%- endif -%}
+    </span>
+  </p>
+{%- endif -%}

@@ -1,5 +1,5 @@
 {%- comment -%}
-  Sticky add-to-basket bar — <sticky-atc>.
+  Sticky add-to-basket bar, <sticky-atc>.
 
   Shown whenever the main Add to basket button is out of view: below the
   fold at first paint (size already chosen, so one tap adds) and after it
@@ -16,13 +16,19 @@
     product   required
     section   required
     variant   selected variant
+    pending   true → no size chosen yet (PDP-09): the bar reads "Choose a
+              size · From £109" and its button scrolls to the sizes instead
+              of adding (product.js). It shows once the main button has
+              scrolled away (PDP-20), never on top of it.
 {%- endcomment -%}
 {%- if product != blank and product.id != blank -%}
   {%- liquid
     assign current = variant | default: product.selected_or_first_available_variant
     assign thumb = current.featured_media.preview_image | default: product.featured_media.preview_image
     assign display_title = product.title | split: ' | ' | first
-    if current.available
+    if pending
+      assign btn_label = 'product.buy.choose_size' | t
+    elsif current.available
       assign btn_label = 'product.buy.add' | t
     else
       assign btn_label = 'product.buy.sold_out' | t
@@ -64,6 +70,7 @@
   <sticky-atc
     class="sticky-atc scheme-{{ section.settings.color_scheme | default: 'bone' }}"
     data-section-id="{{ section.id }}"
+    {%- if pending %} data-pending{% endif %}
     role="region"
     aria-label="{{ 'product.sticky.label' | t }}"
     aria-hidden="true"
@@ -89,10 +96,12 @@
         <p class="sticky-atc__title">{{ display_title | escape }}</p>
         <p class="sticky-atc__meta">
           {%- unless product.has_only_default_variant -%}
-            <span class="sticky-atc__variant" data-sticky-variant>{{ sa_title }}</span>
+            <span class="sticky-atc__variant" data-sticky-variant>{% if pending %}{{ 'product.buy.choose_size' | t }}{% else %}{{ sa_title }}{% endif %}</span>
             <span class="sticky-atc__sep" aria-hidden="true">·</span>
           {%- endunless -%}
-          <span class="sticky-atc__price" data-sticky-price>{{ current.price | money_without_trailing_zeros }}</span>
+          <span class="sticky-atc__price" data-sticky-price>
+            {%- if pending and product.price_varies -%}{{ 'general.from' | t }} {{ product.price_min | money_without_trailing_zeros }}{%- elsif pending -%}{{ product.price_min | money_without_trailing_zeros }}{%- else -%}{{ current.price | money_without_trailing_zeros }}{%- endif -%}
+          </span>
           {%- if current.compare_at_price > current.price and settings.show_compare_savings -%}
             <s class="sticky-atc__compare" data-sticky-compare>{{ current.compare_at_price | money_without_trailing_zeros }}</s>
           {%- else -%}
@@ -104,7 +113,7 @@
         type="button"
         class="btn btn--primary sticky-atc__btn"
         data-sticky-add
-        {%- unless current.available %} disabled{% endunless %}
+        {%- unless current.available or pending %} disabled{% endunless %}
       >
         <span data-sticky-label>{{ btn_label }}</span>
       </button>

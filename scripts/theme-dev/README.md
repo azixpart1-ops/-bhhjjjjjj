@@ -28,7 +28,7 @@ and Chromium from `/opt/pw-browsers`. Don't run `playwright install`.
 | `node lib/finder-engine.mjs` | Prints the finder's pick for every answer, headless, on the committed real catalogue (`--full` for the fixture catalogue) |
 | `node render.mjs <path>` | Renders one URL to stdout and prints its issues to stderr (`--empty`, `--real`, `--cart`, `--section <id>`, `--out file.html`) |
 | `node fixtures/fetch-real.mjs` | Downloads the live catalogue into `.out/real-products.json` (`--offline` copies the snapshot, `--check` prints what the file holds) |
-| `npm run test:harness` | Self-tests for the harness's Shopify emulation (Ruby maths, render scoping, paginate, forms, cart rules, schema rules), the headless finder matrix on the real catalogue (`test/finder-matrix.test.mjs`) and the October 2026 audit plumbing (`test/audit.test.mjs`: metafield typing and the real overlay, whole-pound money in Liquid and `Lunova.money`, `Lunova.delivery.window` working days and bank holidays, the foam-guarantee and delivery claim gates) |
+| `npm run test:harness` | Self-tests for the harness's Shopify emulation (Ruby maths, render scoping, paginate, forms, cart rules, schema rules), the headless finder matrix on the real catalogue (`test/finder-matrix.test.mjs`) and the October 2026 audit plumbing (`test/audit.test.mjs`: metafield typing and the real overlay, whole-pound money in Liquid and `Lunova.money`, `Lunova.delivery.window` working days and bank holidays, with weekend and bank-holiday orders counted from the next working day as the shipping policy says, the foam-guarantee and delivery claim gates) |
 | `npm test` | Self-tests, then `check.mjs`, then `browser-test.mjs` |
 
 Output lines are meant to be grepped: `ERROR [schema] sections/hero.liquid  message`,
@@ -195,8 +195,9 @@ The real flows are:
 - the finder from the header to the basket;
 - size changes price and `?variant=` on a size-only product;
 - **colour + size** on a colour-first product and a size-first `Color` product: pick
-  another colour, then a size with a different price, and check that the price,
-  `?variant=` and the variant that lands in the basket all match that colour and size;
+  another colour (with no size chosen yet the size stays open and the URL gets no
+  `?variant=`), then a size, and check that the price, `?variant=` and the variant that
+  lands in the basket all match that colour and size;
 - drawer quantity and remove;
 - quick add from `/collections/all`;
 - the collection filter;
@@ -376,14 +377,18 @@ reports WCAG 2.2 A/AA violations as WARN, or as FAIL with `--strict-a11y`.
 - finder from the header, answering every step with the dog named "Bella", then the result,
   Add to basket, and the drawer showing the item (no HTML entities as text at any step);
 - PDP size change updating the price and `?variant=`, then Add to basket opening the drawer;
-- drawer + quantity and remove;
+- drawer + quantity and remove, after the audit's PDP-09 check: with no size chosen the main
+  button reads "Choose a size", and tapping it adds nothing, says "Choose a size first" and
+  focuses the sizes, and the size group itself shows "Choose a size first" on screen until a size
+  is picked;
 - quick-add from a collection card;
 - a collection filter checkbox applying `filter.*`;
 - predictive search (on mobile it is opened from the menu drawer);
 - the mobile menu closing on Escape with focus returned;
-- the sticky add-to-basket bar: shown at first paint while the main Add button is below the
-  fold, hidden while it is in view, shown again once scrolled past (and after a jump past it),
-  never shown below the fold for a sold-out product (390 and 1440).
+- the sticky add-to-basket bar (audit PDP-20): hidden at first paint, even while the main Add
+  button is below the fold; hidden while the main button is in view; shown once it has scrolled
+  up past the top (and after a jump past it); hidden again back at the top; never shown below
+  the fold for a sold-out product (390 and 1440).
 
 - **the offer** (Theme settings → Offer), pinned with the override cookies so the results don't
   depend on today's date, on a size-only product with sizes either side of the £129 minimum:
@@ -405,7 +410,7 @@ reports WCAG 2.2 A/AA violations as WARN, or as FAIL with `--strict-a11y`.
 - **delivery dates** (390, 1440): an own-stock bed's delivery line carries working-day arrival
   dates filled in by `Lunova.delivery.window` ("Free standard delivery: arrives Thu 15 Oct to
   Mon 19 Oct", never a Saturday or Sunday, no same-day wording); a partner-warehouse bed with
-  no dispatch days shows no dates ("…partner warehouse; delivery time shown at checkout").
+  no dispatch days shows no dates and promises no delivery time it can't show ("…partner warehouse. It takes longer than our own stock, so ask us for the expected date…"). The own-stock bed's first date must be the earliest the shipping policy allows for an order placed now, worked out independently in the test (weekend and bank-holiday orders count from the next working day).
 
 **Finder matrix.** See [The finder matrix](#the-finder-matrix).
 

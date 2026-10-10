@@ -1,0 +1,292 @@
+{%- comment -%}
+  The three-part trust row directly under the Add button (audit PDP-13, S05
+  "Trust row"). Each part opens a bottom sheet (native <dialog>, so focus
+  stays inside it, Escape closes it, and focus goes back to the part that
+  opened it: product.js openDialog) with the policy facts behind it.
+
+    1. trial       "100 nights to decide, we collect it free"
+                   only when the sleep trial covers this product
+                   (snippets/trial-eligible). Otherwise the plain
+                   "isn't covered" note shows under the row instead.
+    2. guarantee   "5-year foam guarantee", only when the foam guarantee
+                   covers this bed (snippets/foam-bed: custom.foam_guarantee
+                   first). Other beds get "Free UK delivery" in the middle.
+    3. support     "UK owner support": who answers, and how to reach him.
+
+  Every fact in the sheets comes from the published policies (refund policy,
+  shipping policy, contact details) through Theme settings or the block's
+  own text, never from guesses.
+
+  Parameters
+    product   the product
+    section   the section (ids are scoped to it)
+    block     the main-product trust_row block (its settings hold the sheet text)
+{%- endcomment -%}
+{%- if product != blank -%}
+  {%- liquid
+    assign tr = block.settings
+    assign tr_id = 'PdpSheet-' | append: section.id
+    assign nights = settings.trial_nights | default: 0 | plus: 0
+    assign years = settings.guarantee_years | default: 0 | plus: 0
+    assign nights_s = nights | append: ''
+    assign years_s = years | append: ''
+
+    assign tr_trial_on = false
+    if settings.trial_enable and nights > 0
+      assign tr_trial_on = true
+    endif
+    assign tr_trial = false
+    if tr_trial_on
+      capture tr_t
+        render 'trial-eligible', product: product
+      endcapture
+      if tr_t == 'true'
+        assign tr_trial = true
+      endif
+    endif
+    assign tr_guarantee = false
+    if settings.guarantee_enable and years > 0
+      capture tr_g
+        render 'foam-bed', product: product
+      endcapture
+      if tr_g == 'true'
+        assign tr_guarantee = true
+      endif
+    endif
+
+    assign tr_threshold = 0
+    if settings.free_shipping_enable
+      assign tr_threshold = settings.free_shipping_threshold | default: 0 | times: 100 | round
+    endif
+    assign tr_threshold_money = tr_threshold | money_without_trailing_zeros
+    assign tr_delivery = false
+    if settings.free_shipping_enable and tr_guarantee == false
+      assign tr_delivery = true
+    endif
+
+    capture tr_terms
+      render 'trial-terms'
+    endcapture
+    assign tr_terms = tr_terms | strip
+
+    assign tr_policy_url = shop.refund_policy.url | default: ''
+    if tr_policy_url == ''
+      assign tr_policy_url = pages['100-night-trial'].url | default: ''
+    endif
+    assign tr_shipping_url = shop.shipping_policy.url | default: ''
+
+    capture tr_partner
+      render 'product-fact', product: product, key: 'partner'
+    endcapture
+
+    comment
+      Not covered by the trial (personalised, kennels…): the product's own
+      custom.returns_note, else the standard wording.
+    endcomment
+    assign tr_excluded = ''
+    if tr_trial_on and tr_trial == false
+      assign tr_excluded = product.metafields.custom.returns_note.value | default: '' | strip | escape
+      if tr_excluded == ''
+        capture tr_pers
+          render 'personalised', product: product
+        endcapture
+        if tr_pers == 'true'
+          assign tr_excluded = 'product.risk.excluded_personalised' | t: nights: nights
+        else
+          assign tr_excluded = 'product.risk.excluded' | t: nights: nights
+        endif
+      endif
+    endif
+
+    assign tr_email = tr.contact_email | default: '' | strip
+    assign tr_phone = tr.contact_phone | default: '' | strip
+    assign tr_hours = tr.contact_hours | default: '' | strip
+    assign tr_wa = tr.whatsapp_number | default: '' | remove: '+' | remove: ' ' | remove: '-' | strip
+    assign tr_tel = tr_phone | remove: ' ' | remove: '(' | remove: ')' | remove: '-'
+    if tr_trial and settings.trial_free_collection
+      assign tr_trial_title = 'product.trust_row.trial_free' | t: nights: nights
+    else
+      assign tr_trial_title = 'product.trust_row.trial' | t: nights: nights
+    endif
+    if product.price_min >= tr_threshold
+      assign tr_delivery_title = 'product.trust_row.delivery_free' | t
+    else
+      assign tr_delivery_title = 'product.trust_row.delivery_over' | t: amount: tr_threshold_money
+    endif
+  -%}
+  <div class="pdp-trust" data-pdp-trust>
+    <ul class="pdp-trust__row" role="list" aria-label="{{ 'product.trust_row.label' | t }}">
+      {%- if tr_trial -%}
+        <li class="pdp-trust__cell">
+          <button type="button" class="pdp-trust__item" data-pdp-sheet-open="{{ tr_id }}-trial" aria-haspopup="dialog" aria-controls="{{ tr_id }}-trial">
+            {%- render 'icon', name: 'moon', class: 'pdp-trust__icon' -%}
+            <span class="pdp-trust__text">{{ tr_trial_title }}</span>
+          </button>
+        </li>
+      {%- endif -%}
+      {%- if tr_guarantee -%}
+        <li class="pdp-trust__cell">
+          <button type="button" class="pdp-trust__item" data-pdp-sheet-open="{{ tr_id }}-guarantee" aria-haspopup="dialog" aria-controls="{{ tr_id }}-guarantee">
+            {%- render 'icon', name: 'shield', class: 'pdp-trust__icon' -%}
+            <span class="pdp-trust__text">{{ 'product.trust_row.guarantee' | t: years: years }}</span>
+          </button>
+        </li>
+      {%- elsif tr_delivery -%}
+        <li class="pdp-trust__cell">
+          <button type="button" class="pdp-trust__item" data-pdp-sheet-open="{{ tr_id }}-delivery" aria-haspopup="dialog" aria-controls="{{ tr_id }}-delivery">
+            {%- render 'icon', name: 'truck', class: 'pdp-trust__icon' -%}
+            <span class="pdp-trust__text">{{ tr_delivery_title }}</span>
+          </button>
+        </li>
+      {%- endif -%}
+      <li class="pdp-trust__cell">
+        <button type="button" class="pdp-trust__item" data-pdp-sheet-open="{{ tr_id }}-support" aria-haspopup="dialog" aria-controls="{{ tr_id }}-support">
+          {%- render 'icon', name: 'chat', class: 'pdp-trust__icon' -%}
+          <span class="pdp-trust__text">{{ 'product.trust_row.support' | t }}</span>
+        </button>
+      </li>
+    </ul>
+    {%- if tr_excluded != '' -%}
+      <p class="pdp-trust__note" data-trial-excluded>
+        {%- render 'icon', name: 'info', class: 'pdp-trust__note-icon' -%}
+        <span>{{ tr_excluded }}</span>
+      </p>
+    {%- endif -%}
+
+    {%- comment -%} ---------- The sheets ---------- {%- endcomment -%}
+    {%- if tr_trial -%}
+      {%- liquid
+        assign t_body = tr.trial_text | default: '' | strip
+        assign t_body = t_body | escape | replace: '[trial_nights]', nights_s | replace: '[trial_terms]', tr_terms
+      -%}
+      <dialog class="modal modal--sheet pdp-sheet" id="{{ tr_id }}-trial" aria-labelledby="{{ tr_id }}-trial-title" aria-modal="true" data-pdp-sheet>
+        <div class="modal__header pdp-sheet__header">
+          <h2 class="h3 pdp-sheet__title" id="{{ tr_id }}-trial-title">{{ tr_trial_title }}</h2>
+          <button type="button" class="btn btn--icon pdp-sheet__close" data-dialog-close aria-label="{{ 'product.trust_row.close' | t }}">{%- render 'icon', name: 'close' -%}</button>
+        </div>
+        <div class="modal__body pdp-sheet__body rte">
+          <p>{{ t_body }}</p>
+          {%- if tr_policy_url != '' -%}
+            <p><a href="{{ tr_policy_url }}">{{ 'product.trust_row.full_terms' | t }}</a></p>
+          {%- endif -%}
+        </div>
+      </dialog>
+    {%- endif -%}
+    {%- if tr_guarantee -%}
+      {%- liquid
+        assign g_body = tr.guarantee_text | default: '' | strip
+        assign g_body = g_body | escape | replace: '[guarantee_years]', years_s
+      -%}
+      <dialog class="modal modal--sheet pdp-sheet" id="{{ tr_id }}-guarantee" aria-labelledby="{{ tr_id }}-guarantee-title" aria-modal="true" data-pdp-sheet>
+        <div class="modal__header pdp-sheet__header">
+          <h2 class="h3 pdp-sheet__title" id="{{ tr_id }}-guarantee-title">{{ 'product.trust_row.guarantee' | t: years: years }}</h2>
+          <button type="button" class="btn btn--icon pdp-sheet__close" data-dialog-close aria-label="{{ 'product.trust_row.close' | t }}">{%- render 'icon', name: 'close' -%}</button>
+        </div>
+        <div class="modal__body pdp-sheet__body rte">
+          <p>{{ g_body }}</p>
+          {%- if tr_policy_url != '' -%}
+            <p><a href="{{ tr_policy_url }}">{{ 'product.trust_row.full_terms' | t }}</a></p>
+          {%- endif -%}
+        </div>
+      </dialog>
+    {%- elsif tr_delivery -%}
+      {%- liquid
+        assign d_std = settings.delivery_standard_price | default: '' | strip | remove: '£' | times: 100 | round | money_without_trailing_zeros
+        assign d_exp_cents = settings.delivery_express_price | default: '' | strip | remove: '£' | times: 100 | round
+        assign d_exp = d_exp_cents | money_without_trailing_zeros
+        assign d_min = settings.delivery_min_days | default: 4 | plus: 0
+        assign d_max = settings.delivery_max_days | default: 6 | plus: 0
+        assign x_min = settings.delivery_express_min | default: 2 | plus: 0
+        assign x_max = settings.delivery_express_max | default: 3 | plus: 0
+        assign p_min = settings.delivery_dispatch_min | default: 1 | plus: 0
+        assign p_max = settings.delivery_dispatch_max | default: 2 | plus: 0
+        comment
+          This bed's own dispatch days when it has them (custom.dispatch_days_min/_max).
+        endcomment
+        assign p_own_min = product.metafields.custom.dispatch_days_min.value | append: '' | strip
+        assign p_own_max = product.metafields.custom.dispatch_days_max.value | append: '' | strip
+        if p_own_min != '' or p_own_max != ''
+          assign p_min = p_own_min | default: p_own_max | plus: 0
+          assign p_max = p_own_max | default: p_own_min | plus: 0
+          if p_min < 1
+            assign p_min = 1
+          endif
+          if p_max < p_min
+            assign p_max = p_min
+          endif
+        endif
+        capture tr_dated
+          render 'product-fact', product: product, key: 'dated'
+        endcapture
+      -%}
+      <dialog class="modal modal--sheet pdp-sheet" id="{{ tr_id }}-delivery" aria-labelledby="{{ tr_id }}-delivery-title" aria-modal="true" data-pdp-sheet>
+        <div class="modal__header pdp-sheet__header">
+          <h2 class="h3 pdp-sheet__title" id="{{ tr_id }}-delivery-title">{{ tr_delivery_title }}</h2>
+          <button type="button" class="btn btn--icon pdp-sheet__close" data-dialog-close aria-label="{{ 'product.trust_row.close' | t }}">{%- render 'icon', name: 'close' -%}</button>
+        </div>
+        <div class="modal__body pdp-sheet__body rte">
+          <p>{{ 'product.trust_row.delivery_standard' | t: amount: tr_threshold_money, price: d_std, min: d_min, max: d_max }}</p>
+          {%- comment -%}
+            Only a bed that shows its dates above the button says so
+            (snippets/product-fact dated). A partner-warehouse or
+            made-to-order bed without dispatch days says why it takes longer
+            and to ask, never the policy's 1 to 2 working days.
+          {%- endcomment -%}
+          {%- if tr_partner == 'true' -%}
+            {%- if tr_dated == 'true' -%}
+              <p>{{ 'product.trust_row.delivery_partner_dated' | t }}</p>
+            {%- else -%}
+              <p>{{ 'product.trust_row.delivery_partner' | t }}</p>
+            {%- endif -%}
+          {%- else -%}
+            {%- if settings.delivery_express_enable and d_exp_cents > 0 -%}
+              <p>{{ 'product.trust_row.delivery_express' | t: price: d_exp, min: x_min, max: x_max }}</p>
+            {%- endif -%}
+            {%- if tr_dated == 'true' -%}
+              <p>{{ 'product.trust_row.delivery_dispatch' | t: min: p_min, max: p_max }}</p>
+            {%- else -%}
+              {%- liquid
+                capture tr_lead
+                  render 'product-fact', product: product, key: 'lead_days'
+                endcapture
+                if tr_lead != ''
+                  assign tr_made = 'product.made.lead' | t: days: tr_lead
+                else
+                  assign tr_made = 'product.made.generic' | t
+                endif
+              -%}
+              <p>{{ 'product.trust_row.delivery_made' | t: made: tr_made }}</p>
+            {%- endif -%}
+          {%- endif -%}
+          {%- if tr_shipping_url != '' -%}
+            <p><a href="{{ tr_shipping_url }}">{{ 'product.trust_row.delivery_policy' | t }}</a></p>
+          {%- endif -%}
+        </div>
+      </dialog>
+    {%- endif -%}
+    {%- liquid
+      assign s_body = tr.support_text | default: '' | strip | escape
+    -%}
+    <dialog class="modal modal--sheet pdp-sheet" id="{{ tr_id }}-support" aria-labelledby="{{ tr_id }}-support-title" aria-modal="true" data-pdp-sheet>
+      <div class="modal__header pdp-sheet__header">
+        <h2 class="h3 pdp-sheet__title" id="{{ tr_id }}-support-title">{{ 'product.trust_row.support' | t }}</h2>
+        <button type="button" class="btn btn--icon pdp-sheet__close" data-dialog-close aria-label="{{ 'product.trust_row.close' | t }}">{%- render 'icon', name: 'close' -%}</button>
+      </div>
+      <div class="modal__body pdp-sheet__body rte">
+        {%- if s_body != '' -%}<p>{{ s_body }}</p>{%- endif -%}
+        <ul class="pdp-sheet__contact" role="list">
+          {%- if tr_wa != '' -%}
+            <li>{%- render 'icon', name: 'chat' -%}<a href="https://wa.me/{{ tr_wa }}" target="_blank" rel="noopener">{{ 'product.trust_row.whatsapp' | t }}<span class="visually-hidden"> ({{ 'product.size_help.opens_whatsapp' | t }})</span></a></li>
+          {%- endif -%}
+          {%- if tr_email != '' -%}
+            <li>{%- render 'icon', name: 'arrow-right' -%}<a href="mailto:{{ tr_email | escape }}">{{ tr_email | escape }}</a></li>
+          {%- endif -%}
+          {%- if tr_phone != '' -%}
+            <li>{%- render 'icon', name: 'arrow-right' -%}<a href="tel:{{ tr_tel | escape }}">{{ tr_phone | escape }}</a></li>
+          {%- endif -%}
+        </ul>
+        {%- if tr_hours != '' -%}<p class="pdp-sheet__hours">{{ tr_hours | escape }}</p>{%- endif -%}
+      </div>
+    </dialog>
+  </div>
+{%- endif -%}

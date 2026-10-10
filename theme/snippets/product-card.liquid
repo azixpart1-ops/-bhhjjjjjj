@@ -1,12 +1,14 @@
 {%- comment -%}
-  Product card — used by every grid, row and recommendation in the theme.
+  Product card, used by every grid, row and recommendation in the theme.
 
   Parameters
     product          product object. Blank → a quiet placeholder card (editor/empty states).
     image_ratio      'square' | 'portrait' | 'landscape'. Default settings.card_image_ratio.
     show_quick_add   default true (also needs settings.card_quick_add)
     show_rating      default true (also needs settings.card_show_rating + show_product_ratings)
-    show_per_night   default false — opt in for rows where the reframe helps
+    show_specs       default true: up to three spec chips from the bed's own metafields
+    show_per_night   accepted for older callers and ignored: the October 2026 audit
+                     (P0-4, COL-06) takes the per-night line off every card
     lazy             default true. Pass false for cards in the first screenful.
     heading_level    'h2' | 'h3' (default) | 'h4'
     role_label       overrides the "Best for:" line (else custom.best_for metafield,
@@ -18,22 +20,33 @@
     class            extra classes on the root
     placeholder_index  1–6, which placeholder illustration to use when product is blank
 
+  What a card says (audit COL-06, S07 card template), all from the bed's own data:
+      Best for: Stiff mornings                      custom.best_for
+      Coniston Low-Entry Memory Foam Dog Bed
+      From £109 · S–L · 61–97cm                     lowest price, whole pounds; size range
+                                                    from the size option, lengths from the
+                                                    variants' custom.sleep_area, else from
+                                                    the size labels' measurements
+      Memory foam · Waterproof liner · Low step-in  max three: core_type, has_liner,
+                                                    wash_temp, low_entry, non_slip, cover_type
+  A one-size bed names its size where the sizes go ("One size · 122 × 89cm",
+  COL-13), so quick add never adds blind. No per-night line, no stock count
+  (low stock only when Theme settings switch it on, and never a number), no
+  stars until a reviews app holds 5 or more genuine reviews (snippets/rating).
+
   Psychology, all of it honest and switchable:
     - Role label ("Best for: Stiff mornings") turns a grid of similar beds into
       a set of answers (choice architecture).
-    - Finder match chip ("Bella's match") — hidden until global.js finds this
-      handle in the stored Bed Finder result (endowment / personalisation).
-    - Anchoring: compare-at struck through + "Save £X" badge (settings.show_compare_savings,
-      settings.savings_format). "From £69" when sizes are priced differently.
-    - Real ratings only (reviews.* metafields).
-    - Low stock ONLY when the first available variant tracks inventory, stops
-      selling at zero (policy deny) and is at/under settings.low_stock_threshold
-      and at most 2 (cards are stricter than the buy box).
+    - Finder match chip ("Bella's match"), hidden until global.js finds this
+      handle in the stored Bed Finder result.
+    - Compare-at struck through + "Save £X" badge only for a real compare-at
+      price (settings.show_compare_savings).
     - Quick add: single variant → <form data-quick-add-single> posting to
       /cart/add (cart.js intercepts it; works without JS), unless it's
       personalised (snippets/personalised: it needs a name). Otherwise a link
       to the product (works without JS) that global.js turns into
-      lunova:quickadd:open {handle, url} when the quick-add drawer exists.
+      lunova:quickadd:open {handle, url}; the drawer's buy box chooses no size
+      for the shopper.
 
   Root carries data-finder-match-handle="{{ product.handle }}"; badges are tags
   'badge:<text>' (first one gets the featured style), plus automatic Sold out / Save.
@@ -84,112 +97,39 @@
     endunless
 
     comment
-      Options: find the size option by name (so a colour-first product doesn't
-      advertise its colours as sizes) and count colours. Size values are
-      parsed by snippets/size-hints (mode parse: rank, kind, label, detail),
-      so Extra Large · 107 × 76 × 19cm reads Extra Large, values sort by size
-      rather than variant order (Sizes Small–XL), and a lone One size · 80 ×
-      80cm reads One size.
+      Sizes line ("S–L · 61–97cm", "One size · 122 × 89cm") and spec chips
+      come from their own snippets (col-card-sizes, col-card-specs). The
+      size option's position is still needed here for the quick-add label
+      and the low-stock size name.
     endcomment
     assign size_idx = -1
-    assign size_count = 0
-    assign colour_count = 0
-    assign size_min_label = ''
-    assign size_max_label = ''
-    assign size_min_rank = 99
-    assign size_max_rank = 0
-    assign size_first_label = ''
-    assign size_last_label = ''
-    assign size_first_kind = ''
-    assign size_len_min = 0
-    assign size_len_max = 0
     for option in product.options_with_values
       assign opt_name = option.name | downcase
-      if size_idx == -1 and opt_name contains 'size'
+      if opt_name contains 'size'
         assign size_idx = forloop.index0
-        assign size_count = option.values.size
-        for ov in option.values
-          assign ov_s = ov.name | default: ov | append: ''
-          capture ov_parsed
-            render 'size-hints', value: ov_s, mode: 'parse'
-          endcapture
-          assign ov_parts = ov_parsed | split: '|'
-          assign ov_rank = ov_parts[0] | default: 0 | plus: 0
-          assign ov_label = ov_parts[2] | default: ov_s | strip
-          if forloop.first
-            assign size_first_label = ov_label
-            assign size_first_kind = ov_parts[1]
-          endif
-          comment
-            The bed's length from a "Large · 71 × 58cm" value (the longer of
-            the first two measurements, cm only), for "50–71cm" on the card.
-          endcomment
-          assign ov_dim = ov_parts[3] | default: '' | downcase | replace: '×', 'x' | remove: ' '
-          if ov_dim contains 'x' and ov_dim contains 'cm'
-            assign ov_dims = ov_dim | remove: 'cm' | split: 'x'
-            assign ov_a = ov_dims[0] | plus: 0
-            assign ov_b = ov_dims[1] | plus: 0
-            assign ov_len = ov_a | at_least: ov_b | round
-            if ov_a > 0 and ov_b > 0
-              if size_len_min == 0 or ov_len < size_len_min
-                assign size_len_min = ov_len
-              endif
-              if ov_len > size_len_max
-                assign size_len_max = ov_len
-              endif
-            endif
-          endif
-          assign size_last_label = ov_label
-          if ov_rank > 0
-            if ov_rank < size_min_rank
-              assign size_min_rank = ov_rank
-              assign size_min_label = ov_label
-            endif
-            if ov_rank > size_max_rank
-              assign size_max_rank = ov_rank
-              assign size_max_label = ov_label
-            endif
-          endif
-        endfor
-      elsif opt_name contains 'colour' or opt_name contains 'color'
-        assign colour_count = option.values.size
+        break
       endif
     endfor
-
-    assign meta_text = ''
-    if size_idx >= 0
-      if size_count == 1
-        if size_first_kind == 'one'
-          assign meta_text = 'core.card.size_one' | t
-        else
-          assign meta_text = 'core.card.size_single' | t: size: size_first_label
-        endif
-      elsif size_max_rank > 0 and size_min_rank < size_max_rank
-        assign meta_text = 'core.card.sizes_range' | t: from: size_min_label, to: size_max_label
-      elsif size_max_rank == 0 and size_first_label != size_last_label
-        assign meta_text = 'core.card.sizes_range' | t: from: size_first_label, to: size_last_label
-      else
-        assign meta_text = 'core.card.sizes_count' | t: count: size_count
+    capture sizes_out
+      render 'col-card-sizes', product: product
+    endcapture
+    assign sizes_out = sizes_out | strip
+    assign one_size = false
+    assign sizes_text = ''
+    if sizes_out != ''
+      assign sizes_kind = sizes_out | split: '|' | first
+      assign sizes_text = sizes_out | remove_first: sizes_kind | remove_first: '|'
+      if sizes_kind == 'one'
+        assign one_size = true
       endif
     endif
-    if size_len_max > 0 and size_count > 1
-      if size_len_min == size_len_max
-        assign len_text = size_len_max | append: 'cm'
-      else
-        assign len_text = size_len_min | append: '–' | append: size_len_max | append: 'cm'
-      endif
-      if meta_text != ''
-        assign meta_text = meta_text | append: ' · '
-      endif
-      assign meta_text = meta_text | append: len_text
-    endif
-    if colour_count > 1
-      assign colour_text = 'core.card.colours' | t: count: colour_count
-      if meta_text != ''
-        assign meta_text = meta_text | append: ' · '
-      endif
-      assign meta_text = meta_text | append: colour_text
-    endif
+    assign spec_html = ''
+    unless show_specs == false
+      capture spec_html
+        render 'col-card-specs', product: product
+      endcapture
+      assign spec_html = spec_html | strip
+    endunless
 
     comment
       Role label and custom badges from metafields / tags.
@@ -200,7 +140,7 @@
       assign role_explicit = true
     endif
     if role == '' and settings.card_show_role
-      assign role = product.metafields.custom.best_for.value | default: '' | strip
+      assign role = product.metafields.custom.best_for.value | default: '' | append: '' | strip
     endif
     assign custom_badges = ''
     for tag in product.tags
@@ -219,8 +159,7 @@
     assign custom_badge_list = custom_badges | split: '|'
     comment
       No metafield or tag: the product's own "Best for: …" sentence from its
-      description (most beds have one), first sentence only, so a grid of
-      similar beds still says who each one is for.
+      description, first sentence only.
     endcomment
     if role == '' and settings.card_show_role and product.description contains 'Best for:'
       assign role = product.description | split: 'Best for:' | last | split: '</p>' | first | strip_html | strip | split: '. ' | first | strip
@@ -262,9 +201,8 @@
     endif
 
     comment
-      Honest low stock: tracked by Shopify, can't oversell, at/under threshold.
-      Cards use a stricter bar than the product page (2 at most), so a grid
-      of beds is never a wall of red; the buy box shows the full threshold.
+      Low stock: off unless Theme settings switch it on (audit P0-2), and then
+      only for a tracked size that can't oversell, at 2 or fewer. Never a count.
     endcomment
     assign low_qty = 0
     if settings.low_stock_enable and variant.available and variant.inventory_management == 'shopify' and variant.inventory_policy == 'deny'
@@ -275,9 +213,6 @@
       endif
     endif
 
-    comment
-      Quick add mode.
-    endcomment
     assign quick = false
     if settings.card_quick_add and sold_out == false
       unless show_quick_add == false
@@ -312,6 +247,10 @@
     endif
 
     assign primary_image = product.featured_media.preview_image
+    assign primary_alt = primary_image.alt | default: '' | strip
+    if primary_alt == ''
+      assign primary_alt = product.title
+    endif
     assign has_secondary = false
     if settings.card_secondary_image and product.media.size > 1
       assign secondary_image = product.media[1].preview_image
@@ -322,7 +261,6 @@
 
     comment
       Badge budget: on a 160px phone card more than two badges hide the photo.
-      With a saving to show, one custom badge; otherwise two.
     endcomment
     assign custom_limit = 2
     if save_text != ''
@@ -331,10 +269,8 @@
   -%}
   {%- liquid
     comment
-      Name the variant the way the shopper reads it: the size's own name,
-      so Large rather than the whole Large: Cocker Spaniel value and Medium
-      for M, plus any other option, as in Green / Small. A one-size value
-      names nothing.
+      Name the variant the way the shopper reads it (Large, not the whole
+      value Large: Cocker Spaniel). A one-size value names nothing.
     endcomment
     assign low_text = ''
     if low_qty > 0
@@ -384,6 +320,7 @@
         sizes: img_sizes,
         class: 'product-card__img product-card__img--primary',
         loading: load_mode,
+        alt: primary_alt,
         placeholder: 'product-1'
       -%}
       {%- if has_secondary -%}
@@ -433,7 +370,7 @@
           {%- if save_text != '' -%}
             {%- render 'badge', text: save_text, style: 'sale' -%}
           {%- endif -%}
-          {%- comment -%} The running offer (Theme settings → Offer): "£15 off", or "£15 off at £129+" when only the bigger sizes reach it. {%- endcomment -%}
+          {%- comment -%} The running offer (Theme settings → Offer). {%- endcomment -%}
           {%- render 'offer', mode: 'badge', product: product -%}
         {%- endif -%}
       </div>
@@ -442,19 +379,18 @@
         {%- render 'rating', product: product, size: 'sm' -%}
       {%- endif -%}
 
-      {%- if meta_text != '' -%}
-        <p class="product-card__meta">{{ meta_text }}</p>
-      {%- endif -%}
-
       <div class="product-card__price">
         {%- render 'price', product: product, show_from: true, show_save: false, show_sold_out: false, size: 'sm' -%}
+        {%- if sizes_text != '' -%}
+          <p class="product-card__sizes" data-card-sizes>
+            <span class="product-card__sizes-sep" aria-hidden="true">·</span>
+            {%- unless one_size -%}<span class="visually-hidden">{{ 'collection.card.sizes_label' | t }}</span>{%- endunless -%}
+            <span>{{ sizes_text }}</span>
+          </p>
+        {%- endif -%}
       </div>
 
-      {%- if show_per_night and sold_out == false -%}
-        <div class="product-card__per-night">
-          {%- render 'per-night', price: product.price_min, product: product, compact: true -%}
-        </div>
-      {%- endif -%}
+      {{- spec_html -}}
 
       {%- if low_text != '' -%}
         <p class="product-card__stock">
@@ -476,12 +412,12 @@
               <input type="hidden" name="quantity" value="1">
               <button type="submit" class="btn btn--secondary btn--sm btn--block product-card__quick-add">
                 {%- render 'icon', name: 'plus' -%}
-                {%- comment -%} A narrow card shows "Add" (base.css container query); the name always says it in full. {%- endcomment -%}
+                {%- comment -%} A narrow card shows "Add" (base.css container query); the name always says it in full, with the size. {%- endcomment -%}
                 <span class="product-card__quick-add-label" aria-hidden="true">
                   <span class="product-card__quick-add-long">{{ 'core.card.add_to_basket' | t }}</span>
                   <span class="product-card__quick-add-short">{{ 'core.card.add_short' | t }}</span>
                 </span>
-                <span class="visually-hidden">{{ 'core.card.add_to_basket' | t }} {{ 'core.card.quick_add_for' | t: title: product.title }}</span>
+                <span class="visually-hidden">{{ 'core.card.add_to_basket' | t }} {{ 'core.card.quick_add_for' | t: title: product.title }}{% if sizes_text != '' %}, {{ sizes_text }}{% endif %}</span>
               </button>
               <p class="product-card__error" role="alert" data-quick-add-error hidden></p>
             </form>

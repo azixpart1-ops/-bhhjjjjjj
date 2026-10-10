@@ -1,7 +1,20 @@
 {%- comment -%}
-  Need chips — "Shop by how they sleep, or what they need".
+  Need chips: "Start with how they sleep" cards, then (optionally) chips.
 
-  A row of one-tap shortcuts that let a shopper describe their dog instead
+  Start cards (blocks of type "start", audit COL-03, S07 copy deck): four
+  compact cards in one swipe row, each a sleep style and the bed that
+  answers it ("Stiff mornings · Coniston · A low step in and memory foam to
+  settle into · from £109 · See low step-in beds"). The name and photo go
+  to the bed; the "See…" link applies the matching Search & Discovery filter
+  on this page when the store has it (snippets/col-filter-link, applied in
+  place by collection.js), else goes to the matching collection. A card
+  only shows when its bed is in the collection on screen, and the row
+  needs two cards, so the curated start never points outside the page's
+  range. Prices are the bed's own lowest price, in whole pounds.
+
+  Chips (blocks of type "chip"), the older pattern below:
+
+  a row of one-tap shortcuts that let a shopper describe their dog instead
   of decoding product names (choice architecture: name the situation, not
   the SKU). The heading sits above one horizontal row of chips on every
   screen size (swipe on phones, scroll if it ever overflows on desktop), so
@@ -42,7 +55,11 @@
     Work out which chips can render, so an empty row renders nothing.
   endcomment
   assign renderable = 0
+  assign start_count = 0
   for block in section.blocks
+    if block.type == 'start'
+      continue
+    endif
     assign chip_collection = block.settings.collection
     if block.settings.link != blank
       assign renderable = renderable | plus: 1
@@ -54,22 +71,71 @@
     assign renderable = renderable | plus: 1
   endif
 
+  comment
+    Start cards that can show: a bed is picked and it belongs to the
+    collection on screen (any bed, off a collection page).
+  endcomment
+  assign start_ids = ','
+  for block in section.blocks
+    if block.type != 'start'
+      continue
+    endif
+    assign sp = block.settings.product
+    if sp == blank or sp.id == blank
+      continue
+    endif
+    assign sp_in = true
+    if collection.handle != blank
+      assign sp_in = false
+      for sc in sp.collections
+        if sc.handle == collection.handle
+          assign sp_in = true
+          break
+        endif
+      endfor
+    endif
+    if sp_in
+      assign start_count = start_count | plus: 1
+      assign start_ids = start_ids | append: block.id | append: ','
+    endif
+  endfor
+  assign show_start = false
+  if start_count >= 2
+    assign show_start = true
+  endif
+
   assign show_row = false
   if renderable > 0
     assign show_row = true
+  endif
+  assign has_chip_blocks = false
+  for block in section.blocks
+    if block.type == 'chip'
+      assign has_chip_blocks = true
+      break
+    endif
+  endfor
+  if has_chip_blocks == false and section.settings.show_all == false
+    assign show_row = false
   endif
   assign shop_total = collections.all.products_count | default: 0 | plus: 0
   if shop_total == 0
     assign show_row = false
   endif
-  if request.design_mode
+  if request.design_mode and has_chip_blocks
     assign show_row = true
   endif
+  if shop_total == 0
+    assign show_start = false
+  endif
 -%}
+{%- if show_start -%}
+  {%- render 'col-start-row', section: section, start_ids: start_ids, collection: collection -%}
+{%- endif -%}
 {%- if show_row -%}
   <div class="section scheme-{{ cs }} need-chips" id="{{ sid }}-wrap">
     <nav class="page-width need-chips__inner" aria-labelledby="NeedChipsHeading-{{ sid }}">
-      {%- if section.settings.heading != blank -%}
+      {%- if section.settings.heading != blank and show_start == false -%}
         <h2 class="need-chips__heading" id="NeedChipsHeading-{{ sid }}">{{ section.settings.heading | escape }}</h2>
       {%- else -%}
         <h2 class="visually-hidden" id="NeedChipsHeading-{{ sid }}">{{ 'collection.need_chips.fallback_heading' | t }}</h2>
@@ -94,6 +160,7 @@
         {%- endif -%}
 
         {%- for block in section.blocks -%}
+          {%- if block.type == 'start' -%}{%- continue -%}{%- endif -%}
           {%- liquid
             assign chip_collection = block.settings.collection
             assign use_collection = false
@@ -180,17 +247,17 @@
   "name": "Need chips",
   "tag": "div",
   "class": "section-need-chips",
-  "max_blocks": 12,
+  "max_blocks": 16,
   "settings": [
     {
       "type": "paragraph",
-      "content": "One-tap shortcuts by how a dog sleeps or what it needs. Each chip goes to its collection once that has products, otherwise to its link; chips with neither are hidden from shoppers."
+      "content": "Start cards: a sleep style and the bed that answers it, shown when the bed is in the collection on screen (two cards at least). Chips: one-tap shortcuts; each goes to its collection once that has products, otherwise to its link."
     },
     {
       "type": "text",
       "id": "heading",
       "label": "Heading",
-      "default": "Shop by how they sleep, or what they need"
+      "default": "Start with how they sleep"
     },
     {
       "type": "checkbox",
@@ -248,6 +315,61 @@
     }
   ],
   "blocks": [
+    {
+      "type": "start",
+      "name": "Start card",
+      "settings": [
+        {
+          "type": "text",
+          "id": "tag",
+          "label": "How they sleep",
+          "default": "Stiff mornings"
+        },
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Bed"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Short name",
+          "info": "Blank: the bed's title."
+        },
+        {
+          "type": "text",
+          "id": "line",
+          "label": "One line",
+          "info": "Only what the bed's own description says. Blank: its subtitle metafield."
+        },
+        {
+          "type": "select",
+          "id": "filter",
+          "label": "Filter for \"See beds like this\"",
+          "options": [
+            { "value": "none", "label": "None (collection only)" },
+            { "value": "low_entry", "label": "Low step-in" },
+            { "value": "has_liner", "label": "Waterproof liner" },
+            { "value": "memory_foam", "label": "What's inside: Memory foam" },
+            { "value": "curls_up", "label": "How they sleep: Curls up" },
+            { "value": "head_on_edge", "label": "How they sleep: Head on the edge" },
+            { "value": "stretches_out", "label": "How they sleep: Stretches out" }
+          ],
+          "default": "none"
+        },
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": "Collection when the filter isn't available"
+        },
+        {
+          "type": "text",
+          "id": "link_label",
+          "label": "Link text",
+          "default": "See beds like this"
+        }
+      ]
+    },
     {
       "type": "chip",
       "name": "Chip",

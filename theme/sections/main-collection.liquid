@@ -1,26 +1,30 @@
 {%- comment -%}
-  Collection grid with Shopify storefront filtering and sorting.
+  Collection grid with Shopify storefront filtering and sorting, rebuilt for
+  phones by the October 2026 audit (S06, S07).
 
-  Conversion levers here, all honest:
-    - Choice architecture: a Bed Finder tile sits *inside* the grid at
-      position N (default 3) on page 1 — help offered where the choice feels
-      biggest, without leaving the page — and closes the grid on later
-      pages, for the shopper still looking. Personalised once the finder
-      knows the dog's name; finder-matched cards get their "Bella's match"
-      chip from global.js. The tile takes one of the page's cells (24 per
-      page → 23 products + the tile), so full pages fill complete rows at
-      2, 3 and 4 columns instead of leaving one card alone on the last row.
-    - Friction removal: filters apply instantly (Section Rendering, no page
-      load), state lives in the URL (shareable, back button works), quick
-      add on every card, a sticky "Filter & sort (n)" bar on phones.
-    - Recovery, never a dead end: empty / over-filtered states offer
-      "Clear all" and the finder. Before the store has any beds at all, the
-      finder has nothing to recommend, so the empty state asks for an email
-      instead ("Email me when they land") and the filter bar stays hidden.
-    - SEO without clutter: the collection description sits under the grid,
-      its headings demoted one level so the page keeps a single H1.
+  Order on a phone: quick filter chips that apply in place (Low step-in,
+  Waterproof liner, Memory foam, XL & XXL, Under £150), then a sticky
+  "Filter & sort · 37 beds" bar, then the beds. Honest throughout:
+    - Quick chips (blocks) use the store's own Search & Discovery filters
+      when they exist on this page and fall back to a real collection
+      otherwise (snippets/col-filter-link); a chip with neither is hidden.
+    - The filter drawer lists collection.filters in a dog-led order with
+      plain names and every true/false filter gathered under "Features"
+      (snippets/facets, col-facet-group). Availability can be hidden.
+    - Two tiles on page 1 only, never counted as beds: the Bed Finder at
+      position 5 (after the first two rows) and the 100-night trial at
+      position 12, each only when the page has beds on both sides of it.
+      They are list items in reading order, so the keyboard meets them
+      where the eye does.
+    - "Showing 24 of 37" and "Show more beds (13)": the button appends the
+      next page through the Section Rendering API (collection.js), moves
+      focus to the first new bed and keeps the URL in step. Without
+      JavaScript the numbered pagination shows instead.
+    - When filters leave nothing: "No beds match all of those", with Clear
+      all, the Bed Finder and a way to message us.
+    - No per-night line, no stock count, no stars on cards (product-card).
 
-  JS: <facet-filters> in collection.js (progressive enhancement — every
+  JS: <facet-filters> in collection.js (progressive enhancement: every
   control is a real link or GET form first).
 {%- endcomment -%}
 {{ 'collection.css' | asset_url | stylesheet_tag }}
@@ -29,7 +33,7 @@
 {%- liquid
   assign sid = section.id
   assign cs = section.settings.color_scheme | default: 'bone'
-  assign per_page = section.settings.products_per_page | default: 24
+  assign per_page = section.settings.products_per_page | default: 24 | plus: 0
   assign fx_layout = section.settings.filter_layout | default: 'sidebar'
   assign cols = section.settings.columns_desktop | default: '4'
 
@@ -47,7 +51,7 @@
   endcase
 
   assign raw_title = collection.title | default: ''
-  assign title = raw_title | split: ' | ' | first | split: ' – ' | first | split: ' — ' | first | strip
+  assign title = raw_title | split: ' | ' | first | split: ' – ' | first | strip
   if title == ''
     assign title = raw_title | strip
   endif
@@ -80,15 +84,18 @@
   if finder_label == ''
     assign finder_label = 'collection.finder_tile.cta' | t
   endif
+  assign contact_url = ''
+  assign contact_page = pages['contact']
+  if contact_page.url != blank
+    assign contact_url = contact_page.url
+  endif
 
   assign total_in_collection = collection.all_products_count | default: 0 | plus: 0
   assign shop_total = collections.all.products_count | default: 0 | plus: 0
 
   comment
     Count as beds ("27 beds") only when everything in the collection is a
-    bed; a mixed collection (all products, with kennels or accessories)
-    counts products ("64 products"). Judged by product type: a type that
-    names a bed or a mattress is a bed; products without a type are ignored.
+    bed; a mixed collection (kennels, accessories) counts products.
   endcomment
   assign count_noun = 'beds'
   for type_name in collection.all_types
@@ -102,22 +109,20 @@
     endunless
   endfor
 
-  comment
-    The finder tile counts as one of the page's cells, so paginate one
-    product fewer when it shows: every full page then fills whole rows.
-  endcomment
-  assign tile_on = false
+  assign finder_on = false
   if section.settings.show_finder_tile and settings.finder_enable
-    assign tile_on = true
+    assign finder_on = true
   endif
-  assign page_size = per_page | plus: 0
-  if tile_on
-    assign page_size = page_size | minus: 1
+  assign trial_on = false
+  if section.settings.show_trial_tile and settings.trial_enable
+    assign trial_on = true
   endif
+  assign finder_pos = section.settings.finder_tile_position | default: 5 | plus: 0
+  assign trial_pos = section.settings.trial_tile_position | default: 12 | plus: 0
 
   comment
-    No filter bar or sidebar over an empty collection: there is nothing to
-    filter. Kept when filters are active, so they can still be cleared.
+    No filter bar over an empty collection: there is nothing to filter.
+    Kept when filters are active, so they can still be cleared.
   endcomment
   assign show_facets = false
   if total_in_collection > 0 or active_count > 0
@@ -125,17 +130,108 @@
   endif
 -%}
 
-{%- paginate collection.products by page_size -%}
+{%- paginate collection.products by per_page -%}
   {%- liquid
     assign results_count = collection.products_count | default: 0 | plus: 0
-    assign show_tile = tile_on
-    comment
-      Page 1: at the chosen position. Later pages: after the last card, as
-      tile_pos 0 never matches inside the loop.
-    endcomment
-    assign tile_pos = section.settings.finder_tile_position | default: 3 | plus: 0
+    assign page_items = collection.products.size
+    assign first_item = paginate.current_offset | plus: 1
+    assign last_item = paginate.current_offset | plus: page_items
+    assign remaining = results_count | minus: last_item | at_least: 0
+    assign is_first_page = true
     if paginate.current_page > 1
-      assign tile_pos = 0
+      assign is_first_page = false
+    endif
+    assign load_more = false
+    if section.settings.load_more and paginate.pages > 1
+      assign load_more = true
+    endif
+
+    comment
+      Tiles sit on page 1 only, and only with a bed on each side: the
+      finder at position 5 needs at least 5 beds on the page, the trial
+      tile at 12 needs 11 (10 beds before it plus the finder tile).
+    endcomment
+    assign show_finder_tile = false
+    assign show_trial_tile = false
+    if is_first_page
+      assign need = finder_pos
+      if finder_on and page_items >= need
+        assign show_finder_tile = true
+      endif
+      assign need = trial_pos | minus: 1
+      if show_finder_tile and finder_pos < trial_pos
+        assign need = need | minus: 1
+      endif
+      assign need = need | plus: 1
+      if trial_on and page_items >= need
+        assign show_trial_tile = true
+      endif
+    endif
+
+    comment
+      Does the trial cover every bed on this page? If not, the trial tile
+      says each bed's page shows whether it is covered.
+    endcomment
+    assign trial_covers_all = true
+    if show_trial_tile
+      for product in collection.products
+        capture page_trial
+          render 'trial-eligible', product: product
+        endcapture
+        if page_trial != 'true'
+          assign trial_covers_all = false
+          break
+        endif
+      endfor
+    endif
+
+    comment
+      Quick filter chips (blocks): where each one goes, worked out once.
+    endcomment
+    assign chips_html = ''
+    if show_facets and section.blocks.size > 0
+      capture chips_html
+        for block in section.blocks
+          if block.type != 'chip'
+            continue
+          endif
+          capture chip_hit
+            render 'col-filter-link', results: collection, key: block.settings.filter, price: block.settings.price, fallback: block.settings.collection
+          endcapture
+          assign chip_hit = chip_hit | strip
+          if chip_hit == ''
+            continue
+          endif
+          assign chip_mode = chip_hit | split: '|' | first
+          assign chip_url = chip_hit | remove_first: chip_mode | remove_first: '|'
+          assign chip_label = block.settings.label | default: '' | strip
+          if chip_label == '' and block.settings.collection != blank
+            assign chip_label = block.settings.collection.title | split: ' | ' | first
+          endif
+          if chip_label == ''
+            continue
+          endif
+          assign chip_label_e = chip_label | escape
+          assign chip_li = '<li class="quick-chips__item" ' | append: block.shopify_attributes | append: '>'
+          echo chip_li
+          if chip_mode == 'remove'
+            assign chip_remove = 'collection.quick_chips.remove' | t
+            echo '<a class="chip quick-chips__chip" href="' | append: chip_url | append: '" aria-current="true" data-facets-link>'
+            render 'icon', name: 'check', class: 'quick-chips__icon'
+            echo '<span>' | append: chip_label_e | append: '</span>'
+            echo '<span class="visually-hidden">' | append: chip_remove | append: '</span>'
+          elsif chip_mode == 'add'
+            echo '<a class="chip quick-chips__chip" href="' | append: chip_url | append: '" data-facets-link>'
+            echo '<span>' | append: chip_label_e | append: '</span>'
+          else
+            echo '<a class="chip quick-chips__chip" href="' | append: chip_url | append: '">'
+            echo '<span>' | append: chip_label_e | append: '</span>'
+            render 'icon', name: 'arrow-right', class: 'quick-chips__icon'
+          endif
+          echo '</a></li>'
+        endfor
+      endcapture
+      assign chips_html = chips_html | strip
     endif
   -%}
   <section
@@ -151,6 +247,14 @@
       >
         <h2 class="visually-hidden" id="ResultsHeading-{{ sid }}" tabindex="-1" data-results-heading>{{ 'collection.grid.heading' | t: title: title }}</h2>
 
+        <div class="quick-chips" data-swap="chips">
+          {%- if chips_html != '' -%}
+            <nav class="quick-chips__nav" aria-label="{{ 'collection.quick_chips.label' | t }}">
+              <ul class="quick-chips__list" role="list">{{ chips_html }}</ul>
+            </nav>
+          {%- endif -%}
+        </div>
+
         {%- if show_facets -%}
           {%- render 'facets',
             part: 'bar',
@@ -161,7 +265,8 @@
             enable_filtering: section.settings.enable_filtering,
             enable_sorting: section.settings.enable_sorting,
             results_count: results_count,
-            noun: count_noun
+            noun: count_noun,
+            hide_availability: section.settings.hide_availability
           -%}
           {%- render 'facets',
             part: 'panel',
@@ -172,7 +277,8 @@
             enable_filtering: section.settings.enable_filtering,
             enable_sorting: section.settings.enable_sorting,
             results_count: results_count,
-            noun: count_noun
+            noun: count_noun,
+            hide_availability: section.settings.hide_availability
           -%}
         {%- endif -%}
 
@@ -187,42 +293,57 @@
               enable_filtering: section.settings.enable_filtering,
               enable_sorting: section.settings.enable_sorting,
               results_count: results_count,
-              noun: count_noun
+              noun: count_noun,
+              hide_availability: section.settings.hide_availability
             -%}
           {%- endif -%}
 
-          <div class="collection-results" id="Results-{{ sid }}" data-swap="results" data-results>
+          <div class="collection-results{% if load_more %} collection-results--more{% endif %}{% unless is_first_page %} is-later-page{% endunless %}" id="Results-{{ sid }}" data-swap="results" data-results>
             {%- if results_count > 0 -%}
               <ul
                 class="grid collection-grid collection-grid--{{ cols }}{% if has_filters and fx_layout == 'sidebar' %} collection-grid--beside-filters{% endif %}"
                 role="list"
                 style="--card-ratio: {{ ratio_css }};"
+                data-grid
               >
-                {%- assign tile_done = false -%}
+                {%- assign cell = 0 -%}
                 {%- for product in collection.products -%}
-                  {%- if show_tile and tile_done == false and forloop.index == tile_pos -%}
+                  {%- assign cell = cell | plus: 1 -%}
+                  {%- if show_finder_tile and cell == finder_pos -%}
                     {%- render 'finder-tile',
                       heading: section.settings.finder_tile_heading,
                       text: section.settings.finder_tile_text,
+                      cta: section.settings.finder_tile_cta,
+                      eyebrow: 'none',
                       ratio: ratio_css,
-                      class: 'collection-grid__tile',
-                      index: forloop.index
+                      class: 'collection-grid__tile'
                     -%}
-                    {%- assign tile_done = true -%}
+                    {%- assign cell = cell | plus: 1 -%}
+                  {%- endif -%}
+                  {%- if show_trial_tile and cell == trial_pos -%}
+                    {%- render 'col-trial-tile',
+                      heading: section.settings.trial_tile_heading,
+                      text: section.settings.trial_tile_text,
+                      link_label: section.settings.trial_tile_link_label,
+                      link: section.settings.trial_tile_link,
+                      covers_all: trial_covers_all,
+                      ratio: ratio_css,
+                      class: 'collection-grid__tile'
+                    -%}
+                    {%- assign cell = cell | plus: 1 -%}
                   {%- endif -%}
                   {%- liquid
                     assign card_lazy = true
-                    if forloop.index <= 2
+                    if forloop.index <= 2 and is_first_page
                       assign card_lazy = false
                     endif
                     assign stagger = forloop.index0 | modulo: 4 | plus: 1
                   -%}
-                  <li class="collection-grid__item">
+                  <li class="collection-grid__item" data-grid-item>
                     {%- render 'product-card',
                       product: product,
                       image_ratio: ratio_key,
                       show_quick_add: section.settings.show_quick_add,
-                      show_per_night: section.settings.show_per_night,
                       lazy: card_lazy,
                       heading_level: 'h3',
                       index: stagger,
@@ -230,36 +351,49 @@
                     -%}
                   </li>
                 {%- endfor -%}
-                {%- if show_tile and tile_done == false -%}
-                  {%- render 'finder-tile',
-                    heading: section.settings.finder_tile_heading,
-                    text: section.settings.finder_tile_text,
-                    ratio: ratio_css,
-                    class: 'collection-grid__tile'
-                  -%}
-                {%- endif -%}
               </ul>
 
-              {%- render 'pagination', paginate: paginate, anchor: '', show_summary: true, class: 'collection-results__pagination' -%}
+              {%- liquid
+                if count_noun == 'beds'
+                  assign more_key = 'collection.more.button_beds'
+                else
+                  assign more_key = 'collection.more.button_products'
+                endif
+                assign tpl_all = 'collection.more.summary' | t: last: '[last]', total: '[total]'
+                assign tpl_range = 'collection.more.summary_range' | t: first: '[first]', last: '[last]', total: '[total]'
+              -%}
+              <div
+                class="collection-more"
+                data-swap="more"
+                data-more
+                data-first="{{ first_item }}"
+                data-last="{{ last_item }}"
+                data-total="{{ results_count }}"
+                data-tpl-all="{{ tpl_all }}"
+                data-tpl-range="{{ tpl_range }}"
+              >
+                {%- if paginate.pages > 1 -%}
+                  <p class="collection-more__summary" data-more-summary>
+                    {%- if first_item == 1 -%}
+                      {{- 'collection.more.summary' | t: last: last_item, total: results_count -}}
+                    {%- else -%}
+                      {{- 'collection.more.summary_range' | t: first: first_item, last: last_item, total: results_count -}}
+                    {%- endif -%}
+                  </p>
+                  {%- if load_more and paginate.next.is_link -%}
+                    <a class="btn btn--secondary collection-more__btn" href="{{ paginate.next.url }}" data-load-more>
+                      {{- more_key | t: count: remaining -}}
+                    </a>
+                  {%- endif -%}
+                {%- endif -%}
+              </div>
+
+              {%- render 'pagination', paginate: paginate, anchor: '', show_summary: false, class: 'collection-results__pagination' -%}
 
             {%- elsif total_in_collection == 0 and active_count == 0 and request.design_mode -%}
               <p class="collection-results__editor-note">{{ 'collection.empty.editor_note' | t }}</p>
-              {%- liquid
-                assign placeholder_count = 8
-                if show_tile
-                  assign placeholder_count = 7
-                endif
-              -%}
               <ul class="grid collection-grid collection-grid--{{ cols }}" role="list" style="--card-ratio: {{ ratio_css }};">
-                {%- for i in (1..placeholder_count) -%}
-                  {%- if show_tile and forloop.index == tile_pos -%}
-                    {%- render 'finder-tile',
-                      heading: section.settings.finder_tile_heading,
-                      text: section.settings.finder_tile_text,
-                      ratio: ratio_css,
-                      class: 'collection-grid__tile'
-                    -%}
-                  {%- endif -%}
+                {%- for i in (1..8) -%}
                   <li class="collection-grid__item">
                     {%- render 'product-card', product: blank, image_ratio: ratio_key, placeholder_index: i, heading_level: 'h3' -%}
                   </li>
@@ -347,10 +481,17 @@
               </div>
 
             {%- else -%}
+              {%- comment -%} Filters left nothing (audit COL-14). {%- endcomment -%}
               <div class="collection-empty collection-empty--filtered">
                 <span class="collection-empty__art" aria-hidden="true">{%- render 'icon', name: 'filter' -%}</span>
                 <h3 class="h3 collection-empty__heading">{{ 'collection.empty.filtered_heading' | t }}</h3>
-                <p class="collection-empty__text">{{ 'collection.empty.filtered_text' | t: title: title }}</p>
+                <p class="collection-empty__text">
+                  {%- if contact_url != '' -%}
+                    {{- 'collection.empty.filtered_text_html' | t: contact_url: contact_url -}}
+                  {%- else -%}
+                    {{- 'collection.empty.filtered_text_plain' | t -}}
+                  {%- endif -%}
+                </p>
                 <div class="collection-empty__actions">
                   <a href="{{ clear_url }}" class="btn btn--secondary" data-facets-link>{{ 'collection.facets.clear_all' | t }}</a>
                   {%- if settings.finder_enable -%}
@@ -445,6 +586,7 @@
   "name": "Collection grid",
   "tag": "div",
   "class": "section-main-collection",
+  "max_blocks": 8,
   "settings": [
     {
       "type": "select",
@@ -461,12 +603,19 @@
     {
       "type": "range",
       "id": "products_per_page",
-      "label": "Cards per page",
+      "label": "Beds per page",
       "min": 12,
       "max": 48,
       "step": 4,
       "default": 24,
-      "info": "Includes the Bed Finder tile when it shows, so full pages end on a complete row: 24 is 23 products and the tile."
+      "info": "Tiles are extra and never counted as beds."
+    },
+    {
+      "type": "checkbox",
+      "id": "load_more",
+      "label": "Show a \"Show more beds\" button",
+      "default": true,
+      "info": "Adds the next page under the beds already shown. Without JavaScript, numbered pages show instead."
     },
     {
       "type": "select",
@@ -499,24 +648,23 @@
       "info": "Also needs Theme settings → Cards → Quick add."
     },
     {
-      "type": "checkbox",
-      "id": "show_per_night",
-      "label": "Show the per-night price on cards",
-      "default": false,
-      "info": "\"About 9p a night over the 5-year guarantee\". Follows Theme settings → Pricing."
-    },
-    {
       "type": "header",
       "content": "Filtering and sorting"
     },
     {
       "type": "paragraph",
-      "content": "Filters come from the Shopify Search & Discovery app. Add size, colour, price or availability there and they appear here."
+      "content": "Filters come from the Shopify Search & Discovery app. Add the bed metafields there (dog's weight, sleep style, core type, low entry, liner, non-slip, shape) and they appear here with plain names, true/false ones grouped under Features."
     },
     {
       "type": "checkbox",
       "id": "enable_filtering",
       "label": "Enable filtering",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_availability",
+      "label": "Hide the availability filter",
       "default": true
     },
     {
@@ -534,7 +682,8 @@
       "type": "checkbox",
       "id": "enable_sorting",
       "label": "Enable sorting",
-      "default": true
+      "default": true,
+      "info": "Recommended, Best selling, Price low to high, Price high to low, Newest."
     },
     {
       "type": "header",
@@ -543,31 +692,82 @@
     {
       "type": "checkbox",
       "id": "show_finder_tile",
-      "label": "Show the Bed Finder tile in the grid",
+      "label": "Show the Bed Finder tile",
       "default": true,
-      "info": "Hidden when the Bed Finder is switched off in Theme settings."
+      "info": "First page only. Hidden when the Bed Finder is off in Theme settings."
     },
     {
       "type": "range",
       "id": "finder_tile_position",
-      "label": "Position on the first page",
-      "info": "Later pages show it after the last product.",
-      "min": 1,
+      "label": "Position",
+      "min": 2,
       "max": 12,
       "step": 1,
-      "default": 3
+      "default": 5
     },
     {
       "type": "text",
       "id": "finder_tile_heading",
       "label": "Heading",
-      "default": "Not sure which bed?"
+      "default": "Not sure which?"
     },
     {
       "type": "text",
       "id": "finder_tile_text",
       "label": "Text",
-      "default": "Answer 4 quick questions and we'll match one to your dog."
+      "default": "4 questions, one bed, the right size. About 30 seconds, no email needed."
+    },
+    {
+      "type": "text",
+      "id": "finder_tile_cta",
+      "label": "Button",
+      "default": "Find their bed"
+    },
+    {
+      "type": "header",
+      "content": "Sleep trial tile"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_trial_tile",
+      "label": "Show the sleep trial tile",
+      "default": true,
+      "info": "First page only. Hidden when the trial is off in Theme settings."
+    },
+    {
+      "type": "range",
+      "id": "trial_tile_position",
+      "label": "Position",
+      "min": 3,
+      "max": 24,
+      "step": 1,
+      "default": 12
+    },
+    {
+      "type": "text",
+      "id": "trial_tile_heading",
+      "label": "Heading",
+      "default": "[nights] nights to decide.",
+      "info": "[nights] is the trial length from Theme settings."
+    },
+    {
+      "type": "text",
+      "id": "trial_tile_text",
+      "label": "Text",
+      "default": "Slept on, hair and all, we'll collect it free if it isn't right.",
+      "info": "Used while free collection is on in Theme settings; otherwise your trial terms show."
+    },
+    {
+      "type": "text",
+      "id": "trial_tile_link_label",
+      "label": "Link text",
+      "default": "How the trial works"
+    },
+    {
+      "type": "url",
+      "id": "trial_tile_link",
+      "label": "Link",
+      "info": "Blank: the 100-night-trial page, else your refund policy."
     },
     {
       "type": "header",
@@ -632,6 +832,55 @@
       "step": 4,
       "unit": "px",
       "default": 64
+    }
+  ],
+  "blocks": [
+    {
+      "type": "chip",
+      "name": "Quick filter chip",
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Applies its filter on this page when Search & Discovery offers it here; otherwise goes to the collection below. Hidden when it has neither, or when that collection is this page."
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Label",
+          "default": "Low step-in"
+        },
+        {
+          "type": "select",
+          "id": "filter",
+          "label": "Filter",
+          "options": [
+            { "value": "none", "label": "None (collection only)" },
+            { "value": "low_entry", "label": "Low step-in" },
+            { "value": "has_liner", "label": "Waterproof liner" },
+            { "value": "non_slip", "label": "Non-slip base" },
+            { "value": "memory_foam", "label": "What's inside: Memory foam" },
+            { "value": "egg_crate", "label": "What's inside: Egg-crate foam" },
+            { "value": "curls_up", "label": "How they sleep: Curls up" },
+            { "value": "head_on_edge", "label": "How they sleep: Head on the edge" },
+            { "value": "stretches_out", "label": "How they sleep: Stretches out" },
+            { "value": "weight_25_40", "label": "Dog's weight: 25–40kg" },
+            { "value": "weight_40", "label": "Dog's weight: 40kg+" },
+            { "value": "price_under", "label": "Price under (below)" }
+          ],
+          "default": "low_entry"
+        },
+        {
+          "type": "number",
+          "id": "price",
+          "label": "Price under (£)",
+          "info": "Only for the \"Price under\" filter."
+        },
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": "Collection when the filter isn't available"
+        }
+      ]
     }
   ]
 }

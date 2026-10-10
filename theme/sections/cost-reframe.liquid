@@ -1,6 +1,8 @@
 {%- comment -%}
   Cost reframe — the price, spread honestly over the nights it is guaranteed
-  for: "£169 ÷ (5 years × 365 nights) = about 9p a night".
+  for: "£169 ÷ 1,826 nights (5 years) = about 9p a night", nights being
+  years × 365¼ (5 years = 1,826), the same sum as snippets/per-night and
+  Lunova.perNight, so the homepage and the product page never differ by 1p.
 
   Honest by construction:
     - the basis is the guarantee length from Theme settings, stated in full
@@ -107,7 +109,7 @@
     assign show_sum = true
   endif
   if show_sum
-    assign nights = years | times: 365
+    assign nights = years | times: 1461 | divided_by: 4
     assign twice_nights = nights | times: 2
     assign rounded = cents | times: 2 | plus: nights | divided_by: twice_nights
     if rounded < 1
@@ -136,6 +138,11 @@
   assign price_full = cents | money_without_trailing_zeros
   assign years_text = years | append: ''
   assign nights_text = nights | append: ''
+  if nights >= 1000
+    assign cr_th = nights | divided_by: 1000
+    assign cr_rest = nights | modulo: 1000 | prepend: '00' | slice: -3, 3
+    assign nights_text = cr_th | append: ',' | append: cr_rest
+  endif
 
   if enabled
     assign product_name = source_product.title | escape
@@ -220,7 +227,7 @@
             </div>
             <span class="cost-reframe__op">÷</span>
             <div class="cost-reframe__term">
-              <span class="cost-reframe__value">{{ years }}<span class="cost-reframe__times">×</span>365</span>
+              <span class="cost-reframe__value">{{ nights_text }}</span>
               <span class="cost-reframe__label">{{ 'home.cost.nights_label' | t: years: years_text }}</span>
             </div>
             <span class="cost-reframe__op">=</span>
@@ -230,7 +237,7 @@
             </div>
           </div>
           <p class="cost-reframe__basis">
-            {{- 'home.cost.basis' | t: price: price_full, years: years_text, exact: exact_text -}}
+            {{- 'core.per_night.basis' | t: price: price_full, nights: nights_text, years: years_text, exact: exact_text -}}
           </p>
 
           {%- if item_blocks.size > 0 -%}

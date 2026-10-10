@@ -1,0 +1,119 @@
+{%- comment -%}
+  "Start with how they sleep" (audit COL-03, S07): one swipe row of compact
+  cards, each a sleep style and the bed that answers it. Rendered by
+  sections/need-chips for its "start" blocks.
+
+  Each card:
+    tag      the sleep style ("Stiff mornings"), merchant text
+    photo    the bed's featured image (alt: its own, else the bed's title)
+    name     short name, else the bed's title; links to the bed
+    line     merchant text written from the bed's description, else the
+             bed's custom.subtitle; nothing when both are blank
+    price    the bed's lowest price, whole pounds ("from £109" when sizes
+             are priced differently)
+    link     "See beds like this": the filter applied here when Search &
+             Discovery offers it on this page, else the matching collection
+             (snippets/col-filter-link); no link when neither exists
+
+  Parameters
+    section     the need-chips section (for blocks, ids, heading)
+    start_ids   ",id,id," the start blocks that can show (need-chips decides)
+{%- endcomment -%}
+{%- liquid
+  assign sr_sid = section.id
+  assign sr_heading = section.settings.heading | default: '' | strip
+  if sr_heading == ''
+    assign sr_heading = 'collection.start.heading' | t
+  else
+    assign sr_heading = sr_heading | escape
+  endif
+  assign sr_cs = section.settings.color_scheme | default: 'bone'
+-%}
+<div class="section scheme-{{ sr_cs }} start-row" id="{{ sr_sid }}-start">
+  <div class="page-width start-row__inner">
+    <h2 class="start-row__heading" id="StartRowHeading-{{ sr_sid }}">{{ sr_heading }}</h2>
+    <ul class="start-row__list" role="list" aria-labelledby="StartRowHeading-{{ sr_sid }}">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          if block.type != 'start'
+            continue
+          endif
+          assign sr_needle = ',' | append: block.id | append: ','
+          unless start_ids contains sr_needle
+            continue
+          endunless
+          assign sp = block.settings.product
+          assign sr_title = block.settings.title | default: '' | strip
+          if sr_title == ''
+            assign sr_title = sp.title
+          endif
+          assign sr_line = block.settings.line | default: '' | strip
+          if sr_line == ''
+            assign sr_line = sp.metafields.custom.subtitle.value | default: '' | append: '' | strip
+          endif
+          assign sr_price = sp.price_min | money_without_trailing_zeros
+          if sp.price_varies
+            assign sr_price_text = 'collection.start.from' | t: price: sr_price
+          else
+            assign sr_price_text = sr_price
+          endif
+          capture sr_hit
+            render 'col-filter-link', results: collection, key: block.settings.filter, fallback: block.settings.collection
+          endcapture
+          assign sr_hit = sr_hit | strip
+          assign sr_mode = ''
+          assign sr_url = ''
+          if sr_hit != ''
+            assign sr_mode = sr_hit | split: '|' | first
+            assign sr_url = sr_hit | remove_first: sr_mode | remove_first: '|'
+          endif
+          assign sr_link_label = block.settings.link_label | default: '' | strip
+          if sr_link_label == ''
+            assign sr_link_label = 'collection.start.link' | t
+          else
+            assign sr_link_label = sr_link_label | escape
+          endif
+          assign sr_img = sp.featured_media.preview_image
+          assign sr_alt = sr_img.alt | default: '' | strip
+          if sr_alt == ''
+            assign sr_alt = sp.title
+          endif
+        -%}
+        <li class="start-card" {{ block.shopify_attributes }}>
+          <a class="start-card__media" href="{{ sp.url }}" tabindex="-1" aria-hidden="true">
+            {%- render 'image',
+              image: sr_img,
+              widths: '200,300,400,560',
+              sizes: '(min-width: 990px) 240px, 46vw',
+              class: 'start-card__img',
+              loading: 'lazy',
+              alt: sr_alt,
+              aspect: 1.3333
+            -%}
+          </a>
+          <div class="start-card__body">
+            {%- if block.settings.tag != blank -%}
+              <p class="start-card__tag">{{ block.settings.tag | escape }}</p>
+            {%- endif -%}
+            <h3 class="start-card__title"><a href="{{ sp.url }}">{{ sr_title | escape }}</a></h3>
+            <p class="start-card__line">
+              {%- if sr_line != '' -%}<span>{{ sr_line | escape }}</span> <span aria-hidden="true">·</span> {% endif -%}
+              <span class="start-card__price">{{ sr_price_text }}</span>
+            </p>
+            {%- if sr_url != '' -%}
+              <a
+                class="start-card__link"
+                href="{{ sr_url }}"
+                {%- if sr_mode == 'add' or sr_mode == 'remove' %} data-facets-apply{% endif %}
+                {%- if sr_mode == 'remove' %} aria-current="true"{% endif %}
+              >
+                <span>{{ sr_link_label }}</span>
+                {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+              </a>
+            {%- endif -%}
+          </div>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</div>

@@ -1,5 +1,5 @@
 {%- comment -%}
-  Buy box — every part of the product page's buy column, in one place, so the
+  Buy box, every part of the product page's buy column, in one place, so the
   product page and the quick-add drawer behave identically.
 
   Three ways to call it
@@ -24,6 +24,19 @@
     part               'data' | 'variant_id' | 'flags'
     show_title         compact only
     show_price         compact only
+    pending            true → no size chosen yet (audit PDP-09, main-product
+                       works it out): "From £109", "Choose a size" on the
+                       button, no size checked, no offer or stock line until
+                       the shopper picks one (product.js), and the variant id
+                       input empty so nothing is added by accident. `variant`
+                       is still a real one (first available in size order):
+                       the delivery dates and structured data use it.
+
+  October 2026 audit blocks (snippets pdp-*): subtitle (tagline), offer,
+  delivery (dated line, core delivery-estimate), trust_row (three promises,
+  each opening a bottom sheet), benefits (custom.benefits, else bullets from
+  the bed's metafields), spec_card ("What's inside"), worth_it, qa, story
+  (the description, collapsed) and complete (one add-on, e.g. the stairs).
 
   Psychology (all honest, all switchable)
     - Price anchoring: compare-at struck through + "Save £X" (price snippet),
@@ -176,7 +189,6 @@
     Personalised (needs a name to be made) and made to order (no same-day
     dispatch promise).
   endcomment
-  assign bb_tags = product.tags | join: '|' | downcase | prepend: '|' | append: '|'
   assign pers_label = product.metafields.custom.personalisation_label.value | default: '' | strip
   capture bb_pers
     render 'personalised', product: product
@@ -186,8 +198,16 @@
     assign is_personalised = true
   endif
   assign lead_days = product.metafields.custom.lead_time_days.value | default: 0 | plus: 0 | round
+  comment
+    The one made-to-order rule (snippets/product-fact made_to_order: personalised,
+    lead days, or the made-to-order tag), shared with the FAQ, the trust-row
+    sheet and the basket's delivery line.
+  endcomment
+  capture bb_mto
+    render 'product-fact', product: product, key: 'made_to_order'
+  endcapture
   assign made_to_order = false
-  if is_personalised or lead_days > 0 or bb_tags contains '|made-to-order|' or bb_tags contains '|made to order|'
+  if bb_mto == 'true'
     assign made_to_order = true
   endif
   if lead_days > 0
@@ -304,6 +324,38 @@
   endif
 
   assign bs = block.settings
+
+  comment
+    The bed's short name for headings and the WhatsApp message: "Coniston"
+    from "Coniston Low-Entry Memory Foam Dog Bed", "Grasmere" from "The
+    Grasmere Bolster Sofa Dog Bed". A generic first word keeps the title.
+  endcomment
+  assign full_title = product.title | split: ' | ' | first | strip
+  assign short_name = full_title | remove_first: 'The ' | split: ' ' | first | default: full_title
+  assign sn_lc = short_name | downcase
+  if sn_lc == 'orthopaedic' or sn_lc == 'dog' or sn_lc == 'memory' or sn_lc == 'personalised' or sn_lc == 'luxury' or sn_lc == 'large' or sn_lc == 'small' or sn_lc == 'extra'
+    assign short_name = full_title
+  endif
+
+  comment
+    The quick add (compact) follows the same rule: sections/quick-add-product
+    passes pending when a size must be chosen (audit PDP-09).
+  endcomment
+  assign is_pending = false
+  if pending and product.has_only_default_variant == false
+    assign is_pending = true
+  endif
+  assign has_offer_block = false
+  assign has_delivery_block = false
+  if compact != true
+    for sb in section.blocks
+      if sb.type == 'offer'
+        assign has_offer_block = true
+      elsif sb.type == 'delivery'
+        assign has_delivery_block = true
+      endif
+    endfor
+  endif
 -%}
 {%- if compact -%}
   <div class="buy-box buy-box--compact" data-product-scope data-section-id="{{ section.id }}" data-buy-box>
@@ -347,7 +399,9 @@
           "sizeIndex": {{ size_idx }},
           "colourIndex": {{ colour_idx }},
           "onlyDefault": {{ product.has_only_default_variant | json }},
-          "currentId": {{ current.id | json }},
+          "currentId": {% if is_pending %}null{% else %}{{ current.id | json }}{% endif %},
+          "pending": {{ is_pending | json }},
+          "shortName": {{ short_name | json }},
           "image": {% if fallback_img %}{{ fallback_img | image_url: width: 160 | json }}{% else %}null{% endif %},
           "variants": [
             {%- for v in product.variants -%}
@@ -407,7 +461,11 @@
             "salePrice": {{ 'accessibility.sale_price' | t | json }},
             "regularPrice": {{ 'accessibility.regular_price' | t | json }},
             "save": {{ 'general.save' | t: amount: '[amount]' | json }},
-            "priceSoldOut": {{ 'general.sold_out' | t | json }}
+            "priceSoldOut": {{ 'general.sold_out' | t | json }},
+            "chooseSize": {{ 'product.buy.choose_size' | t | json }},
+            "chooseSizeFirst": {{ 'product.buy.choose_size_first' | t | json }},
+            "chooseSizeLegend": {{ 'product.picker.choose_size' | t | json }},
+            "from": {{ 'general.from' | t | json }}
           }
         }
       </script>
@@ -500,11 +558,22 @@
         </div>
       {%- endif -%}
 
-    {%- comment -%} ---------- Tagline ---------- {%- endcomment -%}
+    {%- comment -%}
+      ---------- Subtitle (block type 'tagline') ----------
+      One line under the title saying what the bed physically does (audit
+      PDP-04, S05): custom.subtitle, else the older custom.tagline
+      (snippets/product-fact), else the block's fallback text only when the
+      merchant has written one, else nothing.
+    {%- endcomment -%}
     {%- when 'tagline' -%}
       {%- liquid
-        assign tagline = product.metafields.custom.tagline.value | default: '' | strip
+        capture tagline
+          render 'product-fact', product: product, key: 'subtitle'
+        endcapture
+        assign tagline = tagline | strip
+        assign tagline_escaped = true
         if tagline == ''
+          assign tagline_escaped = false
           comment
             The fallback copy describes a memory-foam bed: by default it is
             only used on beds the foam guarantee covers (snippets/foam-bed:
@@ -519,7 +588,7 @@
       -%}
       {%- if tagline != '' -%}
         <div class="pblock pblock--tagline"{% if block %} {{ block.shopify_attributes }}{% endif %}>
-          <p class="buy-box__tagline buy-box__tagline--{{ bs.style | default: 'serif' }}">{{ tagline | escape }}</p>
+          <p class="buy-box__tagline buy-box__tagline--{{ bs.style | default: 'serif' }}">{% if tagline_escaped %}{{ tagline }}{% else %}{{ tagline | escape }}{% endif %}</p>
         </div>
       {%- endif -%}
 
@@ -542,12 +611,27 @@
           assign inst_count = 2
         endif
       -%}
+      {%- liquid
+        comment
+          No size chosen yet: "From £109" and the per-night sum for that
+          price (PDF S05: "From £109 · About 6p a night…"); both follow the
+          size once one is picked (product.js, global.js).
+        endcomment
+        assign pn_price = current.price
+        if is_pending
+          assign pn_price = product.price_min
+        endif
+      -%}
       <div class="pblock pblock--price"{% if block %} {{ block.shopify_attributes }}{% endif %}>
         <div class="buy-box__price" data-price-wrap>
-          {%- render 'price', product: product, variant: current, size: 'lg', show_from: false, show_save: true, show_sold_out: false -%}
+          {%- if is_pending -%}
+            {%- render 'price', product: product, size: 'lg', show_from: true, show_save: true, show_sold_out: false -%}
+          {%- else -%}
+            {%- render 'price', product: product, variant: current, size: 'lg', show_from: false, show_save: true, show_sold_out: false -%}
+          {%- endif -%}
         </div>
         {%- if show_pn -%}
-          {%- render 'per-night', price: current.price, product: product, class: 'buy-box__per-night' -%}
+          {%- render 'per-night', price: pn_price, product: product, class: 'buy-box__per-night' -%}
         {%- endif -%}
         {%- if show_inst -%}
           {%- assign inst_amount = current.price | divided_by: inst_count | money_without_trailing_zeros -%}
@@ -563,8 +647,36 @@
           really comes to at checkout, or which size reaches the minimum.
           product.js keeps it in step with the size and the basket.
         {%- endcomment -%}
-        {%- render 'offer', mode: 'pdp', product: product, variant: current, cart: cart, size_idx: size_idx, class: 'buy-box__offer' -%}
+        {%- unless has_offer_block -%}
+          {%- capture offer_html -%}
+            {%- render 'offer', mode: 'pdp', product: product, variant: current, cart: cart, class: 'buy-box__offer' -%}
+          {%- endcapture -%}
+          {%- if is_pending -%}
+            {%- assign offer_html = offer_html | replace: 'data-state="none"', 'data-state="none" data-offer-pending' | replace: 'data-state="line"', 'data-state="none" data-offer-pending hidden' -%}
+          {%- endif -%}
+          {{- offer_html -}}
+        {%- endunless -%}
       </div>
+
+    {%- comment -%}
+      ---------- The offer, for the size picked (block type 'offer') ----------
+      Core snippets/offer mode pdp: "£15 off this size at checkout, until Sat
+      31 Oct", only for a size that qualifies (PDP-07). Before a size is
+      chosen it is printed hidden, and global.js shows it once a qualifying
+      size is picked (Lunova.offer.update on lunova:variant:change).
+    {%- endcomment -%}
+    {%- when 'offer' -%}
+      {%- capture offer_html -%}
+        {%- render 'offer', mode: 'pdp', product: product, variant: current, cart: cart, class: 'buy-box__offer' -%}
+      {%- endcapture -%}
+      {%- if offer_html != blank -%}
+        {%- if is_pending -%}
+          {%- assign offer_html = offer_html | replace: 'data-state="none"', 'data-state="none" data-offer-pending' | replace: 'data-state="line"', 'data-state="none" data-offer-pending hidden' -%}
+        {%- endif -%}
+        <div class="pblock pblock--offer"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          {{- offer_html -}}
+        </div>
+      {%- endif -%}
 
     {%- comment -%} ---------- Variant picker ---------- {%- endcomment -%}
     {%- when 'variant_picker' -%}
@@ -575,8 +687,11 @@
             if compact
               assign update_url = false
             endif
-            render 'variant-picker', product: product, section: section, variant: current, block: block, compact: compact, update_url: update_url
+            render 'variant-picker', product: product, section: section, variant: current, block: block, compact: compact, update_url: update_url, pending: is_pending
           -%}
+          {%- if compact != true and bs.show_size_help != false -%}
+            {%- render 'pdp-size-help', product: product, short_name: short_name, whatsapp: bs.whatsapp_number -%}
+          {%- endif -%}
         </div>
       {%- endunless -%}
 
@@ -677,7 +792,7 @@
           data-stock
           data-in-stock-text="{{ in_text }}"
           data-show-in-stock="{{ show_in }}"
-          {%- if stock_state == 'in' and show_in == false %} hidden{% endif %}
+          {%- if is_pending and stock_state != 'out' %} hidden{% elsif stock_state == 'in' and show_in == false %} hidden{% endif %}
         >
           <span class="stock__dot" aria-hidden="true"></span>
           <span class="stock__text" data-stock-text>{{ stock_text }}</span>
@@ -706,60 +821,59 @@
         {%- endif -%}
       </div>
 
-    {%- comment -%} ---------- Delivery promise (live countdown) ---------- {%- endcomment -%}
+    {%- comment -%}
+      ---------- Delivery dates (block type 'delivery') ----------
+      The bed's own dated line (audit P0-3, PDP-11), from core
+      snippets/delivery-estimate: own stock "Free standard delivery: arrives
+      Thu 15 Oct to Mon 19 Oct" (+ Express); partner warehouse with no
+      dispatch days: no dates, the partner wording. Never same-day dispatch
+      unless custom.ships_same_day (the countdown stays a core setting).
+      Made to order: "Made to order: dispatched within N working days" too.
+      Hidden while the size is sold out or on back order.
+    {%- endcomment -%}
     {%- when 'delivery' -%}
       {%- liquid
-        comment
-          Made to order: a plain "dispatched within N working days" line in
-          place of the same-day countdown.
-        endcomment
-        if made_to_order
-          capture promise_html
-            echo '<div class="delivery-promise delivery-promise--made">'
-            render 'icon', name: 'clock', class: 'delivery-promise__icon'
-            echo '<p class="delivery-promise__text">'
-            echo made_text
-            echo '</p></div>'
-          endcapture
-        else
-          capture promise_html
-            render 'delivery-promise', variant: current
-          endcapture
-        endif
-      -%}
-      {%- liquid
-        assign show_free = false
-        if threshold_cents > 0
-          unless bs.show_free_delivery_note == false
-            assign show_free = true
-          endunless
-        endif
         assign hide_delivery = false
         if stock_state == 'out' or stock_state == 'backorder'
           assign hide_delivery = true
         endif
+        if is_pending
+          assign hide_delivery = false
+        endif
       -%}
-      {%- if promise_html != blank or show_free -%}
-        <div class="pblock pblock--delivery"{% if block %} {{ block.shopify_attributes }}{% endif %}>
-          <div class="buy-box__delivery" data-delivery-wrap{% if hide_delivery %} hidden{% endif %}>
-            {{ promise_html }}
-            {%- if show_free -%}
-              {%- liquid
-                assign qualifies = false
-                if current.price >= threshold_cents
-                  assign qualifies = true
-                endif
-              -%}
-              <p class="buy-box__free-delivery{% if qualifies %} is-qualified{% endif %}" data-free-delivery data-threshold="{{ threshold_cents }}">
-                {%- render 'icon', name: 'check-circle', class: 'buy-box__free-icon' -%}
-                <span data-free-delivery-text>
-                  {%- if qualifies -%}{{ 'product.delivery.qualifies' | t }}{%- else -%}{{ 'product.delivery.threshold' | t: amount: threshold_money }}{%- endif -%}
-                </span>
-              </p>
-            {%- endif -%}
-          </div>
+      <div class="pblock pblock--delivery"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+        <div class="buy-box__delivery" data-delivery-wrap{% if hide_delivery %} hidden{% endif %}>
+          {%- liquid
+            comment
+              Made to order: the policy's 1 to 2 day dispatch doesn't hold, so
+              no dates unless the product's own dispatch days are set; the
+              standard delivery terms instead.
+            endcomment
+            capture mto_dated
+              render 'product-fact', product: product, key: 'dated'
+            endcapture
+          -%}
+          {%- if made_to_order -%}
+            <p class="buy-box__made">
+              {%- render 'icon', name: 'clock', class: 'buy-box__made-icon' -%}
+              <span>{{ made_text }}</span>
+            </p>
+          {%- endif -%}
+          {%- if made_to_order and mto_dated != 'true' -%}
+            {%- liquid
+              assign mto_std = settings.delivery_standard_price | default: '' | strip | remove: '£' | times: 100 | round | money_without_trailing_zeros
+              assign mto_min = settings.delivery_min_days | default: 4 | plus: 0
+              assign mto_max = settings.delivery_max_days | default: 6 | plus: 0
+            -%}
+            <p class="buy-box__made">
+              {%- render 'icon', name: 'truck', class: 'buy-box__made-icon' -%}
+              <span>{{ 'product.trust_row.delivery_standard' | t: amount: threshold_money, price: mto_std, min: mto_min, max: mto_max }}</span>
+            </p>
+          {%- else -%}
+            {%- render 'delivery-estimate', product: product, variant: current, class: 'buy-box__delivery-estimate' -%}
+          {%- endif -%}
         </div>
-      {%- endif -%}
+      </div>
 
     {%- comment -%} ---------- Product form ---------- {%- endcomment -%}
     {%- when 'buy_buttons' -%}
@@ -782,7 +896,9 @@
         endif
 
         assign price_money = current.price | money_without_trailing_zeros
-        if current.available == false
+        if is_pending
+          assign btn_label = 'product.buy.choose_size' | t
+        elsif current.available == false
           assign btn_label = 'product.buy.sold_out' | t
         elsif stock_state == 'backorder'
           if price_in_button
@@ -802,6 +918,7 @@
           data-section-id="{{ section.id }}"
           data-price-in-button="{{ price_in_button }}"
           {%- if compact %} data-compact{% endif %}
+          {%- if is_pending %} data-pending{% endif %}
         >
           {%- comment -%}
             No novalidate here: without JavaScript the browser itself stops a
@@ -809,7 +926,11 @@
             native validation off and checks the field itself.
           {%- endcomment -%}
           {%- form 'product', product, id: form_id, class: 'product-form__form', data-product-form: '' -%}
-            <input type="hidden" name="id" value="{{ current.id }}" data-variant-id-input>
+            {%- comment -%}
+              No size chosen yet: the id stays empty (and disabled, so without
+              JavaScript the noscript select below is what posts).
+            {%- endcomment -%}
+            <input type="hidden" name="id" value="{% unless is_pending %}{{ current.id }}{% endunless %}" data-variant-id-input{% if is_pending %} disabled{% endif %}>
             {%- unless product.has_only_default_variant -%}
               <noscript>
                 <div class="product-form__noscript field">
@@ -817,7 +938,7 @@
                   <select class="select" id="{{ form_id }}-select" name="id">
                     {%- for v in product.variants -%}
                       <option value="{{ v.id }}"{% if v.id == current.id %} selected{% endif %}{% unless v.available %} disabled{% endunless %}>
-                        {{- v.title | escape }} — {{ v.price | money_without_trailing_zeros -}}
+                        {{- v.title | escape }} · {{ v.price | money_without_trailing_zeros -}}
                         {%- unless v.available %} ({{ 'product.buy.sold_out' | t }}){% endunless -%}
                       </option>
                     {%- endfor -%}
@@ -894,17 +1015,20 @@
                 name="add"
                 class="btn btn--primary btn--lg btn--block product-form__submit"
                 data-add-button
-                {%- unless current.available %} disabled{% endunless %}
+                {%- if is_pending %} aria-describedby="{{ form_id }}-size-error"{% elsif current.available == false %} disabled{% endif %}
               >
                 <span data-add-label>{{ btn_label }}</span>
               </button>
               {%- if show_dynamic -%}
-                <div class="product-form__dynamic" data-dynamic-checkout{% unless current.available %} hidden{% endunless %}>
+                <div class="product-form__dynamic" data-dynamic-checkout{% if is_pending or current.available == false %} hidden{% endif %}>
                   {{ form | payment_button }}
                 </div>
               {%- endif -%}
             </div>
 
+            {%- if is_pending -%}
+              <p class="product-form__error product-form__size-error" id="{{ form_id }}-size-error" data-size-error role="alert" hidden></p>
+            {%- endif -%}
             <div class="product-form__message" data-form-message role="status" aria-live="polite"></div>
             <p class="product-form__error" data-form-error role="alert" hidden></p>
 
@@ -913,7 +1037,7 @@
             {%- endif -%}
           {%- endform -%}
         </product-form>
-        {%- if delivery_line_on -%}
+        {%- if delivery_line_on and has_delivery_block == false -%}
           {%- liquid
             assign dl_hide = false
             if stock_state == 'out' or stock_state == 'backorder'
@@ -921,7 +1045,7 @@
             endif
           -%}
           <div class="buy-box__delivery-options" data-delivery-wrap{% if dl_hide %} hidden{% endif %}>
-            {%- render 'delivery-options', price: current.price, compact: compact -%}
+            {%- render 'delivery-options', product: product, variant: current, price: current.price, compact: compact -%}
           </div>
         {%- endif -%}
         {%- comment -%}
@@ -1051,51 +1175,102 @@
         </div>
       {%- endif -%}
 
-    {%- comment -%} ---------- Benefits ---------- {%- endcomment -%}
+    {%- comment -%}
+      ---------- Bullets (block type 'benefits') ----------
+      "Why Coniston" (PDP-15): custom.benefits as written, else bullets
+      built from the bed's own metafields (snippets/pdp-bullets), never a
+      store-wide list. The block's fallback text only shows when the
+      merchant has written one, and by default only on foam-guarantee beds.
+    {%- endcomment -%}
     {%- when 'benefits' -%}
       {%- liquid
-        assign mf = product.metafields.custom.benefits
-        assign lines = ''
-        if mf != blank and mf.value != blank
-          if mf.type contains 'list.'
-            assign lines = mf.value | join: '<<>>'
-          else
-            assign lines = mf.value | newline_to_br | replace: '<br />', '<<>>' | replace: '<br>', '<<>>'
-          endif
-        endif
-        assign line_list = lines | split: '<<>>'
+        capture bullets_html
+          render 'pdp-bullets', product: product
+        endcapture
         assign fallback = bs.content | default: ''
-        comment
-          Same rule as the tagline: the foam-specific fallback list only on
-          foam / orthopaedic beds unless the block says every product.
-        endcomment
-        if line_list.size == 0 and bs.fallback_scope != 'all' and is_foam == false
+        if bullets_html != blank
+          assign fallback = ''
+        elsif bs.fallback_scope != 'all' and is_foam == false
           assign fallback = ''
         endif
+        assign short_esc = short_name | escape
+        assign b_heading = bs.heading | default: '' | escape | replace: '[name]', short_esc
       -%}
-      {%- if line_list.size > 0 or fallback != blank -%}
+      {%- if bullets_html != blank or fallback != blank -%}
         <div class="pblock pblock--benefits"{% if block %} {{ block.shopify_attributes }}{% endif %}>
-          {%- if bs.heading != blank -%}
-            <p class="buy-box__benefits-heading">{{ bs.heading | escape }}</p>
+          {%- if b_heading != '' -%}
+            <h2 class="buy-box__benefits-heading">{{ b_heading }}</h2>
           {%- endif -%}
-          {%- if line_list.size > 0 -%}
-            <ul class="benefits" role="list">
-              {%- for line in line_list -%}
-                {%- assign l = line | strip -%}
-                {%- if l != '' -%}
-                  <li class="benefits__item">
-                    {%- render 'icon', name: 'check', class: 'benefits__icon' -%}
-                    <span>{{ l | escape }}</span>
-                  </li>
-                {%- endif -%}
-              {%- endfor -%}
-            </ul>
+          {%- if bullets_html != blank -%}
+            <ul class="benefits" role="list">{{ bullets_html }}</ul>
           {%- else -%}
             <div class="benefits benefits--rte rte">
               {{- fallback | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms -}}
             </div>
           {%- endif -%}
         </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Trust row with its sheets (PDP-13) ---------- {%- endcomment -%}
+    {%- when 'trust_row' -%}
+      {%- capture trust_row_html -%}{%- render 'pdp-trust-row', product: product, section: section, block: block -%}{%- endcapture -%}
+      {%- if trust_row_html != blank -%}
+        <div class="pblock pblock--trust_row"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          {{- trust_row_html -}}
+          {%- liquid
+            comment
+              The owner line (PDP-25) beside the trust row, on beds without
+              their own Q&A (the Q&A block carries it otherwise).
+            endcomment
+            capture tr_qa
+              render 'product-fact', product: product, key: 'qa_count'
+            endcapture
+          -%}
+          {%- if bs.owner_line != blank and tr_qa == '0' -%}
+            <p class="pdp-owner-line">{{ bs.owner_line | escape }}</p>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- What's inside (PDP-16) ---------- {%- endcomment -%}
+    {%- when 'spec_card' -%}
+      {%- capture spec_html -%}{%- render 'pdp-spec-card', product: product, short_name: short_name, heading: bs.heading, intro: bs.intro -%}{%- endcapture -%}
+      {%- if spec_html != blank -%}
+        <div class="pblock pblock--spec_card"{% if block %} {{ block.shopify_attributes }}{% endif %}>{{ spec_html }}</div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Is it worth it? (PDP-17, custom.worth_it) ---------- {%- endcomment -%}
+    {%- when 'worth_it' -%}
+      {%- capture worth_html -%}{%- render 'product-fact', product: product, key: 'worth_it' -%}{%- endcapture -%}
+      {%- if worth_html != blank -%}
+        <div class="pblock pblock--worth_it"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          <div class="pdp-worth">
+            <h2 class="h4 pdp-worth__heading">{{ bs.heading | default: 'Worth it?' | escape }}</h2>
+            <p class="pdp-worth__text">{{ worth_html }}</p>
+          </div>
+        </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Questions owners ask (PDP-22, custom.qa) ---------- {%- endcomment -%}
+    {%- when 'qa' -%}
+      {%- capture qa_html -%}{%- render 'pdp-qa', product: product, heading: bs.heading, signature: bs.signature, owner_line: bs.owner_line -%}{%- endcapture -%}
+      {%- if qa_html != blank -%}
+        <div class="pblock pblock--qa"{% if block %} {{ block.shopify_attributes }}{% endif %}>{{ qa_html }}</div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- The story: description, collapsed (PDP-17) ---------- {%- endcomment -%}
+    {%- when 'story' -%}
+      {%- if product.description != blank -%}
+        <div class="pblock pblock--story"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+          {%- render 'pdp-story', product: product, heading: bs.heading, section: section -%}
+        </div>
+      {%- endif -%}
+
+    {%- comment -%} ---------- Complete their bed (PDP-23) ---------- {%- endcomment -%}
+    {%- when 'complete' -%}
+      {%- capture complete_html -%}{%- render 'pdp-complete', product: product, addon: bs.product, heading: bs.heading, note: bs.note, show_on: bs.show_on -%}{%- render 'pdp-also-suits', product: product -%}{%- endcapture -%}
+      {%- if complete_html != blank -%}
+        <div class="pblock pblock--complete"{% if block %} {{ block.shopify_attributes }}{% endif %}>{{ complete_html }}</div>
       {%- endif -%}
 
     {%- comment -%} ---------- Bed Finder prompt / recommendation ---------- {%- endcomment -%}
@@ -1158,6 +1333,26 @@
         assign src = bs.source | default: 'custom'
         assign extra = bs.content | default: ''
       -%}
+      {%- if src == 'size_guide' -%}
+        {%- comment -%}
+          A row like the others that opens the size guide sheet (PDP-19)
+          instead of folding open, on products with sizes to choose from.
+        {%- endcomment -%}
+        {%- if size_idx >= 0 and product.options_with_values[size_idx].values.size > 1 -%}
+          <div class="pblock pblock--accordion"{% if block %} {{ block.shopify_attributes }}{% endif %}>
+            <button type="button" class="product-accordion product-accordion--button" data-size-guide-open aria-haspopup="dialog">
+              <span class="product-accordion__title">
+                {%- if bs.icon != blank and bs.icon != 'none' -%}
+                  {%- render 'icon', name: bs.icon, class: 'product-accordion__icon' -%}
+                {%- endif -%}
+                <span>{{ bs.heading | default: 'Size guide' | escape }}</span>
+              </span>
+              {%- render 'icon', name: 'chevron-right', class: 'product-accordion__go' -%}
+            </button>
+          </div>
+        {%- endif -%}
+        {%- continue -%}
+      {%- endif -%}
       {%- capture acc_body -%}
         {%- case src -%}
           {%- when 'description' -%}
@@ -1198,16 +1393,27 @@
             {%- endif -%}
             {{- extra -}}
           {%- when 'delivery' -%}
-            {%- capture d_time -%}{%- render 'delivery-promise', mode: 'time' -%}{%- endcapture -%}
-            {%- capture d_days -%}{%- render 'delivery-promise', mode: 'days' -%}{%- endcapture -%}
             {%- liquid
-              assign d_time = d_time | strip
-              assign d_days = d_days | strip
-              assign d_min = settings.delivery_min_days | default: 0 | plus: 0
-              assign d_max = settings.delivery_max_days | default: 0 | plus: 0
-              if d_max < d_min
-                assign d_max = d_min
-              endif
+              comment
+                The published delivery policy, said once (PDP-18): dispatch,
+                Standard and Express times and prices (Theme settings →
+                Promises → Delivery dates), the free-delivery amount, and the
+                partner warehouse note on partner beds. The trial and the
+                guarantee have their own rows and sheets, so they aren't
+                repeated here.
+              endcomment
+              assign df_dmin = settings.delivery_dispatch_min | default: 1 | plus: 0
+              assign df_dmax = settings.delivery_dispatch_max | default: 2 | plus: 0
+              assign df_tmin = settings.delivery_min_days | default: 4 | plus: 0
+              assign df_tmax = settings.delivery_max_days | default: 6 | plus: 0
+              assign df_xmin = settings.delivery_express_min | default: 2 | plus: 0
+              assign df_xmax = settings.delivery_express_max | default: 3 | plus: 0
+              assign df_std = settings.delivery_standard_price | default: '' | strip | remove: '£' | times: 100 | round | money_without_trailing_zeros
+              assign df_exp_c = settings.delivery_express_price | default: '' | strip | remove: '£' | times: 100 | round
+              assign df_exp = df_exp_c | money_without_trailing_zeros
+              capture df_partner
+                render 'product-fact', product: product, key: 'partner'
+              endcapture
             -%}
             <ul class="delivery-facts" role="list">
               {%- if made_to_order -%}
@@ -1215,40 +1421,21 @@
                   {%- render 'icon', name: 'clock', class: 'delivery-facts__icon' -%}
                   <span>{{ made_text }}</span>
                 </li>
-              {%- elsif settings.delivery_promise_enable and d_days != '' -%}
-                <li>
-                  {%- render 'icon', name: 'clock', class: 'delivery-facts__icon' -%}
-                  <span>
-                    {%- if d_time != '' -%}
-                      {{- 'product.accordion.delivery_dispatch' | t: time: d_time, days: d_days -}}
-                    {%- else -%}
-                      {{- 'product.accordion.delivery_dispatch_days' | t: days: d_days -}}
-                    {%- endif -%}
-                  </span>
-                </li>
               {%- endif -%}
-              {%- if settings.delivery_promise_enable and d_max > 0 -%}
-                <li>
-                  {%- render 'icon', name: 'truck', class: 'delivery-facts__icon' -%}
-                  <span>
-                    {%- if d_max == d_min -%}
-                      {{- 'product.accordion.delivery_time_single' | t: min: d_min -}}
-                    {%- else -%}
-                      {{- 'product.accordion.delivery_time' | t: min: d_min, max: d_max -}}
-                    {%- endif -%}
-                  </span>
-                </li>
+              {%- if df_partner == 'true' -%}
+                {%- capture df_dated -%}{%- render 'product-fact', product: product, key: 'dated' -%}{%- endcapture -%}
+                <li>{%- render 'icon', name: 'truck', class: 'delivery-facts__icon' -%}<span>{% if df_dated == 'true' %}{{ 'product.trust_row.delivery_partner_dated' | t }}{% else %}{{ 'product.trust_row.delivery_partner' | t }}{% endif %}</span></li>
+              {%- elsif made_to_order == false -%}
+                <li>{%- render 'icon', name: 'clock', class: 'delivery-facts__icon' -%}<span>{{ 'product.trust_row.delivery_dispatch' | t: min: df_dmin, max: df_dmax }}</span></li>
               {%- endif -%}
               {%- if threshold_cents > 0 -%}
-                <li>{%- render 'icon', name: 'check-circle', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_free' | t: amount: threshold_money }}</span></li>
+                <li>{%- render 'icon', name: 'truck', class: 'delivery-facts__icon' -%}<span>{{ 'product.trust_row.delivery_standard' | t: amount: threshold_money, price: df_std, min: df_tmin, max: df_tmax }}</span></li>
               {%- endif -%}
-              {%- if trial_ok -%}
-                <li>{%- render 'icon', name: 'moon', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_trial' | t: nights: nights, terms: trial_terms }}</span></li>
-              {%- elsif excluded_note != '' -%}
+              {%- if settings.delivery_express_enable and df_exp_c > 0 and df_partner != 'true' -%}
+                <li>{%- render 'icon', name: 'truck', class: 'delivery-facts__icon' -%}<span>{{ 'product.trust_row.delivery_express' | t: price: df_exp, min: df_xmin, max: df_xmax }}</span></li>
+              {%- endif -%}
+              {%- if trial_on and trial_ok == false and excluded_note != '' -%}
                 <li>{%- render 'icon', name: 'info', class: 'delivery-facts__icon' -%}<span>{{ excluded_note }}</span></li>
-              {%- endif -%}
-              {%- if guarantee_on -%}
-                <li>{%- render 'icon', name: 'shield', class: 'delivery-facts__icon' -%}<span>{{ 'product.accordion.delivery_guarantee' | t: years: years }}</span></li>
               {%- endif -%}
             </ul>
             {{- extra -}}
@@ -1262,9 +1449,41 @@
                 {%- endif -%}
               </p>
             {%- endif -%}
+          {%- when 'guarantee' -%}
+            {%- comment -%}
+              Guarantee terms (PDP-17), only on beds the foam guarantee covers.
+            {%- endcomment -%}
+            {%- if guarantee_on -%}
+              <p>{{ 'product.accordion.guarantee_terms' | t: years: years }}</p>
+              {%- if shop.refund_policy.url != blank -%}
+                <p><a href="{{ shop.refund_policy.url }}">{{ 'product.trust_row.full_terms' | t }}</a></p>
+              {%- endif -%}
+            {%- endif -%}
           {%- when 'care' -%}
             {%- liquid
               assign care_mf = product.metafields.custom.care
+              comment
+                No custom.care: say what the bed's own data does say about
+                its cover (custom.cover_type, custom.wash_temp), else the
+                block's text.
+              endcomment
+              capture care_cover
+                render 'product-fact', product: product, key: 'cover_type'
+              endcapture
+              capture care_wash
+                render 'product-fact', product: product, key: 'wash_temp'
+              endcapture
+              assign care_cover_lc = care_cover | downcase
+              assign care_derived = ''
+              if care_cover_lc contains 'zip'
+                if care_wash != ''
+                  assign care_derived = 'product.accordion.care_zip_temp' | t: temp: care_wash
+                else
+                  assign care_derived = 'product.accordion.care_zip' | t
+                endif
+              elsif care_cover_lc contains 'coated'
+                assign care_derived = 'product.accordion.care_coated' | t
+              endif
             -%}
             {%- if care_mf != blank and care_mf.value != blank -%}
               {%- if care_mf.type == 'rich_text_field' -%}
@@ -1274,6 +1493,8 @@
               {%- else -%}
                 <p>{{ care_mf.value | escape | newline_to_br }}</p>
               {%- endif -%}
+            {%- elsif care_derived != '' -%}
+              <p>{{ care_derived }}</p>
             {%- else -%}
               {{- extra -}}
             {%- endif -%}

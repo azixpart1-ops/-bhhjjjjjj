@@ -144,7 +144,7 @@
   }
 
   /* ---------------------------------------------------------------------
-     Cart API — Lunova.cart from global.js, with a bare fallback so the
+     Cart API - Lunova.cart from global.js, with a bare fallback so the
      basket still works if global.js is late or missing.
      ------------------------------------------------------------------- */
   function postJSON(url, body) {
@@ -438,7 +438,7 @@
       if (banner) banner.hidden = true;
     }
 
-    /* lunova:cart:open — after an add (product form, quick add, finder) */
+    /* lunova:cart:open - after an add (product form, quick add, finder) */
     handleOpen(detail) {
       var self = this;
       if (settings().cartType === 'page') {
@@ -454,7 +454,7 @@
       if (!ready && Date.now() - this._renderedAt > 1500) ready = this.refresh();
       Promise.resolve(ready).then(function (ok) {
         if (ok === false) {
-          // The item is in the basket but the drawer couldn't be refreshed —
+          // The item is in the basket but the drawer couldn't be refreshed -
           // the basket page tells the truth, the drawer would not.
           window.location.href = cartUrl();
           return;
@@ -463,7 +463,7 @@
       });
     }
 
-    /* lunova:cart:updated — any change from anywhere */
+    /* lunova:cart:updated - any change from anywhere */
     handleUpdated(detail) {
       if (this._ops > 0) return; // our own change; we render from its response
       var html = detail.sections && detail.sections[this.sectionId];

@@ -1,27 +1,36 @@
 {%- comment -%}
-  Collection hero — the first screen of a collection page.
+  Collection hero: the first screen of a collection page.
 
   Job: tell the shopper in one glance that they're in the right place and
   that it's safe to choose here, then get out of the way of the grid.
-    - One clean H1. Old store titles were SEO strings ("Orthopaedic Dog Beds
+    - One clean H1 (the breadcrumb trail above it shows from tablet width
+      up; on phones the beds come first). Old store titles were SEO strings ("Orthopaedic Dog Beds
       UK | Memory Foam Joint Support | Pawlunova"), so everything from the
-      first " | ", " – " or " — " onward is dropped. The full description
+      first " | " or " – " onward is dropped. The full description
       (with its own headings demoted) sits below the grid in main-collection.
-    - A short intro: the section's own text if set, otherwise the opening of
-      the collection description (first sentence or two, ~160 characters).
-      Hidden on phones, where the full description under the grid does
-      the job and the beds need the space.
+    - A short intro: the section's own text if set, else the collection's
+      custom.intro (one paragraph per line: the first reads as the lede, the
+      rest smaller, audit COL-07 / COL-12), else the opening of the
+      collection description (first sentence or two, ~160 characters).
+      Shown on phones too (audit COL-01: H1 and two lines of intro).
+    - The new-brand line (audit P0-1, COL-11) in place of a rating: "We're a
+      young UK brand, so there's no wall of reviews yet…". It names the
+      trial and free collection, so it shows only while both are switched on
+      in Theme settings; when a bed on the page isn't covered by the trial
+      (a personalised bed, a kennel) the second wording says each bed's page
+      shows whether it is. Turn it off once a reviews app shows real reviews.
     - Product count ("27 beds", or "64 products" when the collection mixes
-      beds with kennels or accessories) — a sense of the size of the
+      beds with kennels or accessories): a sense of the size of the
       choice. Off in the default template: the toolbar above the grid
       already says it.
     - Store rating line only when the merchant has filled in BOTH
-      store_rating and store_review_count (no invented proof).
+      store_rating and store_review_count (no invented proof; the audit
+      template keeps it off).
     - Promises from theme settings (trial, guarantee, delivery) as one quiet
-      inline row — each hides itself when switched off. Hidden on phones,
+      inline row, each hiding itself when switched off. Hidden on phones,
       where the announcement bar and the risk-reversal under the grid carry
       them.
-    - "Not sure? Find my dog's bed" — a secondary, ink-outline action that
+    - "Not sure? Find my dog's bed": a secondary, ink-outline action that
       opens the Bed Finder (choice architecture: one recommendation
       instead of 27 similar beds). Off in the default template (the header
       button and the grid's finder tile already offer it), and never shown
@@ -42,7 +51,7 @@
     their full text.
   endcomment
   assign raw_title = collection.title | default: ''
-  assign title = raw_title | split: ' | ' | first | split: ' – ' | first | split: ' — ' | first | strip
+  assign title = raw_title | split: ' | ' | first | split: ' – ' | first | strip
   if title == ''
     assign title = raw_title | strip
   endif
@@ -66,8 +75,13 @@
     A collection's own short intro (custom.intro, plain text) is written for
     this spot, so it beats an excerpt of the long description below the grid.
   endcomment
+  assign intro_lines = false
   if intro == '' and collection.metafields.custom.intro != blank
-    assign intro = collection.metafields.custom.intro.value | default: collection.metafields.custom.intro | strip | escape
+    assign intro = collection.metafields.custom.intro.value | default: collection.metafields.custom.intro | append: '' | strip
+    assign intro_br = intro | newline_to_br
+    if intro_br contains '<br'
+      assign intro_lines = true
+    endif
   endif
   if intro == ''
     comment
@@ -224,8 +238,51 @@
 
       {%- if intro != '' -%}
         <div class="lede collection-hero__intro">
-          {%- if intro_is_html -%}{{ intro }}{%- else -%}<p>{{ intro }}</p>{%- endif -%}
+          {%- if intro_is_html -%}
+            {{ intro }}
+          {%- elsif intro_lines -%}
+            {%- assign intro_parts = intro | newline_to_br | split: '<br />' -%}
+            {%- assign intro_n = 0 -%}
+            {%- for line in intro_parts -%}
+              {%- assign line_s = line | strip -%}
+              {%- if line_s == '' -%}{%- continue -%}{%- endif -%}
+              {%- assign intro_n = intro_n | plus: 1 -%}
+              <p{% if intro_n > 1 %} class="collection-hero__intro-more"{% endif %}>{{ line_s | escape }}</p>
+            {%- endfor -%}
+          {%- else -%}
+            <p>{{ intro | escape_once }}</p>
+          {%- endif -%}
         </div>
+      {%- endif -%}
+
+      {%- liquid
+        comment
+          New-brand line: needs the trial and free collection on, since it
+          names both.
+        endcomment
+        assign brand_line = ''
+        assign bl_nights = settings.trial_nights | default: 0 | plus: 0
+        if section.settings.show_brand_line and settings.trial_enable and settings.trial_free_collection and bl_nights > 0 and count > 0
+          assign bl_all = true
+          for product in collection.products
+            capture bl_ok
+              render 'trial-eligible', product: product
+            endcapture
+            if bl_ok != 'true'
+              assign bl_all = false
+              break
+            endif
+          endfor
+          if bl_all
+            assign brand_line = section.settings.brand_line
+          else
+            assign brand_line = section.settings.brand_line_mixed
+          endif
+          assign brand_line = brand_line | default: '' | strip | escape | replace: '[nights]', bl_nights
+        endif
+      -%}
+      {%- if brand_line != '' -%}
+        <p class="collection-hero__brand">{{ brand_line }}</p>
       {%- endif -%}
 
       {%- liquid
@@ -351,7 +408,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "The heading is the collection's title with anything after a \" | \" or \" – \" removed, so long SEO titles read cleanly. The full description is shown under the product grid."
+      "content": "The heading is the collection's title with anything after a \" | \" or \" – \" removed, so long SEO titles read cleanly. The intro is the collection's custom.intro metafield, else the opening of its description. The full description is shown under the product grid."
     },
     {
       "type": "select",
@@ -387,11 +444,31 @@
       "type": "richtext",
       "id": "all_intro",
       "label": "Intro on the all-products page",
-      "default": "<p>Every bed we sell, in one place — or let the finder narrow it down to one.</p>"
+      "default": "<p>Every bed we sell, in one place. Or let the Bed Finder narrow it down to one.</p>"
     },
     {
       "type": "header",
       "content": "Reassurance"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_brand_line",
+      "label": "Show the new-brand line",
+      "default": true,
+      "info": "Shows while the sleep trial and free collection are on in Theme settings. Turn it off once a reviews app shows real reviews."
+    },
+    {
+      "type": "text",
+      "id": "brand_line",
+      "label": "New-brand line",
+      "default": "We're a young UK brand, so there's no wall of reviews yet. That's why every bed comes with [nights] nights at home, and free collection if it isn't right.",
+      "info": "[nights] is the trial length."
+    },
+    {
+      "type": "text",
+      "id": "brand_line_mixed",
+      "label": "New-brand line, when a bed here isn't covered by the trial",
+      "default": "We're a young UK brand, so there's no wall of reviews yet. That's why our beds come with [nights] nights at home, and free collection if one isn't right. Each bed's page shows if it's covered."
     },
     {
       "type": "checkbox",

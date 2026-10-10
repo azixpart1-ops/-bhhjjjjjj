@@ -1,0 +1,87 @@
+{%- comment -%}
+  The sleep-trial tile in a collection grid (audit COL-10, S07 copy deck:
+  "100 nights to decide. Slept on, hair and all, we'll collect it free if it
+  isn't right. [How the trial works]"). Card-sized, like the finder tile, and
+  a list item in the grid so the keyboard reaches it in reading order.
+
+  Honest by construction:
+    - nothing when the trial is off (Theme settings → Promises);
+    - "[nights]" is the trial's own number;
+    - without free collection (trial_free_collection off) the text gives the
+      merchant's trial terms instead of promising a free collection;
+    - covers_all false (some bed on this page isn't covered, e.g. a
+      personalised bed or a kennel) adds a line saying each bed's page shows
+      whether it is.
+
+  Parameters
+    heading      merchant text; [nights] → the number of nights
+    text         merchant text, used only with free collection on
+    link_label   link text ("How the trial works")
+    link         url; blank → the 100-night-trial page, else the refund policy
+    covers_all   true when every bed on the page is covered (default true)
+    ratio        CSS aspect ratio of the art panel, to match the cards
+    class        extra classes
+{%- endcomment -%}
+{%- liquid
+  assign tt_nights = settings.trial_nights | default: 0 | plus: 0
+  assign tt_on = false
+  if settings.trial_enable and tt_nights > 0
+    assign tt_on = true
+  endif
+-%}
+{%- if tt_on -%}
+  {%- liquid
+    assign tt_heading = heading | default: '' | strip | escape
+    if tt_heading == ''
+      assign tt_heading = 'collection.trial_tile.heading' | t: nights: tt_nights
+    else
+      assign tt_heading = tt_heading | replace: '[nights]', tt_nights
+    endif
+    if settings.trial_free_collection
+      assign tt_text = text | default: '' | strip | escape
+      if tt_text == ''
+        assign tt_text = 'collection.trial_tile.text' | t
+      endif
+    else
+      capture tt_text
+        render 'trial-terms'
+      endcapture
+      assign tt_text = tt_text | strip_html | strip | escape
+    endif
+    assign tt_url = link | default: ''
+    if tt_url == ''
+      assign tt_page = pages['100-night-trial']
+      if tt_page.url != blank
+        assign tt_url = tt_page.url
+      elsif shop.refund_policy.url != blank
+        assign tt_url = shop.refund_policy.url
+      endif
+    endif
+    assign tt_label = link_label | default: '' | strip | escape
+    if tt_label == ''
+      assign tt_label = 'collection.trial_tile.link' | t
+    endif
+    assign tt_ratio = ratio | default: '1 / 1'
+  -%}
+  <li class="trial-tile scheme-oat{% if class %} {{ class }}{% endif %}" style="--card-ratio: {{ tt_ratio }};">
+    <div class="trial-tile__art" aria-hidden="true">
+      <span class="trial-tile__halo">
+        {%- render 'icon', name: 'moon', class: 'trial-tile__icon' -%}
+      </span>
+      <span class="trial-tile__nights">{{ tt_nights }}</span>
+    </div>
+    <div class="trial-tile__body">
+      <h3 class="trial-tile__title">{{ tt_heading }}</h3>
+      <p class="trial-tile__text">{{ tt_text }}</p>
+      {%- if covers_all == false -%}
+        <p class="trial-tile__note">{{ 'collection.trial_tile.not_all' | t }}</p>
+      {%- endif -%}
+      {%- if tt_url != '' -%}
+        <a href="{{ tt_url }}" class="trial-tile__link">
+          <span>{{ tt_label }}</span>
+          {%- render 'icon', name: 'arrow-right', class: 'icon--arrow-right' -%}
+        </a>
+      {%- endif -%}
+    </div>
+  </li>
+{%- endif -%}

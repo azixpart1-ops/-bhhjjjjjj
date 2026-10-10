@@ -1,5 +1,5 @@
 /*
- * Lunova — collection.js (area D)
+ * Lunova: collection.js (area D)
  *
  *   <facet-filters>  storefront filtering + sorting + pagination through the
  *                    Section Rendering API (collection and search pages)
@@ -142,6 +142,8 @@
        [data-facets-close]       close button, overlay, "Show n beds"
        [data-facets-link]        pills, "Clear all" → fetched, not followed
        [data-pagination-link]    pagination → fetched, scrolls to the top
+       [data-load-more]          "Show more beds (n)" → next page appended
+       [data-more]               summary + button region (data-first/last/total)
        [data-swap="key"]         regions replaced from the fresh render
        [data-facets-live]        polite status: "12 beds"
      ------------------------------------------------------------------- */
@@ -332,6 +334,14 @@
         return;
       }
 
+      var more = t.closest('a[data-load-more]');
+      if (more && this.contains(more)) {
+        if (e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        this.loadMore(more);
+        return;
+      }
+
       var link = t.closest('a[data-facets-link], a[data-pagination-link]');
       if (!link || !this.contains(link)) return;
       if (e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -339,7 +349,89 @@
       var isPage = link.hasAttribute('data-pagination-link');
       var pill = link.closest('.facets-active__list li');
       var pillIndex = pill ? qsa('.facets-active__list li', this).indexOf(pill) : -1;
-      this.apply(link.href, { focus: isPage ? 'heading' : pillIndex > -1 ? 'pill' : 'keep', pillIndex: pillIndex, scroll: isPage });
+      var chip = link.closest('.quick-chips__item');
+      var chipIndex = chip ? qsa('.quick-chips__item', this).indexOf(chip) : -1;
+      var focus = isPage ? 'heading' : pillIndex > -1 ? 'pill' : chipIndex > -1 ? 'chip' : 'keep';
+      this.apply(link.href, { focus: focus, pillIndex: pillIndex, chipIndex: chipIndex, scroll: isPage });
+    }
+
+    /* -- "Show more beds (n)" -------------------------------------------
+       Appends the next page's cards to the grid (Section Rendering API),
+       swaps in the next button and the page links, keeps "Showing 48 of
+       60" counting from the first card on screen, moves focus to the first
+       new bed and keeps the URL in step (replaceState, so Back still leaves
+       the list). If anything fails, the link simply loads that page. */
+    loadMore(btn) {
+      if (this._moreBusy) return;
+      var self = this;
+      var url = this.normaliseUrl(btn.href);
+      var grid = this.querySelector('[data-grid]');
+      var region = this.querySelector('[data-more]');
+      if (!grid || !region || !window.fetch || !window.DOMParser) {
+        window.location.href = btn.href;
+        return;
+      }
+      this._moreBusy = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.setAttribute('aria-disabled', 'true');
+      var startFirst = region.getAttribute('data-first') || '1';
+
+      fetch(this.sectionUrl(url), { credentials: 'same-origin' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.text();
+        })
+        .then(function (html) {
+          var parsed = new DOMParser().parseFromString(html, 'text/html');
+          var fresh = parsed.querySelector('facet-filters[data-section-id="' + cssEscape(self.sectionId) + '"]');
+          var freshGrid = fresh && fresh.querySelector('[data-grid]');
+          var freshMore = fresh && fresh.querySelector('[data-more]');
+          if (!freshGrid || !freshMore) throw new Error('render');
+
+          var firstNew = null;
+          qsa('[data-grid-item]', freshGrid).forEach(function (li) {
+            var node = doc.importNode(li, true);
+            grid.appendChild(node);
+            if (!firstNew) firstNew = node;
+          });
+
+          var nextMore = doc.importNode(freshMore, true);
+          nextMore.setAttribute('data-first', startFirst);
+          self.fillMoreSummary(nextMore);
+          region.replaceWith(nextMore);
+
+          var nav = self.querySelector('.collection-results__pagination');
+          var freshNav = fresh.querySelector('.collection-results__pagination');
+          if (nav && freshNav) nav.replaceWith(doc.importNode(freshNav, true));
+          else if (nav) nav.remove();
+          else if (freshNav) nextMore.insertAdjacentElement('afterend', doc.importNode(freshNav, true));
+
+          self.lastUrl = url;
+          try {
+            history.replaceState(Object.assign({}, history.state || {}, { lunovaFacets: self.sectionId }), '', url);
+          } catch (e) {
+            /* ignore */
+          }
+
+          var summary = nextMore.querySelector('[data-more-summary]');
+          announce(self.querySelector('[data-facets-live]'), summary ? summary.textContent.trim() : '');
+          var target = firstNew && firstNew.querySelector('.product-card__link, a[href]');
+          if (target) focusEl(target);
+          self._moreBusy = false;
+        })
+        .catch(function () {
+          self._moreBusy = false;
+          window.location.href = btn.href;
+        });
+    }
+
+    /* "Showing 48 of 60" from the first card on screen, not the page loaded. */
+    fillMoreSummary(region) {
+      var summary = region.querySelector('[data-more-summary]');
+      if (!summary) return;
+      var first = parseInt(region.getAttribute('data-first'), 10) || 1;
+      var vars = { first: first, last: region.getAttribute('data-last'), total: region.getAttribute('data-total') };
+      summary.textContent = fill(first === 1 ? region.getAttribute('data-tpl-all') : region.getAttribute('data-tpl-range'), vars);
     }
 
     onKeydown(e) {
@@ -593,6 +685,9 @@
       // Focus: stay where the shopper was; after a pill, move to its neighbour.
       if (opts.focus === 'heading') {
         focusEl(this.querySelector('[data-results-heading]'));
+      } else if (opts.focus === 'chip') {
+        var chips = qsa('.quick-chips__item a', this);
+        focusEl(chips[Math.min(Math.max(opts.chipIndex, 0), chips.length - 1)] || this.querySelector('[data-results-heading]'));
       } else if (opts.focus === 'pill') {
         var pills = qsa('.facets-active__list a', this);
         var target = pills[Math.min(Math.max(opts.pillIndex, 0), pills.length - 1)];
@@ -621,7 +716,7 @@
   define('facet-filters', FacetFilters);
 
   /* ---------------------------------------------------------------------
-     <cart-items> — basket page
+     <cart-items>: basket page
      Strings come from data-str-* attributes on the element (so entities in
      translations are already decoded by the HTML parser).
      ------------------------------------------------------------------- */
@@ -1133,6 +1228,24 @@
       });
     });
   }
+
+  /* Shortcuts outside the grid ("See beds like this" on the start cards)
+     apply their filter in place, like the chips inside it, when the grid
+     on this page can take it; otherwise the link just loads. */
+  doc.addEventListener('click', function (e) {
+    var t = e.target instanceof Element ? e.target : null;
+    var link = t && t.closest('a[data-facets-apply]');
+    if (!link || e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var target = new URL(link.href, window.location.href);
+    var ff = qsa('facet-filters').filter(function (el) {
+      var form = el.querySelector('[data-facets-form], [data-facets-sort-form]');
+      var action = form ? new URL(form.getAttribute('action') || '/', window.location.href).pathname : el.getAttribute('data-results-url');
+      return action === target.pathname && typeof el.apply === 'function';
+    })[0];
+    if (!ff) return;
+    e.preventDefault();
+    ff.apply(link.href, { focus: 'heading', scroll: true });
+  });
 
   /* Back from checkout via the browser's cache: un-stick the busy button. */
   window.addEventListener('pageshow', function (e) {

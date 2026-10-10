@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Lunova — finder.js
+   Lunova - finder.js
    The Bed Finder: four taps → one bed in the right size, addable from the
    result. Also the homepage teaser that asks question 1 inline.
 
@@ -53,7 +53,7 @@
   var CLOSE_MS = 200;
   /* Sleeping style from a bed's own words. Read from the title first, then
      from tags one at a time, then (weakly) from the last product-type
-     segment — see classify(). Shapes only: "crate" or "travel" say where a
+     segment - see classify(). Shapes only: "crate" or "travel" say where a
      bed goes, not how a dog lies on it. */
   var STYLE_WORDS = {
     curl: /\b(nest|nesting|donut|doughnut|cuddler|calming|burrow|cave|igloo|snuggle|den|high[\s-]?(?:sided|walled|wall))\b/i,
@@ -207,9 +207,17 @@
     return root.classList.contains('no-motion') || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
+  /** The guarantee's nights as the product page prints them: "1,826" for 5 years (Lunova.guaranteeNights). */
+  function nightsText() {
+    var n = typeof L.guaranteeNights === 'function' ? L.guaranteeNights() : Math.floor(((Number(settings().guaranteeYears) || 0) * 1461) / 4);
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
   function money(cents) {
     if (typeof L.money === 'function') return L.money(cents);
-    return '£' + (Number(cents || 0) / 100).toFixed(2);
+    /* Without global.js: whole pounds, pence only when there are some (£149, £4.99). */
+    var n = Math.round(Number(cents || 0));
+    return '£' + (n % 100 ? (n / 100).toFixed(2) : String(n / 100));
   }
 
   function settings() {
@@ -332,7 +340,7 @@
   }
 
   /* ------------------------------------------------------------------------
-     Config — parsed once per #finder-config node (the editor can swap it)
+     Config - parsed once per #finder-config node (the editor can swap it)
      ---------------------------------------------------------------------- */
   var cfgCache = { node: null, data: null };
 
@@ -510,7 +518,7 @@
   }
 
   /* ------------------------------------------------------------------------
-     Fallback beds — sections/finder-products, fetched through the Section
+     Fallback beds - sections/finder-products, fetched through the Section
      Rendering API on the fallback collection's URL, so the catalogue isn't
      printed into every page. Started as soon as a shopper heads for the
      finder (hover/focus/touch on a finder link, the teaser coming into view,
@@ -611,7 +619,7 @@
   });
 
   /* ------------------------------------------------------------------------
-     Sizes — the theme's one set of size rules (Lunova.sizeParse and
+     Sizes - the theme's one set of size rules (Lunova.sizeParse and
      Lunova.sizeHintIndex in global.js, snippets/size-hints.liquid), so the
      finder, the size guide and the product page agree on which dog a size
      is for: the breeds a value names ("Medium: Springer Spaniel | Cockapoo"),
@@ -622,8 +630,8 @@
        - lets a value whose breeds also name another size serve that dog as
          a second choice (Patterdale "Large: … | German Shepherd" for an XL);
        - gives a one-size bed a size of its own: the dog its lone value,
-         custom.specs or description measurements, title ("XXL", "Large Dog
-         Bed") or tags ("Large dog") say it's for. It is offered to that dog
+         custom.specs or description measurements, custom.suits_weight band,
+         title ("XXL", "Large Dog Bed") or tags ("Large dog") say it's for. It is offered to that dog
          and the size below, and to no one else;
        - offers the next size up only one size up ("go up one").
      ---------------------------------------------------------------------- */
@@ -639,7 +647,7 @@
   function parseSize(value) {
     if (typeof L.sizeParse === 'function') return L.sizeParse(value);
     var raw = String(value == null ? '' : value).trim();
-    var m = /^(.+?)(?: · |:| \(| \/ | – | — | - )(.*)$/.exec(raw);
+    var m = /^(.+?)(?: · |:| \(| \/ | – | \u2014 | - )(.*)$/.exec(raw);
     var label = m ? m[1].trim() : raw;
     var detail = m ? m[2].replace(/\)\s*$/, '').trim().split(/\s*\|\s*/).join(', ') : '';
     var d = /(\d+(?:\.\d+)?)\s*(?:cm)?\s*[×x]\s*(\d+(?:\.\d+)?)/i.exec(detail || raw);
@@ -731,6 +739,42 @@
     return m ? sizeWordIdx(m[1] || m[2]) : -1;
   }
 
+  /** [low, high] kg from "Up to 10kg", "10–25kg" or "40kg+"; null when it isn't a weight band. */
+  function weightRange(text) {
+    var t = norm(text).replace(/\s+/g, '');
+    var m = /^upto(\d+(?:\.\d+)?)kg$/.exec(t);
+    if (m) return [0, Number(m[1])];
+    m = /^(\d+(?:\.\d+)?)(?:kg)?[-\u2013](\d+(?:\.\d+)?)kg$/.exec(t);
+    if (m) return [Number(m[1]), Number(m[2])];
+    m = /^(\d+(?:\.\d+)?)kg\+$/.exec(t);
+    if (m) return [Number(m[1]), Infinity];
+    return null;
+  }
+
+  /**
+   * The dog a one-size bed's own data says it suits: its variants'
+   * custom.suits_weight band ("40kg+", "sw" in finder-product-json), read
+   * against the size hints' weights. The largest dog whose band lies inside
+   * it ("Up to 10kg" covers XS and S, so S); -1 when the variants disagree
+   * or nothing is set.
+   */
+  function weightClass(p) {
+    var bands = [];
+    p.variants.forEach(function (v) {
+      var b = v && v.sw ? norm(v.sw) : '';
+      if (b && bands.indexOf(b) < 0) bands.push(b);
+    });
+    if (bands.length !== 1) return -1;
+    var r = weightRange(bands[0]);
+    if (!r) return -1;
+    var idx = -1;
+    hints().forEach(function (hint, i) {
+      var h = weightRange(hint && hint.weight);
+      if (h && h[0] >= r[0] && h[1] <= r[1]) idx = i;
+    });
+    return idx;
+  }
+
   /** The dog the tags name ("Large dog", "small dog bed"); -1 when they disagree. */
   function tagClass(p) {
     var found = [];
@@ -773,7 +817,8 @@
    * A product's sizes, read once. A bed with fewer than two size values is
    * one size: its measurements come from that value, else custom.specs, else
    * its description; the dog it's for from that value (breeds, measurements,
-   * size word), else those measurements, else its title, else its tags.
+   * size word), else those measurements, else its custom.suits_weight band,
+   * else its title, else its tags.
    */
   function sizing(p) {
     if (p.sizing) return p.sizing;
@@ -789,6 +834,9 @@
       } else if (s.dims && hintIdx('One size · ' + s.dims) > -1) {
         s.cls = hintIdx('One size · ' + s.dims);
         s.classBy = 'dims';
+      } else if (weightClass(p) > -1) {
+        s.cls = weightClass(p);
+        s.classBy = 'weight';
       } else if (titleClass(p) > -1) {
         s.cls = titleClass(p);
         s.classBy = 'title';
@@ -1126,7 +1174,7 @@
     return c.product.styleWords;
   }
 
-  /** "if you'd prefer …" — one honest, concrete difference between the two picks. */
+  /** "if you'd prefer …" - one honest, concrete difference between the two picks. */
   function difference(main, alt) {
     if (alt.block && alt.block.difference) return alt.block.difference;
     var mp = main.fit.variant.price;
@@ -2053,14 +2101,10 @@
       var hint = hintAt(want);
       var wanted = hint ? hint.label || hint.value : a.size;
       var label = displaySize(fit.value);
-      var hintBreeds = hint && hint.breeds ? String(hint.breeds).split(',').map(function (b) { return b.trim(); }).filter(Boolean).slice(0, 2).join(', ') : '';
       if (isOne(fit)) {
         var dims = fit.dims || pick.product.dims;
-        var dimsText = dims ? ' — ' + dims : '';
+        var dimsText = dims ? ' · ' + dims : '';
         if (fit.kind === 'one-larger') return fill(S('result.why_size_one_larger'), { dims: dimsText, wanted: wanted });
-        if (fit.kind === 'one' && fit.cls === want && want > -1 && hintBreeds && hint.weight) {
-          return fill(S('result.why_size_one_fit'), { dims: dimsText, breeds: hintBreeds, weight: hint.weight });
-        }
         return fill(S('result.why_size_one'), { dims: dimsText, dog: this.dogWord() });
       }
       if (fit.kind === 'larger' || fit.kind === 'larger-approx') {
@@ -2074,13 +2118,14 @@
         });
         return fill(S('result.why_size_breeds'), { size: shortSize(fit.value), breeds: own.slice(0, 3).join(', ') });
       }
-      if (hintBreeds && hint.weight) {
-        return fill(S('result.why_size'), { size: label, breeds: hintBreeds, weight: hint.weight });
-      }
-      if (hint && hint.weight) {
-        var w = String(hint.weight);
-        if (/^[A-Z][a-z]/.test(w)) w = w.charAt(0).toLowerCase() + w.slice(1);
-        return fill(S('result.why_size_plain'), { size: label, weight: w });
+      /* Who this size suits is only said from the bed's own data (the size's
+         breeds above, or this variant's custom.suits_weight, "sw"), never from
+         the store-wide size hints: a bolster bed's Small can sleep a far
+         smaller dog than the hint's breeds (audit PDP-08). */
+      var sw = fit.variant && fit.variant.sw ? String(fit.variant.sw) : '';
+      if (sw) {
+        if (/^[A-Z][a-z]/.test(sw)) sw = sw.charAt(0).toLowerCase() + sw.slice(1);
+        return fill(S('result.why_size_plain'), { size: label, weight: sw });
       }
       return fill(S('result.why_size_label'), { size: label });
     }
@@ -2134,9 +2179,9 @@
           h('summary', { class: 'per-night__summary' }, [
             icon('moon', 'per-night__icon'),
             text,
-            h('span', { class: 'visually-hidden', text: ' — ' + S('result.per_night_hint') })
+            h('span', { class: 'visually-hidden', text: ' (' + S('result.per_night_hint') + ')' })
           ]),
-          h('p', { class: 'per-night__basis', text: fill(S('result.per_night_basis'), { price: money(price), years: years, exact: exact }) })
+          h('p', { class: 'per-night__basis', text: fill(S('result.per_night_basis'), { price: money(price), years: years, exact: exact, nights: nightsText() }) })
         ])
       ]);
     }
@@ -2218,7 +2263,8 @@
       ]);
 
       var rating = null;
-      if (cfg.options.showRating !== false && Number(p.rating) > 0) {
+      /* Stars only with at least 5 reviews behind them (snippets/rating, audit P0-1). */
+      if (cfg.options.showRating !== false && Number(p.rating) > 0 && Number(p.ratingCount) >= 5) {
         var r = Math.max(0, Math.min(5, Number(p.rating)));
         rating = h('p', { class: 'rating rating--sm finder-result__rating' }, [
           h('span', { class: 'stars', style: '--rating-pct:' + (r / 5) * 100 + '%', 'aria-hidden': 'true' }),
@@ -2264,7 +2310,7 @@
         L.delivery.render(delivery);
       }
 
-      /* Buy — a long name stays in the heading, not the button */
+      /* Buy - a long name stays in the heading, not the button */
       var ctaName = this.ctaName();
       /* A personalised bed (snippets/personalised) can't go in the basket
          without the name it's made with: its button opens the product page,
@@ -2471,7 +2517,7 @@
   if (!customElements.get('bed-finder')) customElements.define('bed-finder', BedFinder);
 
   /* ------------------------------------------------------------------------
-     <finder-teaser> — question 1 inline; a tap opens the finder on question 2
+     <finder-teaser> - question 1 inline; a tap opens the finder on question 2
      ---------------------------------------------------------------------- */
   class FinderTeaser extends HTMLElement {
     connectedCallback() {

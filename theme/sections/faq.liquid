@@ -5,12 +5,21 @@
   your vet). Uncertainty reduction, plus FAQPage structured data (toggle).
 
   On product pages the trial and guarantee questions follow the product:
-  they hide for one the trial or the foam guarantee doesn't cover.
+  they hide for one the trial or the foam guarantee doesn't cover. Three
+  more product-page gates (off the product page they keep or drop as noted):
+    foam_core  only a bed with a foam core (custom.core_type contains
+               "foam"; not a car seat, steps or kennel). Kept elsewhere.
+    dated      only when this bed's page shows delivery dates
+               (snippets/product-fact dated). Kept elsewhere.
+    undated    only when it doesn't (partner warehouse or made to order
+               without dispatch days). Hidden elsewhere. [delivery_lead]
+               says why: "This bed ships from our partner warehouse…" or
+               "Made to order, so it takes a little longer to dispatch."
 
   Blocks: question + answer (rich text) + "hide when this promise is off".
   Text can use [trial_nights], [trial_terms], [trial_terms_short],
   [guarantee_years], [threshold], [cutoff], [delivery_min], [delivery_max],
-  [origin], [shop], [returns_policy]. A question naming a promise that is
+  [origin], [shop], [returns_policy], [delivery_lead]. A question naming a promise that is
   switched off hides itself. [trial_terms] is the returns wording from Theme
   settings → Promises (snippets/trial-terms), so answers never promise free
   collection or a full refund the store doesn't give.
@@ -52,17 +61,32 @@
   assign ph_origin = settings.origin_line | default: '' | strip | escape
   assign ph_shop = shop.name | escape
   comment
-    Delivery options (Theme settings → Promises → Delivery options): the
-    token delivery_options is the standard and express wording joined with
-    a dot, and delivery_times the confirmed transit times (blank until set).
+    The token delivery_options is the published shipping policy in the
+    product page's own sentences (its trust-row sheet and its Delivery and
+    returns row), from Theme settings, Promises, Delivery dates: dispatch
+    within 1 to 2 working days, Standard free over the threshold (else the
+    standard price) in 4 to 6 working days after dispatch, Express at its
+    price in 2 to 3. The token delivery_times is the merchant's own note,
+    blank until set.
   endcomment
-  assign do_std = settings.delivery_standard_text | default: '' | strip | escape
-  assign do_exp = settings.delivery_express_text | default: '' | strip | escape
-  assign ph_doptions = do_std
-  if do_std != '' and do_exp != ''
-    assign ph_doptions = ph_doptions | append: ' · '
+  assign do_pmin = settings.delivery_dispatch_min | default: 1 | plus: 0
+  assign do_pmax = settings.delivery_dispatch_max | default: 2 | plus: 0
+  assign do_std = settings.delivery_standard_price | default: '' | strip | remove: '£' | times: 100 | round | money_without_trailing_zeros
+  assign do_exp_cents = settings.delivery_express_price | default: '' | strip | remove: '£' | times: 100 | round
+  assign do_exp = do_exp_cents | money_without_trailing_zeros
+  assign do_xmin = settings.delivery_express_min | default: 2 | plus: 0
+  assign do_xmax = settings.delivery_express_max | default: 3 | plus: 0
+  assign ph_doptions = 'core.delivery_options.dispatch_sentence' | t: min: do_pmin, max: do_pmax
+  if settings.free_shipping_enable and settings.free_shipping_threshold > 0
+    assign do_line = 'product.trust_row.delivery_standard' | t: amount: ph_threshold, price: do_std, min: dmin, max: dmax
+  else
+    assign do_line = 'core.delivery_options.standard_sentence' | t: price: do_std, min: dmin, max: dmax
   endif
-  assign ph_doptions = ph_doptions | append: do_exp
+  assign ph_doptions = ph_doptions | append: ' ' | append: do_line
+  if settings.delivery_express_enable and do_exp_cents > 0
+    assign do_line = 'product.trust_row.delivery_express' | t: price: do_exp, min: do_xmin, max: do_xmax
+    assign ph_doptions = ph_doptions | append: ' ' | append: do_line
+  endif
   assign ph_dtimes = settings.delivery_times_note | default: '' | strip | escape
   capture ph_terms
     render 'trial-terms'
@@ -90,8 +114,13 @@
   if settings.free_shipping_enable and settings.free_shipping_threshold > 0
     assign on_free = true
   endif
+  comment
+    Same-day dispatch is a per-bed fact (custom.ships_same_day, audit P0-3):
+    store-wide copy never claims it, only a product page whose own bed ships
+    the same day, and only while the dispatch countdown is switched on.
+  endcomment
   assign on_dispatch = false
-  if settings.delivery_promise_enable and ph_cutoff != ''
+  if settings.delivery_promise_enable and ph_cutoff != '' and product.metafields.custom.ships_same_day.value == true
     assign on_dispatch = true
   endif
   assign on_origin = false
@@ -104,7 +133,39 @@
     product they cover (snippets/trial-eligible, snippets/foam-bed), so a dog
     house or a personalised bed is never promised the trial here.
   endcomment
+  assign on_foam_core = true
+  assign faq_qa_text = ''
+  assign on_dated = true
+  assign on_undated = false
+  assign ph_dlead = ''
   if template.name == 'product' and product != blank
+    comment
+      The bed's own "Questions owners ask" (custom.qa, PDP-22): a question
+      already answered there isn't asked again here (PDP-18). Each block's
+      qa_words lists the words that mark its topic in a Q&A question.
+    endcomment
+    assign faq_qa = product.metafields.custom.qa.value
+    if faq_qa != blank and faq_qa.size > 0
+      for faq_pair in faq_qa
+        assign faq_qa_text = faq_qa_text | append: ' ' | append: faq_pair.q
+      endfor
+      assign faq_qa_text = faq_qa_text | downcase
+    endif
+    comment
+      Foam core, delivery dates and why not (snippets/faq-product-gates).
+    endcomment
+    capture faq_gates
+      render 'faq-product-gates', product: product
+    endcapture
+    assign faq_g = faq_gates | split: '|'
+    if faq_g[0] != '1'
+      assign on_foam_core = false
+    endif
+    if faq_g[1] == '0'
+      assign on_dated = false
+      assign on_undated = true
+      assign ph_dlead = faq_g[2] | default: '' | strip
+    endif
     if on_trial
       capture faq_trial_ok
         render 'trial-eligible', product: product
@@ -182,7 +243,32 @@
           if on_origin == false
             assign keep = false
           endif
+        when 'foam_core'
+          if on_foam_core == false
+            assign keep = false
+          endif
+        when 'dated'
+          if on_dated == false
+            assign keep = false
+          endif
+        when 'undated'
+          if on_undated == false
+            assign keep = false
+          endif
       endcase
+      if raw contains '[delivery_lead]' and ph_dlead == ''
+        assign keep = false
+      endif
+      if keep and faq_qa_text != '' and b.qa_words != blank
+        assign faq_words = b.qa_words | downcase | split: ','
+        for faq_w in faq_words
+          assign faq_w = faq_w | strip
+          if faq_w != '' and faq_qa_text contains faq_w
+            assign keep = false
+            break
+          endif
+        endfor
+      endif
       if keep
         assign keys = keys | append: 'b:' | append: forloop.index0 | append: ','
       endif
@@ -195,7 +281,9 @@
     if on_guarantee
       assign keys = keys | append: 'd:guarantee,'
     endif
-    assign keys = keys | append: 'd:arthritis,'
+    if on_foam_core
+      assign keys = keys | append: 'd:arthritis,'
+    endif
   endif
   assign key_list = keys | split: ','
   assign total = key_list.size
@@ -318,7 +406,7 @@
               assign block = section.blocks[bi]
               if block
                   assign q = block.settings.question | escape | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop | replace: '[delivery_options]', ph_doptions | replace: '[delivery_times]', ph_dtimes
-                  assign a = block.settings.answer | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop | replace: '[returns_policy]', policy_word | replace: '[delivery_options]', ph_doptions | replace: '[delivery_times]', ph_dtimes
+                  assign a = block.settings.answer | replace: '[trial_nights]', ph_nights | replace: '[trial_terms_short]', ph_terms_short | replace: '[trial_terms]', ph_terms | replace: '[guarantee_years]', ph_years | replace: '[threshold]', ph_threshold | replace: '[cutoff]', ph_cutoff | replace: '[delivery_min]', ph_dmin | replace: '[delivery_max]', ph_dmax | replace: '[origin]', ph_origin | replace: '[shop]', ph_shop | replace: '[returns_policy]', policy_word | replace: '[delivery_options]', ph_doptions | replace: '[delivery_times]', ph_dtimes | replace: '[delivery_lead]', ph_dlead
                   if policy_url == ''
                     assign a = a | replace: ' href="/policies/refund-policy"', ''
                   endif
@@ -489,9 +577,18 @@
             { "value": "free_delivery", "label": "Free delivery" },
             { "value": "dispatch", "label": "Dispatch cut-off" },
             { "value": "no_dispatch", "label": "Dispatch cut-off is off" },
-            { "value": "origin", "label": "Origin line" }
+            { "value": "origin", "label": "Origin line" },
+            { "value": "foam_core", "label": "Product page: not a foam-core bed" },
+            { "value": "dated", "label": "Product page: no delivery dates" },
+            { "value": "undated", "label": "Delivery dates shown (or not a product page)" }
           ],
           "default": "none"
+        },
+        {
+          "type": "text",
+          "id": "qa_words",
+          "label": "Skip when the bed's Q&A asks about",
+          "info": "Product pages: words, comma-separated (e.g. arrive, wash). If a question in the bed's own Q&A (custom.qa) contains one, this question isn't repeated here."
         }
       ]
     }

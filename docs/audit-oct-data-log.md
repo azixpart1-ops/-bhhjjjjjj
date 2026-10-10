@@ -228,3 +228,182 @@ Appendix A's guarantee column matches the descriptions for all 37 beds (23 Yes a
 - Torver and Henley (product type Dog Houses > Outdoor Day Beds) are set to shape "Elevated" (Torver "a raised platform"; Henley tag "elevated dog bed"), not "Kennel"; Blencathra and Keswick are "Kennel".
 - Not touched: two UNLISTED cart-upsell products and two DRAFT products ("No", "Untitled Oct10_11:25:13", both created today with no type).
 
+## Catalogue fixes
+
+Written by the data-catalogue agent on 2026-10-10 (17:00 to 17:30 UTC) through the Admin API (Shopify MCP: every operation checked with `validate_graphql_codeblocks` before it ran), store pawlunova.co.uk. Sources: audit Appendix B (p41), S03 P0-6/P0-7 (pp7-9), S05 Coniston copy deck (pp16-18), S06-S07 collection audit and copy deck (pp20-25), S09 (pp28-31), S11 reviews engine (p34). Prices, SKUs, inventory, handles and variant ids were not changed: checked afterwards by comparing the storefront catalogue before (15:54) and after (17:27): same 73 product ids and handles, same 180 variant ids, SKUs and prices. Each `productOptionUpdate` / `productOptionsReorder` response also returned the same inventory quantities as before.
+
+Revert recipes use these operations (validate, then run with the variables given per row):
+
+```graphql
+mutation OptUpd($productId: ID!, $option: OptionUpdateInput!, $values: [OptionValueUpdateInput!]) {
+  productOptionUpdate(productId: $productId, option: $option, optionValuesToUpdate: $values, variantStrategy: LEAVE_AS_IS) { userErrors { field message code } }
+}
+mutation OptReorder($productId: ID!, $options: [OptionReorderInput!]!) {
+  productOptionsReorder(productId: $productId, options: $options) { userErrors { field message code } }
+}
+```
+
+### 1. Size and colour labels (Appendix B, P0-7)
+
+Variables for a revert: `{"productId": <Product>, "option": {"id": <Option>}, "values": [{"id": <value id>, "name": <before>}]}` with `OptUpd`; for an order, `{"productId": <Product>, "options": [{"id": <Option>, "values": [{"id": ...} in the before order]}]}` with `OptReorder`. In the table, `\|` stands for a plain `|` in the value. No variant id changed.
+
+| Product (handle) | Option | Value id | Before | After | Mutation |
+|---|---|---|---|---|---|
+| Ambleside Edge-to-Edge Memory Foam Dog Mattress<br>`ambleside-edge-to-edge-memory-foam-bed` (Product 11336892776790) | 14492943974742 | 11721070051670 | Extra Large · 140 × 100cm | XL · 140 × 100cm | productOptionUpdate |
+| Nocturne Orthopaedic Bolster Dog Bed<br>`orthopaedic-dog-bed` (Product 11336891433302) | 14492942467414 | 11721067594070 | Large · 91 × 69 × 17cm | Large · 91 × 69cm | productOptionUpdate |
+| Nocturne Orthopaedic Bolster Dog Bed<br>`orthopaedic-dog-bed` (Product 11336891433302) | 14492942467414 | 11721067626838 | Extra Large · 107 × 76 × 19cm | XL · 107 × 76cm | productOptionUpdate |
+| Ennerdale Gel Memory Foam Orthopaedic Dog Bed<br>`ennerdale-gel-memory-foam-orthopaedic-dog-bed` (Product 11336886714710) | 14492937552214 | 11721058615638 | XL · 114 × 89 × 24cm | XL · 114 × 89cm | productOptionUpdate |
+| Ennerdale Gel Memory Foam Orthopaedic Dog Bed<br>`ennerdale-gel-memory-foam-orthopaedic-dog-bed` (Product 11336886714710) | 14492937552214 | 11721058648406 | Large · 91 × 69 × 24cm | Large · 91 × 69cm | productOptionUpdate |
+| Ennerdale Gel Memory Foam Orthopaedic Dog Bed<br>`ennerdale-gel-memory-foam-orthopaedic-dog-bed` (Product 11336886714710) | 14492937552214 | (order) | 11721058615638, 11721058648406 | 11721058648406, 11721058615638 | productOptionsReorder |
+| Glenridding Quilted Dog Crate Mattress<br>`kendal-quilted-dog-mattress` (Product 11336896315734) | 14492948234582 | (order) | 11721078571350, 11721078604118, 11721078636886 | 11721078636886, 11721078604118, 11721078571350 | productOptionsReorder |
+| Sawrey Sherpa Nest Dog Bed<br>`the-sawrey-nest-bed` (Product 11336893923670) | 14492945285462 | (order) | 11721072869718, 11721072902486, 11721072935254, 11721072968022, 11721073000790 | 11721073000790, 11721072869718, 11721072902486, 11721072935254, 11721072968022 | productOptionsReorder |
+| Kendal Corduroy Memory Foam Dog Bed<br>`kendal-corduroy-orthopaedic-dog-bed` (Product 11336892350806) | 14492943483222 | 11721069101398 | beige | Beige | productOptionUpdate |
+| Kendal Corduroy Memory Foam Dog Bed<br>`kendal-corduroy-orthopaedic-dog-bed` (Product 11336892350806) | 14492943483222 | 11721069134166 | gray | Grey | productOptionUpdate |
+| Kendal Corduroy Memory Foam Dog Bed<br>`kendal-corduroy-orthopaedic-dog-bed` (Product 11336892350806) | 14492943483222 | 11721069166934 | green | Green | productOptionUpdate |
+| Wasdale Waterproof Pillow Dog Mattress<br>`the-wasdale-waterproof-pillow-bed` (Product 11336887501142) | 14492938436950 | 11721060548950 | Medium: Springer Spaniel \| Cockapoo \| Staffie | Medium · 75 × 55cm | productOptionUpdate |
+| Wasdale Waterproof Pillow Dog Mattress<br>`the-wasdale-waterproof-pillow-bed` (Product 11336887501142) | 14492938436950 | 11721060581718 | Large: Golden Retriever \| Labrador \| German Shepherd | Large · 95 × 75cm | productOptionUpdate |
+| Patterdale Tweed Orthopaedic Dog Mattress<br>`the-patterdale-tweed-pillow-dog-bed` (Product 11336888320342) | 14492939288918 | 11721062580566 | Medium: Springer Spaniel \| Cockapoo \| Staffie | Medium | productOptionUpdate |
+| Patterdale Tweed Orthopaedic Dog Mattress<br>`the-patterdale-tweed-pillow-dog-bed` (Product 11336888320342) | 14492939288918 | 11721062613334 | Large: Golden Retriever \| Labrador \| German Shepherd | Large | productOptionUpdate |
+| Elterwater Bouclé Memory Foam Nest Dog Bed<br>`the-elterwater-boucle-high-wall-nest-dog-bed` (Product 11336890253654) | 14492941254998 | 11721065955670 | Small: Pug \| French Bulldog \| Dachshund | Small | productOptionUpdate |
+| Elterwater Bouclé Memory Foam Nest Dog Bed<br>`the-elterwater-boucle-high-wall-nest-dog-bed` (Product 11336890253654) | 14492941254998 | 11721065988438 | Medium: Cocker Spaniel \| Cockapoo \| Staffie | Medium | productOptionUpdate |
+| Elterwater Bouclé Memory Foam Nest Dog Bed<br>`the-elterwater-boucle-high-wall-nest-dog-bed` (Product 11336890253654) | 14492941254998 | 11721066021206 | Large: Golden Retriever \| Labrador \| Border Collie | Large | productOptionUpdate |
+| Eskdale Tartan Bolster Dog Bed<br>`the-eskdale-tartan-bolster-dog-bed` (Product 11336890122582) | 14492941123926 | 11721065726294 | Medium: Pug \| French Bulldog \| Dachshund | Medium | productOptionUpdate |
+| Eskdale Tartan Bolster Dog Bed<br>`the-eskdale-tartan-bolster-dog-bed` (Product 11336890122582) | 14492941123926 | 11721065759062 | Large: Cocker Spaniel \| Cockapoo \| Staffie | Large | productOptionUpdate |
+| Eskdale Tartan Bolster Dog Bed<br>`the-eskdale-tartan-bolster-dog-bed` (Product 11336890122582) | 14492941123926 | 11721065791830 | XL: Golden Retriever \| Labrador \| Border Collie | XL | productOptionUpdate |
+| Kentmere Houndstooth Bolster Dog Bed<br>`the-kentmere-houndstooth-bolster-dog-bed` (Product 11336889401686) | 14492940403030 | 11721064579414 | Small: Yorkshire Terrier \| Chihuahua \| Pomeranian | Small | productOptionUpdate |
+| Kentmere Houndstooth Bolster Dog Bed<br>`the-kentmere-houndstooth-bolster-dog-bed` (Product 11336889401686) | 14492940403030 | 11721064612182 | Medium: Pug \| French Bulldog \| Dachshund | Medium | productOptionUpdate |
+| Kentmere Houndstooth Bolster Dog Bed<br>`the-kentmere-houndstooth-bolster-dog-bed` (Product 11336889401686) | 14492940403030 | 11721064644950 | Large: Cocker Spaniel \| Cockapoo \| Staffie | Large | productOptionUpdate |
+| Kentmere Houndstooth Bolster Dog Bed<br>`the-kentmere-houndstooth-bolster-dog-bed` (Product 11336889401686) | 14492940403030 | 11721064677718 | XL: Golden Retriever \| Labrador \| Border Collie | XL | productOptionUpdate |
+| Crummock Herringbone Nest Dog Bed<br>`the-crummock-nest-bed` (Product 11336890581334) | 14492941582678 | 11721066479958 | Small | Small · 50 × 40cm | productOptionUpdate |
+| Crummock Herringbone Nest Dog Bed<br>`the-crummock-nest-bed` (Product 11336890581334) | 14492941582678 | 11721066512726 | Medium | Medium · 70 × 50cm | productOptionUpdate |
+| Crummock Herringbone Nest Dog Bed<br>`the-crummock-nest-bed` (Product 11336890581334) | 14492941582678 | 11721066545494 | Large | Large · 90 × 60cm | productOptionUpdate |
+
+Readable result (option values, in order, after): Ennerdale Large · 91 × 69cm, XL · 114 × 89cm (was XL first, with × 24cm in both; depth stays on the spec card via custom.foam_depth = 24cm). Ambleside Medium · 82 × 70cm, Large · 100 × 80cm, XL · 140 × 100cm. Nocturne Large · 91 × 69cm, XL · 107 × 76cm (colour already its own option: Dark Grey, Grey; the Large label also lost its depth so both sizes use the one L × W format). Glenridding Small, Medium, Large (was Large, Medium, Small). Sawrey XS, Small, Medium, Large, XL (XS was last; not in Appendix B but the same P0-7 fault). Kendal colours Beige, Grey, Green (was beige, gray, green; variant ids unchanged, SKUs still end -GRAY). Wasdale Medium · 75 × 55cm, Large · 95 × 75cm. Patterdale Medium, Large. Elterwater Small, Medium, Large. Eskdale Medium, Large, XL. Kentmere Houndstooth Small, Medium, Large, XL. Crummock Herringbone Small · 50 × 40cm, Medium · 70 × 50cm, Large · 90 × 60cm (colour already its own option).
+
+Breed text: before removing breeds from the six breed-titled products, every one of their 17 variants was checked for custom.suits_breeds: all 17 already held the breed text (written by the metafield agent from the option values), so none had to be set. Wasdale is not in Appendix B but had the same breed-in-title labels, so it was fixed too.
+
+Dimensions come only from each product's own description: Wasdale (size table 75 × 55 × 10, 95 × 75 × 12) and Crummock Herringbone ("Small (50 × 40cm), Medium (70 × 50cm) and Large (90 × 60cm)"). Appendix B's gold `L × W` placeholders were NOT filled for Patterdale ("Two sizes, Medium and Large", no measurements), Elterwater, Eskdale and Kentmere Houndstooth (sizes named, no measurements) or Haweswater XL ("Message us for its exact measurements"): those labels are the plain size word until the owner measures. Haweswater was left as it is (Medium · 76 × 63cm, Large · 89 × 63cm, XL).
+
+Collection membership after the relabelling (smart rules on variant titles): small-dog-beds 19, medium-dog-beds 36, extra-large-dog-beds 36, large-dog-beds 52, grey-dog-beds 10 (Kendal still in via "Grey"), green-dog-beds 7, dog-beds 68: all unchanged.
+
+Not changed (outside Appendix B; owner may want the same treatment): Windsor still says "Extra Large"; Loughrigg, Buttermere, Martindale and Newlands still carry a depth in the size label (e.g. "Large · 110 × 85 × 10cm"); Sawrey Small and Haweswater XL have no dimensions; Kendal and Crummock Herringbone name their colour option "Color" (US spelling, shown to shoppers if the theme prints option names).
+
+Shopify Collective: Wasdale, Patterdale, Elterwater, Eskdale, Kentmere Houndstooth and Crummock Herringbone carry the "Shopify Collective" tag. The API accepted the option renames; option values are not among the fields Collective keeps in sync from the supplier (title, description, media, category, compare-at price, type, SKU, barcode, weight, origin, HS code), and variant ids are unchanged, so order routing is unaffected. If the supplier changes the variants, check these labels again.
+
+### 2. Coniston (S05 copy deck)
+
+Product gid://shopify/Product/11336892940630, handle `coniston-orthopaedic-dog-bed` (unchanged, so no redirect needed). Mutation `productUpdate(product: {id, title, seo})`.
+
+| Field | Before | After |
+|---|---|---|
+| title | Coniston Oval Memory Foam Bolster Dog Bed | Coniston Low-Entry Memory Foam Dog Bed |
+| SEO title (global.title_tag) | Memory Foam Dog Bed, Low Sided Oval, S to L \| PawLunova | Coniston Low-Entry Memory Foam Dog Bed \| PawLunova |
+| SEO description (global.description_tag) | A low-profile oval memory foam dog bed with an easy step-in edge and a waterproof inner liner. Small to Large. 5-year foam guarantee, 100-night trial. | A low step in for stiff legs, memory foam to settle into and a waterproof inner liner. Oval, Small to Large, 5-year foam guarantee, 100-night trial. |
+| tags | coniston, dachshund bed, dog bed for older dogs, large dog bed, memory foam dog bed, orthopaedic dog bed, PawLunova, Winter Edit, £75 – £125 | + `bolster dog bed` |
+
+- Revert: `productUpdate(product: {id: "gid://shopify/Product/11336892940630", title: "Coniston Oval Memory Foam Bolster Dog Bed", seo: {title: "Memory Foam Dog Bed, Low Sided Oval, S to L | PawLunova", description: "A low-profile oval memory foam dog bed with an easy step-in edge and a waterproof inner liner. Small to Large. 5-year foam guarantee, 100-night trial."}})` and `tagsRemove(id: "gid://shopify/Product/11336892940630", tags: ["bolster dog bed"])`.
+- Why the tag: the old title contained "Bolster", which was the only thing keeping Coniston in the smart collection bolster-dog-beds (rule TITLE contains "Bolster" OR tag "Bolster" / "bolster dog bed"). The new title dropped it out (checked: `hasProduct` false), so the tag restores the old membership. Its own data supports it: custom.shape = Bolster & sofa, "a raised rim for a chin".
+- SEO description: every fact is in Coniston's description or metafields (low resting profile, memory foam core, waterproof inner liner, Small to Large, foam_guarantee true, 100-night trial). The deck's "cover that washes at 30°C" was not used (the description says only "following the sewn-in care label").
+- custom.subtitle, custom.worth_it, custom.qa: already set by the metafield agent from the deck (with the edits listed under "Coniston copy" above); read back unchanged, nothing written.
+- Description: not changed. The deck's only replacement text is THE STORY ("Easy in, easy out, even on frosty mornings. There comes a point where a deep-walled bed stops being cosy and starts being an obstacle, and winter is usually when you notice." then "keep your current story text unchanged"), and the live description already opens with exactly that heading and sentence. It contains no em dash.
+- Not changed, for the owner: the featured image alt text still reads "Coniston Oval Memory Foam Bolster Dog Bed - Pawlunova"; and all three Coniston photos appear to show a rectangular black-and-cream bed with a third-party label, not the low oval bed the description sets out.
+
+### 3. New collection: Low Step-In Dog Beds
+
+`collectionCreate` (input: title, handle, descriptionHtml, sortOrder BEST_SELLING, ruleSet, seo, image, metafields), then `publishablePublish` to the Online Store publication gid://shopify/Publication/367687434582.
+
+- Collection gid://shopify/Collection/713080078678, handle `low-entry-dog-beds`, title "Low Step-In Dog Beds". Published on the Online Store: yes.
+- Rule: the API accepted a metafield condition, so no tags were added: `{column: PRODUCT_METAFIELD_DEFINITION, relation: EQUALS, condition: "true", conditionObjectId: "gid://shopify/MetafieldDefinition/566141157718"}` (custom.low_entry), appliedDisjunctively false. Members (5): Coniston, Braithwaite, Burnmoor, Easedale, Newlands.
+- SEO title: Low Step-In Dog Beds for Stiff & Older Dogs | PawLunova. SEO description: Dog beds with a low way in: a low oval profile, a dropped front or an open corner, on memory foam or egg-crate foam. 100 nights at home to decide.
+- custom.intro (multi_line_text_field, as on the other collections; there is no collection metafield definition for it): "Easy in, easy out for stiff morning legs. Each bed here has a low way in, from a low oval profile to a dropped front or an open corner, so there's no high wall to climb." (opens with owner-voice line 7, S09 p31).
+- Description: an opening paragraph, then "How the way in differs from bed to bed" (each of the five beds described from its own description), "Can a bed fix stiff joints?" (no treatment claim, vet line) and the trial terms. Full text in `content/collections/low-entry-dog-beds.json`.
+- Image: `image.src` was accepted; it reuses Coniston's featured photo (now hosted as collections/coniston-oval-memory-foam-bolster-dog-bed-8121744.jpg), alt "Low step-in dog beds: the black and cream Coniston dog bed on a living-room rug". See the photo caveat above; Newlands' first image shows a dropped front and is the obvious swap.
+- Orthopaedic collection description now links to it (step 4).
+- Revert: `collectionDelete(input: {id: "gid://shopify/Collection/713080078678"})` (or `publishableUnpublish` to hide it), remove the link sentence from the orthopaedic description (step 4), and remove the entries from content/ia.json, content/manifest.json and content/collections/low-entry-dog-beds.json.
+- Files: content/ia.json (new collections entry with the rule; `rule_note` records the definition id), content/collections/low-entry-dog-beds.json (same shape as the others), content/manifest.json (collections entry with the id).
+
+### 4. Orthopaedic Dog Beds (S06 COL-05, COL-07, COL-12, COL-15; S07 copy deck)
+
+Collection gid://shopify/Collection/712140947798. sortOrder was already MANUAL (no change). Order set with `collectionReorderProducts` (job gid://shopify/Job/ff898a3a-74b8-4a24-9729-d1748aaffe45, done; read back in exactly this order). Rule for the order: Grasmere, Ambleside, Coniston, Langdale, Nocturne; then the remaining memory foam beds (custom.core_type Memory foam or Crumb memory foam) by lowest variant price, high to low (ties: highest price, then title); then the egg-crate beds the same way; Patterdale (core type not stated) last.
+
+| # | Before | After |
+|---|---|---|
+| 1 | Scafell XL Orthopaedic Dog Sofa Bed | Grasmere Memory Foam Bolster Dog Sofa (£149-£179, Memory foam) |
+| 2 | Lingholm Velvet Gel Memory Foam Dog Sofa | Ambleside Edge-to-Edge Memory Foam Dog Mattress (£139-£189, Memory foam) |
+| 3 | Mardale XXL Memory Foam Bolster Dog Bed | Coniston Low-Entry Memory Foam Dog Bed (£109-£179, Memory foam) |
+| 4 | Staveley Orthopaedic Bolster Dog Bed | Langdale Raised-Edge Orthopaedic Dog Bed (£99-£129, core not stated) |
+| 5 | Wastwater Memory Foam Dog Mattress | Nocturne Orthopaedic Bolster Dog Bed (£159-£179, Egg-crate foam) |
+| 6 | Watendlath Velvet Memory Foam Dog Bed | Mardale XXL Memory Foam Bolster Dog Bed (£239, Memory foam) |
+| 7 | Ennerdale Gel Memory Foam Orthopaedic Dog Bed | Longsleddale XXL Memory Foam Bolster Dog Bed (£229, Memory foam) |
+| 8 | Grasmere Memory Foam Bolster Dog Sofa | Martindale Memory Foam Bolster Dog Bed (£219-£239, Memory foam) |
+| 9 | Langdale Raised-Edge Orthopaedic Dog Bed | Wastwater Memory Foam Dog Mattress (£219, Memory foam) |
+| 10 | Ambleside Edge-to-Edge Memory Foam Dog Mattress | Rosthwaite Memory Foam Bolster Dog Bed (£199, Memory foam) |
+| 11 | Nocturne Orthopaedic Bolster Dog Bed | Skelwith Memory Foam Nest Dog Sofa (£199, Memory foam) |
+| 12 | Bowfell XXL Orthopaedic Chaise Dog Bed | Skiddaw XXL Faux Fur Memory Foam Dog Bed (£199, Memory foam) |
+| 13 | Esthwaite Orthopaedic Chaise Dog Bed | Staveley Orthopaedic Bolster Dog Bed (£199, Memory foam) |
+| 14 | Rosthwaite Memory Foam Bolster Dog Bed | Watendlath Velvet Memory Foam Dog Bed (£199, Memory foam) |
+| 15 | Mungrisdale Sherpa Orthopaedic Dog Crate Mattress | Helvellyn Corner Orthopaedic Dog Bed (£189, Memory foam) |
+| 16 | Loughrigg Quilted Velvet Orthopaedic Dog Mattress | Melbreak Orthopaedic Bolster Dog Bed (£189, Memory foam) |
+| 17 | Honister All-Weather Waterproof Dog Bed | Ennerdale Gel Memory Foam Orthopaedic Dog Bed (£179-£219, Memory foam) |
+| 18 | Skiddaw XXL Faux Fur Memory Foam Dog Bed | Lingholm Velvet Gel Memory Foam Dog Sofa (£179, Memory foam) |
+| 19 | Glaramara Sherpa Orthopaedic Dog Mattress | Kendal Corduroy Memory Foam Dog Bed (£169-£249, Memory foam) |
+| 20 | Hartsop Memory Foam Chaise Dog Bed | Hartsop Memory Foam Chaise Dog Bed (£169, Memory foam) |
+| 21 | Windsor Upholstered Orthopaedic Dog Sofa | Borrowdale Memory Foam Bolster Dog Bed (£149, Memory foam) |
+| 22 | Chatsworth Memory Foam Bolster Dog Bed | Windsor Upholstered Orthopaedic Dog Sofa (£129-£179, Memory foam) |
+| 23 | Haweswater Memory Foam Dog Sofa | Haweswater Memory Foam Dog Sofa (£109-£149, Memory foam) |
+| 24 | Buttermere Memory Foam Dog Mattress | Buttermere Memory Foam Dog Mattress (£99, Memory foam) |
+| 25 | Coniston Low-Entry Memory Foam Dog Bed | Chatsworth Memory Foam Bolster Dog Bed (£69-£99, Crumb memory foam) |
+| 26 | Kendal Corduroy Memory Foam Dog Bed | Burnmoor XXL Orthopaedic Dog Sofa Bed (£259, Egg-crate foam) |
+| 27 | Borrowdale Memory Foam Bolster Dog Bed | Bowfell XXL Orthopaedic Chaise Dog Bed (£199, Egg-crate foam) |
+| 28 | Melbreak Orthopaedic Bolster Dog Bed | Easedale XL Orthopaedic Dog Sofa Bed (£199, Egg-crate foam) |
+| 29 | Braithwaite Orthopaedic Chaise Dog Bed | Scafell XL Orthopaedic Dog Sofa Bed (£199, Egg-crate foam) |
+| 30 | Burnmoor XXL Orthopaedic Dog Sofa Bed | Newlands Orthopaedic Dog Sofa Bed (£189-£199, Egg-crate foam) |
+| 31 | Easedale XL Orthopaedic Dog Sofa Bed | Braithwaite Orthopaedic Chaise Dog Bed (£189, Egg-crate foam) |
+| 32 | Helvellyn Corner Orthopaedic Dog Bed | Esthwaite Orthopaedic Chaise Dog Bed (£179, Egg-crate foam) |
+| 33 | Longsleddale XXL Memory Foam Bolster Dog Bed | Glaramara Sherpa Orthopaedic Dog Mattress (£179, Egg-crate foam) |
+| 34 | Martindale Memory Foam Bolster Dog Bed | Loughrigg Quilted Velvet Orthopaedic Dog Mattress (£169-£179, Egg-crate foam) |
+| 35 | Newlands Orthopaedic Dog Sofa Bed | Honister All-Weather Waterproof Dog Bed (£169, Egg-crate foam) |
+| 36 | Patterdale Tweed Orthopaedic Dog Mattress | Mungrisdale Sherpa Orthopaedic Dog Crate Mattress (£169, Egg-crate foam) |
+| 37 | Skelwith Memory Foam Nest Dog Sofa | Patterdale Tweed Orthopaedic Dog Mattress (£99-£149, core not stated) |
+
+Revert the order: `collectionReorderProducts(id: "gid://shopify/Collection/712140947798", moves: [...])` with one move per product in the Before column, `newPosition` = row number minus 1, in row order. Product ids in Before order: 11336888025430, 11349459763542, 11336888779094, 11336887632214, 11336887337302, 11336887238998, 11336886714710, 11336892186966, 11336895660374, 11336892776790, 11336891433302, 11336891138390, 11336889958742, 11336888156502, 11349459730774, 11349459698006, 11349459632470, 11349459566934, 11349459501398, 11349459435862, 11336894579030, 11336893825366, 11336893727062, 11336893563222, 11336892940630, 11336892350806, 11336891629910, 11336891302230, 11336891007318, 11336890679638, 11336890450262, 11336889631062, 11336889270614, 11336888615254, 11336888484182, 11336888320342, 11336887828822.
+
+Intro and description (`metafieldsSet` for custom.intro, metafield gid://shopify/Metafield/93019230765398; `collectionUpdate` for descriptionHtml):
+
+| Field | Before | After |
+|---|---|---|
+| custom.intro | Front end up first, the back end a beat later. An orthopaedic dog bed puts foam that holds its shape under hips and elbows, and many here have a low or open front, so there is nothing to climb. | Foam cores, not loose filling. Most sizes listed in centimetres, and 100 nights at home to decide.⏎Memory foam moulds to them; profiled egg-crate foam spreads their weight. Each bed's page says what's inside. |
+| description, first paragraph | Every size is listed in centimetres, with a 100-night trial. | Most sizes are listed in centimetres, and every bed here comes with a 100-night trial. |
+| description, "What makes a dog bed genuinely orthopaedic" | The `<a href="/products/orthopaedic-dog-bed">Nocturne</a>`, on profiled egg-crate foam, is a good place to start. | The `<a href="/products/the-grasmere-bolster-sofa-dog-bed">Grasmere</a>`, a memory foam dog sofa with three cushioned bolsters and an open front, is a good place to start. |
+| description, arthritis answer | ...and a low, easy entry means lying down and getting up take less effort. | ...and a low, easy entry means lying down and getting up take less effort. See our `<a href="/collections/low-entry-dog-beds">low step-in dog beds</a>`. |
+
+(⏎ = a line break in the multi-line field.) The rest of the description is unchanged; revert by putting the Before sentences back with `collectionUpdate` and the Before intro with `metafieldsSet`. Why the wording differs from the deck: the deck's "Every bed sized in cm with breed and weight guides" is not true of the data (Patterdale has no measurements, Haweswater XL none, and breed or weight guides exist on only a few variants), and "Every bed says which" [kind of foam] is not true of Langdale or Patterdale (core type not stated). COL-15's "good place to start" now points at a memory foam best seller (Grasmere) instead of Nocturne (egg-crate); the fist-test video link waits for the video. The H1, new-brand line, chips, tiles and empty state in the deck are theme work. SEO title and description were left as they are (no em dash, accurate).
+
+content/collections/orthopaedic-dog-beds.json now matches the live collection (seo_title, seo_description, sort_order MANUAL, image, intro, description_html) and adds `intro_text` (the exact field value), `manual_order` (37 handles), `synced_from_live`; claims_to_confirm rewritten for the 37 members.
+
+### 5. Em-dash sweep
+
+Checked live, after steps 1-4: every collection and page in content/manifest.json plus low-entry-dog-beds (titles and bodies from the storefront `/collections/<h>.json` and `/pages/<h>.json`, SEO titles and descriptions from the Admin API and the rendered `<title>` / meta description), every collection custom.intro, and all items of lunova-main-menu, lunova-footer-shop, lunova-footer-help and lunova-footer-about. Result: no em dash anywhere in that scope, so no live change was needed (the 9-10 Oct SEO edits had already rewritten these texts). Coniston's description has none either.
+
+content/: one em dash, in content/ia.json (the faq page brief, an internal note): "the Q&A lives in the theme's FAQ section [em dash] ALSO write" -> "the Q&A lives in the theme's FAQ section. ALSO write". No other content/*.json file had one.
+
+For the theme builders (not data, not changed here): the live theme still prints em dashes in its own strings, e.g. the footer "Orthopaedic dog beds for real dogs and real homes [em dash] named for the Lakes, built for real sleep.", "Ask before you buy [em dash] we'd much rather help you choose than arrange a return.", the finder strings ("Last thing [em dash] what's their name?", "Your answers [em dash] tap one to change it", "[title] [em dash] if you'd prefer [difference].") and the delivery strings ("Order within [time] for dispatch today [em dash] arrives [arrival]").
+
+### 6. Reviews engine (S11)
+
+- Page "How we collect and show reviews", handle `review-policy`, gid://shopify/Page/198695158102, created with `pageCreate` and `isPublished: false` (UNPUBLISHED), default page template, SEO title "How We Collect and Show Reviews | PawLunova", SEO description "Only buyers can review, every star rating is published and nothing is offered for a good review. How PawLunova collects reviews and handles fake ones." Body: who can review (verified buyers, seeded beds labelled "Received free for review", no reviews by us or people close to us, old reviews imported only if matched to an order), what is published (every genuine review whatever the rating, unedited, no stars below five genuine reviews, numbers only from the app), thank-yous (never for a good review, the same for everyone if ever offered, and labelled), fake or edited reviews (checked, record kept, dated updates, how to report one), replies (no reply time promised). Signed "Abbas, PawLunova" with the Yutani Ltd trading line. Saved as content/pages/review-policy.json; added to content/manifest.json. Revert: `pageDelete(id: "gid://shopify/Page/198695158102")`.
+- Emails: content/emails/review-request-day-14.md and content/emails/review-request-day-60.md (subject, preview text, body, signed "Abbas, PawLunova"). Product-neutral placeholders instead of the deck's Coniston wording; the trial line only for orders the trial covers (not personalised items). The deck's "we'll donate £5 to [named rescue]" line was left out: no rescue is named or agreed. Neither email offers anything for a review, let alone a positive one; the notes say how a thank-you may be added later (same for every review, disclosed).
+
+### 7. Harness data refreshed
+
+- `node fixtures/fetch-real.mjs` (read-only storefront GETs) at 2026-10-10T17:27:13Z: 73 products, 180 variants, media details 73/73, 29 collections including low-entry-dog-beds (5) and orthopaedic-dog-beds (37, in the new manual order).
+- Copied scripts/theme-dev/.out/real-products.json to content/.catalogue-snapshot.json (gitignored). The snapshot now has the fetch script's full shape: `meta`, `products`, `all`, `collections` (before it held `products` only). scripts/theme-dev/fixtures/real-catalogue.json was not touched.
+- scripts/theme-dev/fixtures/real-metafields.json re-exported from the Admin API in the same format (products keyed by handle for the 73 ACTIVE products, variants keyed by numeric id, raw type and value strings, 2-space JSON), exported_at 2026-10-10T17:25:45Z: 552 product values, 46 variant values. The only difference from the metafield agent's 16:41 export is below.
+
+**Needs the owner: Honister custom.ships_same_day = true.** Honister All-Weather Waterproof Dog Bed (`honister-all-weather-waterproof-dog-bed`) has custom.ships_same_day = true, written at 2026-10-10T16:41:20Z, three seconds after the metafield agent's export. It is not in that agent's write batch (its rule leaves ships_same_day blank everywhere) and Honister's description says nothing about dispatch, same-day or otherwise. It was not written by this agent and has been left in place, because a metafield is product data the owner may have set on purpose; but if nobody can confirm Honister really leaves the same day, delete it (`metafieldsDelete(metafields: [{ownerId: "gid://shopify/Product/11349459632470", namespace: "custom", key: "ships_same_day"}])`). In the theme it drives only the same-day countdown (off by default: delivery_promise_enable) and lets today count as a dispatch day when custom.dispatch_days_min is 0 (blank for Honister), so nothing shows on the storefront today, but it would as soon as either is switched on.
+
+### Other notes
+
+- No prices, SKUs, inventory, handles, variant ids or product descriptions were changed. The only product-level writes were the option labels and orders in step 1, and Coniston's title, SEO and one tag in step 2.
+- Scratch copies made before the changes (temporary, in the session scratchpad data-catalogue/): the storefront catalogue before (catalogue-snapshot.before.json), the overlay before (real-metafields.before.json), the step 1 record (step1.json), the orthopaedic order and description before (ortho_before.json, ortho_desc_before.json) and the full Admin export used for the overlay (mf_after_raw.json).
+

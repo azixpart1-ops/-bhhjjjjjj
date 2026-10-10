@@ -20,6 +20,14 @@
     non_slip      "true" when non_slip is true
     same_day      "true" when ships_same_day is true
     partner       "true" when ships_from is "Partner warehouse"
+    made_to_order "true" when it's made to order: personalised (snippets/
+                  personalised), custom.lead_time_days above 0, or a tag
+                  made-to-order / made to order
+    lead_days     custom.lead_time_days as a whole number, when above 0
+    dated         "true" when the product page shows this bed's delivery
+                  dates (snippets/delivery-estimate): not for a partner-
+                  warehouse or made-to-order bed without its own
+                  custom.dispatch_days_min / _max
     feel          feel 1 to 5 as a whole number
     subtitle      subtitle, else the older custom.tagline
     best_for      custom.best_for, else the older tag "best-for:…"
@@ -91,6 +99,43 @@
       assign pf_v = pf_m.ships_from.value | default: '' | append: '' | downcase
       if pf_v contains 'partner'
         echo 'true'
+      endif
+    when 'lead_days'
+      assign pf_n = pf_m.lead_time_days.value | default: 0 | plus: 0 | round
+      if pf_n > 0
+        echo pf_n
+      endif
+    when 'made_to_order', 'dated'
+      assign pf_mto = false
+      assign pf_tags = pf_p.tags | join: '|' | downcase | prepend: '|' | append: '|'
+      assign pf_n = pf_m.lead_time_days.value | default: 0 | plus: 0 | round
+      if pf_n > 0 or pf_tags contains '|made-to-order|' or pf_tags contains '|made to order|'
+        assign pf_mto = true
+      else
+        capture pf_pers
+          render 'personalised', product: pf_p
+        endcapture
+        if pf_pers == 'true'
+          assign pf_mto = true
+        endif
+      endif
+      if pf_key == 'made_to_order'
+        if pf_mto
+          echo 'true'
+        endif
+      else
+        assign pf_days = pf_m.dispatch_days_min.value | append: '' | strip
+        assign pf_days = pf_m.dispatch_days_max.value | append: '' | strip | prepend: pf_days
+        assign pf_v = pf_m.ships_from.value | default: '' | append: '' | downcase
+        assign pf_dated = true
+        if pf_days == ''
+          if pf_mto or pf_v contains 'partner'
+            assign pf_dated = false
+          endif
+        endif
+        if pf_dated
+          echo 'true'
+        endif
       endif
     when 'subtitle'
       assign pf_v = pf_m.subtitle.value | default: pf_m.tagline.value | default: '' | append: '' | strip

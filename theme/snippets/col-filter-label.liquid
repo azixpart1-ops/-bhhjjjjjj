@@ -1,0 +1,51 @@
+{%- comment -%}
+  Plain-English names for the store's filters (audit COL-04: "Dog's weight",
+  "How they sleep", "What's inside", "Features"…), whatever the metafield
+  definition happens to be called in Search & Discovery. A filter this map
+  doesn't know keeps the label Shopify gives it.
+
+  Parameters
+    filter   a filter from collection.filters / search.filters
+    mode     'group' (default): the group's name
+             'feature': for a true/false filter, the name of its "Yes" value
+             as a feature ("Low step-in"); nothing if it isn't one we name
+{%- endcomment -%}
+{%- liquid
+  assign fl_param = filter.param_name | default: ''
+  assign fl_out = ''
+  if mode == 'feature'
+    case fl_param
+      when 'filter.p.m.custom.low_entry'
+        assign fl_out = 'collection.filters.low_entry' | t
+      when 'filter.p.m.custom.has_liner'
+        assign fl_out = 'collection.filters.has_liner' | t
+      when 'filter.p.m.custom.non_slip'
+        assign fl_out = 'collection.filters.non_slip' | t
+      when 'filter.p.m.custom.foam_guarantee'
+        assign fl_years = settings.guarantee_years | default: 5
+        assign fl_out = 'collection.filters.foam_guarantee' | t: years: fl_years
+      else
+        assign fl_out = filter.label | escape
+    endcase
+  else
+    case fl_param
+      when 'filter.v.m.custom.suits_weight', 'filter.p.m.custom.suits_weight'
+        assign fl_out = 'collection.filters.weight' | t
+      when 'filter.p.m.custom.sleep_style'
+        assign fl_out = 'collection.filters.sleep_style' | t
+      when 'filter.p.m.custom.core_type'
+        assign fl_out = 'collection.filters.core_type' | t
+      when 'filter.p.m.custom.shape'
+        assign fl_out = 'collection.filters.shape' | t
+      when 'filter.v.price'
+        assign fl_out = 'collection.filters.price' | t
+      when 'filter.v.option.colour', 'filter.v.option.color'
+        assign fl_out = 'collection.filters.colour' | t
+      when 'filter.v.option.size'
+        assign fl_out = 'collection.filters.size' | t
+      else
+        assign fl_out = filter.label | escape
+    endcase
+  endif
+  echo fl_out
+-%}

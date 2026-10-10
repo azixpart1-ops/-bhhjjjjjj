@@ -1,0 +1,52 @@
+{%- comment -%}
+  "Questions owners ask before buying" (audit PDP-22, S05), until a reviews
+  app has genuine reviews: the bed's own custom.qa pairs ([{"q", "a"}],
+  written for that bed), as an accordion, signed by the owner. The owner
+  line (PDP-25) closes it. Nothing renders without at least one pair.
+
+  Parameters
+    product      the product
+    heading      the heading
+    signature    e.g. "Abbas, PawLunova"
+    owner_line   e.g. "PawLunova is a small UK business. I'm Abbas, and I answer every message myself."
+{%- endcomment -%}
+{%- liquid
+  assign qa_list = product.metafields.custom.qa.value
+  assign qa_n = 0
+  for qa in qa_list
+    assign qa_q = qa.q | default: '' | append: '' | strip
+    assign qa_a = qa.a | default: '' | append: '' | strip
+    if qa_q != '' and qa_a != ''
+      assign qa_n = qa_n | plus: 1
+    endif
+  endfor
+  assign qa_id = 'PdpQa-' | append: product.id
+-%}
+{%- if qa_n > 0 -%}
+  <div class="pdp-qa" role="group" aria-labelledby="{{ qa_id }}">
+    <h2 class="h4 pdp-qa__heading" id="{{ qa_id }}">{{ heading | default: 'Questions owners ask before buying' | escape }}</h2>
+    <div class="pdp-qa__list">
+      {%- for qa in qa_list -%}
+        {%- liquid
+          assign qa_q = qa.q | default: '' | append: '' | strip
+          assign qa_a = qa.a | default: '' | append: '' | strip
+          if qa_q == '' or qa_a == ''
+            continue
+          endif
+        -%}
+        <details class="accordion pdp-qa__item">
+          <summary class="pdp-qa__q">{{ qa_q | escape }}</summary>
+          <div class="accordion__content pdp-qa__a">
+            <p>{{ qa_a | escape | newline_to_br }}</p>
+          </div>
+        </details>
+      {%- endfor -%}
+    </div>
+    {%- if signature != blank or owner_line != blank -%}
+      <p class="pdp-qa__sign">
+        {%- if owner_line != blank -%}<span class="pdp-qa__owner">{{ owner_line | escape }}</span>{%- endif -%}
+        {%- if signature != blank -%}<span class="pdp-qa__signature">{{ signature | escape }}</span>{%- endif -%}
+      </p>
+    {%- endif -%}
+  </div>
+{%- endif -%}

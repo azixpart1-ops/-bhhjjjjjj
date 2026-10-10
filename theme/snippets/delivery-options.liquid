@@ -6,12 +6,23 @@
   for that bed, "Free standard delivery: arrives Thu 15 Oct to Mon 19 Oct"
   and "Express £6.99: arrives …", or the partner-warehouse wording.
 
-  For the basket (pass basket: cart) it is one line from Theme settings →
-  Promises → Delivery options: "Free standard UK delivery · Express
-  delivery £6.99 at checkout", plus the times note when there is one. The
-  standard part is only claimed once the basket reaches the free-delivery
-  amount; below it the line says "Free standard UK delivery on orders over
-  £40" instead. Each part hides when blank, and the whole line when both are.
+  For the basket (pass basket: cart) there are no dates, because the lines
+  may differ, but the wording is the product page's own, from the same
+  settings and the same core.delivery_estimate keys:
+    "Free standard delivery: dispatched in 1 to 2 working days, then 4 to 6
+     working days" (or "Standard delivery £4.99: …" below the free-delivery
+     amount), and "Express £6.99: 2 to 3 working days after dispatch".
+  Express is only offered when no line ships from the partner warehouse
+  (custom.ships_from), the same rule as the product page. Lines with no
+  dispatch days of their own that ship from the partner warehouse or are
+  made to order (snippets/product-fact made_to_order, the buy box's rule)
+  never get the policy's 1 to 2 working days: a basket of only those says
+  so ("Free, tracked delivery from our partner warehouse. It takes longer
+  …", or for made-to-order lines "Free standard delivery: 4 to 6 working
+  days after dispatch" plus "Made-to-order items take a little longer to
+  dispatch …"), and a mixed basket adds the matching note. Dispatch days:
+  each dated line's custom.dispatch_days_min/max, else (own stock, not made
+  to order) the policy's (delivery_dispatch_min/max).
 
   Parameters
     product  a product: renders delivery-estimate for it
@@ -34,10 +45,6 @@
   {%- render 'delivery-estimate', product: product, variant: variant, compact: compact, class: class -%}
 {%- else -%}
   {%- liquid
-    assign d_std = settings.delivery_standard_text | default: '' | strip
-    assign d_exp = settings.delivery_express_text | default: '' | strip
-    assign d_times = settings.delivery_times_note | default: '' | strip
-
     assign d_threshold = 0
     if settings.free_shipping_enable and settings.free_shipping_threshold > 0
       assign d_threshold = settings.free_shipping_threshold | times: 100 | round
@@ -46,38 +53,170 @@
     if d_is_basket
       assign d_amount = basket.total_price | default: 0
     endif
+    assign d_free = false
+    if settings.free_shipping_enable and d_amount >= d_threshold
+      assign d_free = true
+    endif
 
-    assign d_std_shown = d_std | escape
-    if d_std != '' and d_threshold > 0 and d_amount < d_threshold
-      assign d_threshold_money = d_threshold | money_without_trailing_zeros
-      assign d_std_shown = 'core.delivery_options.free_over' | t: amount: d_threshold_money
+    comment
+      Which lines ship from where, and the dispatch days of the own-stock ones.
+    endcomment
+    assign d_own = 0
+    assign d_partner = 0
+    assign d_partner_days = 0
+    assign d_long_partner = 0
+    assign d_long_made = 0
+    assign d_dmin = 99
+    assign d_dmax = 0
+    assign d_pol_min = settings.delivery_dispatch_min | default: 1 | plus: 0
+    assign d_pol_max = settings.delivery_dispatch_max | default: 2 | plus: 0
+    if d_is_basket
+      for d_item in basket.items
+        assign d_mf = d_item.product.metafields.custom
+        assign d_from = d_mf.ships_from.value | default: '' | strip | downcase
+        assign d_lmin_s = d_mf.dispatch_days_min.value | append: '' | strip
+        assign d_lmax_s = d_mf.dispatch_days_max.value | append: '' | strip
+        assign d_has_days = false
+        if d_lmin_s != '' or d_lmax_s != ''
+          assign d_has_days = true
+        endif
+        if d_from contains 'partner'
+          assign d_partner = d_partner | plus: 1
+          if d_has_days
+            assign d_partner_days = d_partner_days | plus: 1
+          else
+            assign d_long_partner = d_long_partner | plus: 1
+            continue
+          endif
+        elsif d_has_days == false
+          capture d_mto
+            render 'product-fact', product: d_item.product, key: 'made_to_order'
+          endcapture
+          if d_mto == 'true'
+            assign d_long_made = d_long_made | plus: 1
+            continue
+          endif
+        endif
+        comment
+          A dated line: own stock, or partner / made to order with its own
+          dispatch days.
+        endcomment
+        assign d_own = d_own | plus: 1
+        assign d_lmin = d_lmin_s | default: d_lmax_s | default: d_pol_min | plus: 0
+        assign d_lmax = d_lmax_s | default: d_lmin_s | default: d_pol_max | plus: 0
+        if d_lmin < d_dmin
+          assign d_dmin = d_lmin
+        endif
+        if d_lmax > d_dmax
+          assign d_dmax = d_lmax
+        endif
+      endfor
+    endif
+    if d_own == 0
+      assign d_dmin = d_pol_min
+      assign d_dmax = d_pol_max
+    endif
+    comment
+      Same-day dispatch is never claimed for a basket: a minimum of 0 reads as 1.
+    endcomment
+    if d_dmin < 1
+      assign d_dmin = 1
+    endif
+    if d_dmax < d_dmin
+      assign d_dmax = d_dmin
+    endif
+
+    assign d_tmin = settings.delivery_min_days | default: 4 | plus: 0
+    assign d_tmax = settings.delivery_max_days | default: 6 | plus: 0
+    if d_tmax < d_tmin
+      assign d_tmax = d_tmin
+    endif
+    assign d_xmin = settings.delivery_express_min | default: 2 | plus: 0
+    assign d_xmax = settings.delivery_express_max | default: 3 | plus: 0
+    if d_xmax < d_xmin
+      assign d_xmax = d_xmin
+    endif
+    assign d_std_money = settings.delivery_standard_price | default: '' | strip | remove: '£' | times: 100 | round | money_without_trailing_zeros
+    assign d_exp_cost = settings.delivery_express_price | default: '' | strip | remove: '£' | times: 100 | round
+    assign d_exp_money = d_exp_cost | money_without_trailing_zeros
+
+    assign d_pairs = d_dmin | append: ',' | append: d_dmax | append: ',' | append: d_tmin | append: ',' | append: d_tmax | append: ',' | append: d_xmin | append: ',' | append: d_xmax | split: ','
+    assign d_txts = ''
+    for d_i in (0..2)
+      assign d_a_i = d_i | times: 2
+      assign d_b_i = d_a_i | plus: 1
+      assign d_a = d_pairs[d_a_i] | plus: 0
+      assign d_b = d_pairs[d_b_i] | plus: 0
+      if d_a == d_b and d_a == 1
+        assign d_t = 'core.delivery_estimate.one_day' | t
+      elsif d_a == d_b
+        assign d_t = 'core.delivery_estimate.n_days' | t: n: d_a
+      else
+        assign d_t = 'core.delivery_estimate.range' | t: min: d_a, max: d_b
+      endif
+      assign d_txts = d_txts | append: d_t | append: '|'
+    endfor
+    assign d_txt_list = d_txts | split: '|'
+
+    assign d_main = ''
+    assign d_note = ''
+    assign d_express = ''
+    if d_own == 0 and d_long_partner > 0
+      if d_free
+        assign d_main = 'core.delivery_estimate.partner_free_no_dates' | t
+      else
+        assign d_main = 'core.delivery_estimate.partner_paid_no_dates' | t
+      endif
+      if d_long_made > 0
+        assign d_note = 'core.delivery_options.made_note' | t
+      endif
+    elsif d_own == 0 and d_long_made > 0
+      comment
+        Only made-to-order lines without dispatch days: the delivery time
+        after dispatch, never the policy's dispatch days.
+      endcomment
+      if d_free
+        assign d_main = 'core.delivery_estimate.standard_free_after' | t: transit: d_txt_list[1], price: d_std_money
+      else
+        assign d_main = 'core.delivery_estimate.standard_paid_after' | t: transit: d_txt_list[1], price: d_std_money
+      endif
+      assign d_note = 'core.delivery_options.made_note' | t
+      if settings.delivery_express_enable and d_exp_cost > 0
+        assign d_express = 'core.delivery_estimate.express_days' | t: transit: d_txt_list[2], price: d_exp_money
+      endif
+    else
+      if d_free
+        assign d_main = 'core.delivery_estimate.standard_free_days' | t: dispatch: d_txt_list[0], transit: d_txt_list[1], price: d_std_money
+      else
+        assign d_main = 'core.delivery_estimate.standard_paid_days' | t: dispatch: d_txt_list[0], transit: d_txt_list[1], price: d_std_money
+      endif
+      if d_long_partner > 0 and d_long_made > 0
+        assign d_note = 'core.delivery_options.longer_note' | t
+      elsif d_long_partner > 0
+        assign d_note = 'core.delivery_options.partner_note' | t
+      elsif d_long_made > 0
+        assign d_note = 'core.delivery_options.made_note' | t
+      endif
+      if d_partner == 0 and settings.delivery_express_enable and d_exp_cost > 0
+        assign d_express = 'core.delivery_estimate.express_days' | t: transit: d_txt_list[2], price: d_exp_money
+      endif
     endif
   -%}
-  {%- if d_std != '' or d_exp != '' -%}
-    <div
-      class="delivery-options{% if compact %} delivery-options--compact{% endif %}{% if class %} {{ class }}{% endif %}"
-      data-delivery-options
-      data-threshold="{{ d_threshold }}"
-      data-standard="{{ d_std | escape }}"
-    >
-      {%- render 'icon', name: 'truck', class: 'delivery-options__icon' -%}
-      <div class="delivery-options__text">
-        <p class="delivery-options__main">
-          <span class="visually-hidden">{{ 'core.delivery_options.label' | t }}: </span>
-          {%- if d_std != '' -%}
-            <span data-delivery-standard>{{ d_std_shown }}</span>
-          {%- endif -%}
-          {%- if d_std != '' and d_exp != '' -%}
-            <span class="delivery-options__sep" aria-hidden="true"> · </span><span class="visually-hidden">, </span>
-          {%- endif -%}
-          {%- if d_exp != '' -%}
-            <span>{{ d_exp | escape }}</span>
-          {%- endif -%}
-        </p>
-        {%- if d_times != '' -%}
-          <p class="delivery-options__times">{{ d_times | escape }}</p>
-        {%- endif -%}
-      </div>
+  <div
+    class="delivery-options{% if compact %} delivery-options--compact{% endif %}{% if class %} {{ class }}{% endif %}"
+    data-delivery-options
+    data-threshold="{{ d_threshold }}"
+  >
+    {%- render 'icon', name: 'truck', class: 'delivery-options__icon' -%}
+    <div class="delivery-options__text">
+      <span class="visually-hidden">{{ 'core.delivery_options.label' | t }}: </span>
+      <p class="delivery-options__main"><span data-delivery-standard>{{ d_main }}</span></p>
+      {%- if d_express != '' -%}
+        <p class="delivery-options__times">{{ d_express }}</p>
+      {%- endif -%}
+      {%- if d_note != '' -%}
+        <p class="delivery-options__times">{{ d_note }}</p>
+      {%- endif -%}
     </div>
-  {%- endif -%}
+  </div>
 {%- endif -%}

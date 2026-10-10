@@ -4,7 +4,8 @@
   nothing is asserted that the store doesn't already say.
 
     - aggregateRating ONLY when a reviews app has written reviews.rating and
-      reviews.rating_count (> 0) to the product.
+      reviews.rating_count to the product, with at least 5 reviews (the same
+      rule as snippets/rating, audit P0-1).
     - gtin from the variant barcode when it is 8, 12, 13 or 14 digits.
     - hasMerchantReturnPolicy from the trial settings when the trial is
       switched on AND covers this product (snippets/trial-eligible):
@@ -39,6 +40,21 @@
     assign d_max = settings.delivery_max_days | default: 0 | plus: 0
     if d_max < d_min
       assign d_max = d_min
+    endif
+    comment
+      Handling time: this bed's own dispatch days (custom.dispatch_days_min/max),
+      else the policy's (Theme settings: delivery_dispatch_min/max). A partner
+      warehouse bed without its own dispatch days gets no delivery time at all,
+      the same rule as snippets/delivery-estimate.
+    endcomment
+    assign h_min = product.metafields.custom.dispatch_days_min.value | default: settings.delivery_dispatch_min | default: 0 | plus: 0
+    assign h_max = product.metafields.custom.dispatch_days_max.value | default: settings.delivery_dispatch_max | default: 0 | plus: 0
+    if h_max < h_min
+      assign h_max = h_min
+    endif
+    assign h_ok = true
+    if product.metafields.custom.ships_from.value == 'Partner warehouse' and product.metafields.custom.dispatch_days_max.value == blank
+      assign h_ok = false
     endif
     assign nights = settings.trial_nights | default: 0 | plus: 0
     assign rp_days = 0
@@ -94,7 +110,7 @@
           {%- if product.type != blank -%}
           "category": {{ product.type | json }},
           {%- endif -%}
-          {%- if rating_value != blank and rating_count > 0 and settings.show_product_ratings -%}
+          {%- if rating_value != blank and rating_count >= 5 and settings.show_product_ratings -%}
           "aggregateRating": {
             "@type": "AggregateRating",
             "ratingValue": {{ rating_value.rating | json }},
@@ -152,14 +168,14 @@
                 {%- if gtin_key != '' -%}
                 {{ gtin_key | json }}: {{ barcode | json }},
                 {%- endif -%}
-                {%- if threshold_cents > 0 and v.price >= threshold_cents and settings.delivery_promise_enable and d_max > 0 -%}
+                {%- if threshold_cents > 0 and v.price >= threshold_cents and settings.delivery_promise_enable and d_max > 0 and h_ok -%}
                 "shippingDetails": {
                   "@type": "OfferShippingDetails",
                   "shippingRate": { "@type": "MonetaryAmount", "value": "0", "currency": {{ currency | json }} },
                   "shippingDestination": { "@type": "DefinedRegion", "addressCountry": "GB" },
                   "deliveryTime": {
                     "@type": "ShippingDeliveryTime",
-                    "handlingTime": { "@type": "QuantitativeValue", "minValue": 0, "maxValue": 1, "unitCode": "DAY" },
+                    "handlingTime": { "@type": "QuantitativeValue", "minValue": {{ h_min }}, "maxValue": {{ h_max }}, "unitCode": "DAY" },
                     "transitTime": { "@type": "QuantitativeValue", "minValue": {{ d_min }}, "maxValue": {{ d_max }}, "unitCode": "DAY" }
                   }
                 },

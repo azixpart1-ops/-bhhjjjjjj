@@ -593,8 +593,17 @@ gives "50" or nothing. Keys: `guarantee`, `per_night`, `liner`, `low_entry`,
 - `ships_from` "Partner warehouse" with dispatch days: "Free, tracked delivery
   from our partner warehouse: arrives …" (no Express line);
 - `ships_from` "Partner warehouse" with NO dispatch days: no dates at all,
-  "Tracked delivery from our partner warehouse; delivery time shown at checkout"
-  ("Free, tracked …" only when the price reaches the free threshold).
+  "Tracked delivery from our partner warehouse. It takes longer than our own
+  stock, so ask us for the expected date before you order" ("Free, tracked …"
+  only when the price reaches the free threshold). Never "shown at checkout":
+  checkout has no transit times to show.
+- made to order (`snippets/product-fact` `made_to_order`: personalised,
+  `lead_time_days`, tag `made-to-order`) with no dispatch days: "Made to order, so
+  it takes a little longer to dispatch" and the standard delivery terms, no dates.
+  `product-fact` `dated` is the one test for "does this page show dates"; the FAQ,
+  the trust-row sheet and the basket line (`delivery-options` with `basket:`) all
+  follow it, so none of them promises dates or the 1 to 2 day dispatch where the
+  buy box shows none.
 
 Numbers: dispatch = `dispatch_days_min/max` when set, else Theme settings
 `delivery_dispatch_min/max` (policy 1 to 2 working days, not for partner beds);
@@ -620,7 +629,9 @@ counts working days only: no Saturdays, Sundays or England & Wales bank holidays
 (hard-coded for 2026 to 2027 in global.js `BANK_HOLIDAYS`, plus Theme settings
 `holiday_dates`; the list needs extending after 2027). `from` is a Date or
 "YYYY-MM-DD" (default now, store time zone); dispatch is N working days after the
-order day (an order on a Saturday dispatches from Monday). Returns civil dates
+order day; an order placed on a weekend or bank holiday counts as placed on the
+next working day (shipping policy s3), so a Saturday 10 Oct order dispatches Tue 13
+to Wed 14 Oct and arrives Mon 19 to Thu 22 Oct, the same as a Monday order. Returns civil dates
 (12:00 UTC) and `text` ("Thu 15 Oct to Mon 19 Oct"), or null without numbers.
 
 The dispatch countdown (`delivery-promise`) stays off by default and never
@@ -664,3 +675,55 @@ no dispatch days) and the Windermere cooling bed (partner, 3 to 5 days).
 `ships_same_day`, ".00" prices and em dashes as warnings); `browser-test.mjs`
 checks the offer line and the delivery dates; `test/audit.test.mjs` covers the
 metafield typing, money, the working-day maths and the claim gates.
+
+### 9.7 Integration rules (one storefront)
+
+Settled when the product page, collection page and core work were put together.
+Every surface follows these, so the same fact never reads two ways.
+
+- **No size until the shopper picks one** (PDP-09): the product page AND the quick
+  add (`sections/quick-add-product` passes `pending` to the compact buy box) open
+  with no size chosen when there is a size choice and no `?variant=`. The button
+  reads "Choose a size"; tapping it adds nothing, says "Choose a size first" and
+  focuses the sizes. The Bed Finder's pick still preselects (its result links with
+  `?variant=`, and `applyFinder` selects it). While pending, the offer line is
+  printed with `data-offer-pending` and stays hidden on every re-check
+  (`Lunova.offer.update` without a price); the first real size removes the mark.
+  The size cards carry the "£15 off" mark instead, even on a bed whose every size
+  qualifies.
+- **Sticky bar** (PDP-20): hidden at first paint, shown only once the main Add
+  button has scrolled up past the top, hidden again back above it.
+- **Delivery wording is the product page's everywhere.** The basket line
+  (`render 'delivery-options', basket: cart`, drawer and basket page) uses the
+  same `core.delivery_estimate.*` keys and Theme settings as the buy box, without
+  dates: "Free standard delivery: dispatched in 1 to 2 working days, then 4 to 6
+  working days" (or "Standard delivery £4.99: …" below £40) and "Express £6.99:
+  2 to 3 working days after dispatch". Express only when no line ships from the
+  partner warehouse; a basket of partner beds without dispatch days gets the
+  partner wording, a mixed basket a note that those items take longer. The FAQ
+  token `[delivery_options]` prints the trust-row sheet's own sentences. The
+  free-text settings `delivery_standard_text` / `delivery_express_text` only
+  switch the buy box's delivery line on; they no longer supply wording.
+- **Same-day dispatch is per bed.** Store-wide copy (FAQ, contact, trust bar,
+  marquee, the trust-list sub-line) only claims it on a product page whose own
+  `ships_same_day` is true, and only with `delivery_promise_enable` on.
+- **Trust items**: short lists say "100 nights to decide" (`core.trust.trial_title`,
+  `home.trust.trial_title`). The guarantee item says "5-year foam guarantee" for
+  one bed the foam guarantee covers (`for_product`) and "5-year guarantee on
+  memory foam beds" everywhere else (footer, menu, basket); with `basket:` it
+  shows only when a foam bed is in the basket.
+- **Per-night maths** is one sum everywhere: price ÷ (years × 365¼) nights
+  (1,826 for 5 years), whole pence, the basis "£149 ÷ 1,826 nights (5 years) =
+  8.16p a night" (`core.per_night.basis`, also used by `sections/cost-reframe`
+  and the finder's `result.per_night_basis`).
+- **Ratings**: stars and counts only with `reviews.rating_count` >= 5, in
+  `snippets/rating`, `product-jsonld` (aggregateRating) and the finder
+  (`finder-product-json` sends null below 5; finder.js checks again).
+- **Removable covers**: `cover_type` "Zip-off fabric" means any removable,
+  washable cover, so product copy says "comes off" ("Cover comes off to wash",
+  spec "Comes off"), never "zip".
+- **Finder sizing of one-size beds** also reads the variant's
+  `custom.suits_weight` band ("40kg+"), sent as `"sw"` in `finder-product-json`
+  (`weightClass` in finder.js), when no measurement, title or tag places it.
+- **Money fallbacks**: without global.js, finder.js and product.js still print
+  whole pounds.

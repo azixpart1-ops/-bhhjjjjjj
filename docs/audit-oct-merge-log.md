@@ -167,6 +167,18 @@ Bar 2 `announcement_bar_Dd6KzP` (scheme white, rotate), one message `message_wni
 
 Checks: `node check.mjs --no-theme-check` gives PASS, 0 errors. `node check.mjs --no-theme-check --real` gives PASS, 0 errors. The new warnings are all expected: `product-breadcrumbs` has no colour scheme, padding or section-styles (it keeps the owner's own markup), and `include` is deprecated for Tapita's snippet (Tapita requires `include`).
 
+## Live changes after the merge (re-checked 10 Oct 2026, 19:40 UTC)
+
+The merge above compared files up to 13:07:57 UTC. The live theme changed again afterwards (theme `updatedAt` 19:26:21). Read-only Admin GraphQL listed every file's `updatedAt`; three files are newer than 13:07:57. Nothing was written to the live theme.
+
+| File | What changed | Decision | Reason |
+|---|---|---|---|
+| `templates/llms.txt.liquid` (18:50:20, 230,144 bytes, MD5 `1eec06b2…`) | The app regenerated it: 9 entries changed (the Coniston title now "Coniston Low-Entry Memory Foam Dog Bed", and the collection descriptions of dog-beds, orthopaedic-dog-beds, dog-mattresses, waterproof-dog-beds, crate-travel-dog-beds, large-dog-beds, small-dog-beds and luxury-dog-beds gained cross-links). The same entries otherwise. | Ported, minus the "Blog Posts" entry | Same rule as before: the blog post makes medical claims. Taken from the live storefront's `/llms.txt`, whose MD5 matches the theme file's `checksumMd5` (the template holds no Liquid). `theme/` is now 224,942 bytes. |
+| `config/settings_data.json` (19:03:36, then 19:17:32) | 7 app embeds added: `shoprank-ai/jsonld-product` (enabled; `product_schema`, `review_schema` true, `review_app` native), `trustshop-reviews/review-embed` (enabled), `loox-reviews/loox-inject` (enabled, 19:17), and `reviews-io` core and rating snippet, `trust-flow-reviews` and `star-product-reviews` (all disabled). No other setting changed. | 6 ported as they are on live; `shoprank-ai/jsonld-product` ported **disabled** | The review apps are the owner's S11 set-up, so publishing the audit theme must not silently remove them. ShopRank would add a second Product JSON-LD (a ProductGroup) beside the theme's own `product-jsonld` (Product, BreadcrumbList, return policy and delivery times from the published policies), with review schema on while no genuine reviews exist; one Product source is kept. It is one switch to turn back on in Theme settings → App embeds. |
+| `templates/product.json` (18:59:57) | Block `trustshop_reviews_widget_product_rating_hi4EHe` (`shopify://apps/trustshop-reviews/blocks/widget-product-rating`) after the title, with `selected_product: ambleside-edge-to-edge-memory-foam-bed`. Nothing else changed. | Excluded for now | With `selected_product` set, every bed would show Ambleside's rating. Stars belong only on a bed with 5 or more genuine reviews (audit P0-1, S11, DMCC Act). Add the block in the editor with Product left empty (so it follows the page's product) once the app hides stars below 5 reviews. |
+
+What the live storefront showed on 10 Oct (read-only GET of the Coniston page): TrustShop's embed script adds `"aggregateRating": {"ratingValue": 0, "ratingCount": 0}` to the first Product JSON-LD that has none. A rating with a count of 0 is invalid structured data. In the TrustShop app, switch off its rich-snippet (structured data) output until there are genuine reviews, or ask TrustShop support how to. Two review apps (TrustShop and Loox) are enabled at once; pick one, or the page can carry two review widgets.
+
 ## For the owner (outside the theme)
 
 1. SupChat: set the bubble text and greeting in English (audit P0-5), and check the WhatsApp number `4407424441043`.

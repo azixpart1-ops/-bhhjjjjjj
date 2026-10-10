@@ -1,5 +1,5 @@
 {%- comment -%}
-  Main product — gallery + the buy column.
+  Main product, gallery + the buy column.
 
   The buy column is a stack of reorderable blocks, set out in the order a
   buyer actually decides: what is it → is it any good → what does it cost
@@ -11,6 +11,16 @@
 
   Also here: the size guide dialog, the sticky add-to-basket bar, Product +
   BreadcrumbList structured data, and the "recently viewed" record.
+
+  October 2026 audit (docs/PawLunova_Mobile_Conversion_Audit_Oct2026.pdf S05):
+  on phones a single back link replaces the breadcrumb (PDP-01); no size is
+  pre-selected (PDP-09: "From £109" and "Choose a size" until one is picked,
+  unless ?variant= names one, the Bed Finder's stored pick applies, or there
+  is only one size); the buy column runs subtitle, price + per-night, size
+  cards + size help, offer line, delivery dates, button, trust row with its
+  sheets, bullets, "What's inside", "Worth it?", Q&A, the story (collapsed),
+  the collapsed rows and "Complete their bed". Every claim comes from the
+  product's own data or the published policies (snippets/pdp-*).
 {%- endcomment -%}
 {{ 'product.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'product.js' | asset_url }}" defer="defer"></script>
@@ -56,6 +66,16 @@
     endif
   endfor
   assign vp_block = section.blocks | where: 'type', 'variant_picker' | first
+
+  comment
+    No size pre-selected (audit PDP-09) when the product has a size to
+    choose, no ?variant= names one and the section setting is on. product.js
+    applies the Bed Finder's stored size; "Most chosen" stays a label.
+  endcomment
+  assign size_pending = false
+  if has_size and product.selected_variant == blank and section.settings.preselect_size != true
+    assign size_pending = true
+  endif
   assign sg_hints = false
   if vp_block and vp_block.settings.show_size_hints
     assign sg_hints = true
@@ -105,6 +125,9 @@
     <div class="page-width">
       <div class="main-product__grid">
         <div class="main-product__media">
+          {%- if section.settings.show_back_link -%}
+            {%- render 'pdp-back-link', product: product, collection: collection -%}
+          {%- endif -%}
           {%- render 'product-gallery',
             product: product,
             section: section,
@@ -124,21 +147,21 @@
                     {% render block %}
                   </div>
                 {%- else -%}
-                  {%- render 'buy-box', product: product, section: section, block: block, variant: current -%}
+                  {%- render 'buy-box', product: product, section: section, block: block, variant: current, pending: size_pending -%}
               {%- endcase -%}
             {%- endfor -%}
           </div>
-          {%- render 'buy-box', product: product, section: section, part: 'data', variant: current -%}
+          {%- render 'buy-box', product: product, section: section, part: 'data', variant: current, pending: size_pending -%}
         </div>
       </div>
     </div>
 
     {%- if has_size or sg_block -%}
-      {%- render 'size-guide', product: product, section: section, variant: current, block: sg_block, hints: sg_hints -%}
+      {%- render 'size-guide', product: product, section: section, variant: current, block: sg_block, hints: sg_hints, pending: size_pending -%}
     {%- endif -%}
 
     {%- if section.settings.enable_sticky_atc and bb_block -%}
-      {%- render 'sticky-atc', product: product, section: section, variant: current -%}
+      {%- render 'sticky-atc', product: product, section: section, variant: current, pending: size_pending -%}
     {%- endif -%}
   </section>
 
@@ -160,8 +183,14 @@
       "id": "gallery_layout",
       "label": "Desktop layout",
       "options": [
-        { "value": "thumbnails", "label": "Large image with thumbnails" },
-        { "value": "grid", "label": "Two-column grid" }
+        {
+          "value": "thumbnails",
+          "label": "Large image with thumbnails"
+        },
+        {
+          "value": "grid",
+          "label": "Two-column grid"
+        }
       ],
       "default": "thumbnails",
       "info": "Phones always get a swipeable carousel with a counter and dots."
@@ -171,9 +200,18 @@
       "id": "media_ratio",
       "label": "Image shape",
       "options": [
-        { "value": "square", "label": "Square" },
-        { "value": "portrait", "label": "Portrait (4:5)" },
-        { "value": "adapt", "label": "Match the first image" }
+        {
+          "value": "square",
+          "label": "Square"
+        },
+        {
+          "value": "portrait",
+          "label": "Portrait (4:5)"
+        },
+        {
+          "value": "adapt",
+          "label": "Match the first image"
+        }
       ],
       "default": "square"
     },
@@ -201,10 +239,24 @@
       "info": "Appears once the main Add to basket button scrolls out of view. Needs the Buy buttons block."
     },
     {
+      "type": "checkbox",
+      "id": "preselect_size",
+      "label": "Pre-select a size on load",
+      "default": false,
+      "info": "Off: price reads \"From £109\" and the button \"Choose a size\" until one is picked. A ?variant= link, the Bed Finder's pick or a single size still select one."
+    },
+    {
       "type": "text",
       "id": "most_chosen_value",
       "label": "Most chosen size",
-      "info": "e.g. Medium. Pre-selected and marked \"Most chosen\" on every product with that option value. Only use it if it's true. You can also tick custom.most_chosen on a variant."
+      "info": "e.g. Medium. Marked \"Most chosen\" on every product with that size (pre-selected only when sizes are pre-selected). Only use it if it's true. You can also tick custom.most_chosen on a variant."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_back_link",
+      "label": "Phones: back link instead of the breadcrumb",
+      "default": true,
+      "info": "\"‹ Orthopaedic Dog Beds\": the collection the shopper came from, else the bed's main one."
     },
     {
       "type": "header",
@@ -215,10 +267,22 @@
       "id": "color_scheme",
       "label": "Colour scheme",
       "options": [
-        { "value": "bone", "label": "Bone" },
-        { "value": "oat", "label": "Oat" },
-        { "value": "moss", "label": "Moss" },
-        { "value": "white", "label": "White" }
+        {
+          "value": "bone",
+          "label": "Bone"
+        },
+        {
+          "value": "oat",
+          "label": "Oat"
+        },
+        {
+          "value": "moss",
+          "label": "Moss"
+        },
+        {
+          "value": "white",
+          "label": "White"
+        }
       ],
       "default": "bone"
     },
@@ -257,9 +321,18 @@
           "id": "heading_size",
           "label": "Heading size",
           "options": [
-            { "value": "h1", "label": "Large" },
-            { "value": "h2", "label": "Medium" },
-            { "value": "h3", "label": "Small" }
+            {
+              "value": "h1",
+              "label": "Large"
+            },
+            {
+              "value": "h2",
+              "label": "Medium"
+            },
+            {
+              "value": "h3",
+              "label": "Small"
+            }
           ],
           "default": "h2"
         },
@@ -304,34 +377,45 @@
     },
     {
       "type": "tagline",
-      "name": "Tagline",
+      "name": "Subtitle",
       "limit": 1,
       "settings": [
         {
           "type": "textarea",
           "id": "text",
-          "label": "Fallback tagline",
-          "default": "Pressure-relieving support for ageing joints, under a cover you can actually wash.",
-          "info": "Shown when the product has no custom.tagline metafield. Make sure it's true of every product using this template. You can use [trial_nights], [guarantee_years] and [threshold]."
+          "label": "Fallback subtitle",
+          "info": "Only when the product has no custom.subtitle (or older custom.tagline). Leave blank to show nothing: it must be true of every product using this template."
         },
         {
           "type": "select",
           "id": "fallback_scope",
           "label": "Use the fallback on",
           "options": [
-            { "value": "foam", "label": "Foam beds only" },
-            { "value": "all", "label": "Every product" }
+            {
+              "value": "foam",
+              "label": "Foam beds only"
+            },
+            {
+              "value": "all",
+              "label": "Every product"
+            }
           ],
           "default": "foam",
-          "info": "The default text describes a memory-foam bed. \"Foam beds only\" uses it on beds the foam guarantee covers: the description says \"no-flatten guarantee\", or the product is tagged guarantee:yes (guarantee:no hides it)."
+          "info": "\"Foam beds only\" uses it only on beds the foam guarantee covers (snippets/foam-bed)."
         },
         {
           "type": "select",
           "id": "style",
           "label": "Style",
           "options": [
-            { "value": "serif", "label": "Italic serif" },
-            { "value": "plain", "label": "Plain" }
+            {
+              "value": "serif",
+              "label": "Italic serif"
+            },
+            {
+              "value": "plain",
+              "label": "Plain"
+            }
           ],
           "default": "serif"
         }
@@ -399,19 +483,45 @@
         {
           "type": "checkbox",
           "id": "show_finder_link",
-          "label": "Show Bed Finder link beside the size option",
+          "label": "Show Bed Finder link beside the size label",
           "default": true,
-          "info": "\"Not sure? Take the 30-second finder\". After someone has used it, a \"Retake\" link. Needs the Bed Finder switched on in Theme settings."
+          "info": "\"Not sure? Take the 30-second finder\". Turn off when size help is on, which carries the same link. Needs the Bed Finder switched on in Theme settings."
         },
         {
           "type": "select",
           "id": "size_style",
           "label": "Size layout",
           "options": [
-            { "value": "rows", "label": "Size ladder (one row per size)" },
-            { "value": "grid", "label": "Grid of buttons" }
+            {
+              "value": "rows",
+              "label": "Size ladder (one row per size)"
+            },
+            {
+              "value": "grid",
+              "label": "Grid of buttons"
+            }
           ],
           "default": "rows"
+        },
+        {
+          "type": "product",
+          "id": "sprawl_product",
+          "label": "Bed for dogs who sprawl",
+          "info": "On a bed for dogs who curl up (custom.sleep_style), \"Sprawls flat out? See …\" links here under the sizes, only while this bed is in stock and its own sleep_style says Stretches out."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_size_help",
+          "label": "Show size help under the sizes",
+          "default": true,
+          "info": "\"Not sure? Take the 30-second Bed Finder, or send us a photo of them asleep and we'll tell you the size.\" The second part opens WhatsApp with a message started."
+        },
+        {
+          "type": "text",
+          "id": "whatsapp_number",
+          "label": "WhatsApp number for size help",
+          "default": "447598327268",
+          "info": "Country code and number, digits only. Blank leaves the WhatsApp part out."
         }
       ]
     },
@@ -496,7 +606,7 @@
           "id": "show_delivery",
           "label": "Add the delivery countdown to this line",
           "default": false,
-          "info": "\"In stock · Order within 2h 14m for dispatch today — arrives Thu 8 Oct\". Use it instead of the Delivery countdown block, not as well."
+          "info": "\"In stock · Order within 2h 14m for dispatch today, arrives Thu 8 Oct\". Use it instead of the Delivery countdown block, not as well."
         },
         {
           "type": "checkbox",
@@ -509,18 +619,12 @@
     },
     {
       "type": "delivery",
-      "name": "Delivery countdown",
+      "name": "Delivery dates",
       "limit": 1,
       "settings": [
         {
           "type": "paragraph",
-          "content": "Live \"Order within 2h 14m for dispatch today\" from your real cut-off, dispatch days and holidays (Theme settings → Promises)."
-        },
-        {
-          "type": "checkbox",
-          "id": "show_free_delivery_note",
-          "label": "Show free delivery line",
-          "default": true
+          "content": "The bed's own delivery dates (custom.ships_from and custom.dispatch_days_min/_max, else Theme settings → Promises → Delivery dates), worked out in working days. Partner-warehouse beds without dispatch days show no dates. Never same-day dispatch unless custom.ships_same_day."
         }
       ]
     },
@@ -553,6 +657,207 @@
           "id": "show_payment_terms",
           "label": "Show Shop Pay instalments message",
           "default": true
+        }
+      ]
+    },
+    {
+      "type": "offer",
+      "name": "Offer line",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "\"£15 off this size at checkout, until Sat 31 Oct\" for a size that qualifies, from Theme settings → Offer. Nothing for other sizes, before a size is chosen or once the offer ends."
+        }
+      ]
+    },
+    {
+      "type": "trust_row",
+      "name": "Trust row",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Three promises under the button, each opening a sheet: the trial (only where it applies), the foam guarantee (only on beds it covers, else free delivery) and UK owner support. Keep every sentence true to your published policies."
+        },
+        {
+          "type": "textarea",
+          "id": "trial_text",
+          "label": "Trial sheet",
+          "default": "Your [trial_nights] nights start the day it arrives. Tell us any time inside them. [trial_terms] It can come back slept on, hair and all. One trial per household; damage and other exclusions apply.",
+          "info": "[trial_nights] and [trial_terms] (Theme settings → Promises)."
+        },
+        {
+          "type": "textarea",
+          "id": "guarantee_text",
+          "label": "Guarantee sheet",
+          "default": "If the memory foam core loses its shape under normal domestic use within [guarantee_years] years, we'll replace it. Covers, zips, liners, waterproof layers, bolsters, fibre filling and non-slip bases are wearing parts and aren't included. Nor is damage from chewing, scratching, tearing or accidents, foam damaged by liquid (including urine) or by washing, softening that recovers when the bed is empty, or commercial use."
+        },
+        {
+          "type": "textarea",
+          "id": "support_text",
+          "label": "Support sheet",
+          "default": "I'm Abbas. PawLunova is a small UK business and I answer every message myself."
+        },
+        {
+          "type": "text",
+          "id": "whatsapp_number",
+          "label": "WhatsApp number",
+          "default": "447598327268",
+          "info": "Digits with the country code. Blank hides the WhatsApp link."
+        },
+        {
+          "type": "text",
+          "id": "contact_email",
+          "label": "Email",
+          "default": "abbas@pawlunova.co.uk"
+        },
+        {
+          "type": "text",
+          "id": "contact_phone",
+          "label": "Phone",
+          "default": "+44 7598 327268"
+        },
+        {
+          "type": "text",
+          "id": "contact_hours",
+          "label": "Hours",
+          "default": "Monday to Friday, 9am to 5pm"
+        },
+        {
+          "type": "text",
+          "id": "owner_line",
+          "label": "Owner line",
+          "default": "PawLunova is a small UK business. I'm Abbas, and I answer every message myself.",
+          "info": "Under the row on products with no Q&A of their own."
+        }
+      ]
+    },
+    {
+      "type": "spec_card",
+      "name": "What's inside",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "A spec card from the bed's metafields: core, foam depth, density, feel, liner, cover, base, step-in height and sleeping area. Each row shows only when its metafield is set; the card hides with fewer than two rows."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "What's inside [name]",
+          "info": "[name] is the bed's short name."
+        },
+        {
+          "type": "text",
+          "id": "intro",
+          "label": "Line under the heading",
+          "default": "No mystery stuffing. It says exactly what's inside."
+        }
+      ]
+    },
+    {
+      "type": "worth_it",
+      "name": "Worth it?",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Shows the product's custom.worth_it text. Hidden when it is blank."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Worth it?"
+        }
+      ]
+    },
+    {
+      "type": "qa",
+      "name": "Questions owners ask",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "The product's own custom.qa questions and answers, signed by you. Hidden when it has none."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Questions owners ask before buying"
+        },
+        {
+          "type": "text",
+          "id": "signature",
+          "label": "Signature",
+          "default": "Abbas, PawLunova"
+        },
+        {
+          "type": "text",
+          "id": "owner_line",
+          "label": "Owner line",
+          "default": "PawLunova is a small UK business. I'm Abbas, and I answer every message myself."
+        }
+      ]
+    },
+    {
+      "type": "story",
+      "name": "Description (collapsed)",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "The product description, its first lines showing and the rest behind \"Read the full description\"."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "The story"
+        }
+      ]
+    },
+    {
+      "type": "complete",
+      "name": "Complete their bed",
+      "limit": 2,
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Add-on"
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Complete their bed"
+        },
+        {
+          "type": "text",
+          "id": "note",
+          "label": "Line about it",
+          "default": "For the dog who sits by the sofa or your bed and waits to be lifted."
+        },
+        {
+          "type": "select",
+          "id": "show_on",
+          "label": "Show on",
+          "options": [
+            {
+              "value": "older",
+              "label": "Beds for stiff or older dogs"
+            },
+            {
+              "value": "all",
+              "label": "Every dog bed"
+            }
+          ],
+          "default": "older",
+          "info": "Beds for stiff or older dogs: low entry, raised beds, tagged \"dog bed for older dogs\", or custom.best_for mentioning stiff, older or senior. Hidden on the add-on itself and when sold out."
         }
       ]
     },
@@ -615,27 +920,34 @@
     },
     {
       "type": "benefits",
-      "name": "Benefits",
+      "name": "Bullets",
       "limit": 1,
       "settings": [
         {
           "type": "text",
           "id": "heading",
-          "label": "Heading"
+          "label": "Heading",
+          "info": "[name] is the bed's short name, e.g. \"Why [name]\"."
         },
         {
           "type": "richtext",
           "id": "content",
           "label": "Fallback benefits",
-          "info": "Optional. Shown when the product has no custom.benefits metafield (one benefit per line). Every line must be true of every product it shows on."
+          "info": "Optional. Only when the product has no custom.benefits and its metafields give no bullets. Every line must be true of every product it shows on."
         },
         {
           "type": "select",
           "id": "fallback_scope",
           "label": "Use the fallback on",
           "options": [
-            { "value": "foam", "label": "Foam beds only" },
-            { "value": "all", "label": "Every product" }
+            {
+              "value": "foam",
+              "label": "Foam beds only"
+            },
+            {
+              "value": "all",
+              "label": "Every product"
+            }
           ],
           "default": "foam",
           "info": "\"Foam beds only\" uses it on beds the foam guarantee covers: the description says \"no-flatten guarantee\", or the product is tagged guarantee:yes (guarantee:no hides it)."
@@ -657,12 +969,38 @@
           "id": "source",
           "label": "Content",
           "options": [
-            { "value": "description", "label": "Product description" },
-            { "value": "specs", "label": "Specification (custom.specs)" },
-            { "value": "delivery", "label": "Delivery and returns (from theme settings)" },
-            { "value": "care", "label": "Care (custom.care)" },
-            { "value": "custom", "label": "Text below" },
-            { "value": "page", "label": "A page" }
+            {
+              "value": "description",
+              "label": "Product description"
+            },
+            {
+              "value": "specs",
+              "label": "Specification (custom.specs)"
+            },
+            {
+              "value": "delivery",
+              "label": "Delivery and returns"
+            },
+            {
+              "value": "care",
+              "label": "Care (custom.care, else the cover data)"
+            },
+            {
+              "value": "guarantee",
+              "label": "Guarantee terms (foam beds)"
+            },
+            {
+              "value": "size_guide",
+              "label": "Opens the size guide"
+            },
+            {
+              "value": "custom",
+              "label": "Text below"
+            },
+            {
+              "value": "page",
+              "label": "A page"
+            }
           ],
           "default": "description"
         },
@@ -682,16 +1020,46 @@
           "id": "icon",
           "label": "Icon",
           "options": [
-            { "value": "none", "label": "None" },
-            { "value": "bed", "label": "Bed" },
-            { "value": "ruler", "label": "Ruler" },
-            { "value": "truck", "label": "Delivery" },
-            { "value": "return", "label": "Return" },
-            { "value": "leaf", "label": "Leaf" },
-            { "value": "shield", "label": "Shield" },
-            { "value": "heart", "label": "Heart" },
-            { "value": "info", "label": "Info" },
-            { "value": "paw", "label": "Paw" }
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "bed",
+              "label": "Bed"
+            },
+            {
+              "value": "ruler",
+              "label": "Ruler"
+            },
+            {
+              "value": "truck",
+              "label": "Delivery"
+            },
+            {
+              "value": "return",
+              "label": "Return"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "info",
+              "label": "Info"
+            },
+            {
+              "value": "paw",
+              "label": "Paw"
+            }
           ],
           "default": "none"
         },
@@ -718,9 +1086,18 @@
           "id": "style",
           "label": "Style",
           "options": [
-            { "value": "body", "label": "Body" },
-            { "value": "small", "label": "Small" },
-            { "value": "muted", "label": "Small, muted" }
+            {
+              "value": "body",
+              "label": "Body"
+            },
+            {
+              "value": "small",
+              "label": "Small"
+            },
+            {
+              "value": "muted",
+              "label": "Small, muted"
+            }
           ],
           "default": "body"
         }

@@ -1,0 +1,42 @@
+{%- comment -%}
+  The <option>s of a sort menu, in plain English and cut to the five a
+  shopper uses (audit COL-05): Recommended, Best selling, Price low to high,
+  Price high to low, Newest. On search, "Best match" (relevance) leads.
+  A-Z, Z-A and "Date, old to new" are left out, unless the URL already asks
+  for one, so the menu always shows the order on screen.
+
+  Parameters
+    results   collection or search (its sort_options)
+    current   the sort in use
+{%- endcomment -%}
+{%- liquid
+  assign so_keep = ',relevance,manual,best-selling,price-ascending,price-descending,created-descending,'
+-%}
+{%- for option in results.sort_options -%}
+  {%- liquid
+    assign so_needle = ',' | append: option.value | append: ','
+    assign so_show = false
+    if so_keep contains so_needle or option.value == current
+      assign so_show = true
+    endif
+    case option.value
+      when 'relevance'
+        assign so_label = 'collection.sort.relevance' | t
+      when 'manual'
+        assign so_label = 'collection.sort.manual' | t
+      when 'best-selling'
+        assign so_label = 'collection.sort.best_selling' | t
+      when 'price-ascending'
+        assign so_label = 'collection.sort.price_ascending' | t
+      when 'price-descending'
+        assign so_label = 'collection.sort.price_descending' | t
+      when 'created-descending'
+        assign so_label = 'collection.sort.newest' | t
+      else
+        assign so_label = option.name | escape
+    endcase
+  -%}
+  {%- if so_show -%}
+    <option value="{{ option.value | escape }}"{% if option.value == current %} selected{% endif %}>{{ so_label }}</option>
+  {%- endif -%}
+{%- endfor -%}

@@ -1,301 +1,349 @@
 {%- comment -%}
-  "What the price pays for" — this bed, row by row, against the question
-  worth asking of any bed. Anchoring and specificity, done honestly:
-    - the right-hand column asks a question rather than asserting facts about
-      other beds (an objective claim about competitors needs evidence we
-      don't hold: CAP Code 3.7 / 3.33ff, DMCC misleading actions);
-    - every left-hand claim should be physical and checkable (density, cover,
-      guarantee, trial) — no medical claims;
-    - rows can depend on a promise (trial / free trial returns / guarantee /
-      free delivery) and hide when that promise is switched off in Theme
-      settings → Promises.
-  Placeholders in any cell: [trial_nights] [guarantee_years] [threshold]
-  [trial_terms] [trial_terms_short] (the returns wording, snippets/trial-terms).
+  "Coniston vs the alternatives" (audit PDP-21, S05): this bed against a
+  fibre-filled bed and the forums' favourite DIY swap, a cot mattress plus
+  a cover. It replaces "What the price pays for".
 
-  The default rows describe a foam core under the foam guarantee, so on
-  product pages ("Show on product pages" = auto) the section only renders for
-  beds the guarantee covers — the same test as the mechanism section and the
-  guarantee line (snippets/foam-bed: the description promises a no-flatten
-  guarantee, or the product is tagged guarantee:yes; guarantee:no wins).
-  On a product page the trial rows also follow the product: a product the
-  sleep trial doesn't cover (snippets/trial-eligible) never shows them.
-  A row can also be limited to products with a tag ("Only on products
-  tagged", e.g. washable dog bed for a washing claim).
+  Shown on memory foam beds only (custom.core_type "Memory foam", the
+  default "Show on product pages" setting), because the rows describe what a
+  foam core with a liner and a guarantee does against the alternatives.
 
-  Semantic <table> with explicit ARIA roles, so phones can lay each row out as
-  a card without losing the table for screen readers.
-{%- endcomment -%}
-{%- comment -%}
-  On product templates main-product (first in product.json) already links
-  product.css and product.js, so they are not linked again here. Elsewhere
-  (basket page, other templates) this section brings its own. If a merchant
-  moves this section above main-product, its styles arrive with
-  main-product's link a moment later.
+  This bed's column is never typed in: each row names a fact and the cell is
+  built from the bed's own data, and the row is left out when that data is
+  blank (nothing is guessed):
+    core        custom.core_type                    "Memory foam core"
+    chin_rest   custom.shape bolster / nest         "Yes" ("Yes, low rim" with low_entry)
+    entry       custom.low_entry (+ entry_height)   "Low front, no climb"
+    grip        custom.non_slip                     "Non-slip base"
+    accidents   custom.has_liner / coated cover     "Waterproof liner"
+    washing     custom.cover_type (+ wash_temp)     "Cover off, 30°C"
+    trial       snippets/trial-eligible             "100 nights, we collect free"
+    guarantee   snippets/foam-bed                   "5 years"
+  The two other columns describe kinds of bed, not named competitors, in
+  the merchant's own words (the audit's S05 table by default); keep them
+  general and fair. Semantic <table>; on phones each row is a card.
+
+  Placeholders in the other columns and the heading: [name] (this bed's
+  short name), [trial_nights], [guarantee_years].
 {%- endcomment -%}
 {%- unless template.name == 'product' -%}
   {{ 'product.css' | asset_url | stylesheet_tag }}
 {%- endunless -%}
 {%- render 'section-styles', section: section -%}
 {%- liquid
+  assign ss = section.settings
+  assign has_product = false
+  if product != blank and product.id != blank
+    assign has_product = true
+  endif
+
   assign render_it = true
-  if template.name == 'product' and product != blank and section.settings.product_filter != 'always'
-    capture pc_foam
-      render 'foam-bed', product: product
-    endcapture
-    if pc_foam != 'true'
-      assign render_it = false
+  if template.name == 'product' and has_product and ss.product_filter != 'always'
+    if ss.product_filter == 'guarantee'
+      capture pc_foam
+        render 'foam-bed', product: product
+      endcapture
+      if pc_foam != 'true'
+        assign render_it = false
+      endif
+    else
+      capture pc_core
+        render 'product-fact', product: product, key: 'core_type'
+      endcapture
+      assign pc_core_lc = pc_core | strip | downcase
+      if pc_core_lc != 'memory foam'
+        assign render_it = false
+      endif
     endif
   endif
+  if has_product == false
+    assign render_it = false
+  endif
 -%}
-{%- if render_it or request.design_mode -%}
+{%- if render_it -%}
 {%- liquid
   assign nights = settings.trial_nights | default: 0 | plus: 0
   assign years = settings.guarantee_years | default: 0 | plus: 0
   assign nights_s = nights | append: ''
   assign years_s = years | append: ''
-  assign threshold_cents = settings.free_shipping_threshold | default: 0 | times: 100 | round
-  assign threshold_money = threshold_cents | money_without_trailing_zeros
-  capture terms_s
-    render 'trial-terms'
-  endcapture
-  capture terms_short_s
-    render 'trial-terms', short: true
-  endcapture
-  assign terms_s = terms_s | strip | escape
-  assign terms_short_s = terms_short_s | strip | escape
 
-  assign ours_label = section.settings.ours_label | default: ''
-  if section.settings.use_product_title and product != blank and product.id != blank
-    assign ours_label = product.title | split: ' | ' | first | strip
+  assign full_title = product.title | split: ' | ' | first | strip
+  assign short_name = full_title | remove_first: 'The ' | split: ' ' | first | default: full_title
+  assign sn_lc = short_name | downcase
+  if sn_lc == 'orthopaedic' or sn_lc == 'dog' or sn_lc == 'memory' or sn_lc == 'personalised' or sn_lc == 'luxury'
+    assign short_name = full_title
   endif
-  if ours_label == ''
-    assign ours_label = shop.name
+  assign name_esc = short_name | escape
+
+  capture f_core
+    render 'product-fact', product: product, key: 'core_type'
+  endcapture
+  capture f_shape
+    render 'product-fact', product: product, key: 'shape'
+  endcapture
+  capture f_low
+    render 'product-fact', product: product, key: 'low_entry'
+  endcapture
+  capture f_height
+    render 'product-fact', product: product, key: 'entry_height'
+  endcapture
+  capture f_slip
+    render 'product-fact', product: product, key: 'non_slip'
+  endcapture
+  capture f_liner
+    render 'product-fact', product: product, key: 'liner'
+  endcapture
+  capture f_cover
+    render 'product-fact', product: product, key: 'cover_type'
+  endcapture
+  capture f_wash
+    render 'product-fact', product: product, key: 'wash_temp'
+  endcapture
+  assign f_shape_lc = f_shape | downcase
+  assign f_cover_lc = f_cover | downcase
+
+  assign f_trial = false
+  if settings.trial_enable and nights > 0
+    capture f_t
+      render 'trial-eligible', product: product
+    endcapture
+    if f_t == 'true'
+      assign f_trial = true
+    endif
   endif
-  assign theirs_label = section.settings.theirs_label | default: ''
+  assign f_guarantee = false
+  if settings.guarantee_enable and years > 0
+    capture f_g
+      render 'foam-bed', product: product
+    endcapture
+    if f_g == 'true'
+      assign f_guarantee = true
+    endif
+  endif
 
   comment
-    The trial rows follow the product on a product page: no trial row for a
-    product the sleep trial doesn't cover (kennels, personalised beds).
+    Pass 1: this bed's cell for every row, or blank (row left out).
+    Kept as block-id=cell pairs.
   endcomment
-  assign pc_trial_ok = false
-  if settings.trial_enable and nights > 0
-    assign pc_trial_ok = true
-    if product != blank and product.id != blank
-      capture pc_trial
-        render 'trial-eligible', product: product
-      endcapture
-      if pc_trial != 'true'
-        assign pc_trial_ok = false
-      endif
-    endif
-  endif
-  assign pc_tags = ''
-  if product != blank and product.id != blank
-    assign pc_tags = product.tags | join: '|' | downcase | prepend: '|' | append: '|'
-  endif
-
-  assign visible_ids = ''
+  assign cells = ''
+  assign row_count = 0
   for block in section.blocks
-    assign req = block.settings.requires | default: 'none'
-    assign ok = true
-    case req
+    assign cell = ''
+    case block.settings.key
+      when 'core'
+        if f_core != ''
+          assign cell = 'product.compare3.core' | t: core: f_core
+        endif
+      when 'chin_rest'
+        if f_shape_lc contains 'bolster' or f_shape_lc == 'nest' or f_shape_lc contains 'corner'
+          if f_low == 'true'
+            assign cell = 'product.compare3.chin_low' | t
+          else
+            assign cell = 'product.compare3.yes' | t
+          endif
+        endif
+      when 'entry'
+        if f_low == 'true'
+          if f_height != ''
+            assign cell = 'product.compare3.entry_cm' | t: cm: f_height
+          else
+            assign cell = 'product.compare3.entry' | t
+          endif
+        endif
+      when 'grip'
+        if f_slip == 'true'
+          assign cell = 'product.compare3.grip' | t
+        endif
+      when 'accidents'
+        if f_liner == 'true'
+          assign cell = 'product.compare3.liner' | t
+        elsif f_cover_lc contains 'coated'
+          assign cell = 'product.compare3.coated' | t
+        endif
+      when 'washing'
+        if f_cover_lc contains 'zip'
+          if f_wash != ''
+            assign cell = 'product.compare3.wash_temp' | t: temp: f_wash
+          else
+            assign cell = 'product.compare3.wash' | t
+          endif
+        elsif f_cover_lc contains 'coated'
+          assign cell = 'product.compare3.wipe' | t
+        endif
       when 'trial'
-        unless pc_trial_ok
-          assign ok = false
-        endunless
-      when 'free_return'
-        unless pc_trial_ok and settings.trial_free_collection
-          assign ok = false
-        endunless
+        if f_trial
+          if settings.trial_free_collection
+            assign cell = 'product.compare3.trial_free' | t: nights: nights
+          else
+            assign cell = 'product.compare3.trial' | t: nights: nights
+          endif
+        endif
       when 'guarantee'
-        unless settings.guarantee_enable and years > 0
-          assign ok = false
-        endunless
-      when 'free_delivery'
-        unless settings.free_shipping_enable and threshold_cents > 0
-          assign ok = false
-        endunless
+        if f_guarantee
+          assign cell = 'product.compare3.guarantee' | t: years: years
+        endif
     endcase
-    comment
-      Only on products tagged: on a product page, the product must carry
-      the tag; elsewhere (no product) the row shows.
-    endcomment
-    assign req_tag = block.settings.requires_tag | default: '' | strip | downcase
-    if ok and req_tag != '' and pc_tags != ''
-      assign req_key = '|' | append: req_tag | append: '|'
-      unless pc_tags contains req_key
-        assign ok = false
-      endunless
-    endif
-    if ok
-      assign visible_ids = visible_ids | append: block.id | append: ','
+    if cell != ''
+      assign row_count = row_count | plus: 1
+      assign cells = cells | append: block.id | append: '=' | append: cell | append: '^^'
     endif
   endfor
-  assign row_count = visible_ids | split: ',' | size
+  assign cell_list = cells | split: '^^'
+
+  assign heading = ss.heading | default: '' | escape | replace: '[name]', name_esc
+  assign alt_1 = ss.alt_1_label | default: '' | escape
+  assign alt_2 = ss.alt_2_label | default: '' | escape
 -%}
-{%- if row_count > 0 -%}
+{%- if row_count >= 3 -%}
   <section
     id="{{ section.id }}-wrap"
-    class="section scheme-{{ section.settings.color_scheme }} product-compare"
+    class="section scheme-{{ ss.color_scheme }} product-compare product-compare--three"
     aria-labelledby="{{ section.id }}-heading"
   >
     <div class="page-width page-width--narrow">
-      {%- if render_it == false -%}
-        <p class="product-compare__editor-note small muted">{{ 'product.compare.editor_hidden' | t }}</p>
-      {%- endif -%}
       <div class="section-head section-head--center">
-        {%- if section.settings.eyebrow != blank -%}
-          <p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>
+        {%- if ss.eyebrow != blank -%}
+          <p class="eyebrow">{{ ss.eyebrow | escape }}</p>
         {%- endif -%}
-        <h2 class="h2" id="{{ section.id }}-heading">{{ section.settings.heading | escape }}</h2>
-        {%- if section.settings.intro != blank -%}
-          <div class="lede rte">
-            {{- section.settings.intro | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', terms_short_s | replace: '[trial_terms]', terms_s -}}
-          </div>
+        <h2 class="h2" id="{{ section.id }}-heading">{{ heading }}</h2>
+        {%- if ss.intro != blank -%}
+          <div class="lede rte">{{ ss.intro | replace: '[name]', name_esc | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s }}</div>
         {%- endif -%}
       </div>
 
-      <table class="compare" role="table">
-        <caption class="visually-hidden">{{ section.settings.heading | escape }}</caption>
+      <table class="compare3" role="table">
+        <caption class="visually-hidden">{{ heading }}</caption>
         <thead role="rowgroup">
-          <tr class="compare__head" role="row">
-            <th scope="col" role="columnheader" class="compare__feature-head"><span class="visually-hidden">{{ 'product.compare.feature' | t }}</span></th>
-            <th scope="col" role="columnheader" class="compare__col compare__col--ours">
-              {%- render 'icon', name: 'paw', class: 'compare__col-icon' -%}
-              <span>{{ ours_label | escape }}</span>
-            </th>
-            <th scope="col" role="columnheader" class="compare__col compare__col--theirs"><span>{{ theirs_label | escape }}</span></th>
+          <tr class="compare3__head" role="row">
+            <th scope="col" role="columnheader" class="compare3__feature-head"><span class="visually-hidden">{{ 'product.compare.feature' | t }}</span></th>
+            <th scope="col" role="columnheader" class="compare3__col compare3__col--ours">{{ name_esc }}</th>
+            <th scope="col" role="columnheader" class="compare3__col">{{ alt_1 }}</th>
+            <th scope="col" role="columnheader" class="compare3__col">{{ alt_2 }}</th>
           </tr>
         </thead>
         <tbody role="rowgroup">
           {%- for block in section.blocks -%}
             {%- liquid
-              assign key = block.id | append: ','
-              unless visible_ids contains key
+              assign key = block.id | append: '='
+              assign ours = ''
+              for c in cell_list
+                assign c_start = c | slice: 0, key.size
+                if c_start == key
+                  assign ours = c | remove_first: key
+                  break
+                endif
+              endfor
+              if ours == ''
                 continue
-              endunless
+              endif
               assign b = block.settings
             -%}
-            <tr class="compare__row" role="row" {{ block.shopify_attributes }}>
-              <th scope="row" role="rowheader" class="compare__feature">{{ b.label | escape }}</th>
-              <td role="cell" class="compare__cell compare__cell--ours">
-                <span class="compare__mobile-label" aria-hidden="true">{{ ours_label | escape }}</span>
-                <span class="compare__value">
-                  {%- if b.ours_icon == 'check' -%}
-                    <span class="compare__mark compare__mark--yes">{%- render 'icon', name: 'check' -%}<span class="visually-hidden">{{ 'product.compare.yes' | t }}: </span></span>
-                  {%- elsif b.ours_icon == 'cross' -%}
-                    <span class="compare__mark compare__mark--no">{%- render 'icon', name: 'close' -%}<span class="visually-hidden">{{ 'product.compare.no' | t }}: </span></span>
-                  {%- endif -%}
-                  <span>{{ b.ours | escape | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', terms_short_s | replace: '[trial_terms]', terms_s }}</span>
-                </span>
+            <tr class="compare3__row" role="row" {{ block.shopify_attributes }}>
+              <th scope="row" role="rowheader" class="compare3__feature">{{ b.label | escape }}</th>
+              <td role="cell" class="compare3__cell compare3__cell--ours">
+                <span class="compare3__label" aria-hidden="true">{{ name_esc }}</span>
+                <span class="compare3__value">{{ ours }}</span>
               </td>
-              <td role="cell" class="compare__cell compare__cell--theirs">
-                <span class="compare__mobile-label" aria-hidden="true">{{ theirs_label | escape }}</span>
-                <span class="compare__value">
-                  {%- if b.theirs_icon == 'check' -%}
-                    <span class="compare__mark compare__mark--yes">{%- render 'icon', name: 'check' -%}<span class="visually-hidden">{{ 'product.compare.yes' | t }}: </span></span>
-                  {%- elsif b.theirs_icon == 'cross' -%}
-                    <span class="compare__mark compare__mark--no">{%- render 'icon', name: 'close' -%}<span class="visually-hidden">{{ 'product.compare.no' | t }}: </span></span>
-                  {%- endif -%}
-                  <span>{{ b.theirs | escape | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s | replace: '[threshold]', threshold_money | replace: '[trial_terms_short]', terms_short_s | replace: '[trial_terms]', terms_s }}</span>
-                </span>
+              <td role="cell" class="compare3__cell">
+                <span class="compare3__label" aria-hidden="true">{{ alt_1 }}</span>
+                <span class="compare3__value">{{ b.alt_1 | escape | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s }}</span>
+              </td>
+              <td role="cell" class="compare3__cell">
+                <span class="compare3__label" aria-hidden="true">{{ alt_2 }}</span>
+                <span class="compare3__value">{{ b.alt_2 | escape | replace: '[trial_nights]', nights_s | replace: '[guarantee_years]', years_s }}</span>
               </td>
             </tr>
           {%- endfor -%}
         </tbody>
       </table>
 
-      {%- if section.settings.footnote != blank -%}
-        <p class="compare__footnote small muted">{{ section.settings.footnote | escape }}</p>
+      {%- if ss.footnote != blank -%}
+        <p class="compare__footnote small muted">{{ ss.footnote | escape }}</p>
       {%- endif -%}
 
-      {%- if section.settings.show_cta and template.name == 'product' -%}
+      {%- if ss.show_cta and template.name == 'product' -%}
         <p class="compare__cta">
           <a class="btn btn--secondary" href="#ProductBuy">
-            <span>{%- if section.settings.cta_label != blank -%}{{ section.settings.cta_label | escape }}{%- else -%}{{ 'product.compare.cta' | t }}{%- endif -%}</span>
+            <span>{%- if ss.cta_label != blank -%}{{ ss.cta_label | escape }}{%- else -%}{{ 'product.compare.cta' | t }}{%- endif -%}</span>
             {%- render 'icon', name: 'arrow-right' -%}
           </a>
         </p>
       {%- endif -%}
     </div>
   </section>
+{%- endif -%}
 {%- elsif request.design_mode -%}
   <div class="page-width product-compare__empty">
-    <p class="small muted">Add a comparison row, or switch on the promise your rows depend on in Theme settings → Promises.</p>
+    <p class="small muted">{{ 'product.compare3.editor_hidden' | t }}</p>
   </div>
-{%- endif -%}
 {%- endif -%}
 
 {% schema %}
 {
-  "name": "Worth-it comparison",
+  "name": "Comparison",
   "tag": "div",
   "class": "product-compare-section",
+  "enabled_on": { "templates": ["product"] },
+  "max_blocks": 12,
   "settings": [
     {
-      "type": "text",
-      "id": "eyebrow",
-      "label": "Eyebrow",
-      "default": "Where the money goes"
-    },
-    {
-      "type": "text",
-      "id": "heading",
-      "label": "Heading",
-      "default": "What the price pays for"
-    },
-    {
-      "type": "richtext",
-      "id": "intro",
-      "label": "Intro",
-      "default": "<p>Here's what goes into it, and what to ask of any bed you're comparing.</p>"
+      "type": "paragraph",
+      "content": "This bed's column comes from its own metafields and promises, never typed in; a row whose fact is blank is left out. The two other columns describe kinds of bed, not named brands: keep them general and fair. [name] is the bed's short name."
     },
     {
       "type": "select",
       "id": "product_filter",
       "label": "Show on product pages",
       "options": [
-        { "value": "auto", "label": "Only beds the foam guarantee covers" },
-        { "value": "always", "label": "Always" }
+        { "value": "memory_foam", "label": "Memory foam beds (custom.core_type)" },
+        { "value": "guarantee", "label": "Beds the foam guarantee covers" },
+        { "value": "always", "label": "Every product with three or more rows" }
       ],
-      "default": "auto",
-      "info": "Auto shows it only on beds the foam guarantee covers: the description says \"no-flatten guarantee\", or the product is tagged guarantee:yes. Tag guarantee:no to hide it. The same test decides the guarantee line and per-night price."
-    },
-    {
-      "type": "checkbox",
-      "id": "use_product_title",
-      "label": "Use the product's name for our column",
-      "default": false
+      "default": "memory_foam"
     },
     {
       "type": "text",
-      "id": "ours_label",
-      "label": "Our column",
-      "default": "This bed"
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Before you decide"
     },
     {
       "type": "text",
-      "id": "theirs_label",
-      "label": "Right-hand column",
-      "default": "Worth asking of any bed",
-      "info": "Ask questions here rather than stating facts about other beds. Claims about competitors need evidence you can show."
+      "id": "heading",
+      "label": "Heading",
+      "default": "[name] vs the alternatives"
+    },
+    {
+      "type": "richtext",
+      "id": "intro",
+      "label": "Intro"
+    },
+    {
+      "type": "text",
+      "id": "alt_1_label",
+      "label": "Second column",
+      "default": "Fibre-filled bed"
+    },
+    {
+      "type": "text",
+      "id": "alt_2_label",
+      "label": "Third column",
+      "default": "Cot mattress + cover"
     },
     {
       "type": "text",
       "id": "footnote",
-      "label": "Footnote",
-      "default": "Questions worth asking of any bed, ours included."
+      "label": "Footnote"
     },
     {
       "type": "checkbox",
       "id": "show_cta",
-      "label": "Show \"Choose your size\" link on product pages",
+      "label": "Show a button back to the sizes",
       "default": true
     },
     {
       "type": "text",
       "id": "cta_label",
-      "label": "Link label",
+      "label": "Button label",
       "default": "Choose your size"
     },
     {
@@ -318,7 +366,7 @@
       "max": 120,
       "step": 4,
       "unit": "px",
-      "default": 72
+      "default": 64
     },
     {
       "type": "range",
@@ -328,7 +376,7 @@
       "max": 120,
       "step": 4,
       "unit": "px",
-      "default": 72
+      "default": 64
     }
   ],
   "blocks": [
@@ -339,129 +387,47 @@
         {
           "type": "text",
           "id": "label",
-          "label": "Feature",
-          "default": "Filling"
-        },
-        {
-          "type": "text",
-          "id": "ours",
-          "label": "Ours",
-          "default": "A foam core, not loose filling",
-          "info": "Can use [trial_nights], [guarantee_years], [threshold], and [trial_terms_short] or [trial_terms] for the returns wording in Theme settings → Promises."
+          "label": "Row label",
+          "default": "They lie on"
         },
         {
           "type": "select",
-          "id": "ours_icon",
-          "label": "Our mark",
+          "id": "key",
+          "label": "This bed's cell comes from",
           "options": [
-            { "value": "check", "label": "Tick" },
-            { "value": "cross", "label": "Cross" },
-            { "value": "none", "label": "None" }
+            { "value": "core", "label": "Core (custom.core_type)" },
+            { "value": "chin_rest", "label": "Chin rest (custom.shape)" },
+            { "value": "entry", "label": "Getting in (custom.low_entry)" },
+            { "value": "grip", "label": "Grip (custom.non_slip)" },
+            { "value": "accidents", "label": "Accidents (custom.has_liner)" },
+            { "value": "washing", "label": "Washing (custom.cover_type)" },
+            { "value": "trial", "label": "Not right? (the trial)" },
+            { "value": "guarantee", "label": "Foam guarantee" }
           ],
-          "default": "check"
+          "default": "core"
         },
         {
           "type": "text",
-          "id": "theirs",
-          "label": "Right-hand column",
-          "default": "What's inside, and what keeps it from flattening?",
-          "info": "A question to ask of any bed. Don't state facts about other beds you can't evidence."
-        },
-        {
-          "type": "select",
-          "id": "theirs_icon",
-          "label": "Right-hand mark",
-          "options": [
-            { "value": "check", "label": "Tick" },
-            { "value": "cross", "label": "Cross" },
-            { "value": "none", "label": "None" }
-          ],
-          "default": "none"
-        },
-        {
-          "type": "select",
-          "id": "requires",
-          "label": "Only show when this promise is on",
-          "options": [
-            { "value": "none", "label": "Always show" },
-            { "value": "trial", "label": "Sleep trial" },
-            { "value": "free_return", "label": "Free trial returns" },
-            { "value": "guarantee", "label": "Guarantee" },
-            { "value": "free_delivery", "label": "Free delivery" }
-          ],
-          "default": "none",
-          "info": "On a product page, the trial rows also hide on products the trial doesn't cover (Theme settings → Promises → Not covered by the trial)."
+          "id": "alt_1",
+          "label": "Second column",
+          "default": "Polyester fibre that packs down"
         },
         {
           "type": "text",
-          "id": "requires_tag",
-          "label": "Only on products tagged",
-          "info": "Optional. On product pages the row only shows when the product has this tag, e.g. washable dog bed for a washing claim."
+          "id": "alt_2",
+          "label": "Third column",
+          "default": "Foam made for a baby, not a 30kg dog"
         }
       ]
     }
   ],
-  "max_blocks": 10,
   "presets": [
     {
-      "name": "Worth-it comparison",
+      "name": "Comparison",
       "blocks": [
-        {
-          "type": "row",
-          "settings": {
-            "label": "Filling",
-            "ours": "A foam core, not loose filling",
-            "ours_icon": "check",
-            "theirs": "What's inside, and what keeps it from flattening?",
-            "theirs_icon": "none",
-            "requires": "none"
-          }
-        },
-        {
-          "type": "row",
-          "settings": {
-            "label": "Guarantee",
-            "ours": "[guarantee_years] years on the foam",
-            "ours_icon": "check",
-            "theirs": "How many years, and on what?",
-            "theirs_icon": "none",
-            "requires": "guarantee"
-          }
-        },
-        {
-          "type": "row",
-          "settings": {
-            "label": "Trial",
-            "ours": "[trial_nights] nights, slept on",
-            "ours_icon": "check",
-            "theirs": "Can it go back once it's been slept on?",
-            "theirs_icon": "none",
-            "requires": "trial"
-          }
-        },
-        {
-          "type": "row",
-          "settings": {
-            "label": "Returns",
-            "ours": "We collect it, free",
-            "ours_icon": "check",
-            "theirs": "Who pays to send it back?",
-            "theirs_icon": "none",
-            "requires": "free_return"
-          }
-        },
-        {
-          "type": "row",
-          "settings": {
-            "label": "Cleaning",
-            "ours": "The cover comes off to wash",
-            "ours_icon": "check",
-            "theirs": "Does the whole cover come off to wash?",
-            "theirs_icon": "none",
-            "requires": "none",
-            "requires_tag": "washable dog bed"
-          }
-        }
+        { "type": "row" },
+        { "type": "row", "settings": { "label": "Chin rest", "key": "chin_rest", "alt_1": "Usually", "alt_2": "No" } },
+        { "type": "row", "settings": { "label": "Not right?", "key": "trial", "alt_1": "Often 14 to 30 days, you pay postage", "alt_2": "You keep it" } }
       ]
     }
   ]

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Lunova — global.js
+   Lunova - global.js
    Shared runtime on window.Lunova: money, fetch, cart API + events, storage,
    Bed Finder memory and personalisation, focus trap, scroll lock, delivery
    estimate + countdown, per-night reframe, <slider-row>, scroll reveal.
@@ -90,7 +90,7 @@
   };
 
   /* ------------------------------------------------------------------------
-     Money — mirrors Shopify's money formats
+     Money - mirrors Shopify's money formats
      ---------------------------------------------------------------------- */
   function decodeFormat(format) {
     var f = String(format || '').replace(/<[^>]*>/g, '');
@@ -167,7 +167,7 @@
   };
 
   /* ------------------------------------------------------------------------
-     fetchJSON — throws {status, description} on !ok
+     fetchJSON - throws {status, description} on !ok
 
      opts.timeout (ms): abort a request that hasn't finished in time and throw
      {status: 408, timeout: true, description}. The status is non-zero on
@@ -293,7 +293,7 @@
   };
 
   /* ------------------------------------------------------------------------
-     Cart API — serialised so rapid taps can't race each other
+     Cart API - serialised so rapid taps can't race each other
      ---------------------------------------------------------------------- */
   function route(name, fallback) {
     var r = L.routes && L.routes[name];
@@ -606,7 +606,7 @@
   };
 
   /* ------------------------------------------------------------------------
-     Delivery estimate — honest, from the merchant's real settings
+     Delivery estimate - honest, from the merchant's real settings
      All dates are "civil" dates in the store's time zone, represented as
      Date objects at 12:00 UTC so day arithmetic never trips over DST.
      ---------------------------------------------------------------------- */
@@ -769,14 +769,14 @@
         var time = h > 0
           ? fill(str('hoursMinutes', '[hours]h [minutes]m'), { hours: h, minutes: m })
           : fill(str('minutes', '[minutes]m'), { minutes: m });
-        return { template: str('orderWithin', 'Order within [time] for dispatch today — arrives [arrival]'), vars: { time: time, arrival: arrival } };
+        return { template: str('orderWithin', 'Order within [time] for dispatch today, arrives [arrival]'), vars: { time: time, arrival: arrival } };
       }
 
       var day = L.delivery.format(est.dispatchDate, est.dispatchTomorrow ? { weekday: 'short', day: undefined, month: undefined } : undefined);
       var dispatch = est.dispatchTomorrow
         ? fill(str('dispatchTomorrow', 'tomorrow ([day])'), { day: day })
         : fill(str('dispatchOn', 'on [day]'), { day: day });
-      return { template: str('orderNow', 'Order now for dispatch [dispatch] — arrives [arrival]'), vars: { dispatch: dispatch, arrival: arrival } };
+      return { template: str('orderNow', 'Order now for dispatch [dispatch], arrives [arrival]'), vars: { dispatch: dispatch, arrival: arrival } };
     },
 
     /** Fill one [data-countdown] element (or its [data-countdown-text] child) */
@@ -803,7 +803,9 @@
      * Arrival dates for an order placed at `from` (a Date, or "YYYY-MM-DD";
      * default now), in the store's time zone, counting WORKING days only:
      * no Saturdays, Sundays or England & Wales bank holidays (BANK_HOLIDAYS
-     * below, plus any Theme settings → holiday_dates). Dispatch is
+     * below, plus any Theme settings → holiday_dates). An order placed on a
+     * weekend or bank holiday counts as placed on the next working day
+     * (shipping policy s3). Dispatch is
      * dispatchMin..dispatchMax working days after the order day, delivery
      * transitMin..transitMax working days after dispatch. A dispatchMin of 0
      * (same-day) counts only with sameDay true, on a working day before the
@@ -843,9 +845,18 @@
         start = civil(p.y, p.m, p.d);
         afterCutoff = p.h >= cutoff;
       }
+      /* Shipping policy s3: "Orders placed at the weekend or on a bank
+         holiday are processed on the next working day." So an order on a
+         closed day counts as placed on the next working day, and dispatch
+         days are counted from there (a Saturday order dates like Monday's). */
+      var placedOnClosedDay = !isWorkingDay(start);
+      if (placedOnClosedDay) {
+        start = addWorkingDays(start, 0);
+        afterCutoff = true;
+      }
       /* Same-day dispatch is never assumed: only with sameDay, on a working
-         day, before the cut-off. */
-      var sameDayOk = !!opts.sameDay && isWorkingDay(start) && !afterCutoff;
+         day the order was really placed on, before the cut-off. */
+      var sameDayOk = !!opts.sameDay && !placedOnClosedDay && !afterCutoff;
       if (dMin === 0 && !sameDayOk) dMin = 1;
       if (dMax < dMin) dMax = dMin;
 
@@ -985,7 +996,7 @@
   });
 
   /* ------------------------------------------------------------------------
-     Offer — Theme settings → Offer (snippets/offer.liquid renders it; this
+     Offer - Theme settings → Offer (snippets/offer.liquid renders it; this
      keeps it honest while the page is open). Lunova.settings.offer carries
      Liquid's verdict, amount and minimum (pence), the end (endsAt, worked out
      in <head>) and the basket: {applied, subtotal}, kept in step with every
@@ -1092,6 +1103,15 @@
       opts = opts || {};
       var result = 'none';
       qsaSelf('[data-offer-size]', root || doc).forEach(function (el) {
+        /* Printed while no size is chosen yet (audit PDP-09: product page and
+           quick add): a re-check from its own attributes leaves it hidden; the
+           first real size (a price passed in) takes the mark off. */
+        if (price == null && el.hasAttribute('data-offer-pending')) {
+          el.hidden = true;
+          el.setAttribute('data-state', 'none');
+          return;
+        }
+        if (price != null) el.removeAttribute('data-offer-pending');
         var cents = price == null ? Number(el.getAttribute('data-offer-price')) || 0 : Number(price) || 0;
         var available = opts.available == null ? el.getAttribute('data-available') !== 'false' : opts.available !== false;
         el.setAttribute('data-offer-price', String(cents));
@@ -1352,13 +1372,13 @@
   });
 
   /* ------------------------------------------------------------------------
-     Sizes — one parser for every size option value, the same rules and
+     Sizes - one parser for every size option value, the same rules and
      tables as snippets/size-hints.liquid (keep the two in step):
 
      Lunova.sizeParse(value) → {value, label, detail, rank, kind, length}
        "Large · 91 × 69 × 24cm" → label "Large", detail "91 × 69 × 24cm",
        rank 5, kind 'size', length 91. Splits at the first ' · ', ':', ' (',
-       ' / ', ' – ', ' — ' or ' - '. Rank XXS 1 … M 4, L 5, XL 6, XXL 7, 3XL 8;
+       ' / ', ' – ', an em dash or ' - '. Rank XXS 1 … M 4, L 5, XL 6, XXL 7, 3XL 8;
        "Extra Large" ranks as XL; One size / Default Title → rank 0, kind
        'one'; anything else rank -1, kind 'other'. Breed lists in the detail
        come back comma separated.
@@ -1374,7 +1394,7 @@
        the first value that suits it, else the smallest larger one; or null.
      Lunova.sizeMin(want) → the shortest bed (cm) for that dog, or null.
      ---------------------------------------------------------------------- */
-  var SIZE_SEPS = [' · ', ':', ' (', ' / ', ' – ', ' — ', ' - '];
+  var SIZE_SEPS = [' · ', ':', ' (', ' / ', ' – ', ' \u2014 ', ' - '];
   var SIZE_RANKS = {
     xxs: 1, 'xx small': 1, '2xs': 1, 'extra extra small': 1,
     xs: 2, 'x small': 2, xsmall: 2, 'extra small': 2,
@@ -1597,7 +1617,7 @@
   };
 
   /* ------------------------------------------------------------------------
-     <slider-row> — optional prev/next, keyboard, overflow detection
+     <slider-row> - optional prev/next, keyboard, overflow detection
      ---------------------------------------------------------------------- */
   if (!customElements.get('slider-row')) {
     customElements.define(

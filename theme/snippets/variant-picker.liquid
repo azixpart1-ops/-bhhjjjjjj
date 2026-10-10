@@ -1,14 +1,18 @@
 {%- comment -%}
-  Variant picker — big, honest, decision-friendly option buttons.
+  Variant picker, big, honest, decision-friendly option buttons.
 
   Parameters
     product     product object (required)
     section     section object (required; ids are scoped to section.id)
-    variant     the variant to show as selected (required — buy-box works it out:
+    variant     the variant to show as selected (required, buy-box works it out:
                 ?variant= > merchant's "most chosen" > first available)
     block       optional main-product block (variant_picker) for its settings
     compact     true inside the quick-add drawer
     update_url  true → <variant-picker> writes ?variant= to the address bar
+    pending     true → no size chosen yet (audit PDP-09): no size card is
+                checked and the legend says "choose one" until the shopper
+                picks one (or the Bed Finder's stored size is applied by
+                product.js). Other options (colour) keep their selection.
 
   How each option renders
     size-like   (name contains "size", any case) → a size ladder, smallest
@@ -24,7 +28,7 @@
                 A value with nothing after its name uses the size variant's
                 custom.size_hint metafield, and only then (block setting
                 show_size_hints, off by default) the store-wide breed/weight
-                table — never for a value that carries its own detail.
+                table, never for a value that carries its own detail.
     colour-like (colour / color) → swatches from the option value's swatch
                 (colour or image), else text pills.
     anything else → text pills.
@@ -45,6 +49,13 @@
   Finder has a result the finder link becomes "Retake the finder" (product.js
   updateFinderPrompts). The visible row is aria-hidden for its label part; the
   fieldset's legend (visually hidden there) still names the group.
+
+  Size cards (audit PDP-08): under the size's own name and measurements, a
+  second line from that size's variant metafields, each part only when it is
+  filled in (nothing is guessed): custom.sleep_area ("sleeps about 62 × 50cm"),
+  custom.suits_breeds and custom.suits_weight. On a bed whose sleep_style
+  says it suits curlers and not sprawlers, "Best for dogs who sleep curled
+  up" follows the cards.
 
   Without JavaScript the whole picker is hidden (.no-js) and buy-box renders a
   plain <select name="id"> inside the product form instead.
@@ -146,12 +157,18 @@
   endif
   comment
     Only worth marking when some sizes miss the minimum: on a bed where
-    every size qualifies the line under the price says it once.
+    every size qualifies the line under the price says it once. Until a size
+    is chosen (pending, audit PDP-09) that line is hidden, so the sizes carry
+    the mark instead and the offer is never invisible on a qualifying bed.
   endcomment
-  if product.price_min >= offer_min
+  assign vp_marks_needed = false
+  if product.price_min < offer_min or pending
+    assign vp_marks_needed = true
+  endif
+  if vp_marks_needed == false
     assign offer_marks = false
   endif
-  if vp_offer[0] == '1' and show_prices and product.price_min < offer_min
+  if vp_offer[0] == '1' and show_prices and vp_marks_needed
     assign offer_amount_money = vp_offer[1] | default: 0 | plus: 0 | money_without_trailing_zeros
     assign offer_mark_text = 'core.offer.size_mark' | t: amount: offer_amount_money
     assign offer_mark_sr = 'core.offer.size_mark_sr' | t: amount: offer_amount_money
@@ -164,6 +181,21 @@
     20cm is the bed length) worked backwards. Nothing without measurements.
   endcomment
   assign fit_allow = settings.size_fit_allowance | default: 0 | plus: 0
+  comment
+    Without a size's own sleeping area, the outside length only says how
+    long a dog fits on a bed with no walls: custom.shape Mattress, Crate mat
+    or Elevated, and nothing in the title about bolsters, sides or a nest.
+    Any other bed (bolster, nest, corner, or shape unknown) shows no fit line.
+  endcomment
+  assign fit_shape = product.metafields.custom.shape.value | default: '' | append: '' | downcase
+  assign fit_title = product.title | downcase
+  assign fit_walled = true
+  if fit_shape contains 'mattress' or fit_shape contains 'crate' or fit_shape contains 'elevated'
+    assign fit_walled = false
+  endif
+  if fit_title contains 'bolster' or fit_title contains 'nest' or fit_title contains 'sofa' or fit_title contains 'chaise' or fit_title contains 'sided' or fit_title contains 'wall' or fit_title contains 'raised edge' or fit_title contains 'raised-edge'
+    assign fit_walled = true
+  endif
 -%}
 {%- unless product.has_only_default_variant or product == blank -%}
   {%- if settings.finder_enable -%}
@@ -181,8 +213,9 @@
     class="variant-picker{% if compact %} variant-picker--compact{% endif %}"
     data-product-handle="{{ product.handle | escape }}"
     data-section-id="{{ section.id }}"
-    data-current-id="{{ current.id }}"
+    data-current-id="{% unless pending %}{{ current.id }}{% endunless %}"
     data-chip-index="{{ chip_idx }}"
+    {%- if pending %} data-pending{% endif %}
     {%- if update_url %} data-update-url{% endif %}
   >
     {%- for option in product.options_with_values -%}
@@ -196,6 +229,14 @@
           assign kind = 'colour'
         endif
         assign current_value = current.options[idx]
+        comment
+          No size chosen yet: nothing is checked on the size option and the
+          label says so.
+        endcomment
+        assign opt_pending = false
+        if pending and kind == 'size' and option.values.size > 1
+          assign opt_pending = true
+        endif
 
         comment
           The option's display name: "Colour" for color / Color / colour,
@@ -244,6 +285,9 @@
           endif
           if v_raw == current_value
             assign current_display = v_label
+          endif
+          if opt_pending
+            assign current_display = 'product.picker.choose_size' | t
           endif
           assign vals_info = vals_info | append: v_label | append: '~~' | append: v_detail | append: '^^'
           assign v_pos = forloop.index0 | plus: 100
@@ -302,7 +346,7 @@
         <p class="variant-picker__head">
           <span class="variant-picker__head-label" aria-hidden="true">
             <span class="variant-picker__name">{{ opt_name }}</span>
-            <span class="variant-picker__selected" data-selected-value>{{ current_display | escape }}</span>
+            <span class="variant-picker__selected{% if opt_pending %} is-pending{% endif %}" data-selected-value>{{ current_display | escape }}</span>
           </span>
           {%- if show_guide -%}
             <span class="variant-picker__help">
@@ -337,7 +381,7 @@
       >
         <legend class="variant-picker__legend{% if has_help %} visually-hidden{% endif %}">
           <span class="variant-picker__name">{{ opt_name }}</span>
-          <span class="variant-picker__selected" data-selected-value>{{ current_display | escape }}</span>
+          <span class="variant-picker__selected{% if opt_pending %} is-pending{% endif %}" data-selected-value>{{ current_display | escape }}</span>
         </legend>
 
         <div class="{{ values_class }}">
@@ -413,7 +457,7 @@
               value="{{ val | escape }}"
               data-value-input
               data-display="{{ disp | escape }}"
-              {%- if val == current_value %} checked{% endif %}
+              {%- if val == current_value and opt_pending == false %} checked{% endif %}
             >
             {%- case kind -%}
               {%- when 'size' -%}
@@ -468,14 +512,51 @@
                       {%- endif -%}
                     </span>
                     {%- liquid
+                      comment
+                        This size's own facts (variant metafields, PDP-08): the
+                        first variant with this size value that has each one.
+                      endcomment
+                      assign mf_area = ''
+                      assign mf_breeds = ''
+                      assign mf_weight = ''
+                      for v in product.variants
+                        if v.options[idx] == val
+                          if mf_area == ''
+                            assign mf_area = v.metafields.custom.sleep_area.value | default: '' | append: '' | strip
+                          endif
+                          if mf_breeds == ''
+                            assign mf_breeds = v.metafields.custom.suits_breeds.value | default: '' | append: '' | strip
+                          endif
+                          if mf_weight == ''
+                            assign mf_weight = v.metafields.custom.suits_weight.value | default: '' | append: '' | strip
+                          endif
+                        endif
+                      endfor
+
+                      comment
+                        The fit line (fits dogs up to about X cm; the store's rule:
+                        dog plus 20cm) is worked out from the sleeping area when this size has
+                        one, never from an outside size that a rim or bolster
+                        eats into. Without a sleeping area it uses the outside
+                        length only on beds with no walls: a bolster, nest or
+                        corner bed (custom.shape) shows no fit line at all.
+                      endcomment
                       assign fit_cm = 0
-                      if fit_allow > 0 and detail != ''
-                        capture fit_len
-                          render 'size-hints', value: val, mode: 'length'
-                        endcapture
-                        assign fit_len = fit_len | strip | plus: 0
-                        if fit_len > 0
-                          assign fit_cm = fit_len | minus: fit_allow
+                      if fit_allow > 0
+                        assign fit_src = ''
+                        if mf_area != ''
+                          assign fit_src = mf_area
+                        elsif detail != '' and fit_walled == false
+                          assign fit_src = val
+                        endif
+                        if fit_src != ''
+                          capture fit_len
+                            render 'size-hints', value: fit_src, mode: 'length'
+                          endcapture
+                          assign fit_len = fit_len | strip | plus: 0
+                          if fit_len > 0
+                            assign fit_cm = fit_len | minus: fit_allow
+                          endif
                         endif
                       endif
                     -%}
@@ -494,6 +575,30 @@
                         {{- h_breeds -}}
                         {%- if h_breeds != '' and h_weight != '' %} · {% endif -%}
                         <span class="size-option__weight">{{ h_weight }}</span>
+                      </span>
+                    {%- endif -%}
+                    {%- liquid
+                      comment
+                        Breeds already in the value's own text aren't repeated.
+                      endcomment
+                      if mf_breeds != '' and h_own != ''
+                        assign mf_first_breed = mf_breeds | split: ',' | first | strip
+                        if h_own contains mf_first_breed
+                          assign mf_breeds = ''
+                        endif
+                      endif
+                    -%}
+                    {%- if mf_area != '' or mf_breeds != '' or mf_weight != '' -%}
+                      <span class="size-option__facts" data-size-facts>
+                        {%- if mf_area != '' -%}
+                          <span class="size-option__fact size-option__fact--area">{{ 'product.picker.sleeps' | t: area: mf_area }}</span>
+                        {%- endif -%}
+                        {%- if mf_breeds != '' -%}
+                          <span class="size-option__fact">{{ mf_breeds | escape }}</span>
+                        {%- endif -%}
+                        {%- if mf_weight != '' -%}
+                          <span class="size-option__fact">{{ mf_weight | escape }}</span>
+                        {%- endif -%}
                       </span>
                     {%- endif -%}
                   </span>
@@ -571,6 +676,52 @@
           {%- endfor -%}
         </div>
       </fieldset>
+      {%- if kind == 'size' and compact != true -%}
+        {%- liquid
+          comment
+            The curled-up note (PDP-08), only from the bed's own
+            sleep_style: it says curls up and doesn't say stretches out.
+          endcomment
+          assign ss_list = product.metafields.custom.sleep_style.value
+          assign ss_curl = false
+          assign ss_sprawl = false
+          for ss in ss_list
+            assign ss_l = ss | downcase
+            if ss_l contains 'curl'
+              assign ss_curl = true
+            elsif ss_l contains 'stretch'
+              assign ss_sprawl = true
+            endif
+          endfor
+        -%}
+        {%- if ss_curl and ss_sprawl == false -%}
+          {%- liquid
+            comment
+              S05 size cards: "Sprawls flat out? See Ambleside." The bed named in
+              the block's sprawl_product setting, only when its own sleep_style
+              says stretches out and it can be bought.
+            endcomment
+            assign sp_alt = block.settings.sprawl_product
+            assign sp_ok = false
+            if sp_alt != blank and sp_alt.handle != product.handle and sp_alt.available
+              for sp_s in sp_alt.metafields.custom.sleep_style.value
+                assign sp_l = sp_s | downcase
+                if sp_l contains 'stretch'
+                  assign sp_ok = true
+                endif
+              endfor
+            endif
+            if sp_ok
+              assign sp_title = sp_alt.title | split: ' | ' | first | strip
+              assign sp_name = sp_title | remove_first: 'The ' | split: ' ' | first | default: sp_title
+            endif
+          -%}
+          <p class="variant-picker__fit-note">
+            {{- 'product.picker.best_curled' | t -}}
+            {%- if sp_ok %} {{ 'product.picker.sprawl_prompt' | t }} <a href="{{ sp_alt.url }}" class="link">{{ 'product.picker.sprawl_see' | t: name: sp_name }}</a>.{%- endif -%}
+          </p>
+        {%- endif -%}
+      {%- endif -%}
       </div>
     {%- endfor -%}
     <p class="visually-hidden" aria-live="polite" data-variant-status></p>

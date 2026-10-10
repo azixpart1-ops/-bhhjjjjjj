@@ -453,8 +453,50 @@ async function pdpFlow(page) {
   return { detail: `price "${before.slice(0, 24)}" → "${after.slice(0, 24)}" · URL ?variant · button "${btnText.slice(0, 40)}" → drawer has item` };
 }
 
+/**
+ * Audit PDP-09: a product with a size choice opens with no size selected (unless
+ * ?variant= or the Bed Finder chose one). The main button reads "Choose a size",
+ * and tapping it adds nothing: it asks for a size and focuses the sizes. Returns a
+ * note for the flow detail, after a size has been picked.
+ */
+async function chooseSizeFirst(page) {
+  const pending = await page.evaluate(() => !!document.querySelector('variant-picker[data-pending]'));
+  if (!pending) return 'size preselected (one size, ?variant= or finder)';
+  const add = await firstVisible(page, ['product-form [data-add-button]', '[data-add-button]']);
+  if (!add) fail('no Add to basket button');
+  const label = (await add.innerText()).replace(/\s+/g, ' ').trim();
+  if (!/choose a size/i.test(label)) fail(`no size chosen yet but the main button reads "${label.slice(0, 40)}", not "Choose a size"`);
+  const c0 = await cartCount(page);
+  await add.click();
+  const asked = await waitFor(async () => {
+    const msg = page.locator('[data-size-error]').filter({ visible: true }).first();
+    return (await msg.count()) > 0 && /choose a size first/i.test(await msg.innerText());
+  }, 2500);
+  if (!asked) fail('tapping "Choose a size" did not say "Choose a size first"');
+  // The message by the button can end up off screen once the sizes scroll into view, so the
+  // size group itself must say it, inside the viewport (audit PDP-09).
+  const cued = await waitFor(() => page.evaluate(() => {
+    const g = document.querySelector('variant-picker .variant-picker__group.is-size-error');
+    if (!g) return false;
+    const label = [...g.querySelectorAll('[data-selected-value]')].find((el) => el.getClientRects().length && /choose a size first/i.test(el.textContent));
+    if (!label) return false;
+    const r = label.getBoundingClientRect();
+    return r.top >= 0 && r.bottom <= window.innerHeight;
+  }), 2500);
+  if (!cued) fail('after "Choose a size" the size group shows no "Choose a size first" cue on screen');
+  if ((await cartCount(page)) !== c0) fail('tapping "Choose a size" put something in the basket');
+  const focused = await page.evaluate(() => !!document.activeElement && document.activeElement.matches('variant-picker [data-value-input]'));
+  const sizes = page.locator('variant-picker [data-value-label]').filter({ visible: true });
+  if (!(await sizes.count())) fail('no visible size options to choose');
+  await sizes.first().click();
+  if (!(await waitFor(async () => !(await page.evaluate(() => !!document.querySelector('variant-picker[data-pending]'))), 2500))) fail('picking a size did not leave the "choose a size" state');
+  if (await page.evaluate(() => !!document.querySelector('variant-picker .is-size-error'))) fail('the size group still shows the "choose a size first" cue after a size was picked');
+  return `"Choose a size" → asks first, cue on the sizes${focused ? ', sizes focused' : ' (WARN sizes not focused)'} → size picked`;
+}
+
 async function drawerQtyFlow(page) {
   await page.goto(`${new URL(page.url()).origin}/products/${CFG.cartHandle}`, { waitUntil: 'load' });
+  const sizeNote = await chooseSizeFirst(page);
   const add = await firstVisible(page, ['product-form [data-add-button]', '[data-add-button]']);
   if (!add) fail('no Add to basket button');
   await add.click();
@@ -472,7 +514,7 @@ async function drawerQtyFlow(page) {
   if (!(await waitFor(async () => (await cartCount(page)) === 0, 5000))) fail('remove did not empty the basket');
   const linesGone = await waitFor(async () => (await page.locator('cart-drawer [data-line-key]').count()) === 0, 4000);
   if (!linesGone) fail('basket empty but drawer still shows lines');
-  return { detail: `+ → ${c0 + 1}${shown ? ' (input updated)' : ' (WARN input not updated)'} · remove → empty drawer` };
+  return { detail: `${sizeNote} · + → ${c0 + 1}${shown ? ' (input updated)' : ' (WARN input not updated)'} · remove → empty drawer` };
 }
 
 async function quickAddFlow(page) {
@@ -560,10 +602,11 @@ async function menuFlow(page) {
 }
 
 async function stickyFlow(page) {
-  // Rule: the bar shows whenever the main Add button is out of view (below
-  // the fold at first paint, or scrolled up past the top), hides while the
-  // main button is on screen, and never greets a visitor below the fold
-  // with a disabled "Sold out" bar.
+  // Rule (audit PDP-20): the bar appears once the main Add button has scrolled
+  // away up the page, never at first paint (even when the main button starts
+  // below the fold), hides while the main button is on screen and again once
+  // the shopper is back above it, and never greets a visitor with a disabled
+  // "Sold out" bar.
   const origin = new URL(page.url()).origin;
   await page.goto(`${origin}/products/${CFG.stickyHandle}`, { waitUntil: 'load' });
   const bar = page.locator('sticky-atc').first();
@@ -572,18 +615,13 @@ async function stickyFlow(page) {
   const isHidden = () => bar.evaluate((el) => !el.classList.contains('is-visible') && el.inert && el.getAttribute('aria-hidden') === 'true');
   const mainRect = () => page.evaluate(() => { const b = document.querySelector('product-form [data-add-button]'); if (!b) return null; const r = b.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, vh: innerHeight }; });
   const notes = [];
-  // 1. first paint: main Add below the fold → bar visible; in view → bar hidden
+  // 1. first paint: hidden, wherever the main Add button sits
   const r0 = await mainRect();
   if (!r0) fail('no main Add button (product-form [data-add-button])');
   const belowFold = r0.top > r0.vh;
   await sleep(300);
-  if (belowFold) {
-    if (!(await waitFor(isShown, 2000))) fail(`main Add starts below the fold (top ${Math.round(r0.top)} > ${r0.vh}) but the sticky bar is hidden at first paint`);
-    notes.push(`at top (Add at ${Math.round(r0.top)}px): bar shown`);
-  } else {
-    if (!(await waitFor(isHidden, 2000))) fail('main Add is in view at first paint but the sticky bar is showing too');
-    notes.push('at top (Add in view): bar hidden');
-  }
+  if (!(await waitFor(isHidden, 2000))) fail(`the sticky bar shows at first paint (main Add ${belowFold ? `below the fold at ${Math.round(r0.top)}px` : 'in view'}); it should wait until the main button scrolls away`);
+  notes.push(`at top (Add ${belowFold ? `at ${Math.round(r0.top)}px, below the fold` : 'in view'}): bar hidden`);
   // 2. realistic scrolling (wheel steps) until the main Add button is fully in view → bar hides
   await page.mouse.move(195, 400);
   let inView = false;
@@ -603,8 +641,13 @@ async function stickyFlow(page) {
     await page.mouse.wheel(0, 350);
     await sleep(120);
   }
-  if (!(await waitFor(isShown, 3000))) fail('sticky add-to-basket did not reappear after scrolling past the main Add button');
-  notes.push('shows again after scrolling past it');
+  if (!(await waitFor(isShown, 3000))) fail('sticky add-to-basket did not appear after scrolling past the main Add button');
+  const shownText = (await bar.innerText()).replace(/\s+/g, ' ').trim();
+  notes.push(`shows after scrolling past it ("${shownText.slice(0, 48)}")`);
+  // 3b. back to the top, above the main button again → bar goes
+  await page.evaluate(() => scrollTo(0, 0));
+  if (!(await waitFor(isHidden, 2000))) fail('sticky bar stayed up after scrolling back above the main Add button');
+  notes.push('hides again back at the top');
   // 4. jump straight past the button (reload with restored scroll / anchor link)
   await page.goto(`${origin}/products/${CFG.stickyHandle}`, { waitUntil: 'load' });
   await page.evaluate(() => { const b = document.querySelector('product-form [data-add-button]'); scrollTo(0, b.getBoundingClientRect().bottom + scrollY + 1200); });
@@ -655,6 +698,9 @@ function pdpColourFlow(prod) {
       await target.click();
     };
     const notes = [];
+    // Audit PDP-09: with no ?variant= the page opens with no size chosen, and a
+    // colour pick keeps the size open; the variant (and ?variant=) comes with the size.
+    const pending = await page.evaluate(() => !!document.querySelector('variant-picker[data-pending]'));
     // 1. another colour (same size)
     const start = current();
     const colours = [...new Set(prod.variants.map((v) => v.options[cIdx]))];
@@ -662,8 +708,15 @@ function pdpColourFlow(prod) {
     if (!colour) fail(`no second colour with the size "${start.options[sIdx]}"`);
     await choose(cIdx, colour);
     const v1 = variantFor(start.options.map((x, i) => (i === cIdx ? colour : x)));
-    if (!(await waitFor(async () => urlVariant() === v1.id, 3000))) fail(`colour "${colour}" → URL variant ${urlVariant()}, expected ${v1.id} (${v1.title})`);
-    notes.push(`colour → ${colour} (variant ${v1.id})`);
+    if (pending) {
+      await sleep(400);
+      if (urlVariant() != null) fail(`colour "${colour}" with no size chosen → URL variant ${urlVariant()}; the size should stay open`);
+      if (!(await page.evaluate(() => !!document.querySelector('variant-picker[data-pending]')))) fail(`picking colour "${colour}" chose a size for the shopper`);
+      notes.push(`colour → ${colour}, size still open`);
+    } else {
+      if (!(await waitFor(async () => urlVariant() === v1.id, 3000))) fail(`colour "${colour}" → URL variant ${urlVariant()}, expected ${v1.id} (${v1.title})`);
+      notes.push(`colour → ${colour} (variant ${v1.id})`);
+    }
     // 2. a size with a different price, keeping that colour
     const v2 = prod.variants.find((v) => v.options[cIdx] === colour && v.options[sIdx] !== v1.options[sIdx] && v.price !== v1.price && v.available)
       || prod.variants.find((v) => v.options[cIdx] === colour && v.options[sIdx] !== v1.options[sIdx] && v.available);
@@ -672,7 +725,7 @@ function pdpColourFlow(prod) {
     await choose(sIdx, v2.options[sIdx]);
     if (!(await waitFor(async () => urlVariant() === v2.id, 3000))) fail(`size "${v2.options[sIdx]}" → URL variant ${urlVariant()}, expected ${v2.id} (${v2.title})`);
     const after = await price();
-    if (v2.price !== v1.price && !(await waitFor(async () => (await price()).replace(/,/g, '').includes(pounds(v2.price)) || (await price()).includes(String(v2.price / 100)), 3000))) fail(`price shows "${after.slice(0, 40)}", expected £${pounds(v2.price)} for ${v2.title}`);
+    if ((pending || v2.price !== v1.price) && !(await waitFor(async () => (await price()).replace(/,/g, '').includes(pounds(v2.price)) || (await price()).replace(/,/g, '').includes(`£${v2.price / 100}`), 3000))) fail(`price shows "${after.slice(0, 40)}", expected £${pounds(v2.price)} for ${v2.title}`);
     notes.push(`size → ${v2.options[sIdx].slice(0, 24)}: "${before.slice(0, 16)}" → "${(await price()).slice(0, 16)}"`);
     // 3. the basket gets exactly that variant
     const add = await firstVisible(page, ['product-form [data-add-button]', '[data-add-button]', 'button[name="add"]']);
@@ -898,7 +951,8 @@ async function readOffer(page) {
     if (!box) return { state: 'absent', shown: false, line: false, lineText: '' };
     const vis = (el) => !!el && !el.hidden && el.getClientRects().length > 0 && getComputedStyle(el).display !== 'none';
     const text = box.querySelector('[data-offer-size-text]');
-    return { state: box.getAttribute('data-state'), shown: vis(box), line: vis(box), lineText: text ? text.innerText.replace(/\s+/g, ' ').trim() : '' };
+    const note = box.querySelector('[data-offer-note]');
+    return { state: box.getAttribute('data-state'), shown: vis(box), line: vis(box), lineText: text ? text.innerText.replace(/\s+/g, ' ').trim() : '', noteText: vis(note) ? note.innerText.replace(/\s+/g, ' ').trim() : '' };
   });
 }
 
@@ -924,6 +978,8 @@ function offerPdpFlow(P) {
     await page.locator(`[data-product-scope] variant-picker [data-value-label][data-value="${P.above.value.replace(/"/g, '\\"')}"]`).filter({ visible: true }).first().click();
     if (!(await waitFor(async () => { o = await readOffer(page); return o.shown; }, 3000))) fail(`choosing ${P.above.value} (${shortMoney(P.above.price)}) didn't show the offer line (state ${o.state})`);
     if (!/^£15 off this size at checkout, until (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} [A-Z][a-z]{2}$/.test(o.lineText)) fail(`offer line "${o.lineText}" should read "£15 off this size at checkout, until <date>"`);
+    // The discount's significant condition (Theme settings → Offer → Small print) sits right under it.
+    if (!/can't be combined with other discounts/i.test(o.noteText)) fail(`offer line without its small print ("${o.noteText}"): the live discount combines with no other discount`);
     // 3. back under: gone again
     await page.locator(`[data-product-scope] variant-picker [data-value-label][data-value="${P.below.value.replace(/"/g, '\\"')}"]`).filter({ visible: true }).first().click();
     if (!(await waitFor(async () => { o = await readOffer(page); return !o.shown; }, 3000))) fail('switching back under the minimum left the offer line showing');
@@ -1054,9 +1110,30 @@ function deliveryProducts(store) {
 }
 
 /**
+ * The earliest arrival the shipping policy allows for an order placed now, worked out
+ * here independently of the theme: an order on a weekend or England & Wales bank
+ * holiday counts from the next working day (policy s3), then dispatchMin working days
+ * (never same day), then transitMin working days. "Mon 19 Oct".
+ */
+const POLICY_BANK_HOLIDAYS = new Set(['2026-12-25', '2026-12-28', '2027-01-01', '2027-03-26', '2027-03-29', '2027-05-03', '2027-05-31', '2027-08-30', '2027-12-27', '2027-12-28']);
+function policyEarliest(dispatchMin, transitMin, now = new Date()) {
+  const DAY = 86400000;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(now).map((x) => [x.type, x.value]));
+  let t = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), 12);
+  const working = (x) => { const d = new Date(x); const wd = d.getUTCDay(); return wd >= 1 && wd <= 5 && !POLICY_BANK_HOLIDAYS.has(d.toISOString().slice(0, 10)); };
+  const add = (x, n) => { let k = 0; while (k < n) { x += DAY; if (working(x)) k += 1; } return x; };
+  while (!working(t)) t += DAY;
+  t = add(add(t, Math.max(1, dispatchMin)), transitMin);
+  const d = new Date(t);
+  return `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()]} ${d.getUTCDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()]}`;
+}
+
+/**
  * The delivery line under the price: dates filled in by Lunova.delivery.window from the
- * element's data (working days only), "Free standard delivery: arrives Thu 15 Oct to Mon 19 Oct";
- * a partner-warehouse bed without dispatch days shows no dates at all. Never same-day wording.
+ * element's data (working days only), "Free standard delivery: arrives Thu 15 Oct to Mon 19 Oct",
+ * starting no earlier than the policy allows (policyEarliest: weekend and bank-holiday orders
+ * count from the next working day); a partner-warehouse bed without dispatch days shows no
+ * dates at all and promises no delivery time it can't show. Never same-day wording.
  */
 function deliveryFlow(D) {
   return async (page) => {
@@ -1064,6 +1141,8 @@ function deliveryFlow(D) {
     const origin = new URL(page.url()).origin;
     const read = () => page.evaluate(() => [...document.querySelectorAll('[data-product-scope] [data-delivery-estimate]')].filter((el) => el.getClientRects().length).map((el) => ({
       dates: el.getAttribute('data-dates'),
+      dispatchMin: Number(el.getAttribute('data-dispatch-min')),
+      transitMin: Number((el.querySelector('[data-delivery-line="standard"]') || el).getAttribute('data-transit-min')),
       lines: [...el.querySelectorAll('[data-delivery-text]')].map((t) => t.innerText.replace(/\s+/g, ' ').trim()),
     })));
     await page.goto(`${origin}/products/${D.own}`, { waitUntil: 'load' });
@@ -1076,6 +1155,9 @@ function deliveryFlow(D) {
     if (!re.test(std)) fail(`${D.own}: delivery line "${std}" has no working-day arrival dates`);
     if (/Sat|Sun/.test(std)) fail(`${D.own}: an arrival date falls on a weekend: "${std}"`);
     if (/same[- ]day/i.test(est.flatMap((e) => e.lines).join(' '))) fail(`${D.own}: same-day wording in the delivery line`);
+    const want = policyEarliest(est[0].dispatchMin, est[0].transitMin);
+    const got = (std.match(new RegExp(`arrives (${day})`)) || [])[1];
+    if (got !== want) fail(`${D.own}: earliest arrival "${got}" but the shipping policy gives ${want} for an order placed now (dispatch ${est[0].dispatchMin}+, transit ${est[0].transitMin}+ working days; weekend and bank-holiday orders count from the next working day)`);
     let partnerText = 'no partner bed';
     if (D.partner) {
       await page.goto(`${origin}/products/${D.partner}`, { waitUntil: 'load' });
@@ -1084,7 +1166,8 @@ function deliveryFlow(D) {
       else {
         partnerText = p[0].lines.join(' / ');
         if (p[0].dates !== 'false' || /arrives/.test(partnerText)) fail(`${D.partner}: partner warehouse without dispatch days shows dates: "${partnerText}"`);
-        if (!/partner warehouse; delivery time shown at checkout/.test(partnerText)) fail(`${D.partner}: partner line "${partnerText}"`);
+        if (!/partner warehouse\. It takes longer than our own stock, so ask us for the expected date/.test(partnerText)) fail(`${D.partner}: partner line "${partnerText}"`);
+        if (/shown at checkout|shown before you pay/i.test(partnerText)) fail(`${D.partner}: partner line promises a delivery time checkout doesn't show: "${partnerText}"`);
       }
     }
     return { detail: `${D.own}: "${est[0].lines.join(' / ').slice(0, 90)}" · ${D.partner || '-'}: "${partnerText.slice(0, 70)}"` };

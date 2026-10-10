@@ -20,6 +20,10 @@
   exactly the rules the product page uses (Lunova.foamBed and
   Lunova.trialEligible read them when present).
 
+  "sw" on a variant is its custom.suits_weight metafield ("40kg+"), the
+  weight band the product's own data says that size suits; finder.js sizes a
+  one-size bed by it when nothing else says which dog it's for.
+
   Measurements for one-size beds: "dims" from custom.specs ("Dimensions:
   90 × 65cm"), and "descDims", a short stretch of the description around its
   first "×" (or " x ") that finder.js reads "132 × 104 × 20cm" from. Only
@@ -120,13 +124,21 @@
 
   assign img = p.featured_image
   assign rating = p.metafields.reviews.rating.value.rating
-  assign rating_count = p.metafields.reviews.rating_count.value
+  assign rating_count = p.metafields.reviews.rating_count.value | default: 0 | plus: 0
+  comment
+    Stars only with at least 5 reviews behind them, the rule snippets/rating
+    and product-jsonld follow (audit P0-1).
+  endcomment
+  assign fj_rated = false
+  if rating != blank and rating_count >= 5
+    assign fj_rated = true
+  endif
 -%}
 {{- p.handle | json }}:{"id":{{ p.id | json }},"handle":{{ p.handle | json }},"title":{{ p.title | json }},"url":{{ p.url | json }},"type":{{ p.type | default: '' | json }},
 "image":{% if img != blank %}{{ img | image_url: width: 600 | json }}{% else %}null{% endif %},"imageAlt":{{ img.alt | default: p.title | json }},"imageRatio":{% if img != blank and img.aspect_ratio %}{{ img.aspect_ratio | json }}{% else %}1{% endif %},
 "price":{{ p.price | default: 0 | json }},"compare_at_price":{% if p.compare_at_price > 0 %}{{ p.compare_at_price | json }}{% else %}null{% endif %},"available":{{ p.available | json }},
 "tags":{{ p.tags | json }},"options":{{ p.options | json }},
-"rating":{% if rating != blank %}{{ rating | json }}{% else %}null{% endif %},"ratingCount":{% if rating_count != blank %}{{ rating_count | json }}{% else %}null{% endif %},
+"rating":{% if fj_rated %}{{ rating | json }}{% else %}null{% endif %},"ratingCount":{% if fj_rated %}{{ rating_count | json }}{% else %}null{% endif %},
 "blurb":{{ blurb | json }},"dims":{{ dims | json }},"foam":{% if fj_foam == 'true' %}true{% else %}false{% endif %},"trial":{% if fj_trial == 'true' %}true{% else %}false{% endif %},"personalised":{% if fj_pers == 'true' %}true{% else %}false{% endif %},{% if desc_dims != '' %}"descDims":{{ desc_dims | json }},{% endif %}
 "variants":[
 {%- for v in p.variants limit: 60 -%}
@@ -139,6 +151,7 @@
   {%- endif -%}
 {%- endif -%}
 {%- if v.metafields.custom.most_chosen.value == true -%},"mc":true{%- endif -%}
+{%- if v.metafields.custom.suits_weight.value != blank -%},"sw":{{ v.metafields.custom.suits_weight.value | json }}{%- endif -%}
 {%- if v.featured_image != blank -%},"image":{{ v.featured_image | image_url: width: 600 | json }}{%- endif -%}
 }{%- unless forloop.last -%},{%- endunless -%}
 {%- endfor -%}

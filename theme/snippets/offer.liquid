@@ -22,7 +22,8 @@
     'basket'          → "applied|items_subtotal|product_id,product_id|other" for cart (pass cart);
                         other 1 when another discount is in play (see below)
     'pdp'             → the buy box's one line for product + variant (+ cart):
-                        "£15 off this size at checkout, until Sat 31 Oct" for a
+                        "£15 off this size at checkout, until Sat 31 Oct", with
+                        the small print (offer_note) under it, for a
                         size whose price reaches the minimum, nothing for any
                         other size (contract in the mode below)
     'badge'           → the product card's badge for product ('' when none)
@@ -44,6 +45,7 @@
   endif
   assign o_label = settings.offer_label | default: '' | strip | remove: '|'
   assign o_label_lc = o_label | downcase
+  assign o_note = settings.offer_note | default: '' | strip
 
   assign o_active = false
   if settings.offer_enable and o_amount > 0
@@ -253,6 +255,14 @@
               {%- endif -%}
             </span>
           </p>
+          {%- comment -%}
+            The discount's significant conditions (Theme settings → Offer →
+            Small print, e.g. "No code needed. Can't be combined with other
+            discounts."), right under the claim and hidden with it.
+          {%- endcomment -%}
+          {%- if o_note != '' -%}
+            <p class="offer-pdp__sub" data-offer-note>{{ o_note | escape }}</p>
+          {%- endif -%}
         </div>
       {%- endif -%}
     {%- endif -%}
@@ -305,6 +315,7 @@
           {%- if o_label != '' -%}{{ o_label | escape }}: {% endif -%}
           {{- 'core.offer.bar_sub' | t: amount: o_amount_money, min: o_min_money -}}
           {%- if o_end > 0 %} · <span class="offer-ends" data-offer-ends>{{ 'core.offer.ends' | t: date: o_end_label }}</span>{%- endif -%}
+          {%- if o_note != '' %}. {{ o_note | escape }}{%- endif -%}
         </p>
       </div>
     {%- endif -%}

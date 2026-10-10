@@ -1,0 +1,150 @@
+{%- comment -%}
+  "Why <bed>" bullets (audit PDP-15, S05): every line must be true of the bed
+  it sits on, so they are built from that bed's own data only.
+
+  1. custom.benefits when filled in (one per line, or a list), as written.
+  2. Otherwise, derived from the bed's metafields, each only when set
+     (snippets/product-fact; blank means unknown and the line is left out):
+       low_entry (+ entry_height_cm)   "Low front, so stiff legs step in without a climb"
+       core_type (+ foam_depth)        "Memory foam core" / "Profiled egg-crate foam, not loose fibre" …
+       shape                           "A raised edge to rest a chin on" (bolster & sofa) …
+       has_liner                       "Waterproof liner, so accidents stop before the foam"
+       cover_type (+ wash_temp)        "Cover comes off and washes at 30°C" / "Coated cover wipes clean"
+                                       ("Zip-off fabric" is any removable cover, so it never says "zip")
+       non_slip                        "Non-slip base for wood and tile floors"
+     At most five, in that order.
+  Prints <li> items only (the caller wraps them); nothing when there are none.
+  Every piece is escaped where it is collected (translations by | t, facts by
+  product-fact, custom.benefits here), so the items print as they are.
+
+  Parameters: product
+{%- endcomment -%}
+{%- if product != blank -%}
+  {%- liquid
+    assign bl_out = ''
+    assign bl_mf = product.metafields.custom.benefits
+    if bl_mf != blank and bl_mf.value != blank
+      if bl_mf.type contains 'list.'
+        assign bl_lines = bl_mf.value
+      else
+        assign bl_lines = bl_mf.value | newline_to_br | replace: '<br />', '<<>>' | replace: '<br>', '<<>>' | split: '<<>>'
+      endif
+      for bl_l in bl_lines
+        assign bl_t = bl_l | strip | escape
+        if bl_t != ''
+          assign bl_out = bl_out | append: bl_t | append: '^^'
+        endif
+      endfor
+    endif
+
+    if bl_out == ''
+      capture bl_low
+        render 'product-fact', product: product, key: 'low_entry'
+      endcapture
+      capture bl_height
+        render 'product-fact', product: product, key: 'entry_height'
+      endcapture
+      capture bl_core
+        render 'product-fact', product: product, key: 'core_type'
+      endcapture
+      capture bl_depth
+        render 'product-fact', product: product, key: 'foam_depth'
+      endcapture
+      capture bl_shape
+        render 'product-fact', product: product, key: 'shape'
+      endcapture
+      capture bl_liner
+        render 'product-fact', product: product, key: 'liner'
+      endcapture
+      capture bl_cover
+        render 'product-fact', product: product, key: 'cover_type'
+      endcapture
+      capture bl_wash
+        render 'product-fact', product: product, key: 'wash_temp'
+      endcapture
+      capture bl_slip
+        render 'product-fact', product: product, key: 'non_slip'
+      endcapture
+      assign bl_core_lc = bl_core | downcase
+      assign bl_shape_lc = bl_shape | downcase
+      assign bl_cover_lc = bl_cover | downcase
+
+      if bl_low == 'true'
+        if bl_height != ''
+          assign bl_t = 'product.bullets.low_entry_height' | t: cm: bl_height
+        else
+          assign bl_t = 'product.bullets.low_entry' | t
+        endif
+        assign bl_out = bl_out | append: bl_t | append: '^^'
+      endif
+
+      assign bl_t = ''
+      if bl_core_lc contains 'crumb'
+        assign bl_t = 'product.bullets.core_crumb' | t
+      elsif bl_core_lc contains 'memory foam'
+        assign bl_t = 'product.bullets.core_memory' | t
+      elsif bl_core_lc contains 'egg'
+        assign bl_t = 'product.bullets.core_egg' | t
+      elsif bl_core_lc contains 'fibre'
+        assign bl_t = 'product.bullets.core_fibre' | t
+      elsif bl_core_lc contains 'mesh'
+        assign bl_t = 'product.bullets.core_mesh' | t
+      endif
+      if bl_t != ''
+        if bl_depth != '' and bl_core_lc contains 'foam'
+          assign bl_t = bl_t | append: ' (' | append: bl_depth | append: ')'
+        endif
+        assign bl_out = bl_out | append: bl_t | append: '^^'
+      endif
+
+      assign bl_t = ''
+      if bl_shape_lc contains 'bolster'
+        assign bl_t = 'product.bullets.shape_bolster' | t
+      elsif bl_shape_lc == 'nest'
+        assign bl_t = 'product.bullets.shape_nest' | t
+      elsif bl_shape_lc == 'mattress'
+        assign bl_t = 'product.bullets.shape_mattress' | t
+      elsif bl_shape_lc == 'elevated'
+        assign bl_t = 'product.bullets.shape_elevated' | t
+      endif
+      if bl_t != ''
+        assign bl_out = bl_out | append: bl_t | append: '^^'
+      endif
+
+      if bl_liner == 'true'
+        if bl_core_lc contains 'foam'
+          assign bl_t = 'product.bullets.liner_foam' | t
+        else
+          assign bl_t = 'product.bullets.liner' | t
+        endif
+        assign bl_out = bl_out | append: bl_t | append: '^^'
+      endif
+
+      assign bl_t = ''
+      if bl_cover_lc contains 'zip'
+        if bl_wash != ''
+          assign bl_t = 'product.bullets.cover_wash' | t: temp: bl_wash
+        else
+          assign bl_t = 'product.bullets.cover_zip' | t
+        endif
+      elsif bl_cover_lc contains 'coated'
+        assign bl_t = 'product.bullets.cover_coated' | t
+      endif
+      if bl_t != ''
+        assign bl_out = bl_out | append: bl_t | append: '^^'
+      endif
+
+      if bl_slip == 'true'
+        assign bl_t = 'product.bullets.non_slip' | t
+        assign bl_out = bl_out | append: bl_t | append: '^^'
+      endif
+    endif
+    assign bl_list = bl_out | split: '^^'
+  -%}
+  {%- for bl_item in bl_list limit: 5 -%}
+    <li class="benefits__item">
+      {%- render 'icon', name: 'check', class: 'benefits__icon' -%}
+      <span>{{ bl_item }}</span>
+    </li>
+  {%- endfor -%}
+{%- endif -%}

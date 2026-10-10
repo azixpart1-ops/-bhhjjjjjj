@@ -1,5 +1,5 @@
 /*
- * Lunova — search.js (chrome area)
+ * Lunova - search.js (chrome area)
  *
  *   <search-modal>       the header's search panel (native <dialog>)
  *   <predictive-search>  ARIA 1.2 combobox: debounced Section Rendering

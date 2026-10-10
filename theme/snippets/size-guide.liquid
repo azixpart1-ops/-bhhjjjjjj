@@ -1,5 +1,5 @@
 {%- comment -%}
-  Size guide — a native <dialog> (bottom sheet on phones) built from THIS
+  Size guide, a native <dialog> (bottom sheet on phones) built from THIS
   product's size option values, in size order (XS → 3XL), so it always
   lines up with the sizes actually on sale.
 
@@ -22,11 +22,16 @@
     product   required
     section   required (ids are scoped to section.id)
     variant   the selected variant (marks its row "Selected")
-    block     optional main-product size_guide block — its heading / measuring
+    block     optional main-product size_guide block, its heading / measuring
               tip override the defaults
     compact   true inside the quick-add drawer
     hints     true → fill breeds/weights from Theme settings → Sizing for
               values with no detail of their own (default false)
+    pending   true → no size chosen yet: no row is marked selected
+
+  Under the measuring steps, the two rules from audit PDP-19: "Between two
+  sizes? Size up." (in the measuring text) and "Sleeps curled up? Measure
+  them curled, and choose a nest or oval bed." 
 {%- endcomment -%}
 {%- if product != blank and product.id != blank -%}
   {%- liquid
@@ -70,7 +75,7 @@
       endif
     endif
     assign current_size = ''
-    if size_idx >= 0
+    if size_idx >= 0 and pending != true
       assign current_size = current.options[size_idx]
     endif
 
@@ -90,6 +95,19 @@
     assign all_ranked = true
     assign has_dims = false
     assign has_fit = false
+    comment
+      A bed with walls (bolster, nest, corner, or shape unknown) gets no
+      fit from its outside size: see snippets/variant-picker.
+    endcomment
+    assign sg_shape = product.metafields.custom.shape.value | default: '' | append: '' | downcase
+    assign sg_title = product.title | downcase
+    assign sg_walled = true
+    if sg_shape contains 'mattress' or sg_shape contains 'crate' or sg_shape contains 'elevated'
+      assign sg_walled = false
+    endif
+    if sg_title contains 'bolster' or sg_title contains 'nest' or sg_title contains 'sofa' or sg_title contains 'chaise' or sg_title contains 'sided' or sg_title contains 'wall' or sg_title contains 'raised edge' or sg_title contains 'raised-edge'
+      assign sg_walled = true
+    endif
     assign has_suits = false
     assign has_weight = false
     if size_idx >= 0
@@ -147,14 +165,30 @@
           assign s_weight = s_weight | strip
         endif
         comment
-          Fits dogs up to: the bed length less the measuring rule's
-          allowance (Theme settings → Sizing), for sizes with measurements.
+          Fits dogs up to: the length they lie on less the measuring rule's
+          allowance (Theme settings → Sizing). The length is this size's own
+          sleeping area (custom.sleep_area) when a variant has one; else the
+          outside length, only on a bed with no walls (sg_walled, the same
+          rule as the size cards in snippets/variant-picker).
         endcomment
         assign s_fit = ''
         assign sg_allow = settings.size_fit_allowance | default: 0 | plus: 0
-        if s_dims != '' and sg_allow > 0
+        assign sg_src = ''
+        for v in product.variants
+          if v.options[size_idx] == val
+            assign sg_area = v.metafields.custom.sleep_area.value | default: '' | append: '' | strip
+            if sg_area != ''
+              assign sg_src = sg_area
+              break
+            endif
+          endif
+        endfor
+        if sg_src == '' and s_dims != '' and sg_walled == false
+          assign sg_src = val
+        endif
+        if sg_src != '' and sg_allow > 0
           capture sg_len
-            render 'size-hints', value: val, mode: 'length'
+            render 'size-hints', value: sg_src, mode: 'length'
           endcapture
           assign sg_len = sg_len | strip | plus: 0
           if sg_len > 0
@@ -265,16 +299,16 @@
                   <span class="size-guide__value">{{ s_label | escape }}</span>
                 </th>
                 {%- if has_dims -%}
-                  <td role="cell" class="size-guide__dims" data-label="{{ 'product.size_guide.col_dims' | t }}">{{ s_dims | default: '—' | escape }}</td>
+                  <td role="cell" class="size-guide__dims" data-label="{{ 'product.size_guide.col_dims' | t }}">{{ s_dims | default: '–' | escape }}</td>
                 {%- endif -%}
                 {%- if has_fit -%}
-                  <td role="cell" class="size-guide__fit" data-label="{{ 'product.size_guide.fit_heading' | t }}">{{ s_fit | default: '—' | escape }}</td>
+                  <td role="cell" class="size-guide__fit" data-label="{{ 'product.size_guide.fit_heading' | t }}">{{ s_fit | default: '–' | escape }}</td>
                 {%- endif -%}
                 {%- if has_suits -%}
-                  <td role="cell" class="size-guide__breeds" data-label="{{ 'product.size_guide.col_breeds' | t }}">{{ s_suits | default: '—' | escape }}</td>
+                  <td role="cell" class="size-guide__breeds" data-label="{{ 'product.size_guide.col_breeds' | t }}">{{ s_suits | default: '–' | escape }}</td>
                 {%- endif -%}
                 {%- if has_weight -%}
-                  <td role="cell" class="size-guide__weight" data-label="{{ 'product.size_guide.col_weight' | t }}">{{ s_weight | default: '—' | escape }}</td>
+                  <td role="cell" class="size-guide__weight" data-label="{{ 'product.size_guide.col_weight' | t }}">{{ s_weight | default: '–' | escape }}</td>
                 {%- endif -%}
                 {%- if show_price -%}
                   <td role="cell" class="size-guide__price" data-label="{{ 'product.size_guide.col_price' | t }}">
@@ -321,6 +355,7 @@
         <div class="size-guide__measure-copy">
           <h3 class="h4 size-guide__measure-heading">{{ 'product.size_guide.measure_heading' | t }}</h3>
           <div class="rte size-guide__measure-text">{{ measure_html }}</div>
+          <p class="size-guide__curled">{{ 'product.size_guide.curled_tip' | t }}</p>
         </div>
       </div>
 

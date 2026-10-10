@@ -1,0 +1,58 @@
+{%- comment -%}
+  Phone back link above the gallery (audit PDP-01): one "‹ Orthopaedic Dog
+  Beds" link in place of the four-level breadcrumb (which stays on larger
+  screens, sections/product-breadcrumbs).
+
+  Where it goes, in order:
+    1. the collection in the URL (/collections/x/products/y);
+    2. the bed's main collection (snippets/product-parent-handle);
+    3. the Dog Beds hub, for a dog bed.
+  product.js then swaps in the collection page the shopper actually came
+  from (document.referrer on this shop, filters and sort kept), when it is
+  one of this product's own collections (their titles are in the JSON below).
+  The SEO trail and its BreadcrumbList are unchanged.
+
+  Parameters: product, collection (the URL's collection, when there is one)
+{%- endcomment -%}
+{%- liquid
+  assign bk = nil
+  if collection != blank and collection.url != blank and collection.handle != 'all' and collection.handle != 'frontpage'
+    assign bk = collection
+  endif
+  if bk == nil
+    capture bk_handle
+      render 'product-parent-handle', product: product
+    endcapture
+    assign bk_handle = bk_handle | strip
+    if bk_handle != '' and collections[bk_handle].url != blank
+      assign bk = collections[bk_handle]
+    endif
+  endif
+  if bk == nil
+    assign bk_type = product.type | default: '' | downcase
+    if bk_type contains 'dog beds' and collections['dog-beds'].url != blank
+      assign bk = collections['dog-beds']
+    endif
+  endif
+-%}
+{%- if bk != nil -%}
+  {%- assign bk_title = bk.title | split: ' | ' | first | strip -%}
+  <nav class="pdp-back" aria-label="{{ 'product.back.label' | t }}" data-pdp-back>
+    <a class="pdp-back__link" href="{{ bk.url }}" data-pdp-back-link>
+      {%- render 'icon', name: 'chevron-left', class: 'pdp-back__icon' -%}
+      <span class="visually-hidden">{{ 'product.back.prefix' | t }} </span>
+      <span data-pdp-back-title>{{ bk_title | escape }}</span>
+    </a>
+    {%- assign bk_sep = '' -%}
+    <script type="application/json" data-pdp-back-collections>
+      {
+        {%- for c in product.collections -%}
+          {%- unless c.handle == 'all' or c.handle == 'frontpage' -%}
+            {{- bk_sep }}{{ c.handle | json }}: {{ c.title | split: ' | ' | first | strip | json -}}
+            {%- assign bk_sep = ',' -%}
+          {%- endunless -%}
+        {%- endfor -%}
+      }
+    </script>
+  </nav>
+{%- endif -%}

@@ -1,0 +1,56 @@
+{%- comment -%}
+  What the FAQ (sections/faq) needs to know about the bed on a product page,
+  from its own data, as "F|D|lead":
+    F     1 when it has a foam core (custom.core_type contains "foam") and is
+          not a car seat, steps or kennel (custom.shape): the "will it help a
+          stiff dog?" answer talks about a supportive surface
+    D     1 when the page shows this bed's delivery dates (snippets/product-fact
+          dated); 0 for a partner-warehouse or made-to-order bed without
+          dispatch days
+    lead  with D 0, why it takes longer: "Made to order, so it takes a
+          little longer to dispatch." and/or "This bed ships from our partner
+          warehouse, tracked, and takes longer than our own stock."
+  Parameters: product
+{%- endcomment -%}
+{%- liquid
+  assign fg_core = product.metafields.custom.core_type.value | default: '' | append: '' | downcase
+  assign fg_shape = product.metafields.custom.shape.value | default: '' | append: '' | downcase
+  assign fg_foam = 0
+  if fg_core contains 'foam'
+    assign fg_foam = 1
+  endif
+  if fg_shape contains 'car seat' or fg_shape contains 'steps' or fg_shape contains 'kennel'
+    assign fg_foam = 0
+  endif
+  capture fg_dated
+    render 'product-fact', product: product, key: 'dated'
+  endcapture
+  assign fg_d = 1
+  assign fg_lead = ''
+  if fg_dated != 'true'
+    assign fg_d = 0
+    capture fg_mto
+      render 'product-fact', product: product, key: 'made_to_order'
+    endcapture
+    if fg_mto == 'true'
+      capture fg_days
+        render 'product-fact', product: product, key: 'lead_days'
+      endcapture
+      if fg_days != ''
+        assign fg_lead = 'product.made.lead' | t: days: fg_days
+      else
+        assign fg_lead = 'product.made.generic' | t
+      endif
+      assign fg_lead = fg_lead | append: '.'
+    endif
+    capture fg_partner
+      render 'product-fact', product: product, key: 'partner'
+    endcapture
+    if fg_partner == 'true'
+      assign fg_pl = 'product.trust_row.delivery_partner_short' | t
+      assign fg_lead = fg_lead | append: ' ' | append: fg_pl | strip
+    endif
+  endif
+  assign fg_lead = fg_lead | remove: '|'
+  echo fg_foam | append: '|' | append: fg_d | append: '|' | append: fg_lead
+-%}

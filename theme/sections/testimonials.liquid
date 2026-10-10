@@ -13,6 +13,12 @@
   before anything is published.
 
   Phones: swipeable row. Desktop: grid.
+
+  Until real quotes or a real rating are live, the section shows the honest
+  new-brand line instead (audit P0-1, "in their place on the homepage"):
+  "We're a young UK brand, so there's no wall of reviews yet. That's why our
+  beds come with 100 nights at home, and free collection if one isn't right."
+  It needs the trial and free collection on, since it names both.
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
@@ -37,7 +43,22 @@
   if request.design_mode and quote_count > 0
     assign show_quotes = true
   endif
+
+  assign new_brand = ''
+  assign nb_nights = settings.trial_nights | default: 0 | plus: 0
+  if quotes_live == false and rating_ok == false and settings.trial_enable and settings.trial_free_collection and nb_nights > 0
+    assign new_brand = s.new_brand_line | default: '' | strip | escape | replace: '[nights]', nb_nights
+  endif
 -%}
+{%- if new_brand != '' and request.design_mode == false -%}
+{%- unless template.name == 'index' -%}{{ 'sections.css' | asset_url | stylesheet_tag }}{%- endunless -%}
+{%- render 'section-styles', section: section -%}
+<section class="section testimonials testimonials--new-brand scheme-{{ s.color_scheme }}" id="{{ section.id }}-wrap">
+  <div class="page-width">
+    <p class="testimonials__new-brand">{{ new_brand }}</p>
+  </div>
+</section>
+{%- endif -%}
 {%- if quotes_live or rating_ok or request.design_mode -%}
 {%- unless template.name == 'index' -%}{{ 'sections.css' | asset_url | stylesheet_tag }}{%- endunless -%}
 {%- render 'section-styles', section: section -%}
@@ -160,6 +181,13 @@
       "label": "These are real customers' words",
       "default": false,
       "info": "Quotes only appear on your live store once this is ticked. Until then they show in the editor only."
+    },
+    {
+      "type": "text",
+      "id": "new_brand_line",
+      "label": "Line shown until reviews are live",
+      "default": "We're a young UK brand, so there's no wall of reviews yet. That's why our beds come with [nights] nights at home, and free collection if one isn't right.",
+      "info": "Shows in place of the quotes while none are confirmed and there is no store rating. [nights] is the trial length. Needs the trial and free collection on. Leave blank to show nothing."
     },
     {
       "type": "select",

@@ -1,5 +1,5 @@
 {%- comment -%}
-  Quick add — product body. Never placed on a page: it is requested through
+  Quick add: product body. Never placed on a page: it is requested through
   the Section Rendering API by the quick add drawer,
     /products/<handle>?section_id=quick-add-product
   so `product` is the product at that URL. cart.js takes the
@@ -117,14 +117,41 @@
         image and title: the column beside a 96px image is too narrow for
         its small print.
       {%- endcomment -%}
+      {%- liquid
+        comment
+          Same rule as the product page (audit PDP-09): with sizes to choose
+          and no ?variant= naming one, the quick add opens with no size
+          chosen. Passed as pending to the buy box (compact mode included).
+        endcomment
+        assign qa_pending = false
+        for qa_opt in product.options_with_values
+          assign qa_oname = qa_opt.name | downcase
+          if qa_oname contains 'size'
+            if qa_opt.values.size > 1 and product.selected_variant == blank
+              assign qa_pending = true
+            endif
+            break
+          endif
+        endfor
+      -%}
       {%- capture qa_vid -%}{%- render 'buy-box', product: product, section: section, part: 'variant_id' -%}{%- endcapture -%}
       {%- assign qa_vid = qa_vid | strip | plus: 0 -%}
       {%- assign qa_offer_v = product.variants | where: 'id', qa_vid | first | default: qa_variant -%}
-      {%- render 'offer', mode: 'pdp', product: product, variant: qa_offer_v, cart: cart, class: 'quick-add-product__offer' -%}
+      {%- capture qa_offer_html -%}
+        {%- render 'offer', mode: 'pdp', product: product, variant: qa_offer_v, cart: cart, class: 'quick-add-product__offer' -%}
+      {%- endcapture -%}
+      {%- comment -%}
+        No size chosen yet (qa_pending, above): the line waits for a
+        qualifying size, as on the product page; the size cards carry the mark.
+      {%- endcomment -%}
+      {%- if qa_pending -%}
+        {%- assign qa_offer_html = qa_offer_html | replace: 'data-state="none"', 'data-state="none" data-offer-pending' | replace: 'data-state="line"', 'data-state="none" data-offer-pending hidden' -%}
+      {%- endif -%}
+      {{- qa_offer_html -}}
     </div>
 
     <div class="quick-add-product__buy">
-      {%- render 'buy-box', product: product, section: section, compact: true -%}
+      {%- render 'buy-box', product: product, section: section, compact: true, pending: qa_pending -%}
     </div>
   {%- endif -%}
 </div>

@@ -1,0 +1,100 @@
+{%- comment -%}
+  "Also suits dogs who curl up: Skelwith, Borrowdale, Elterwater" (audit
+  PDP-23, under "Complete their bed"). Up to three other dog beds from this
+  bed's parent collection (snippets/product-parent-handle, else Dog Beds,
+  else all) whose own custom.sleep_style shares this bed's first sleep style,
+  in stock. Nothing shows without a sleep style or without two such beds,
+  so every name it lists comes from those beds' own data.
+
+  Parameters
+    product   the bed on this page
+{%- endcomment -%}
+{%- liquid
+  assign as_styles = product.metafields.custom.sleep_style.value
+  assign as_style = ''
+  if as_styles != blank
+    assign as_style = as_styles | first | default: '' | append: '' | strip
+  endif
+  assign as_type = product.type | default: '' | downcase
+  assign as_key = ''
+  assign as_style_lc = as_style | downcase
+  if as_style_lc contains 'curl'
+    assign as_key = 'curl'
+  elsif as_style_lc contains 'stretch'
+    assign as_key = 'stretch'
+  elsif as_style_lc contains 'edge' or as_style_lc contains 'head'
+    assign as_key = 'edge'
+  endif
+  unless as_type contains 'dog beds'
+    assign as_key = ''
+  endunless
+-%}
+{%- if as_key != '' -%}
+  {%- liquid
+    capture as_parent
+      render 'product-parent-handle', product: product
+    endcapture
+    assign as_parent = as_parent | strip
+    assign as_coll = nil
+    if as_parent != ''
+      assign as_coll = collections[as_parent]
+    endif
+    if as_coll == blank or as_coll.products_count < 2
+      assign as_coll = collections['dog-beds']
+    endif
+    if as_coll == blank or as_coll.products_count < 2
+      assign as_coll = collections.all
+    endif
+    assign as_own = product.title | split: ' | ' | first | strip | remove_first: 'The ' | split: ' ' | first
+    assign as_own_lc = as_own | downcase
+    assign as_links = ''
+    assign as_count = 0
+    for as_p in as_coll.products
+      if as_count >= 3
+        break
+      endif
+      if as_p.id == product.id or as_p.available == false
+        continue
+      endif
+      assign as_p_type = as_p.type | default: '' | downcase
+      unless as_p_type contains 'dog beds'
+        continue
+      endunless
+      assign as_match = false
+      for as_s in as_p.metafields.custom.sleep_style.value
+        assign as_s_lc = as_s | downcase
+        if as_s_lc == as_style_lc
+          assign as_match = true
+          break
+        endif
+      endfor
+      if as_match
+        assign as_title = as_p.title | split: ' | ' | first | strip
+        assign as_name = as_title | remove_first: 'The ' | split: ' ' | first | default: as_title
+        assign as_name_lc = as_name | downcase
+        if as_name_lc == 'orthopaedic' or as_name_lc == 'dog' or as_name_lc == 'memory' or as_name_lc == 'personalised' or as_name_lc == 'luxury'
+          assign as_name = as_title
+        endif
+        comment
+          Two beds can share a first name (Crummock): then the full title.
+        endcomment
+        if as_name_lc == as_own_lc
+          assign as_name = as_title
+        endif
+        if as_links != ''
+          assign as_links = as_links | append: ', '
+        endif
+        assign as_name_esc = as_name | escape
+        assign as_links = as_links | append: '<a href="' | append: as_p.url | append: '">' | append: as_name_esc | append: '</a>'
+        assign as_count = as_count | plus: 1
+      endif
+    endfor
+    assign as_k = 'product.also.' | append: as_key
+  -%}
+  {%- if as_count >= 2 -%}
+    <p class="pdp-also">
+      <span class="pdp-also__label">{{ as_k | t }}</span>
+      {{ as_links }}
+    </p>
+  {%- endif -%}
+{%- endif -%}

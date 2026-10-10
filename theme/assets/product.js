@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Lunova — product.js
+   Lunova, product.js
    Product page + quick-add behaviour. Vanilla ES2019, no dependencies.
 
    Custom elements
@@ -14,6 +14,13 @@
                                 deferred video + 3D, follows the variant
      <product-recommendations>  lazy Section Rendering fetch
      <recently-viewed>          localStorage list → cards from /products/x.js
+
+   October 2026 audit (PDP-09): with no size pre-selected the scope starts
+   "pending" (scope.__lunovaPending): the price reads "From", the Add button
+   and the sticky bar say "Choose a size" and take the shopper to the sizes,
+   and nothing is added until a size is picked (or the Bed Finder's stored
+   size is applied). Also here: the trust row's bottom sheets, the
+   collapsed description and the phone back link (snippets/pdp-*).
 
    Everything for one product lives in a "scope": the main-product section
    ([data-product-scope]) or the quick-add drawer body ([data-quick-add-product]).
@@ -71,7 +78,9 @@
 
   function money(cents) {
     if (typeof L.money === 'function') return L.money(cents);
-    return '£' + (Number(cents || 0) / 100).toFixed(2);
+    /* Without global.js: whole pounds, pence only when there are some (£149, £4.99). */
+    var n = Math.round(Number(cents || 0));
+    return '£' + (n % 100 ? (n / 100).toFixed(2) : String(n / 100));
   }
 
   function moneyShort(cents) {
@@ -167,6 +176,58 @@
       if (sameOptions(list[i].options, options)) return list[i];
     }
     return null;
+  }
+
+  /** The best variant matching every chosen (non-null) option, available
+      ones first: what a value would lead to while the size is still open. */
+  function matchChosen(data, options) {
+    var best = null;
+    (data.variants || []).forEach(function (v) {
+      for (var i = 0; i < options.length; i += 1) {
+        if (options[i] != null && v.options[i] !== options[i]) return;
+      }
+      if (!best || (v.available && !best.available)) best = v;
+    });
+    return best;
+  }
+
+  function isPending(scope) {
+    if (!scope) return false;
+    // Before <variant-picker> has upgraded, the server's flag says it.
+    if (scope.__lunovaPending === undefined) return !!scope.querySelector('variant-picker[data-pending]');
+    return !!scope.__lunovaPending;
+  }
+
+  /** "Choose a size first" next to the button, the sizes scrolled into view
+      and the first size focused, so the next tap picks one. */
+  function promptForSize(scope, data) {
+    if (!scope) return;
+    var s = (data && data.strings) || {};
+    qsa('[data-size-error]', scope).forEach(function (el) {
+      el.textContent = s.chooseSizeFirst || '';
+      el.hidden = false;
+    });
+    var fs = data && data.sizeIndex >= 0 ? scope.querySelector('variant-picker fieldset[data-option-index="' + data.sizeIndex + '"]') : null;
+    fs = fs || scope.querySelector('variant-picker fieldset');
+    if (!fs) return;
+    var group = fs.closest('.variant-picker__group') || fs;
+    /* The message beside the button can be off screen once the sizes are
+       scrolled into view, so the size group says it too: its "choose one"
+       label reads "Choose a size first" and the sizes are outlined
+       (product.css .is-size-error) until a size is picked. */
+    group.classList.add('is-size-error');
+    if (s.chooseSizeFirst) {
+      qsa('[data-selected-value].is-pending', group).forEach(function (label) {
+        label.textContent = s.chooseSizeFirst;
+      });
+    }
+    try {
+      group.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    } catch (e) {
+      group.scrollIntoView();
+    }
+    var first = fs.querySelector('[data-value-input]');
+    focusEl(first);
   }
 
   /** The best variant with option[idx] = value: most options in common with
@@ -323,7 +384,9 @@
       var priceInButton = pf.getAttribute('data-price-in-button') !== 'false';
       var text;
       var disabled = false;
-      if (!v) {
+      if (!v && isPending(scope)) {
+        text = s.chooseSize || s.add;
+      } else if (!v) {
         text = s.unavailable;
         disabled = true;
       } else if (!v.available) {
@@ -425,20 +488,6 @@
     });
   }
 
-  function updateDeliveryOptions(scope, v) {
-    if (!v) return;
-    var strs = L.strings || {};
-    qsa('[data-delivery-options]', scope).forEach(function (el) {
-      var std = el.querySelector('[data-delivery-standard]');
-      if (!std) return;
-      var threshold = parseInt(el.getAttribute('data-threshold'), 10) || 0;
-      var below = threshold > 0 && v.price * quantityIn(scope) < threshold;
-      std.textContent = below
-        ? fill(decode(strs.deliveryFreeOver || ''), { amount: moneyShort(threshold) })
-        : decode(el.getAttribute('data-standard') || '');
-    });
-  }
-
   function updateScope(scope, data, v) {
     if (!scope || !data) return;
     scope.__lunovaVariant = v;
@@ -450,7 +499,7 @@
     });
 
     if (v) {
-      // .price wrappers only — the per-night line carries data-price too.
+      // .price wrappers only, the per-night line carries data-price too.
       qsa('[data-price]:not([data-per-night])', scope).forEach(function (el) {
         renderPriceInto(el, { price: v.price, compare: v.compare_at_price, soldOut: false }, s);
       });
@@ -487,7 +536,8 @@
     });
 
     updateOffer(scope, data, v);
-    updateDeliveryOptions(scope, v);
+    // Delivery lines with dates ([data-delivery-estimate]) are filled by
+    // global.js (Lunova.delivery.updateEstimates) on lunova:variant:change.
 
     if (v) {
       qsa('[data-free-delivery]', scope).forEach(function (el) {
@@ -605,6 +655,10 @@
       var id = parseInt(this.getAttribute('data-current-id'), 10);
       this.variant = this.data.byId[id] || null;
       this.selected = this.variant ? this.variant.options.slice() : this.readSelection();
+      // No size chosen yet (PDP-09): nothing is added until one is picked.
+      if (this.hasAttribute('data-pending') && !this.variant) {
+        if (this.scope.__lunovaPending === undefined) this.scope.__lunovaPending = true;
+      }
       if (this.scope.__lunovaVariant === undefined) this.scope.__lunovaVariant = this.variant;
 
       this._onChange = this.onChange.bind(this);
@@ -631,11 +685,21 @@
       return qsa('fieldset[data-option-index]', this);
     }
 
+    /** The chosen value per product option (by option index); an option
+        with one value only (shown as a plain line, no fieldset) is that
+        value; null for one not chosen yet. */
     readSelection() {
-      return this.fieldsets().map(function (fs) {
+      var data = this.data || {};
+      var count = (data.options || []).length;
+      var first = (data.variants || [])[0];
+      var sel = [];
+      for (var i = 0; i < count; i += 1) sel.push(first ? first.options[i] : null);
+      this.fieldsets().forEach(function (fs) {
+        var idx = parseInt(fs.getAttribute('data-option-index'), 10);
         var checked = fs.querySelector('[data-value-input]:checked');
-        return checked ? checked.value : null;
+        if (idx >= 0) sel[idx] = checked ? checked.value : null;
       });
+      return sel;
     }
 
     hasUrlVariant() {
@@ -665,6 +729,14 @@
     choose(idx, value, source) {
       var sel = this.selected.slice();
       sel[idx] = value;
+      var sIdx = this.data.sizeIndex;
+      if (isPending(this.scope) && sIdx >= 0 && idx !== sIdx && sel[sIdx] == null) {
+        // Another option (colour) while the size is still open: remember it,
+        // keep the size open.
+        this.selected = sel;
+        this.select(null, { selection: sel, keepPending: true, source: source });
+        return;
+      }
       var v = findVariant(this.data, sel);
       if (!v) {
         v = bestVariantFor(this.data, idx, value, sel);
@@ -678,6 +750,21 @@
       this.variant = v;
       this.selected = v ? v.options.slice() : opts.selection || this.selected;
       var sel = this.selected;
+      var chooseText = (this.data.strings || {}).chooseSizeLegend || '';
+      if (v && isPending(this.scope)) {
+        this.scope.__lunovaPending = false;
+        this.removeAttribute('data-pending');
+        qsa('[data-pending]', this.scope).forEach(function (el) {
+          el.removeAttribute('data-pending');
+        });
+        qsa('[data-size-error]', this.scope).forEach(function (el) {
+          el.hidden = true;
+          el.textContent = '';
+        });
+        qsa('.is-size-error', this.scope).forEach(function (el) {
+          el.classList.remove('is-size-error');
+        });
+      }
 
       this.fieldsets().forEach(function (fs) {
         var idx = parseInt(fs.getAttribute('data-option-index'), 10);
@@ -686,16 +773,18 @@
         });
         // The legend, and the visible label row above the size option, in
         // the picker's display text ("Large", "Beige"), not the raw value.
-        var shown = sel[idx] || '';
+        var shown = sel[idx] == null ? chooseText : sel[idx];
         qsa('[data-value-input]', fs).forEach(function (input) {
           if (input.value === sel[idx] && input.hasAttribute('data-display')) shown = input.getAttribute('data-display');
         });
         qsa('[data-selected-value]', fs.closest('.variant-picker__group') || fs).forEach(function (label) {
           label.textContent = shown;
+          label.classList.toggle('is-pending', sel[idx] == null);
         });
       });
 
       this.refreshValues();
+      if (!v && opts.keepPending) return;
       updateScope(this.scope, this.data, v);
 
       if (v && opts.user && this.hasAttribute('data-update-url') && window.history && history.replaceState) {
@@ -725,7 +814,7 @@
           if (!label) return;
           var trial = sel.slice();
           trial[idx] = input.value;
-          var exact = findVariant(data, trial);
+          var exact = trial.indexOf(null) > -1 ? matchChosen(data, trial) : findVariant(data, trial);
           var state = exact ? (exact.available ? 'available' : 'sold-out') : 'unavailable';
           label.classList.toggle('is-unavailable', state !== 'available');
           var stateEl = label.querySelector('[data-value-state]');
@@ -778,7 +867,7 @@
       if (!target && recValue != null) {
         var sel = this.selected.slice();
         sel[this.data.sizeIndex] = recValue;
-        target = findVariant(this.data, sel);
+        target = sel.indexOf(null) > -1 ? matchChosen(this.data, sel) : findVariant(this.data, sel);
         if (!target || !target.available) target = bestVariantFor(this.data, this.data.sizeIndex, recValue, sel) || target;
       }
       if (target && target !== this.variant) {
@@ -982,6 +1071,13 @@
     }
 
     onSubmit(e) {
+      // The size first (it's above the name field), then the name.
+      if (isPending(this.scope)) {
+        e.preventDefault();
+        promptForSize(this.scope, this.data());
+        this.dispatchEvent(new CustomEvent('product-form:end', { bubbles: true, detail: {} }));
+        return;
+      }
       if (!this.checkPersonalise()) {
         e.preventDefault();
         return;
@@ -1094,11 +1190,10 @@
       this.nearFooter = false;
       var self = this;
 
-      // The bar is there whenever the main Add button is out of view: below
-      // the fold at first paint (a cold mobile visitor would otherwise scroll
-      // ~800px before any Add button shows, with the size already chosen) and
-      // after it has scrolled up past the top. It steps aside while the main
-      // button is on screen, so there are never two Add buttons in view.
+      // The bar appears once the main Add button has scrolled up past the
+      // top (audit PDP-20), not at first paint while the shopper hasn't
+      // reached it yet, and it steps aside while the main button is on
+      // screen, so there are never two Add buttons in view.
       // Read from geometry on every scroll frame, not from intersection
       // changes: a jump from below the viewport to above it (anchor link,
       // scroll restore, a fast fling) never intersects, so an observer alone
@@ -1189,10 +1284,10 @@
     }
 
     toggle() {
-      // Below the fold the bar is an offer to buy now, so a disabled
-      // "Sold out" bar never greets a visitor; once they have scrolled past
-      // the main button it keeps them company whatever the variant's state.
-      var out = this.past || (this.below && !this.btn.disabled);
+      // The bar appears once the main button has scrolled away up the page
+      // (audit PDP-20), never at first paint over a page the shopper hasn't
+      // read yet, and steps aside near the footer.
+      var out = this.past;
       var show = out && !this.nearFooter;
       if (show === this._shown) return;
       this._shown = show;
@@ -1208,6 +1303,10 @@
     }
 
     add() {
+      if (isPending(this.scope)) {
+        promptForSize(this.scope, this.data);
+        return;
+      }
       if (!this.main || this.main.disabled) return;
       var form = this.main.form;
       this.fromSticky = true;
@@ -1219,6 +1318,15 @@
       var data = this.data;
       var s = (data && data.strings) || {};
       var label = this.querySelector('[data-sticky-label]');
+      if (!v && isPending(this.scope)) {
+        // No size yet: "Choose a size · From £109"; the button goes to the sizes.
+        this.btn.disabled = false;
+        if (label) label.textContent = s.chooseSize || '';
+        var pTitle = this.querySelector('[data-sticky-variant]');
+        if (pTitle) pTitle.textContent = s.chooseSize || '';
+        if (this._wired) this.toggle();
+        return;
+      }
       if (!v) {
         this.btn.disabled = true;
         if (label) label.textContent = s.unavailable || '';
@@ -2187,6 +2295,22 @@
       return;
     }
 
+    var sheetOpen = t.closest('[data-pdp-sheet-open]');
+    if (sheetOpen) {
+      var sheet = doc.getElementById(sheetOpen.getAttribute('data-pdp-sheet-open'));
+      if (sheet) {
+        e.preventDefault();
+        openDialog(sheet, sheetOpen);
+      }
+      return;
+    }
+
+    var storyBtn = t.closest('[data-pdp-story-toggle]');
+    if (storyBtn) {
+      toggleStory(storyBtn);
+      return;
+    }
+
     var closer = t.closest('[data-dialog-close]');
     if (closer) {
       var d = closer.closest('dialog');
@@ -2206,6 +2330,71 @@
       focusEl(target);
     }
   });
+
+  /* ------------------------------------------------------------------------
+     The story (description, collapsed), PDP-17
+     ---------------------------------------------------------------------- */
+  function initStory(root) {
+    qsa('[data-pdp-story]', root).forEach(function (wrap) {
+      if (wrap.__storyReady) return;
+      var body = wrap.querySelector('[data-pdp-story-body]');
+      var btn = wrap.querySelector('[data-pdp-story-toggle]');
+      if (!body || !btn) return;
+      wrap.__storyReady = true;
+      wrap.classList.add('is-collapsible');
+      // Only worth a button when the text runs past the first lines.
+      if (body.scrollHeight <= body.clientHeight + 4) {
+        wrap.classList.remove('is-collapsible');
+        return;
+      }
+      btn.hidden = false;
+    });
+  }
+
+  function toggleStory(btn) {
+    var wrap = btn.closest('[data-pdp-story]');
+    if (!wrap) return;
+    var open = btn.getAttribute('aria-expanded') !== 'true';
+    btn.setAttribute('aria-expanded', String(open));
+    wrap.classList.toggle('is-open', open);
+    var label = btn.querySelector('[data-pdp-story-label]');
+    if (label) {
+      if (!btn.__closedLabel) btn.__closedLabel = label.textContent;
+      label.textContent = open ? btn.getAttribute('data-label-open') || btn.__closedLabel : btn.__closedLabel;
+    }
+  }
+
+  /* ------------------------------------------------------------------------
+     Phone back link (PDP-01): back to the collection page the shopper came
+     from, with its filters, when it is one of this product's collections.
+     ---------------------------------------------------------------------- */
+  function initBackLink(root) {
+    qsa('[data-pdp-back]', root).forEach(function (nav) {
+      var link = nav.querySelector('[data-pdp-back-link]');
+      var titleEl = nav.querySelector('[data-pdp-back-title]');
+      var json = nav.querySelector('[data-pdp-back-collections]');
+      if (!link || !titleEl || !json || !doc.referrer) return;
+      var map;
+      try {
+        map = JSON.parse(json.textContent || '{}');
+      } catch (e) {
+        return;
+      }
+      var ref;
+      try {
+        ref = new URL(doc.referrer);
+      } catch (e) {
+        return;
+      }
+      if (ref.origin !== window.location.origin) return;
+      var m = /\/collections\/([^/?#]+)\/?$/.exec(ref.pathname);
+      if (!m) return;
+      var handle = decodeURIComponent(m[1]);
+      if (!Object.prototype.hasOwnProperty.call(map, handle)) return;
+      link.href = ref.pathname + ref.search;
+      titleEl.textContent = map[handle];
+    });
+  }
 
   /* ------------------------------------------------------------------------
      Init per scope (also for single-variant products with no picker)
@@ -2235,6 +2424,8 @@
     });
     if (root !== doc && root.matches && root.matches('[data-record-view]')) recordView(root.getAttribute('data-record-view'));
     initTimelines();
+    initStory(root);
+    initBackLink(root);
   }
 
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', function () { init(doc); });

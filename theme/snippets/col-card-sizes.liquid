@@ -1,0 +1,189 @@
+{%- comment -%}
+  The sizes part of a product card's price line (audit COL-06, COL-13, P0-7):
+    several sizes   "S–L · 61–97cm"      size codes from snippets/size-hints
+                                         ranks, cm from the variants'
+                                         custom.sleep_area (longer side), else
+                                         from the measurements in the labels
+    one size        "One size · 122 × 89cm" or "Large · 90 × 65cm"
+  plus "· 2 colours" when there is a colour choice.
+
+  Output: "one|<text>" for a one-size product, "range|<text>" otherwise,
+  nothing when there is nothing to say. Text is HTML-escaped.
+
+  Parameters: product
+{%- endcomment -%}
+{%- liquid
+  comment
+    Sizes. Find the size option by name (so a colour-first product doesn't
+    advertise its colours as sizes) and count colours. Values are parsed by
+    snippets/size-hints (mode parse: rank, kind, label, detail), so the
+    value Extra Large · 107 × 76cm is rank 6 (XL), values sort by size rather
+    than variant order, and a lone "One size · 80 × 80cm" reads One size.
+    The range prints as size codes ("S–L"), the shopper's shorthand.
+  endcomment
+  assign size_codes = 'XXS,XS,S,M,L,XL,XXL,3XL,4XL,5XL' | split: ','
+  assign size_idx = -1
+  assign size_count = 0
+  assign colour_count = 0
+  assign size_min_rank = 99
+  assign size_max_rank = 0
+  assign size_first_label = ''
+  assign size_last_label = ''
+  assign size_first_kind = ''
+  assign size_first_detail = ''
+  assign opt_len_min = 0
+  assign opt_len_max = 0
+  for option in product.options_with_values
+    assign opt_name = option.name | downcase
+    if size_idx == -1 and opt_name contains 'size'
+      assign size_idx = forloop.index0
+      assign size_count = option.values.size
+      for ov in option.values
+        assign ov_s = ov.name | default: ov | append: ''
+        capture ov_parsed
+          render 'size-hints', value: ov_s, mode: 'parse'
+        endcapture
+        assign ov_parts = ov_parsed | split: '|'
+        assign ov_rank = ov_parts[0] | default: 0 | plus: 0
+        assign ov_label = ov_parts[2] | default: ov_s | strip
+        if forloop.first
+          assign size_first_label = ov_label
+          assign size_first_kind = ov_parts[1]
+          assign size_first_detail = ov_parts[3] | default: '' | strip
+        endif
+        comment
+          The bed's length from a "Large · 71 × 58cm" value (the longer of
+          the first two measurements, cm only).
+        endcomment
+        assign ov_dim = ov_parts[3] | default: '' | downcase | replace: '×', 'x' | remove: ' '
+        if ov_dim contains 'x' and ov_dim contains 'cm'
+          assign ov_dims = ov_dim | remove: 'cm' | split: 'x'
+          assign ov_a = ov_dims[0] | plus: 0
+          assign ov_b = ov_dims[1] | plus: 0
+          assign ov_len = ov_a | at_least: ov_b | round
+          if ov_a > 0 and ov_b > 0
+            if opt_len_min == 0 or ov_len < opt_len_min
+              assign opt_len_min = ov_len
+            endif
+            if ov_len > opt_len_max
+              assign opt_len_max = ov_len
+            endif
+          endif
+        endif
+        assign size_last_label = ov_label
+        if ov_rank > 0
+          if ov_rank < size_min_rank
+            assign size_min_rank = ov_rank
+          endif
+          if ov_rank > size_max_rank
+            assign size_max_rank = ov_rank
+          endif
+        endif
+      endfor
+    elsif opt_name contains 'colour' or opt_name contains 'color'
+      assign colour_count = option.values.size
+    endif
+  endfor
+
+  comment
+    Sleeping areas (variant custom.sleep_area, "62 × 50cm") beat the size
+    labels for the cm range: they are the bed's own measured figures.
+  endcomment
+  assign sa_len_min = 0
+  assign sa_len_max = 0
+  assign first_sa = ''
+  for v in product.variants
+    assign sa = v.metafields.custom.sleep_area.value | default: '' | append: '' | strip
+    if sa == ''
+      continue
+    endif
+    if first_sa == ''
+      assign first_sa = sa
+    endif
+    assign sa_dim = sa | downcase | replace: '×', 'x' | remove: ' ' | remove: 'cm'
+    if sa_dim contains 'x'
+      assign sa_dims = sa_dim | split: 'x'
+      assign sa_a = sa_dims[0] | plus: 0
+      assign sa_b = sa_dims[1] | plus: 0
+      if sa_a > 0 and sa_b > 0
+        assign sa_len = sa_a | at_least: sa_b | round
+        if sa_len_min == 0 or sa_len < sa_len_min
+          assign sa_len_min = sa_len
+        endif
+        if sa_len > sa_len_max
+          assign sa_len_max = sa_len
+        endif
+      endif
+    endif
+  endfor
+  assign len_min = opt_len_min
+  assign len_max = opt_len_max
+  if sa_len_max > 0
+    assign len_min = sa_len_min
+    assign len_max = sa_len_max
+  endif
+
+  assign sizes_text = ''
+  assign one_size = false
+  if size_idx >= 0 and size_count == 1
+    comment
+      One size (COL-13): its own name and measurements, "One size ·
+      122 × 89cm" or "Large · 90 × 65cm".
+    endcomment
+    assign one_size = true
+    if size_first_kind == 'one'
+      assign sizes_text = 'core.card.size_one' | t
+    else
+      assign sizes_text = size_first_label
+    endif
+    if size_first_detail contains 'cm'
+      assign sizes_text = sizes_text | append: ' · ' | append: size_first_detail
+    elsif first_sa != ''
+      assign sizes_text = sizes_text | append: ' · ' | append: first_sa
+    endif
+  elsif size_idx == -1 and product.has_only_default_variant
+    assign one_size = true
+    assign sizes_text = 'core.card.size_one' | t
+    if first_sa != ''
+      assign sizes_text = sizes_text | append: ' · ' | append: first_sa
+    endif
+  elsif size_idx >= 0
+    if size_max_rank > 0 and size_min_rank < size_max_rank
+      assign code_lo = size_min_rank | minus: 1
+      assign code_hi = size_max_rank | minus: 1
+      assign sizes_text = size_codes[code_lo] | append: '–' | append: size_codes[code_hi]
+    elsif size_max_rank > 0
+      assign code_lo = size_max_rank | minus: 1
+      assign sizes_text = size_codes[code_lo]
+    elsif size_first_label != size_last_label
+      assign sizes_text = size_first_label | append: '–' | append: size_last_label
+    else
+      assign sizes_text = 'core.card.sizes_count' | t: count: size_count
+    endif
+    if len_max > 0
+      if len_min == len_max
+        assign len_text = len_max | append: 'cm'
+      else
+        assign len_text = len_min | append: '–' | append: len_max | append: 'cm'
+      endif
+      assign sizes_text = sizes_text | append: ' · ' | append: len_text
+    endif
+  endif
+  if colour_count > 1
+    assign colour_text = 'core.card.colours' | t: count: colour_count
+    if sizes_text != ''
+      assign sizes_text = sizes_text | append: ' · '
+    endif
+    assign sizes_text = sizes_text | append: colour_text
+  endif
+
+  if sizes_text != ''
+    if one_size
+      assign sizes_kind = 'one|'
+    else
+      assign sizes_kind = 'range|'
+    endif
+    assign sizes_text = sizes_text | escape_once
+    echo sizes_kind | append: sizes_text
+  endif
+-%}

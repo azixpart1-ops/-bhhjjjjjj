@@ -75,11 +75,37 @@ test('theme JS: Lunova.money, Lunova.delivery.window, Lunova.perNight', async ()
   assert.equal(ymd(w.dispatchEarliest), '2026-10-13');
   assert.equal(ymd(w.earliest), '2026-10-19');
   assert.equal(ymd(w.latest), '2026-10-22');
-  // Saturday order: Monday is the first working day after it (dispatch Mon 12 to Tue 13).
+  // Saturday order: shipping policy s3 processes it on Monday, so it dates like a Monday
+  // order (dispatch Tue 13 to Wed 14, arrives Mon 19 to Thu 22; Express Thu 15 to Mon 19).
   w = L.delivery.window({ dispatchMin: 1, dispatchMax: 2, transitMin: 4, transitMax: 6, from: '2026-10-10' });
-  assert.equal(ymd(w.dispatchEarliest), '2026-10-12');
-  assert.equal(ymd(w.earliest), '2026-10-16');
-  assert.equal(ymd(w.latest), '2026-10-21');
+  assert.equal(ymd(w.dispatchEarliest), '2026-10-13');
+  assert.equal(ymd(w.dispatchLatest), '2026-10-14');
+  assert.equal(ymd(w.earliest), '2026-10-19');
+  assert.equal(ymd(w.latest), '2026-10-22');
+  w = L.delivery.window({ dispatchMin: 1, dispatchMax: 2, transitMin: 2, transitMax: 3, from: '2026-10-10' });
+  assert.equal(ymd(w.earliest), '2026-10-15');
+  assert.equal(ymd(w.latest), '2026-10-19');
+  // Sunday and Monday orders give the same dates as Saturday's.
+  for (const day of ['2026-10-11', '2026-10-12']) {
+    w = L.delivery.window({ dispatchMin: 1, dispatchMax: 2, transitMin: 4, transitMax: 6, from: day });
+    assert.equal(ymd(w.earliest), '2026-10-19', day);
+    assert.equal(ymd(w.latest), '2026-10-22', day);
+  }
+  // Bank holidays count as closed days too: Christmas Day dates like Tue 29 Dec,
+  // Easter Monday 2027 like Tue 30 Mar.
+  const same = (a, b) => {
+    const wa = L.delivery.window({ dispatchMin: 1, dispatchMax: 2, transitMin: 4, transitMax: 6, from: a });
+    const wb = L.delivery.window({ dispatchMin: 1, dispatchMax: 2, transitMin: 4, transitMax: 6, from: b });
+    assert.equal(wa.text, wb.text, `${a} dates like ${b}`);
+    return wa;
+  };
+  w = same('2026-12-25', '2026-12-29');
+  assert.equal(ymd(w.earliest), '2027-01-06');
+  assert.equal(ymd(w.latest), '2027-01-11');
+  same('2027-03-29', '2027-03-30');
+  // Same day never counts on a closed day, even with sameDay.
+  w = L.delivery.window({ dispatchMin: 0, dispatchMax: 1, transitMin: 4, transitMax: 6, from: new Date('2026-10-10T08:00:00Z'), sameDay: true, cutoffHour: 15 });
+  assert.equal(ymd(w.dispatchEarliest), '2026-10-13');
   // Christmas: 25 and 28 Dec 2026 and 1 Jan 2027 are bank holidays.
   w = L.delivery.window({ dispatchMin: 1, dispatchMax: 2, transitMin: 4, transitMax: 6, from: '2026-12-23' });
   assert.equal(ymd(w.dispatchEarliest), '2026-12-24');
@@ -108,7 +134,17 @@ test('claim gates on the fixture catalogue: metafield first, then the older rule
   assert.match(amb, /a night over the 5-year foam guarantee/);
   const kendal = page('/products/kendal-corduroy-orthopaedic-dog-bed');
   assert.match(kendal, /data-dates="false"/, 'partner warehouse without dispatch days: no dates');
-  assert.match(kendal, /from our partner warehouse; delivery time shown at checkout/);
+  assert.match(kendal, /from our partner warehouse\. It takes longer than our own stock, so ask us for the expected date/);
+  assert.doesNotMatch(kendal, /shown at checkout|shown before you pay/, 'no delivery time promised that checkout cannot show');
+  // FAQ (sections/faq on product.json): the delivery answer follows the bed's dates.
+  assert.match(kendal, /When will it arrive\?<\/summary>\s*<div[^>]*>\s*<p>This bed ships from our partner warehouse, tracked, and takes longer than our own stock\. It doesn't show delivery dates here/);
+  assert.doesNotMatch(kendal, /delivery dates above the button/, 'partner bed without dispatch days: never "dates above the button"');
+  assert.match(amb, /You'll see this bed's delivery dates above the button before you order/);
+  const cool = page('/products/windermere-elevated-cooling-dog-bed');
+  assert.match(cool, /delivery dates above the button/, 'partner bed with its own dispatch days shows dates');
+  // The arthritis question only on a foam-core bed (custom.core_type), never on a mesh cot.
+  assert.match(amb, /Will it help a dog with arthritis or stiff hips\?/);
+  assert.doesNotMatch(cool, /Will it help a dog with arthritis/, 'mesh cot: no arthritis question');
   assert.doesNotMatch(kendal, /data-delivery-line="express"/, 'no Express line for a partner bed');
   assert.match(amb, /data-dispatch-min="1"[\s\S]*data-dispatch-max="2"/);
   assert.match(amb, /Free standard delivery: dispatched in 1 to 2 working days, then 4 to 6 working days/);

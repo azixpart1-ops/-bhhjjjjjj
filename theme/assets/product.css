@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Lunova — product.css
+   Lunova, product.css
    Product page, quick-add buy box, timeline, comparison, recommendations,
    recently viewed. Builds on base.css tokens and components; never redefines
    them. Mobile first. Motion only on transform/opacity, collapsed by the
@@ -123,6 +123,22 @@ media-gallery {
   width: 100%;
   height: 100%;
   object-fit: var(--gallery-fit, cover);
+}
+
+/* Short phones (iPhone SE/8 and smaller, audit PDP-01): a square photo
+   would push the price off the first screen, so the main gallery frame is
+   3:2 there (16:9 on the very shortest). The height media feature doesn't
+   change as the browser bars slide, so the frame never jumps. */
+@media (max-width: 749px) and (max-height: 700px) {
+  .main-product .gallery__media {
+    aspect-ratio: 3 / 2;
+  }
+}
+
+@media (max-width: 749px) and (max-height: 600px) {
+  .main-product .gallery__media {
+    aspect-ratio: 16 / 9;
+  }
 }
 
 /* A photo whose shape differs from the frame (product-gallery sets this per
@@ -1078,7 +1094,7 @@ variant-picker {
 }
 
 /* Desktop: the buy column is wide enough (~527px) for the ladder to sit in
-   two columns of tiles — still one size per tile with its fit and price, so
+   two columns of tiles, still one size per tile with its fit and price, so
    the price ladder reads the same, in less height. Phones keep the list. */
 @media (min-width: 990px) {
   .main-product .variant-picker__values--rows {
@@ -1358,7 +1374,7 @@ variant-picker {
 }
 
 /* Stock and delivery on one line, right above the button:
-   "● In stock · Order within 2h 14m for dispatch today — arrives Thu 8 Oct
+   "● In stock · Order within 2h 14m for dispatch today, arrives Thu 8 Oct
     · ✓ Qualifies for free UK delivery". The delivery-promise snippet's box
    is flattened into running text. */
 .stock-line {
@@ -2105,11 +2121,12 @@ product-form {
 
   .size-guide__table .size-guide__row > .size-guide__action {
     grid-column: 2;
-    grid-row: 1 / span 5;
+    grid-row: 1 / span 6;
     align-self: center;
   }
 
   .size-guide__dims,
+  .size-guide__fit,
   .size-guide__breeds,
   .size-guide__weight,
   .size-guide__price {
@@ -2118,6 +2135,7 @@ product-form {
   }
 
   .size-guide__dims::before,
+  .size-guide__fit::before,
   .size-guide__breeds::before,
   .size-guide__weight::before {
     content: attr(data-label) ": ";
@@ -2316,7 +2334,7 @@ sticky-atc {
 }
 
 /* --------------------------------------------------------------------------
-   16. Timeline — "What happens after you order"
+   16. Timeline, "What happens after you order"
    -------------------------------------------------------------------------- */
 .timeline {
   position: relative;
@@ -2707,4 +2725,652 @@ recently-viewed {
   .gallery__thumbs {
     display: none;
   }
+}
+
+/* ==========================================================================
+   October 2026 audit: the rebuilt product page (S05)
+   Back link, "choose a size" state, size facts and help, offer and delivery
+   lines, the trust row and its sheets, "What's inside", "Worth it?", Q&A,
+   the collapsed story, "Complete their bed" and the three-way comparison.
+   ========================================================================== */
+
+/* Phone back link (PDP-01): replaces the breadcrumb under 750px. */
+.pdp-back {
+  display: none;
+}
+
+@media (max-width: 749px) {
+  .pdp-back {
+    display: block;
+    margin: -0.5rem 0 0.25rem;
+  }
+
+  html:has([data-pdp-back]) .product-crumbs {
+    display: none;
+  }
+}
+
+.pdp-back__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 44px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.pdp-back__link:hover {
+  text-decoration: underline;
+}
+
+.pdp-back__icon {
+  flex: none;
+  font-size: 1.125rem;
+}
+
+/* No size chosen yet */
+.variant-picker__selected.is-pending {
+  font-style: italic;
+}
+
+/* "Choose a size" tapped with no size chosen (product.js promptForSize):
+   the size group itself says so, as the message by the button may be off
+   screen, until a size is picked. */
+.variant-picker__group.is-size-error .variant-picker__selected.is-pending {
+  color: var(--alert);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.variant-picker__group.is-size-error .variant-picker__values--size {
+  outline: 2px solid var(--alert);
+  outline-offset: 6px;
+  border-radius: var(--radius-sm);
+}
+
+/* The size's own facts under its measurements (PDP-08) */
+.size-option__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--fg);
+}
+
+.size-option__fact + .size-option__fact::before {
+  content: "·";
+  margin-right: 0.375rem;
+  color: var(--fg-muted);
+}
+
+.size-option__fact--area {
+  font-weight: 600;
+}
+
+.variant-picker__fit-note {
+  margin: 0.625rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Size help (PDP-10) */
+.pdp-size-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.pdp-size-help__icon {
+  flex: none;
+  margin-top: 0.15em;
+  font-size: 1.125rem;
+  color: var(--fg);
+}
+
+.pdp-size-help__link,
+.pdp-size-help .link {
+  display: inline;
+  min-height: 0;
+  padding: 0.375rem 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* Offer and delivery lines sit close to the sizes and the button. */
+.pblock--variant_picker + .pblock--offer,
+.pblock--offer + .pblock--stock,
+.pblock--offer + .pblock--delivery,
+.pblock--variant_picker + .pblock--delivery,
+.pblock--stock + .pblock--delivery {
+  margin-top: 0.75rem;
+}
+
+.pblock--delivery + .pblock--buy_buttons {
+  margin-top: 0.875rem;
+}
+
+.buy-box__made {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+}
+
+.buy-box__made-icon {
+  flex: none;
+  margin-top: 0.15em;
+}
+
+.product-form__size-error {
+  margin-top: 0.625rem;
+}
+
+/* Trust row (PDP-13): three parts, each opens a sheet. */
+.pblock--buy_buttons + .pblock--trust_row {
+  margin-top: 1rem;
+}
+
+.pblock--trust_row + .pblock--trust {
+  margin-top: 0.75rem;
+}
+
+.pdp-trust__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pdp-trust__cell {
+  display: flex;
+  min-width: 0;
+}
+
+.pdp-trust__item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 44px;
+  padding: 0.75rem 0.375rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg, transparent);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.pdp-trust__item:hover {
+  border-color: var(--fg);
+}
+
+.pdp-trust__item:focus-visible {
+  outline: 2px solid var(--focus, var(--fg));
+  outline-offset: 2px;
+}
+
+.pdp-trust__icon {
+  flex: none;
+  font-size: 1.25rem;
+  color: var(--highlight, var(--fg));
+}
+
+.pdp-trust__text {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.2em;
+}
+
+.pdp-trust__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+.pdp-trust__note-icon {
+  flex: none;
+  margin-top: 0.15em;
+}
+
+.pdp-owner-line {
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.pdp-sheet {
+  --modal-width: 560px;
+}
+
+.pdp-sheet__title {
+  margin: 0;
+}
+
+.pdp-sheet__body p {
+  margin: 0 0 0.875rem;
+}
+
+.pdp-sheet__body a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.pdp-sheet__contact {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rte .pdp-sheet__contact {
+  padding-left: 0;
+}
+
+.pdp-sheet__contact li {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0;
+}
+
+.pdp-sheet__hours {
+  color: var(--fg-muted);
+}
+
+/* Bullets heading is now an h2, sized as before. */
+h2.buy-box__benefits-heading {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+/* What's inside (PDP-16) */
+.pdp-spec {
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card-bg, transparent);
+}
+
+.pdp-spec__heading {
+  margin: 0;
+}
+
+.pdp-spec__intro {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--fg-muted);
+}
+
+.pdp-spec__list {
+  display: grid;
+  margin: 0.75rem 0 0;
+}
+
+.pdp-spec__row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.pdp-spec__row dt {
+  font-weight: 600;
+}
+
+.pdp-spec__row dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
+}
+
+.pdp-spec__dots {
+  display: inline-flex;
+  gap: 0.1875rem;
+}
+
+.pdp-spec__dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border: 1.5px solid var(--fg);
+  border-radius: 50%;
+}
+
+.pdp-spec__dot.is-on {
+  background: var(--fg);
+}
+
+/* Worth it? (PDP-17) */
+.pdp-worth {
+  padding: 1rem 1.125rem;
+  border-radius: var(--radius);
+  background: var(--surface, var(--card-bg));
+}
+
+.pdp-worth__heading {
+  margin: 0 0 0.375rem;
+}
+
+.pdp-worth__text {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+/* Questions owners ask (PDP-22) */
+.pdp-qa__heading {
+  margin: 0 0 0.25rem;
+}
+
+.pdp-qa__q {
+  font-size: 0.9375rem;
+}
+
+.pdp-qa__a p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.pdp-qa__sign {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.875rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.pdp-qa__owner {
+  color: var(--fg-muted);
+}
+
+.pdp-qa__signature {
+  font-style: italic;
+  text-align: right;
+}
+
+/* The story, collapsed (PDP-17) */
+.pdp-story__heading {
+  margin: 0 0 0.5rem;
+}
+
+.pdp-story.is-collapsible:not(.is-open) .pdp-story__body {
+  max-height: 4.8em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+
+.pdp-story__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 44px;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--fg);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.pdp-story__toggle[hidden] {
+  display: none;
+}
+
+.pdp-story__chevron {
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.pdp-story.is-open .pdp-story__chevron {
+  transform: rotate(180deg);
+}
+
+.no-js .pdp-story__toggle {
+  display: none;
+}
+
+/* The size guide as a row among the collapsed sections (PDP-19) */
+.product-accordion--button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  min-height: 56px;
+  padding: 1rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.product-accordion__go {
+  flex: none;
+  font-size: 1.25rem;
+}
+
+.pblock--story + .pblock--accordion {
+  border-top: 1px solid var(--line);
+}
+
+.size-guide__curled {
+  margin: 0.5rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+/* Complete their bed (PDP-23) */
+.pdp-complete__heading {
+  margin: 0 0 0.625rem;
+}
+
+.pdp-complete__item {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 0.875rem;
+  align-items: start;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.pdp-complete__media {
+  display: block;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--media-bg, var(--surface));
+  aspect-ratio: 1;
+}
+
+.pdp-complete__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pdp-complete__title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.pdp-complete__title a {
+  color: var(--fg);
+}
+
+.pdp-complete__price {
+  white-space: nowrap;
+}
+
+.pdp-complete__note {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+.pdp-complete__add {
+  min-height: 44px;
+}
+
+/* Also suits dogs who … (PDP-23, snippets/pdp-also-suits) */
+.pdp-also {
+  margin: 0.75rem 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.pdp-also__label {
+  color: var(--fg-muted);
+}
+
+.pdp-also a {
+  display: inline-block;
+  min-height: 24px;
+}
+
+/* Three-way comparison (PDP-21) */
+.compare3 {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.compare3 th,
+.compare3 td {
+  padding: 0.75rem;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.compare3 thead th {
+  border-top: 0;
+  font-size: 0.875rem;
+}
+
+.compare3__col--ours,
+.compare3__cell--ours {
+  background: var(--card-bg, var(--surface));
+  font-weight: 600;
+}
+
+.compare3__feature {
+  width: 22%;
+  font-weight: 600;
+}
+
+.compare3__label {
+  display: none;
+}
+
+@media (max-width: 749px) {
+  .compare3 thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .compare3,
+  .compare3 tbody {
+    display: block;
+  }
+
+  .compare3__row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.375rem;
+    padding: 0.875rem 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .compare3 tbody th,
+  .compare3 tbody td {
+    border-top: 0;
+  }
+
+  .compare3 .compare3__feature {
+    grid-column: 1 / -1;
+    width: auto;
+    padding: 0;
+  }
+
+  .compare3 .compare3__cell {
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    box-shadow: inset 0 0 0 1px var(--line);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+
+  .compare3__label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+}
+
+.pdp-story__body h1,
+.pdp-story__body h2,
+.pdp-story__body h3 {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0;
 }

@@ -1,0 +1,209 @@
+{%- comment -%}
+  "What's inside" spec card (audit PDP-16, S05, S13 snippet), under the
+  bullets. Every row comes from the bed's own metafields and shows only when
+  that metafield is set (snippets/product-fact; nothing is ever estimated):
+    Core               custom.core_type
+    Foam depth         custom.foam_depth
+    Density            custom.density_kg_m3 (only ever filled from a supplier spec sheet)
+    Feel               custom.feel, 1 (soft) to 5 (firm), as dots and a word
+    Waterproof liner   custom.has_liner = true
+    Cover              custom.cover_type (+ custom.wash_temp)
+    Base               custom.non_slip = true
+    Step-in height     custom.entry_height_cm (or "Low front" from custom.low_entry)
+    Sleeping area      custom.sleep_area: the measurement itself when every
+                       variant that has one gives the same (a one-size bed,
+                       or sizes that differ only by colour), else "On each
+                       size above", where the size cards show each size's
+    Suits              a one-size bed's custom.suits_breeds / suits_weight
+                       (several sizes show theirs on the size cards)
+  The card hides itself when fewer than two rows have data.
+
+  Parameters
+    product      the product
+    short_name   the bed's short name, for the heading
+    heading      heading text ([name] = short name)
+    intro        line under the heading (optional)
+{%- endcomment -%}
+{%- if product != blank -%}
+  {%- liquid
+    capture sc_core
+      render 'product-fact', product: product, key: 'core_type'
+    endcapture
+    capture sc_depth
+      render 'product-fact', product: product, key: 'foam_depth'
+    endcapture
+    capture sc_density
+      render 'product-fact', product: product, key: 'density'
+    endcapture
+    capture sc_feel
+      render 'product-fact', product: product, key: 'feel'
+    endcapture
+    capture sc_liner
+      render 'product-fact', product: product, key: 'liner'
+    endcapture
+    capture sc_cover
+      render 'product-fact', product: product, key: 'cover_type'
+    endcapture
+    capture sc_wash
+      render 'product-fact', product: product, key: 'wash_temp'
+    endcapture
+    capture sc_slip
+      render 'product-fact', product: product, key: 'non_slip'
+    endcapture
+    capture sc_height
+      render 'product-fact', product: product, key: 'entry_height'
+    endcapture
+    capture sc_low
+      render 'product-fact', product: product, key: 'low_entry'
+    endcapture
+    assign sc_area = false
+    assign sc_area_one = ''
+    assign sc_area_many = false
+    for v in product.variants
+      assign sc_a = v.metafields.custom.sleep_area.value | default: '' | append: '' | strip
+      if sc_a != ''
+        assign sc_area = true
+        if sc_area_one == ''
+          assign sc_area_one = sc_a
+        elsif sc_area_one != sc_a
+          assign sc_area_many = true
+        endif
+      endif
+    endfor
+    if sc_area_many
+      assign sc_area_text = 'product.spec.area_cards' | t
+    else
+      assign sc_area_text = 'product.spec.area_about' | t: area: sc_area_one
+    endif
+
+    comment
+      Who a one-size bed suits, from its only variant (a bed with sizes
+      shows each size's on the size cards instead).
+    endcomment
+    assign sc_suits = ''
+    if product.variants.size == 1
+      assign sc_v = product.variants.first
+      assign sc_breeds = sc_v.metafields.custom.suits_breeds.value | default: '' | append: '' | strip
+      assign sc_weight = sc_v.metafields.custom.suits_weight.value | default: '' | append: '' | strip
+      if sc_breeds != '' and sc_weight != ''
+        assign sc_suits = sc_breeds | append: ' · ' | append: sc_weight
+      else
+        assign sc_suits = sc_breeds | append: sc_weight
+      endif
+    endif
+
+    assign sc_cover_lc = sc_cover | downcase
+    assign sc_cover_text = ''
+    if sc_cover_lc contains 'zip'
+      assign sc_cover_text = 'product.spec.cover_zip' | t
+    elsif sc_cover_lc contains 'coated'
+      assign sc_cover_text = 'product.spec.cover_coated' | t
+    elsif sc_cover != ''
+      assign sc_cover_text = sc_cover
+    endif
+    if sc_wash != '' and sc_cover_lc contains 'coated'
+      assign sc_wash = ''
+    endif
+    if sc_wash != ''
+      assign sc_wash_text = 'product.spec.wash' | t: temp: sc_wash
+      if sc_cover_text != ''
+        assign sc_cover_text = sc_cover_text | append: ' · ' | append: sc_wash_text
+      else
+        assign sc_cover_text = sc_wash_text
+      endif
+    endif
+
+    assign sc_rows = 0
+    if sc_core != ''
+      assign sc_rows = sc_rows | plus: 1
+    endif
+    if sc_depth != ''
+      assign sc_rows = sc_rows | plus: 1
+    endif
+    if sc_density != ''
+      assign sc_rows = sc_rows | plus: 1
+    endif
+    if sc_feel != ''
+      assign sc_rows = sc_rows | plus: 1
+    endif
+    if sc_liner == 'true'
+      assign sc_rows = sc_rows | plus: 1
+    endif
+    if sc_cover_text != ''
+      assign sc_rows = sc_rows | plus: 1
+    endif
+    if sc_slip == 'true'
+      assign sc_rows = sc_rows | plus: 1
+    endif
+    if sc_height != '' or sc_low == 'true'
+      assign sc_rows = sc_rows | plus: 1
+    endif
+    if sc_area
+      assign sc_rows = sc_rows | plus: 1
+    endif
+    if sc_suits != ''
+      assign sc_rows = sc_rows | plus: 1
+    endif
+    assign sc_name_esc = short_name | escape
+    assign sc_heading = heading | default: '' | escape | replace: '[name]', sc_name_esc
+    if sc_heading == ''
+      assign sc_heading = 'product.spec.heading' | t: name: short_name
+    endif
+    assign sc_id = 'PdpSpec-' | append: product.id
+  -%}
+  {%- if sc_rows >= 2 -%}
+    <div class="pdp-spec" role="group" aria-labelledby="{{ sc_id }}">
+      <h2 class="h4 pdp-spec__heading" id="{{ sc_id }}">{{ sc_heading }}</h2>
+      {%- if intro != blank -%}
+        <p class="pdp-spec__intro">{{ intro | escape }}</p>
+      {%- endif -%}
+      <dl class="pdp-spec__list">
+        {%- if sc_core != '' -%}
+          <div class="pdp-spec__row"><dt>{{ 'product.spec.core' | t }}</dt><dd>{{ sc_core }}</dd></div>
+        {%- endif -%}
+        {%- if sc_depth != '' -%}
+          <div class="pdp-spec__row"><dt>{{ 'product.spec.depth' | t }}</dt><dd>{{ sc_depth }}</dd></div>
+        {%- endif -%}
+        {%- if sc_density != '' -%}
+          <div class="pdp-spec__row"><dt>{{ 'product.spec.density' | t }}</dt><dd>{{ 'product.spec.density_value' | t: value: sc_density }}</dd></div>
+        {%- endif -%}
+        {%- if sc_feel != '' -%}
+          {%- liquid
+            assign sc_feel_n = sc_feel | plus: 0
+            assign sc_feel_key = 'product.spec.feel_' | append: sc_feel_n
+            assign sc_feel_word = sc_feel_key | t
+          -%}
+          <div class="pdp-spec__row">
+            <dt>{{ 'product.spec.feel' | t }}</dt>
+            <dd>
+              <span class="pdp-spec__dots" aria-hidden="true">
+                {%- for i in (1..5) -%}<span class="pdp-spec__dot{% if i <= sc_feel_n %} is-on{% endif %}"></span>{%- endfor -%}
+              </span>
+              <span class="visually-hidden">{{ 'product.spec.feel_sr' | t: n: sc_feel_n }} </span>{{ sc_feel_word }}
+            </dd>
+          </div>
+        {%- endif -%}
+        {%- if sc_liner == 'true' -%}
+          <div class="pdp-spec__row"><dt>{{ 'product.spec.liner' | t }}</dt><dd>{{ 'product.spec.liner_yes' | t }}</dd></div>
+        {%- endif -%}
+        {%- if sc_cover_text != '' -%}
+          <div class="pdp-spec__row"><dt>{{ 'product.spec.cover' | t }}</dt><dd>{{ sc_cover_text }}</dd></div>
+        {%- endif -%}
+        {%- if sc_slip == 'true' -%}
+          <div class="pdp-spec__row"><dt>{{ 'product.spec.base' | t }}</dt><dd>{{ 'product.spec.base_non_slip' | t }}</dd></div>
+        {%- endif -%}
+        {%- if sc_height != '' -%}
+          <div class="pdp-spec__row"><dt>{{ 'product.spec.step_in' | t }}</dt><dd>{{ 'product.spec.step_in_cm' | t: cm: sc_height }}</dd></div>
+        {%- elsif sc_low == 'true' -%}
+          <div class="pdp-spec__row"><dt>{{ 'product.spec.step_in' | t }}</dt><dd>{{ 'product.spec.step_in_low' | t }}</dd></div>
+        {%- endif -%}
+        {%- if sc_area -%}
+          <div class="pdp-spec__row"><dt>{{ 'product.spec.area' | t }}</dt><dd>{{ sc_area_text | escape }}</dd></div>
+        {%- endif -%}
+        {%- if sc_suits != '' -%}
+          <div class="pdp-spec__row"><dt>{{ 'product.spec.suits' | t }}</dt><dd>{{ sc_suits | escape }}</dd></div>
+        {%- endif -%}
+      </dl>
+    </div>
+  {%- endif -%}
+{%- endif -%}

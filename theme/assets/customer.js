@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Lunova — customer.js
+   Lunova - customer.js
    Small, dependency-free helpers for the content and customer pages
    (contact, article, login/register/reset/activate, addresses, gift card).
    Everything here is progressive: each page works without it.

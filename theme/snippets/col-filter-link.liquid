@@ -1,0 +1,146 @@
+{%- comment -%}
+  Where a "shortcut" (a quick filter chip, a "See beds like this" link)
+  should take the shopper, worked out from the store's real filters.
+
+  1. When Search & Discovery offers the matching filter on this list
+     (results.filters), the link applies it in place: the filter value's own
+     url_to_add, which keeps every filter and the sort already chosen. When
+     that value is already applied, the link removes it instead.
+  2. Otherwise, the fallback collection, if it has products, is not the
+     page you are on, and shares at least one bed with it.
+  3. Otherwise nothing: the caller hides the shortcut, so it never leads to
+     an empty page or to the page you are already on.
+
+  So the metafield filters start working on their own once the owner adds
+  them in Search & Discovery; until then the shortcuts go to collections.
+
+  Parameters
+    results     collection (or search) whose filters to use (required)
+    key         which filter (see below), or 'none' for collection only
+    price       for key 'price_under': the price ceiling in whole pounds
+    fallback    a collection object to use when the filter is not there
+
+  Keys
+    low_entry · has_liner · non_slip           boolean product metafields (custom.*)
+    memory_foam · egg_crate                    custom.core_type value
+    curls_up · head_on_edge · stretches_out    custom.sleep_style value
+    weight_25_40 · weight_40                   variant custom.suits_weight value
+    price_under                                Shopify's price filter (filter.v.price.lte)
+
+  Output: "mode|url" with mode add (applies a filter here), remove (the
+  filter is on; the link takes it off) or collection (goes elsewhere).
+  Nothing when there is nowhere useful to go. Capture and split on '|':
+    {%- capture hit -%}{%- render 'col-filter-link', results: collection, key: 'low_entry', fallback: c -%}{%- endcapture -%}
+{%- endcomment -%}
+{%- liquid
+  assign cf_param = ''
+  assign cf_value = ''
+  assign cf_bool = false
+  case key
+    when 'low_entry', 'has_liner', 'non_slip'
+      assign cf_param = 'filter.p.m.custom.' | append: key
+      assign cf_bool = true
+    when 'memory_foam'
+      assign cf_param = 'filter.p.m.custom.core_type'
+      assign cf_value = 'Memory foam'
+    when 'egg_crate'
+      assign cf_param = 'filter.p.m.custom.core_type'
+      assign cf_value = 'Egg-crate foam'
+    when 'curls_up'
+      assign cf_param = 'filter.p.m.custom.sleep_style'
+      assign cf_value = 'Curls up'
+    when 'head_on_edge'
+      assign cf_param = 'filter.p.m.custom.sleep_style'
+      assign cf_value = 'Head on the edge'
+    when 'stretches_out'
+      assign cf_param = 'filter.p.m.custom.sleep_style'
+      assign cf_value = 'Stretches out'
+    when 'weight_25_40'
+      assign cf_param = 'filter.v.m.custom.suits_weight'
+      assign cf_value = '25–40kg'
+    when 'weight_40'
+      assign cf_param = 'filter.v.m.custom.suits_weight'
+      assign cf_value = '40kg+'
+    when 'price_under'
+      assign cf_param = 'filter.v.price'
+  endcase
+
+  assign cf_out = ''
+  if cf_param != '' and results.filters.size > 0
+    for cf_filter in results.filters
+      if cf_param == 'filter.v.price'
+        if cf_filter.type == 'price_range'
+          assign cf_max = price | default: 0 | plus: 0
+          if cf_max > 0
+            assign cf_cents = cf_max | times: 100
+            assign cf_on = false
+            if cf_filter.max_value.value == cf_cents and cf_filter.min_value.value == nil
+              assign cf_on = true
+            endif
+            if cf_on
+              assign cf_out = 'remove|' | append: cf_filter.url_to_remove
+            else
+              assign cf_base = cf_filter.url_to_remove | default: results.url
+              if cf_base contains '?'
+                assign cf_join = '&'
+              else
+                assign cf_join = '?'
+              endif
+              assign cf_out = 'add|' | append: cf_base | append: cf_join | append: 'filter.v.price.lte=' | append: cf_max
+            endif
+          endif
+          break
+        endif
+      elsif cf_filter.param_name == cf_param
+        for cf_v in cf_filter.values
+          assign cf_hit = false
+          if cf_bool
+            if cf_v.value == '1' or cf_v.value == 'true'
+              assign cf_hit = true
+            endif
+          elsif cf_v.value == cf_value
+            assign cf_hit = true
+          endif
+          if cf_hit
+            if cf_v.active
+              assign cf_out = 'remove|' | append: cf_v.url_to_remove
+            elsif cf_v.count > 0
+              assign cf_out = 'add|' | append: cf_v.url_to_add
+            endif
+            break
+          endif
+        endfor
+        break
+      endif
+    endfor
+  endif
+
+  comment
+    The fallback collection must share a bed with the page on screen, so a
+    kennels page never offers "Memory foam" beds elsewhere.
+  endcomment
+  if cf_out == '' and fallback != blank
+    if fallback.all_products_count > 0 and fallback.handle != collection.handle
+      assign cf_overlap = true
+      if collection.handle != blank and collection.handle != 'all'
+        assign cf_overlap = false
+        for cf_p in fallback.products limit: 50
+          for cf_c in cf_p.collections
+            if cf_c.handle == collection.handle
+              assign cf_overlap = true
+              break
+            endif
+          endfor
+          if cf_overlap
+            break
+          endif
+        endfor
+      endif
+      if cf_overlap
+        assign cf_out = 'collection|' | append: fallback.url
+      endif
+    endif
+  endif
+
+  echo cf_out
+-%}

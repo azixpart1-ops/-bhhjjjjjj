@@ -1033,7 +1033,7 @@ export class ThemeRenderer {
       customer_accounts_enabled: true,
       customer_accounts_optional: true,
       locale: 'en',
-      password_message: 'Opening soon — beds named for the Lakes, built for real sleep.',
+      password_message: 'Opening soon. Beds named for the Lakes, built for real sleep.',
       products_count: s.products().length,
       collections_count: s.collectionHandles().length,
       types: [...new Set(s.products().map((p) => p.type))],
