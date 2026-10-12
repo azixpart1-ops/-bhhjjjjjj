@@ -1,0 +1,142 @@
+{% comment %}
+  Section contract.
+  Social proof without inventing any. Until a reviews app holds genuine PawLunova buyer reviews, the
+  section says so plainly and backs it with the promises that are true today. App blocks (a reviews
+  widget) drop in here; merchant-entered quotes are allowed only when attributed, with a date.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign quotes = 0
+  assign apps = 0
+  for block in section.blocks
+    if block.type == 'quote'
+      assign quotes = quotes | plus: 1
+    elsif block.type == '@app'
+      assign apps = apps | plus: 1
+    endif
+  endfor
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-proof{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: s.heading, align: 'center' -%}
+  {%- if apps == 0 and quotes == 0 and settings.pl_young_brand_line != blank -%}
+    <p class="pl-proof__honest pl-lede">{{ settings.pl_young_brand_line | escape }}</p>
+  {%- endif -%}
+  {%- if section.blocks.size > 0 -%}
+    <div class="pl-proof__blocks">
+      {%- for block in section.blocks -%}
+        {%- case block.type -%}
+          {%- when '@app' -%}
+            {%- render block -%}
+          {%- when 'quote' -%}
+            <figure class="pl-card pl-proof__quote" {{ block.shopify_attributes }}>
+              <blockquote class="pl-proof__text">{{ block.settings.quote | escape }}</blockquote>
+              <figcaption class="pl-small pl-muted">{{ block.settings.name | escape }}{% if block.settings.dog != blank %}, with {{ block.settings.dog | escape }}{% endif %}{% if block.settings.date != blank %} · {{ block.settings.date | escape }}{% endif %}</figcaption>
+            </figure>
+        {%- endcase -%}
+      {%- endfor -%}
+    </div>
+  {%- endif -%}
+  <ul class="pl-proof__promises list-unstyled">
+    {%- if settings.pl_trial_enable -%}
+      <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'moon' %}</span><strong>{{ settings.pl_trial_nights }} nights at home</strong><span class="pl-small pl-muted">Slept on, hair and all. We collect it free if it isn't right.</span></li>
+    {%- endif -%}
+    {%- if settings.pl_guarantee_enable -%}
+      <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'shield' %}</span><strong>{{ settings.pl_guarantee_years }}-year foam guarantee</strong><span class="pl-small pl-muted">On every memory foam bed, against going flat.</span></li>
+    {%- endif -%}
+    <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'chat' %}</span><strong>A named person, not a ticket queue</strong><span class="pl-small pl-muted">{{ s.owner_line | replace: '[name]', settings.pl_owner_name | escape }}</span></li>
+  </ul>
+</div>
+
+{% stylesheet %}
+  .pl-proof {
+    text-align: center;
+  }
+
+  .pl-proof__honest {
+    margin-inline: auto;
+    max-width: 38rem;
+  }
+
+  .pl-proof__blocks {
+    display: grid;
+    gap: var(--gap-md);
+    width: 100%;
+    text-align: start;
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-proof__blocks:has(.pl-proof__quote) {
+      grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    }
+  }
+
+  .pl-proof__quote {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .pl-proof__text {
+    margin: 0;
+    font-family: var(--font-accent--family);
+    font-style: italic;
+    font-size: 1.0625rem;
+    line-height: 1.5;
+  }
+
+  .pl-proof__promises {
+    display: grid;
+    gap: var(--gap-md);
+    width: 100%;
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-proof__promises {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .pl-proof__promises li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Honest proof",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "paragraph", "content": "Never add a quote you can't attribute to a real buyer. Brand copy presented as a review is unlawful (DMCC Act 2024)." },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Straight talk" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "No wall of reviews yet. Here's what we can promise instead." },
+    { "type": "text", "id": "owner_line", "label": "Owner line", "info": "[name] is the owner's name from theme settings.", "default": "I'm [name]. I answer every message myself, usually the same day." },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "@app" },
+    { "type": "quote", "name": "Attributed quote", "settings": [
+      { "type": "textarea", "id": "quote", "label": "Quote", "info": "A real buyer's words, with their permission." },
+      { "type": "text", "id": "name", "label": "Name" },
+      { "type": "text", "id": "dog", "label": "Dog (name, breed)" },
+      { "type": "text", "id": "date", "label": "Date" }
+    ] }
+  ],
+  "presets": [{ "name": "PL: Honest proof", "category": "PawLunova" }]
+}
+{% endschema %}

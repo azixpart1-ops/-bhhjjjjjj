@@ -1,0 +1,62 @@
+{%- doc -%}
+  One line: "About 8p a night over the 5-year foam guarantee", with the maths one tap away.
+  Only for a product the foam guarantee covers, only when the setting is on. Integer maths,
+  rounded half up, never 0p, and it says "about". Nights = years × 365¼ (1,826 for 5 years).
+
+  @param {number} price - price in pence
+  @param {product} product - the product the price belongs to
+  @param {boolean} [compact] - smaller version for cards and results
+{%- enddoc -%}
+{%- liquid
+  assign cents = price | default: 0 | plus: 0
+  assign years = settings.pl_guarantee_years | default: 0 | plus: 0
+  assign show = false
+  if settings.pl_show_per_night and settings.pl_guarantee_enable and years > 0 and cents > 0 and product != blank
+    capture pn_foam
+      render 'pl-foam-bed', product: product
+    endcapture
+    if pn_foam == 'true'
+      assign show = true
+    endif
+  endif
+-%}
+{%- if show -%}
+  {%- liquid
+    assign nights = years | times: 1461 | divided_by: 4
+    assign twice_nights = nights | times: 2
+    assign rounded = cents | times: 2 | plus: nights | divided_by: twice_nights | floor
+    if rounded < 1
+      assign rounded = 1
+    endif
+    if rounded < 100
+      assign amount = rounded | append: 'p'
+      assign hundredths = cents | times: 200 | plus: nights | divided_by: twice_nights | floor
+      assign whole = hundredths | divided_by: 100 | floor
+      assign frac = hundredths | modulo: 100
+      if frac < 10
+        assign frac = '0' | append: frac
+      endif
+      assign exact_text = whole | append: '.' | append: frac | append: 'p'
+    else
+      assign amount = rounded | money_without_trailing_zeros
+      assign exact_text = rounded | money
+    endif
+    assign price_money = cents | money_without_trailing_zeros
+    if nights >= 1000
+      assign n_th = nights | divided_by: 1000
+      assign n_rest = nights | modulo: 1000 | prepend: '00' | slice: -3, 3
+      assign nights_text = n_th | append: ',' | append: n_rest
+    else
+      assign nights_text = nights | append: ''
+    endif
+  -%}
+  <details class="pl-details pl-per-night{% if compact %} pl-per-night--compact{% endif %}">
+    <summary>
+      {%- render 'pl-icon', name: 'moon' -%}
+      <span>{{ 'pl.pdp.per_night_label' | t: amount: amount, years: years }}</span>
+      {%- render 'pl-icon', name: 'info', class: 'pl-muted' -%}
+      <span class="visually-hidden">{{ 'pl.pdp.per_night_hint' | t }}</span>
+    </summary>
+    <p class="pl-per-night__basis">{{ 'pl.pdp.per_night_basis' | t: price: price_money, nights: nights_text, years: years, exact: exact_text }}</p>
+  </details>
+{%- endif -%}

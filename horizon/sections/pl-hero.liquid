@@ -1,0 +1,196 @@
+{% comment %}
+  Section contract.
+  The homepage hero: the emotional hook, the keyword-carrying subhead, two routes (Bed Finder for the
+  undecided, Shop all for the ready) and the four promises before the first price is seen.
+  @example
+  <!-- Add from the editor: PL: Hero. Pick an image, or a product whose photo stands in. -->
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  assign img = s.image
+  if img == blank and s.fallback_product != blank
+    assign img = s.fallback_product.featured_image
+  endif
+  assign img_m = s.image_mobile | default: img
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign nights = settings.pl_trial_nights
+  assign years = settings.pl_guarantee_years
+  assign alt_text = s.image_alt | default: img.alt | default: s.heading
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-hero pl-hero--image-{{ s.image_position }}{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  <div class="pl-hero__grid">
+    <div class="pl-hero__copy">
+      {%- if s.eyebrow != blank -%}<p class="pl-eyebrow pl-eyebrow--accent">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      <h1 class="pl-hero__heading h1">{{ s.heading | escape | newline_to_br }}</h1>
+      {%- if s.lede != blank -%}<p class="pl-lede pl-hero__lede">{{ s.lede }}</p>{%- endif -%}
+      <div class="pl-hero__actions">
+        {%- if s.primary_label != blank -%}
+          <div>
+            <a class="button pl-hero__primary" href="{{ s.primary_link | default: settings.pl_finder_url }}">{{ s.primary_label | escape }}</a>
+            {%- if s.primary_note != blank -%}<span class="pl-btn-note">{{ s.primary_note | escape }}</span>{%- endif -%}
+          </div>
+        {%- endif -%}
+        {%- if s.secondary_label != blank -%}
+          <a class="button-secondary" href="{{ s.secondary_link | default: '/collections/dog-beds' }}">{{ s.secondary_label | escape }}</a>
+        {%- endif -%}
+      </div>
+      <p class="pl-hero__welcome pl-small" data-pl-welcome hidden></p>
+      {%- if s.show_trust -%}
+        <ul class="pl-trust-inline pl-hero__trust">
+          {%- if settings.pl_trial_enable -%}<li>{% render 'pl-icon', name: 'moon' %}{{ nights }} nights to decide</li>{%- endif -%}
+          {%- if settings.pl_guarantee_enable -%}<li>{% render 'pl-icon', name: 'shield' %}{{ years }}-year guarantee on memory foam beds</li>{%- endif -%}
+          {%- if settings.pl_free_delivery_threshold > 0 -%}<li>{% render 'pl-icon', name: 'truck' %}Free UK delivery over £{{ settings.pl_free_delivery_threshold }}</li>{%- endif -%}
+          <li>{% render 'pl-icon', name: 'chat' %}A real person in the UK</li>
+        </ul>
+      {%- endif -%}
+    </div>
+    <div class="pl-hero__media">
+      {%- if img != blank -%}
+        <picture>
+          {%- if img_m != img -%}
+            <source media="(max-width: 749px)" srcset="{{ img_m | image_url: width: 750 }} 750w, {{ img_m | image_url: width: 1100 }} 1100w" sizes="100vw">
+          {%- endif -%}
+          {{ img | image_url: width: 1600 | image_tag: widths: '480, 720, 960, 1200, 1600', sizes: '(min-width: 990px) 50vw, 100vw', loading: 'eager', fetchpriority: 'high', class: 'pl-hero__img', alt: alt_text }}
+        </picture>
+      {%- else -%}
+        {{ 'hero-apparel-1' | placeholder_svg_tag: 'pl-hero__img placeholder-svg' }}
+      {%- endif -%}
+      {%- if s.caption != blank -%}<p class="pl-hero__caption pl-small">{{ s.caption | escape }}</p>{%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .pl-hero__grid {
+    display: grid;
+    gap: var(--gap-xl);
+    align-items: center;
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-hero__grid {
+      grid-template-columns: minmax(0, 11fr) minmax(0, 9fr);
+      gap: var(--gap-3xl);
+    }
+
+    .pl-hero--image-left .pl-hero__copy {
+      order: 2;
+    }
+  }
+
+  .pl-hero__copy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+    max-width: 38rem;
+  }
+
+  .pl-hero__heading {
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .pl-hero__lede {
+    font-size: 1.125rem;
+  }
+
+  .pl-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    align-items: flex-start;
+    margin-top: var(--margin-xs);
+  }
+
+  .pl-hero__actions .button,
+  .pl-hero__actions .button-secondary {
+    min-height: 3rem;
+  }
+
+  @media screen and (max-width: 749px) {
+    .pl-hero__actions > div,
+    .pl-hero__actions .button,
+    .pl-hero__actions .button-secondary {
+      width: 100%;
+      text-align: center;
+      justify-content: center;
+    }
+  }
+
+  .pl-hero__trust {
+    margin-top: var(--margin-xs);
+  }
+
+  .pl-hero__media {
+    position: relative;
+    border-radius: var(--pl-radius-lg);
+    overflow: hidden;
+    background: var(--pl-oat);
+  }
+
+  .pl-hero__img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-hero__img {
+      aspect-ratio: 1 / 1;
+    }
+  }
+
+  .pl-hero__caption {
+    position: absolute;
+    inset-inline-start: 1rem;
+    inset-block-end: 1rem;
+    margin: 0;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    background: rgb(250 246 239 / 0.92);
+    color: #17150f;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Hero",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "header", "content": "Words" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Orthopaedic and memory foam dog beds" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "They've earned a proper bed." },
+    { "type": "richtext", "id": "lede", "label": "Lede", "default": "<p>You notice it before they do. The pause at the bottom of the stairs, the longer stretch before the first step. Our beds are built for how your dog actually sleeps, sized by breed and weight, with 100 nights at home to be sure.</p>" },
+    { "type": "header", "content": "Buttons" },
+    { "type": "text", "id": "primary_label", "label": "Primary button", "default": "Find my dog's bed" },
+    { "type": "url", "id": "primary_link", "label": "Primary link", "info": "Leave empty to use the Bed Finder page from theme settings." },
+    { "type": "text", "id": "primary_note", "label": "Note under the primary button", "default": "4 questions · 30 seconds · no email" },
+    { "type": "text", "id": "secondary_label", "label": "Secondary button", "default": "Shop all beds" },
+    { "type": "url", "id": "secondary_link", "label": "Secondary link", "default": "/collections/dog-beds" },
+    { "type": "checkbox", "id": "show_trust", "label": "Show the four promises", "default": true },
+    { "type": "header", "content": "Image" },
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "image_picker", "id": "image_mobile", "label": "Image on phones (optional)" },
+    { "type": "product", "id": "fallback_product", "label": "Or use this product's photo", "info": "Used when no image is chosen." },
+    { "type": "text", "id": "image_alt", "label": "Image description (alt text)" },
+    { "type": "text", "id": "caption", "label": "Caption on the image", "default": "The Coniston, low step-in, memory foam" },
+    { "type": "select", "id": "image_position", "label": "Image position", "options": [ { "value": "right", "label": "Right" }, { "value": "left", "label": "Left" } ], "default": "right" },
+    { "type": "header", "content": "Layout" },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 48 }
+  ],
+  "presets": [{ "name": "PL: Hero", "category": "PawLunova" }]
+}
+{% endschema %}

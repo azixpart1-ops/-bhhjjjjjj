@@ -1,0 +1,60 @@
+{%- doc -%}
+  Does the foam guarantee cover this product? Echoes "true" or nothing. Capture it.
+  Reads the product's own data, in order: custom.foam_guarantee (decides when set),
+  custom.core_type not containing "memory foam" (never), tags guarantee:no / guarantee:yes,
+  then only a bed (type starts with "Dog Beds", not a car seat) whose description promises
+  a no-flatten guarantee. Orthopaedic in a name is never evidence.
+
+  @param {product} product - the product
+{%- enddoc -%}
+{%- liquid
+  if product != blank and settings.pl_guarantee_enable
+    assign fb_ok = false
+    assign fb_decided = false
+    assign fb_mf = product.metafields.custom.foam_guarantee.value
+    if fb_mf == true
+      assign fb_ok = true
+      assign fb_decided = true
+    elsif fb_mf == false
+      assign fb_decided = true
+    endif
+    if fb_decided == false
+      assign fb_core = product.metafields.custom.core_type.value | default: '' | append: '' | strip | downcase
+      if fb_core != ''
+        unless fb_core contains 'memory foam'
+          assign fb_decided = true
+        endunless
+      endif
+    endif
+    if fb_decided == false
+      assign fb_tags = product.tags | join: ',' | downcase | prepend: ',' | append: ','
+      if fb_tags contains ',guarantee:no,'
+        assign fb_ok = false
+      elsif fb_tags contains ',guarantee:yes,'
+        assign fb_ok = true
+      else
+        assign fb_bed = true
+        assign fb_type = product.type | default: '' | downcase | strip
+        assign fb_first = fb_type | split: '>' | first | default: '' | strip
+        if fb_first != ''
+          unless fb_first contains 'bed'
+            assign fb_bed = false
+          endunless
+        endif
+        assign fb_title = product.title | default: '' | downcase
+        if fb_tags contains ',dog car seat,' or fb_tags contains ',car seat,' or fb_title contains 'car seat'
+          assign fb_bed = false
+        endif
+        if fb_bed
+          assign fb_desc = product.description | default: '' | downcase
+          if fb_desc contains 'no-flatten guarantee' or fb_desc contains 'no flatten guarantee'
+            assign fb_ok = true
+          endif
+        endif
+      endif
+    endif
+    if fb_ok
+      echo 'true'
+    endif
+  endif
+-%}

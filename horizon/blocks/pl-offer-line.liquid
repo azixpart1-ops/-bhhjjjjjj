@@ -1,0 +1,49 @@
+{%- doc -%}
+  "£15 off this size at checkout, until Sat 31 Oct" when the selected size qualifies for the
+  automatic discount in Theme settings › PawLunova promises › Current offer. Nothing after the end date.
+{%- enddoc -%}
+{%- liquid
+  assign product = closest.product
+  assign variant = product.selected_or_first_available_variant
+  assign show = false
+  if settings.pl_offer_enable and settings.pl_offer_amount > 0 and settings.pl_offer_min > 0
+    assign now_s = 'now' | date: '%s' | plus: 0
+    assign ends_raw = settings.pl_offer_ends | default: '' | strip
+    assign ends_s = 0
+    if ends_raw != ''
+      assign ends_s = ends_raw | date: '%s' | plus: 0
+    endif
+    assign min_cents = settings.pl_offer_min | times: 100
+    if variant.price >= min_cents and variant.available
+      if ends_s == 0 or ends_s > now_s
+        assign show = true
+      endif
+    endif
+  endif
+-%}
+{%- if show -%}
+  {%- liquid
+    if ends_raw != ''
+      assign ends_text = ends_raw | date: '%a %-d %b'
+    endif
+  -%}
+  <div class="pl-pdp-block pl-offer-line" {{ block.shopify_attributes }}>
+    <p class="pl-offer-line__main">
+      {%- render 'pl-icon', name: 'sparkle' -%}
+      <span>{{ 'pl.pdp.offer_line' | t: amount: settings.pl_offer_amount, ends: ends_text }}</span>
+    </p>
+    {%- if settings.pl_offer_note != blank -%}
+      <p class="pl-offer-line__note">{{ settings.pl_offer_note | escape }}</p>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Current offer line",
+  "tag": null,
+  "settings": [
+    { "type": "paragraph", "content": "Shows when the selected size reaches the offer's minimum, until the end date in Theme settings › PawLunova promises." }
+  ],
+  "presets": [{ "name": "Current offer line", "category": "PawLunova" }]
+}
+{% endschema %}

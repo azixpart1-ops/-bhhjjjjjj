@@ -1,0 +1,38 @@
+{%- doc -%}
+  The Bed Finder's data: every product in a collection as compact JSON, with the theme's own verdicts
+  (foam guarantee, trial) and the metafields the finder matches on. Rendered inside a JSON script tag.
+
+  @param {string} handle - collection handle (default dog-beds)
+{%- enddoc -%}
+{%- liquid
+  assign h = handle | default: 'dog-beds'
+  assign col = collections[h]
+-%}
+{%- paginate col.products by 250 -%}
+[
+{%- for p in col.products -%}
+  {%- liquid
+    assign mf = p.metafields.custom
+    capture foam_ok
+      render 'pl-foam-bed', product: p
+    endcapture
+    capture trial_ok
+      render 'pl-trial-eligible', product: p
+    endcapture
+    assign size_index = -1
+    for opt in p.options_with_values
+      assign on = opt.name | downcase
+      if on contains 'size'
+        assign size_index = forloop.index0
+      endif
+    endfor
+    assign img = p.featured_image | image_url: width: 640
+  -%}
+  {"h":{{ p.handle | json }},"t":{{ p.title | json }},"u":{{ p.url | json }},"i":{{ img | json }},"p":{{ p.price_min }},"ty":{{ p.type | json }},"c":{{ mf.core_type | default: '' | json }},"st":{% if mf.sleep_style.value %}{{ mf.sleep_style.value | json }}{% else %}[]{% endif %},"sh":{{ mf.shape | default: '' | json }},"le":{% if mf.low_entry.value == true %}true{% else %}false{% endif %},"fg":{% if foam_ok == 'true' %}true{% else %}false{% endif %},"tr":{% if trial_ok == 'true' %}true{% else %}false{% endif %},"bf":{{ mf.best_for | default: '' | json }},"sub":{{ mf.subtitle | default: '' | json }},"tags":{{ p.tags | json }},"si":{{ size_index }},"av":{{ p.available | json }},"v":[
+    {%- for v in p.variants -%}
+      {"id":{{ v.id }},"t":{{ v.title | json }},"o":{{ v.options | json }},"p":{{ v.price }},"a":{{ v.available | json }},"sw":{{ v.metafields.custom.suits_weight | default: '' | json }},"sa":{{ v.metafields.custom.sleep_area | default: '' | json }},"br":{{ v.metafields.custom.suits_breeds | default: '' | json }}}{% unless forloop.last %},{% endunless %}
+    {%- endfor -%}
+  ]}{% unless forloop.last %},{% endunless %}
+{%- endfor -%}
+]
+{%- endpaginate -%}

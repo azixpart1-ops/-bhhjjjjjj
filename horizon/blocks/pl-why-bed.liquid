@@ -1,0 +1,86 @@
+{%- doc -%}
+  "Why the Coniston": up to six bullets in the owner's voice, each one allowed only by the product's
+  own data (core type, sleep style, low entry, liner, wash temperature, non-slip base).
+  custom.benefits (one per line) comes first when it is filled in.
+{%- enddoc -%}
+{%- liquid
+  assign product = closest.product
+  assign mf = product.metafields.custom
+  capture foam_ok
+    render 'pl-foam-bed', product: product
+  endcapture
+  assign core = mf.core_type | default: '' | append: '' | downcase
+  assign styles = mf.sleep_style.value | default: '' | join: ',' | downcase
+  assign bullets = ''
+  assign benefits = mf.benefits | default: ''
+  if benefits != ''
+    assign lines = benefits | newline_to_br | split: '<br />'
+    for l in lines
+      assign ls = l | strip_html | strip
+      if ls != ''
+        assign bullets = bullets | append: ls | append: '¦'
+      endif
+    endfor
+  endif
+  if core contains 'memory foam' and foam_ok == 'true'
+    assign bullets = bullets | append: 'Memory foam core, guaranteed ' | append: settings.pl_guarantee_years | append: ' years against going flat.¦'
+  elsif core contains 'memory foam'
+    assign bullets = bullets | append: 'Memory foam that contours to hip and shoulder, then comes back to shape by morning.¦'
+  elsif core contains 'egg'
+    assign bullets = bullets | append: "Egg-crate foam core: spreads their weight so hips and shoulders aren't pressed into a hard floor.¦"
+  elsif core contains 'crumb'
+    assign bullets = bullets | append: 'Crumb memory foam: softer than a solid slab, still foam rather than loose filling.¦'
+  elsif core contains 'fibre'
+    assign bullets = bullets | append: 'Soft fibre filling, made for comfort rather than joint support. We say so rather than let you find out in month three.¦'
+  elsif core contains 'mesh'
+    assign bullets = bullets | append: 'A taut mesh deck lifted off the floor, so air moves underneath and nothing soaks.¦'
+  endif
+  if styles contains 'curls' and styles contains 'stretches'
+    assign bullets = bullets | append: 'Built for dogs who curl up tight one night and stretch out the next.¦'
+  elsif styles contains 'curls'
+    assign bullets = bullets | append: 'Built for dogs who curl up tight, with sides to press their back into.¦'
+  elsif styles contains 'stretches'
+    assign bullets = bullets | append: 'Room to stretch out, have a big sigh and settle.¦'
+  elsif styles contains 'head'
+    assign bullets = bullets | append: 'Sides made for resting a sleepy head.¦'
+  endif
+  if mf.low_entry.value == true
+    assign bullets = bullets | append: 'Easy in, easy out for stiff morning legs.¦'
+  endif
+  if mf.has_liner.value == true
+    assign bullets = bullets | append: 'Accidents happen. The waterproof liner keeps them off the foam.¦'
+  endif
+  assign wash = mf.wash_temp | default: 0 | plus: 0
+  if wash > 0
+    assign bullets = bullets | append: 'Cover comes off, washes at ' | append: wash | append: '°C, goes back on.¦'
+  endif
+  if mf.non_slip.value == true
+    assign bullets = bullets | append: 'Stays put when they flop down.¦'
+  endif
+  assign list = bullets | split: '¦'
+-%}
+{%- if list.size > 0 -%}
+  <div class="pl-pdp-block pl-why-bed" {{ block.shopify_attributes }}>
+    {%- if block.settings.heading != blank -%}
+      <h3 class="h6 pl-why-bed__heading">{{ block.settings.heading | replace: '[name]', product.title | escape }}</h3>
+    {%- endif -%}
+    <ul class="pl-list">
+      {%- for b in list limit: 6 -%}
+        {%- assign bs = b | strip -%}
+        {%- if bs != '' -%}
+          <li>{% render 'pl-icon', name: 'check' %}<span>{{ bs }}</span></li>
+        {%- endif -%}
+      {%- endfor -%}
+    </ul>
+  </div>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Why this bed",
+  "tag": null,
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "info": "[name] is replaced by the product title.", "default": "" }
+  ],
+  "presets": [{ "name": "Why this bed", "category": "PawLunova" }]
+}
+{% endschema %}

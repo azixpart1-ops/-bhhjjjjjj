@@ -1,0 +1,468 @@
+{% comment %}
+  Section contract.
+  The Bed Finder: four taps (how they sleep, their joints, their size, their name) to one bed in the
+  right size, addable to the basket from the result. Choice architecture for a 70-bed range.
+  Reads every bed in the chosen collection with its metafields; the scoring lives in pl-finder.js.
+  @example
+  <!-- Homepage inline, and the /pages/bed-finder template. The header button links to that page. -->
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign col_handle = s.collection.handle | default: 'dog-beds'
+  assign hints_raw = settings.pl_size_hints | default: '' | newline_to_br | split: '<br />'
+  assign nights = settings.pl_trial_nights
+  assign years = settings.pl_guarantee_years
+  assign excluded = s.exclude_types | default: '' | newline_to_br | split: '<br />'
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-finder-section{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+  id="bed-finder"
+>
+  {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: s.heading, lede: s.lede, align: 'center' -%}
+  <p class="pl-finder__welcome pl-small" data-pl-welcome hidden></p>
+
+  <pl-bed-finder
+    class="pl-finder"
+    data-section-id="{{ section.id }}"
+    data-trial="{% if settings.pl_trial_enable %}true{% else %}false{% endif %}"
+    data-nights="{{ nights }}"
+    data-years="{{ years }}"
+    data-per-night="{% if settings.pl_show_per_night and settings.pl_guarantee_enable %}true{% else %}false{% endif %}"
+    data-browse-url="{{ s.collection.url | default: '/collections/dog-beds' }}"
+    data-skip-name="{% if s.ask_name %}false{% else %}true{% endif %}"
+    data-money-format="{{ shop.money_format | escape }}"
+  >
+    <script type="application/json" data-pl-finder-products>{% render 'pl-finder-data', handle: col_handle %}</script>
+    <script type="application/json" data-pl-finder-sizes>[
+      {%- assign first = true -%}
+      {%- for line in hints_raw -%}
+        {%- assign l = line | strip -%}
+        {%- if l == '' -%}{%- continue -%}{%- endif -%}
+        {%- assign parts = l | split: '|' -%}
+        {%- unless first -%},{%- endunless -%}{%- assign first = false -%}
+        {"v":{{ parts[0] | default: '' | strip | json }},"l":{{ parts[1] | default: '' | strip | json }},"w":{{ parts[2] | default: '' | strip | json }},"b":{{ parts[3] | default: '' | strip | json }}}
+      {%- endfor -%}
+    ]</script>
+    <script type="application/json" data-pl-finder-exclude>[{% for e in excluded %}{% assign es = e | strip %}{% if es != '' %}{{ es | json }}{% unless forloop.last %},{% endunless %}{% endif %}{% endfor %}]</script>
+    <script type="application/json" data-pl-finder-strings>{
+      "stepOf": {{ 'pl.finder.step_of' | t: step: '[step]', total: '[total]' | json }},
+      "back": {{ 'pl.finder.back' | t | json }},
+      "next": {{ 'pl.finder.next' | t | json }},
+      "skip": {{ 'pl.finder.skip' | t | json }},
+      "showMatch": {{ 'pl.finder.show_match' | t | json }},
+      "showMatchNamed": {{ 'pl.finder.show_match_named' | t: name: '[name]' | json }},
+      "resultEyebrow": {{ 'pl.finder.result_eyebrow' | t | json }},
+      "resultHeading": {{ 'pl.finder.result_heading' | t | json }},
+      "resultHeadingNamed": {{ 'pl.finder.result_heading_named' | t: name: '[name]' | json }},
+      "why": {{ 'pl.finder.why_heading' | t | json }},
+      "whyNamed": {{ 'pl.finder.why_heading_named' | t: name: '[name]' | json }},
+      "also": {{ 'pl.finder.also' | t | json }},
+      "add": {{ 'pl.finder.add' | t | json }},
+      "addNamed": {{ 'pl.finder.add_named' | t: name: '[name]' | json }},
+      "adding": {{ 'pl.finder.adding' | t | json }},
+      "added": {{ 'pl.finder.added' | t | json }},
+      "addError": {{ 'pl.finder.add_error' | t | json }},
+      "details": {{ 'pl.finder.details' | t | json }},
+      "change": {{ 'pl.finder.change' | t | json }},
+      "noMatch": {{ 'pl.finder.no_match' | t | json }},
+      "browseAll": {{ 'pl.finder.browse_all' | t | json }},
+      "sizeLine": {{ 'pl.finder.size_line' | t: size: '[size]' | json }},
+      "oneSize": {{ 'pl.finder.one_size' | t | json }},
+      "soldOut": {{ 'pl.finder.sold_out' | t | json }},
+      "vetNote": {{ 'pl.finder.vet_note' | t | json }},
+      "trialLine": {{ 'pl.finder.trial_line' | t: nights: nights | json }},
+      "perNight": {{ 'pl.finder.per_night' | t: amount: '[amount]', years: years | json }},
+      "bestFor": {{ 'pl.general.best_for' | t | json }},
+      "whyStyleCurl": "Chosen for a dog who curls up tight: walls to press into.",
+      "whyStyleLean": "Chosen for a dog who rests their head on something: an edge for the chin.",
+      "whyStyleSprawl": "Chosen for a dog who stretches flat out: room to lie full length.",
+      "whyStyleMiss": "Not made for that sleeping style specifically, but the closest match for their joints and size.",
+      "whyFoamDiagnosed": "Memory foam that spreads their weight, so hips and shoulders aren't pressed into a hard floor.",
+      "whyFoamSlowing": "A foam core that spreads their weight, for a dog who's starting to slow down.",
+      "whyFoamFine": "A foam core, so the support is already there as they get older.",
+      "whyEggDiagnosed": "Egg-crate foam that spreads their weight rather than compressing flat.",
+      "whyLowEntry": "A low front to step over, for stiff morning legs.",
+      "whySoft": "A soft, cushioned bed. Fine for a young dog with no joint worries yet.",
+      "whySizeBand": "Size [size], which this bed lists for dogs [weight].",
+      "whySizeBreeds": "Size [size], for breeds like [breeds].",
+      "whySizeUp": "Size [size]: the next size up from what you'd expect. Roomier is fine; too small isn't.",
+      "whySizeOne": "One size. Check it against their measurements on the product page.",
+      "whyGuarantee": "The memory foam core is guaranteed [years] years against going flat."
+    }</script>
+
+    <div class="pl-finder__card" data-pl-finder-ui>
+      <div class="pl-finder__progress" aria-hidden="true"><span class="pl-finder__progress-fill" data-progress style="width: 25%"></span></div>
+      <p class="pl-finder__step-of pl-small pl-muted" data-step-of aria-live="polite"></p>
+
+      <fieldset class="pl-finder__step" data-step="style">
+        <legend class="h4 pl-finder__q">{{ 'pl.finder.q_style' | t }}</legend>
+        <p class="pl-finder__help pl-muted">{{ 'pl.finder.q_style_help' | t }}</p>
+        <div class="pl-finder__options">
+          <button type="button" class="pl-finder__option" data-answer="style" data-value="curl"><span class="pl-finder__option-icon">{% render 'pl-icon', name: 'moon' %}</span><strong>{{ 'pl.finder.curl_title' | t }}</strong><span>{{ 'pl.finder.curl_text' | t }}</span></button>
+          <button type="button" class="pl-finder__option" data-answer="style" data-value="lean"><span class="pl-finder__option-icon">{% render 'pl-icon', name: 'bed' %}</span><strong>{{ 'pl.finder.lean_title' | t }}</strong><span>{{ 'pl.finder.lean_text' | t }}</span></button>
+          <button type="button" class="pl-finder__option" data-answer="style" data-value="sprawl"><span class="pl-finder__option-icon">{% render 'pl-icon', name: 'dog' %}</span><strong>{{ 'pl.finder.sprawl_title' | t }}</strong><span>{{ 'pl.finder.sprawl_text' | t }}</span></button>
+        </div>
+      </fieldset>
+
+      <fieldset class="pl-finder__step" data-step="stage" hidden>
+        <legend class="h4 pl-finder__q">{{ 'pl.finder.q_stage' | t }}</legend>
+        <p class="pl-finder__help pl-muted">{{ 'pl.finder.q_stage_help' | t }}</p>
+        <div class="pl-finder__options">
+          <button type="button" class="pl-finder__option" data-answer="stage" data-value="fine"><span class="pl-finder__option-icon">{% render 'pl-icon', name: 'sparkle' %}</span><strong>{{ 'pl.finder.fine_title' | t }}</strong><span>{{ 'pl.finder.fine_text' | t }}</span></button>
+          <button type="button" class="pl-finder__option" data-answer="stage" data-value="slowing"><span class="pl-finder__option-icon">{% render 'pl-icon', name: 'clock' %}</span><strong>{{ 'pl.finder.slowing_title' | t }}</strong><span>{{ 'pl.finder.slowing_text' | t }}</span></button>
+          <button type="button" class="pl-finder__option" data-answer="stage" data-value="diagnosed"><span class="pl-finder__option-icon">{% render 'pl-icon', name: 'heart' %}</span><strong>{{ 'pl.finder.diagnosed_title' | t }}</strong><span>{{ 'pl.finder.diagnosed_text' | t }}</span></button>
+        </div>
+      </fieldset>
+
+      <fieldset class="pl-finder__step" data-step="size" hidden>
+        <legend class="h4 pl-finder__q">{{ 'pl.finder.q_size' | t }}</legend>
+        <p class="pl-finder__help pl-muted">{{ 'pl.finder.q_size_help' | t }}</p>
+        <div class="pl-finder__options pl-finder__options--sizes">
+          {%- for line in hints_raw -%}
+            {%- assign l = line | strip -%}
+            {%- if l == '' -%}{%- continue -%}{%- endif -%}
+            {%- assign parts = l | split: '|' -%}
+            <button type="button" class="pl-finder__option pl-finder__option--size" data-answer="size" data-value="{{ parts[0] | strip | escape }}">
+              <strong>{{ parts[1] | default: parts[0] | strip | escape }} <span class="pl-muted">· {{ parts[2] | strip | escape }}</span></strong>
+              <span>{{ parts[3] | strip | escape }}</span>
+            </button>
+          {%- endfor -%}
+        </div>
+      </fieldset>
+
+      <div class="pl-finder__step" data-step="name" hidden>
+        <label class="h4 pl-finder__q" for="pl-finder-name-{{ section.id }}">{{ 'pl.finder.q_name' | t }}</label>
+        <p class="pl-finder__help pl-muted">{{ 'pl.finder.q_name_help' | t }}</p>
+        <div class="pl-finder__name-row">
+          <input id="pl-finder-name-{{ section.id }}" class="pl-finder__input" type="text" maxlength="24" autocomplete="off" placeholder="{{ 'pl.finder.name_placeholder' | t }}" data-name-input>
+          <button type="button" class="button" data-show-match>{{ 'pl.finder.show_match' | t }}</button>
+        </div>
+        <button type="button" class="pl-link pl-small pl-finder__skip" data-skip-name>{{ 'pl.finder.skip' | t }}</button>
+      </div>
+
+      <div class="pl-finder__step pl-finder__result" data-step="result" hidden data-result aria-live="polite"></div>
+
+      <div class="pl-finder__nav">
+        <button type="button" class="button-unstyled pl-finder__back" data-back hidden>{% render 'pl-icon', name: 'arrow', class: 'pl-finder__back-icon' %} {{ 'pl.finder.back' | t }}</button>
+      </div>
+    </div>
+
+    <noscript>
+      <p class="pl-finder__nojs">{{ 'pl.finder.no_js' | t }} <a class="pl-link" href="{{ s.collection.url | default: '/collections/dog-beds' }}">{{ 'pl.finder.browse_all' | t }}</a></p>
+    </noscript>
+  </pl-bed-finder>
+  <script type="module" src="{{ 'pl-finder.js' | asset_url }}"></script>
+</div>
+
+{% stylesheet %}
+  .pl-finder-section {
+    gap: var(--gap-xl);
+  }
+
+  .pl-finder {
+    display: block;
+    width: 100%;
+    max-width: 52rem;
+    margin-inline: auto;
+  }
+
+  .pl-finder__welcome {
+    text-align: center;
+    margin: 0;
+  }
+
+  .pl-finder__card {
+    position: relative;
+    background: var(--color-background);
+    border: 1px solid var(--pl-line);
+    border-radius: var(--pl-radius-lg);
+    padding: var(--padding-xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+  }
+
+  @media screen and (max-width: 749px) {
+    .pl-finder__card {
+      padding: var(--padding-lg);
+    }
+  }
+
+  .pl-finder__progress {
+    height: 4px;
+    border-radius: 999px;
+    background: rgb(var(--color-foreground-rgb) / 0.1);
+    overflow: hidden;
+  }
+
+  .pl-finder__progress-fill {
+    display: block;
+    height: 100%;
+    background: var(--pl-terracotta);
+    transition: width 0.4s var(--pl-ease);
+  }
+
+  .pl-finder__step-of {
+    margin: 0;
+  }
+
+  .pl-finder__step {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .pl-finder__q {
+    margin: 0;
+    padding: 0;
+  }
+
+  .pl-finder__help {
+    margin: 0 0 0.5rem;
+    font-size: 0.9375rem;
+  }
+
+  .pl-finder__options {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-finder__options {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .pl-finder__options--sizes {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .pl-finder__option {
+    appearance: none;
+    text-align: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.9rem 1rem;
+    border: 1.5px solid var(--pl-line);
+    border-radius: var(--pl-radius);
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font: inherit;
+    cursor: pointer;
+    min-height: 3.25rem;
+    transition: border-color 0.15s var(--pl-ease), transform 0.15s var(--pl-ease), background-color 0.15s var(--pl-ease);
+  }
+
+  .pl-finder__option span:not(.pl-finder__option-icon):not(.pl-muted) {
+    font-size: 0.875rem;
+    color: var(--color-foreground-muted);
+    line-height: 1.4;
+  }
+
+  .pl-finder__option-icon {
+    color: var(--pl-terracotta);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .pl-finder__option:hover {
+      border-color: var(--color-foreground);
+    }
+  }
+
+  .pl-finder__option:active {
+    transform: scale(0.99);
+  }
+
+  .pl-finder__option[aria-pressed='true'] {
+    border-color: var(--pl-moss);
+    background: rgb(31 46 39 / 0.06);
+  }
+
+  .pl-finder__option:focus-visible {
+    outline: 2px solid var(--color-foreground);
+    outline-offset: 2px;
+  }
+
+  .pl-finder__name-row {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .pl-finder__input {
+    flex: 1 1 12rem;
+    min-height: 3rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--color-input-border, #8c7f66);
+    border-radius: var(--style-border-radius-inputs, 12px);
+    background: var(--color-input-background, #fff);
+    color: var(--color-input-text, inherit);
+    font: inherit;
+  }
+
+  .pl-finder__skip {
+    align-self: flex-start;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .pl-finder__nav {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .pl-finder__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.875rem;
+    color: var(--color-foreground-muted);
+  }
+
+  .pl-finder__back-icon {
+    transform: rotate(180deg);
+  }
+
+  /* Result */
+  .pl-finder__result {
+    gap: var(--gap-lg);
+  }
+
+  .pl-finder__match {
+    display: grid;
+    gap: var(--gap-lg);
+    align-items: start;
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-finder__match {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    }
+  }
+
+  .pl-finder__img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: var(--pl-radius);
+    background: var(--pl-oat);
+  }
+
+  .pl-finder__match-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .pl-finder__match-title {
+    margin: 0;
+  }
+
+  .pl-finder__price {
+    font-family: var(--font-heading--family);
+    font-size: 1.5rem;
+  }
+
+  .pl-finder__why {
+    margin: 0.25rem 0 0;
+  }
+
+  .pl-finder__why-heading {
+    margin: 0 0 0.35rem;
+  }
+
+  .pl-finder__cta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .pl-finder__cta .button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pl-finder__cta .button[disabled] {
+    opacity: 0.6;
+  }
+
+  .pl-finder__error {
+    color: var(--pl-alert);
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
+  .pl-finder__alt {
+    display: flex;
+    gap: 0.9rem;
+    align-items: center;
+    padding: 0.75rem;
+    border: 1px solid var(--pl-line-soft);
+    border-radius: var(--pl-radius);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .pl-finder__alt img {
+    width: 4.5rem;
+    height: 4.5rem;
+    object-fit: cover;
+    border-radius: 10px;
+    background: var(--pl-oat);
+  }
+
+  .pl-finder__alt-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: 0.9375rem;
+    min-width: 0;
+  }
+
+  .pl-finder__answers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .pl-finder__nojs {
+    text-align: center;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Bed Finder",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The Bed Finder" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Which bed is right for your dog?" },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "Four quick questions, about 30 seconds. One bed in the right size, no email needed." },
+    { "type": "collection", "id": "collection", "label": "Beds to choose from", "info": "Default: Dog Beds. Every product in it is considered, with its metafields." },
+    { "type": "checkbox", "id": "ask_name", "label": "Ask for the dog's name", "default": true },
+    { "type": "textarea", "id": "exclude_types", "label": "Never recommend", "info": "Product types or shapes, one per line (matched loosely).", "default": "Dog Houses\nDog Accessories\nCar seat\nKennel\nSteps\nCrate mat\nPersonalised" },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "presets": [{ "name": "PL: Bed Finder", "category": "PawLunova" }]
+}
+{% endschema %}

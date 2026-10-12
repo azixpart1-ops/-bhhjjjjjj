@@ -1,0 +1,91 @@
+{%- doc -%}
+  The dated delivery line above the button, worked out from the shipping policy:
+  own stock dispatches in 1 to 2 working days then standard delivery takes 4 to 6, no weekends
+  or bank holidays. Partner-warehouse and made-to-order beds show dates only when their own
+  custom.dispatch_days_min / max are set; otherwise an honest "ask us" line and no Express.
+{%- enddoc -%}
+{%- liquid
+  assign product = closest.product
+  assign ships_from = product.metafields.custom.ships_from | default: '' | append: '' | downcase
+  assign lead = product.metafields.custom.lead_time_days | default: 0 | plus: 0
+  assign tags_lc = product.tags | join: ',' | downcase | prepend: ',' | append: ','
+  assign type_lc = product.type | default: '' | downcase
+  assign made = false
+  if lead > 0 or tags_lc contains ',made-to-order,' or type_lc contains 'personalised'
+    assign made = true
+  endif
+  assign partner = false
+  if ships_from contains 'partner'
+    assign partner = true
+  endif
+  assign dmin = product.metafields.custom.dispatch_days_min | default: 0 | plus: 0
+  assign dmax = product.metafields.custom.dispatch_days_max | default: 0 | plus: 0
+  assign has_own_days = false
+  if dmax > 0
+    assign has_own_days = true
+    if dmin < 1
+      assign dmin = dmax
+    endif
+  endif
+  assign express = true
+  if partner or made
+    assign express = false
+  endif
+  assign show_dates = true
+  if partner or made
+    unless has_own_days
+      assign show_dates = false
+    endunless
+  endif
+  unless has_own_days
+    assign dmin = settings.pl_dispatch_min | default: 1
+    assign dmax = settings.pl_dispatch_max | default: 2
+  endunless
+  assign express_price = settings.pl_delivery_express_price | default: '' | strip
+  assign dispatch_text = dmin | append: ' to ' | append: dmax
+  assign lead_text = lead
+  if lead < 1
+    assign lead_text = 14
+  endif
+  assign transit_text = settings.pl_transit_min | append: ' to ' | append: settings.pl_transit_max
+  if express_price == ''
+    assign express = false
+  endif
+-%}
+<div class="pl-pdp-block" {{ block.shopify_attributes }}>
+  {%- if show_dates -%}
+    <p class="pl-delivery" data-pl-delivery data-dispatch-min="{{ dmin }}" data-dispatch-max="{{ dmax }}" data-express="{{ express }}" hidden>
+      {%- render 'pl-icon', name: 'truck' -%}
+      <span>
+        <span data-pl-delivery-text></span>
+        <span class="pl-delivery__express" data-pl-delivery-express hidden></span>
+      </span>
+    </p>
+    <noscript>
+      <p class="pl-delivery">
+        {%- render 'pl-icon', name: 'truck' -%}
+        <span>{{ 'pl.pdp.delivery_text' | t: dispatch: dispatch_text, transit: transit_text, express: express_price }}</span>
+      </p>
+    </noscript>
+  {%- elsif made -%}
+    <p class="pl-delivery">
+      {%- render 'pl-icon', name: 'clock' -%}
+      <span>{{ 'pl.pdp.delivery_made' | t: days: lead_text }}</span>
+    </p>
+  {%- else -%}
+    <p class="pl-delivery">
+      {%- render 'pl-icon', name: 'truck' -%}
+      <span>{{ 'pl.pdp.delivery_partner' | t }}</span>
+    </p>
+  {%- endif -%}
+</div>
+{% schema %}
+{
+  "name": "Delivery dates",
+  "tag": null,
+  "settings": [
+    { "type": "paragraph", "content": "Dates come from Theme settings › PawLunova promises › Delivery (working days, bank holidays excluded). A partner-warehouse or made-to-order bed shows dates only when its own dispatch days are filled in." }
+  ],
+  "presets": [{ "name": "Delivery dates", "category": "PawLunova" }]
+}
+{% endschema %}

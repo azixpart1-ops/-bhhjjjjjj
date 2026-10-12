@@ -1,0 +1,48 @@
+{%- doc -%}
+  Rendered once in the <head>: the PawLunova stylesheet, the settings the storefront scripts
+  read (delivery days, bank holidays, the offer, the trial), and the small UI module.
+{%- enddoc -%}
+{{ 'pl-base.css' | asset_url | stylesheet_tag }}
+{%- liquid
+  assign pl_holidays = settings.pl_holidays | default: '' | newline_to_br | split: '<br />'
+  assign pl_express = settings.pl_delivery_express_price | default: '' | strip
+-%}
+<script>
+  window.PL = {
+    settings: {
+      trialEnabled: {{ settings.pl_trial_enable | json }},
+      trialNights: {{ settings.pl_trial_nights | default: 0 | json }},
+      guaranteeYears: {{ settings.pl_guarantee_years | default: 0 | json }},
+      freeDeliveryFrom: {{ settings.pl_free_delivery_threshold | default: 0 | times: 100 | json }},
+      dispatchMin: {{ settings.pl_dispatch_min | default: 1 | json }},
+      dispatchMax: {{ settings.pl_dispatch_max | default: 2 | json }},
+      transitMin: {{ settings.pl_transit_min | default: 4 | json }},
+      transitMax: {{ settings.pl_transit_max | default: 6 | json }},
+      expressMin: {{ settings.pl_express_min | default: 2 | json }},
+      expressMax: {{ settings.pl_express_max | default: 3 | json }},
+      expressPrice: {{ pl_express | json }},
+      holidays: [{% for h in pl_holidays %}{% assign hs = h | strip %}{% if hs != '' %}{{ hs | json }}{% unless forloop.last %},{% endunless %}{% endif %}{% endfor %}],
+      offer: {
+        enabled: {{ settings.pl_offer_enable | json }},
+        amount: {{ settings.pl_offer_amount | default: 0 | json }},
+        min: {{ settings.pl_offer_min | default: 0 | json }},
+        ends: {{ settings.pl_offer_ends | default: '' | json }},
+        label: {{ settings.pl_offer_label | default: '' | json }}
+      },
+      whatsapp: {{ settings.pl_whatsapp | default: '' | json }},
+      finderUrl: {{ settings.pl_finder_url | default: '/pages/bed-finder' | json }},
+      currency: {{ cart.currency.iso_code | json }}
+    },
+    strings: {
+      deliveryDates: {{ 'pl.pdp.delivery_dates' | t: from: '[from]', to: '[to]' | json }},
+      deliveryExpress: {{ 'pl.pdp.delivery_dates_express' | t: to: '[to]', price: '[price]' | json }},
+      welcomeBack: {{ 'pl.finder.welcome_back' | t: name: '[name]' | json }},
+      welcomeBackUnnamed: {{ 'pl.finder.welcome_back_unnamed' | t | json }},
+      matchChip: {{ 'pl.finder.match_chip' | t: name: '[name]' | json }},
+      matchChipUnnamed: {{ 'pl.finder.match_chip_unnamed' | t | json }},
+      recommendedSize: {{ 'pl.finder.recommended_size' | t: name: '[name]', size: '[size]' | json }},
+      recommendedSizeUnnamed: {{ 'pl.finder.recommended_size_unnamed' | t: size: '[size]' | json }}
+    }
+  };
+</script>
+<script type="module" src="{{ 'pl-ui.js' | asset_url }}" fetchpriority="low"></script>
