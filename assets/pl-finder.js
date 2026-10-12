@@ -82,6 +82,14 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
 
+function decodeEntities(s) {
+  // The `t` filter HTML-escapes apostrophes and quotes before they reach JSON, so strings arrive as
+  // "Bella&#39;s"; this turns them back into text once, and esc() re-escapes them where they go into HTML.
+  const ta = document.createElement('textarea');
+  ta.innerHTML = String(s ?? '');
+  return ta.value;
+}
+
 function fill(tpl, vars) {
   return String(tpl || '').replace(/\[(\w+)\]/g, (m, k) => (vars[k] !== undefined ? vars[k] : m));
 }
@@ -93,10 +101,12 @@ class PlBedFinder extends HTMLElement {
     this.products = this.#readJson('[data-pl-finder-products]') || [];
     this.sizes = this.#readJson('[data-pl-finder-sizes]') || [];
     this.exclude = (this.#readJson('[data-pl-finder-exclude]') || []).map((s) => String(s).toLowerCase());
-    this.t = this.#readJson('[data-pl-finder-strings]') || {};
+    this.t = Object.fromEntries(
+      Object.entries(this.#readJson('[data-pl-finder-strings]') || {}).map(([k, v]) => [k, typeof v === 'string' ? decodeEntities(v) : v])
+    );
     this.answers = { style: null, stage: null, size: null, name: '' };
     this.steps = ['style', 'stage', 'size'];
-    if (this.dataset.skipName !== 'true') this.steps.push('name');
+    if (this.dataset.askName !== 'false') this.steps.push('name');
     this.stepIndex = 0;
     this.#bind();
     this.#show(0);
@@ -131,7 +141,8 @@ class PlBedFinder extends HTMLElement {
         this.#result();
         return;
       }
-      if (target.closest('[data-skip-name]')) {
+      const skip = target.closest('[data-skip-name]');
+      if (skip && skip !== this) {
         this.answers.name = '';
         this.#result();
         return;

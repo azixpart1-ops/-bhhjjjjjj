@@ -9,7 +9,13 @@
  */
 const PL = window.PL || { settings: {}, strings: {} };
 const S = PL.settings || {};
-const T = PL.strings || {};
+const decodeEntities = (v) => {
+  // The `t` filter HTML-escapes apostrophes before they reach JSON; turn them back into text once.
+  const ta = document.createElement('textarea');
+  ta.innerHTML = String(v ?? '');
+  return ta.value;
+};
+const T = Object.fromEntries(Object.entries(PL.strings || {}).map(([k, v]) => [k, typeof v === 'string' ? decodeEntities(v) : v]));
 const STORE_KEY = 'pl:finder';
 
 const HOLIDAYS = new Set(Array.isArray(S.holidays) ? S.holidays : []);
