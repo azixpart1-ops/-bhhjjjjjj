@@ -1,0 +1,143 @@
+{% comment %}
+  Section contract.
+  "Start with how they sleep": four real beds, one per sleeping style or need, at the top of a
+  collection or the homepage. Fewer choices, each with a reason.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-chips-section{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: s.heading, lede: s.lede -%}
+  <ul class="pl-startgrid list-unstyled">
+    {%- for block in section.blocks -%}
+      {%- liquid
+        assign p = block.settings.product
+        if p == blank
+          continue
+        endif
+        assign link_col = block.settings.collection
+      -%}
+      <li class="pl-start" {{ block.shopify_attributes }}>
+        <a class="pl-start__media" href="{{ p.url }}" aria-label="{{ p.title | escape }}">
+          {%- if p.featured_image != blank -%}
+            {{ p.featured_image | image_url: width: 800 | image_tag: widths: '320, 480, 640, 800', sizes: '(min-width: 990px) 25vw, 50vw', loading: 'lazy', class: 'pl-start__img', alt: p.featured_image.alt | default: p.title }}
+          {%- else -%}
+            {{ 'product-1' | placeholder_svg_tag: 'pl-start__img placeholder-svg' }}
+          {%- endif -%}
+          {%- if block.settings.tag != blank -%}<span class="pl-chip pl-chip--moss pl-start__tag">{{ block.settings.tag | escape }}</span>{%- endif -%}
+        </a>
+        <div class="pl-start__copy">
+          <a class="pl-start__title" href="{{ p.url }}">{{ p.title | escape }}</a>
+          {%- if block.settings.line != blank -%}<p class="pl-small pl-muted pl-start__line">{{ block.settings.line | escape }}</p>{%- endif -%}
+          <p class="pl-small pl-start__price">{{ 'pl.general.from' | t }} {{ p.price_min | money_without_trailing_zeros }}</p>
+          {%- if link_col != blank and block.settings.link_label != blank -%}
+            <a class="pl-link pl-small" href="{{ link_col.url }}">{{ block.settings.link_label | escape }}</a>
+          {%- endif -%}
+        </div>
+      </li>
+    {%- endfor -%}
+  </ul>
+</div>
+
+{% stylesheet %}
+  .pl-startgrid {
+    display: grid;
+    gap: var(--gap-md);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-startgrid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .pl-start {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+
+  .pl-start__media {
+    position: relative;
+    display: block;
+    border-radius: var(--pl-radius);
+    overflow: hidden;
+    background: var(--pl-oat);
+    aspect-ratio: 1;
+  }
+
+  .pl-start__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .pl-start__tag {
+    position: absolute;
+    inset-inline-start: 0.6rem;
+    inset-block-start: 0.6rem;
+  }
+
+  .pl-start__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .pl-start__title {
+    font-weight: 600;
+    text-decoration: none;
+    color: inherit;
+    line-height: 1.3;
+  }
+
+  .pl-start__line,
+  .pl-start__price {
+    margin: 0;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Start with sleep",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 4,
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Four good places to start" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Start with how they sleep." },
+    { "type": "textarea", "id": "lede", "label": "Lede" },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    { "type": "chip", "name": "Bed", "settings": [
+      { "type": "text", "id": "tag", "label": "Tag", "default": "Curls up tight" },
+      { "type": "product", "id": "product", "label": "Bed" },
+      { "type": "text", "id": "line", "label": "One line", "default": "A low step in and memory foam to settle into" },
+      { "type": "collection", "id": "collection", "label": "See more in" },
+      { "type": "text", "id": "link_label", "label": "Link label", "default": "See more like this" }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: Start with sleep", "category": "PawLunova", "blocks": [
+      { "type": "chip", "settings": { "tag": "Stiff mornings", "product": "coniston-orthopaedic-dog-bed", "line": "A low step in and memory foam to settle into", "collection": "low-entry-dog-beds", "link_label": "See low step-in beds" } },
+      { "type": "chip", "settings": { "tag": "Leans on the edge", "product": "the-grasmere-bolster-sofa-dog-bed", "line": "Three soft sides to lean on, memory foam seat", "collection": "bolster-dog-beds", "link_label": "See bolster beds" } },
+      { "type": "chip", "settings": { "tag": "Stretches flat out", "product": "ambleside-edge-to-edge-memory-foam-bed", "line": "Memory foam to every edge, up to 140cm", "collection": "dog-mattresses", "link_label": "See mattresses" } },
+      { "type": "chip", "settings": { "tag": "Curls up tight", "product": "the-borrowdale-orthopaedic-dog-bed", "line": "Soft walls on all four sides, memory foam underneath", "collection": "nest-dog-beds", "link_label": "See nest beds" } }
+    ] }
+  ]
+}
+{% endschema %}

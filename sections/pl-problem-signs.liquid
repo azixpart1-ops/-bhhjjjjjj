@@ -1,0 +1,123 @@
+{% comment %}
+  Section contract.
+  Problem awareness: three things an owner can check tonight. Turns "nice to have" into "now",
+  without blaming the owner (protective pride, not guilt).
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-signs{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: s.heading, lede: s.lede -%}
+  <ol class="pl-signs__list list-unstyled">
+    {%- for block in section.blocks -%}
+      <li class="pl-card pl-signs__item" {{ block.shopify_attributes }}>
+        <span class="pl-signs__num" aria-hidden="true">{{ forloop.index }}</span>
+        <h3 class="h5 pl-signs__title">{{ block.settings.title | escape }}</h3>
+        <p class="pl-signs__text">{{ block.settings.text | escape }}</p>
+      </li>
+    {%- endfor -%}
+  </ol>
+  <div class="pl-signs__foot">
+    {%- if s.note != blank -%}<p class="pl-lede pl-signs__note">{{ s.note | escape }}</p>{%- endif -%}
+    {%- if s.cta_label != blank -%}
+      <div class="pl-actions">
+        <a class="button" href="{{ s.cta_link | default: settings.pl_finder_url }}">{{ s.cta_label | escape }}</a>
+        {%- if s.secondary_label != blank -%}<a class="pl-link" href="{{ s.secondary_link | default: '/collections/dog-beds' }}">{{ s.secondary_label | escape }}</a>{%- endif -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .pl-signs__list {
+    display: grid;
+    gap: var(--gap-md);
+    counter-reset: pl-sign;
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-signs__list {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .pl-signs__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .pl-signs__num {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--pl-moss);
+    color: #f1e9db;
+    font-family: var(--font-heading--family);
+    font-size: 1rem;
+  }
+
+  .pl-signs__title {
+    margin: 0.25rem 0 0;
+  }
+
+  .pl-signs__text {
+    margin: 0;
+    color: var(--color-foreground-muted);
+    line-height: 1.55;
+  }
+
+  .pl-signs__foot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+    max-width: 44rem;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Three signs",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 4,
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Before you replace it" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Three signs their bed has stopped working." },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "None of this is anyone's fault. Beds wear out quietly, and dogs don't complain. Here's what to look for tonight." },
+    { "type": "textarea", "id": "note", "label": "Closing line", "default": "A bed can't undo ageing. What it can change is how much effort goes into lying down, and how much goes into getting back up." },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Find the right bed" },
+    { "type": "url", "id": "cta_link", "label": "Button link", "info": "Empty: the Bed Finder page." },
+    { "type": "text", "id": "secondary_label", "label": "Text link", "default": "Or browse every bed" },
+    { "type": "url", "id": "secondary_link", "label": "Text link URL", "default": "/collections/dog-beds" },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "sign", "name": "Sign", "settings": [
+      { "type": "text", "id": "title", "label": "Title", "default": "They keep circling after they've lain down." },
+      { "type": "textarea", "id": "text", "label": "Text", "default": "A couple of turns before settling is just what dogs do. Turning, resettling, then shifting again ten minutes later usually means no position on that bed takes the weight off." }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: Three signs", "category": "PawLunova", "blocks": [
+      { "type": "sign", "settings": { "title": "They keep circling after they've lain down.", "text": "A couple of turns before settling is just what dogs do. Turning, resettling, then shifting again ten minutes later usually means no position on that bed takes the weight off." } },
+      { "type": "sign", "settings": { "title": "They've started choosing the floor.", "text": "Once foam has bottomed out, cold tiles genuinely are the firmer, flatter option. A dog picking the kitchen floor over their own bed has done the comparison and reached a conclusion." } },
+      { "type": "sign", "settings": { "title": "There's a dip that doesn't spring back.", "text": "Press a flat hand into the middle where they lie. If you can feel the floor through it, so can their hips and elbows." } }
+    ] }
+  ]
+}
+{% endschema %}

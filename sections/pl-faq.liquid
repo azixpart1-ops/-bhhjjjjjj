@@ -1,0 +1,225 @@
+{% comment %}
+  Section contract.
+  The objections, in buying order, answered honestly. Tokens read theme settings so every answer stays
+  true; each question can be limited to foam beds, trial-covered products or own-stock beds on product
+  pages. Emits FAQPage structured data for rich results.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign nights = settings.pl_trial_nights | append: ''
+  assign years = settings.pl_guarantee_years | append: ''
+  assign threshold = settings.pl_free_delivery_threshold | append: ''
+  assign owner = settings.pl_owner_name | default: 'us'
+  assign policy_url = shop.refund_policy.url | default: '/policies/refund-policy'
+  assign policy_link = '<a href="' | append: policy_url | append: '">returns policy</a>'
+  assign dispatch_text = settings.pl_dispatch_min | append: ' to ' | append: settings.pl_dispatch_max
+  assign transit_text = settings.pl_transit_min | append: ' to ' | append: settings.pl_transit_max
+  assign on_product = false
+  if template.name == 'product'
+    assign on_product = true
+    capture foam_ok
+      render 'pl-foam-bed', product: product
+    endcapture
+    capture trial_ok
+      render 'pl-trial-eligible', product: product
+    endcapture
+    assign ships_from = product.metafields.custom.ships_from | default: '' | append: '' | downcase
+    assign core = product.metafields.custom.core_type | default: '' | append: '' | downcase
+  endif
+  assign shown = ''
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-faq{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  <div class="pl-faq__grid">
+    <div class="pl-faq__intro">
+      {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: s.heading, lede: s.lede, size: 'h2' -%}
+      {%- if s.contact_prompt != blank -%}
+        <p class="pl-faq__contact pl-small">
+          {{ s.contact_prompt | escape }}
+          {%- if settings.pl_whatsapp != blank %} <a class="pl-link" href="https://wa.me/{{ settings.pl_whatsapp }}" target="_blank" rel="noopener">WhatsApp {{ owner }}</a>{% endif -%}
+          {%- if settings.pl_contact_email != blank %} <span class="pl-muted">or</span> <a class="pl-link" href="mailto:{{ settings.pl_contact_email }}">{{ settings.pl_contact_email }}</a>{% endif -%}
+        </p>
+      {%- endif -%}
+    </div>
+    <div class="pl-faq__list">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign show = true
+          if on_product
+            case block.settings.requires
+              when 'foam'
+                assign is_foam = false
+                if foam_ok == 'true' or core contains 'foam'
+                  assign is_foam = true
+                endif
+                if is_foam == false
+                  assign show = false
+                endif
+              when 'memory'
+                if foam_ok != 'true'
+                  assign show = false
+                endif
+              when 'trial'
+                if trial_ok != 'true'
+                  assign show = false
+                endif
+              when 'own_stock'
+                if ships_from contains 'partner'
+                  assign show = false
+                endif
+              when 'partner'
+                unless ships_from contains 'partner'
+                  assign show = false
+                endunless
+            endcase
+          elsif block.settings.requires == 'partner'
+            assign show = false
+          endif
+          if block.settings.question == blank or block.settings.answer == blank
+            assign show = false
+          endif
+        -%}
+        {%- if show -%}
+          {%- liquid
+            assign q = block.settings.question | replace: '[nights]', nights | replace: '[years]', years | replace: '[threshold]', threshold
+            assign a = block.settings.answer | replace: '[nights]', nights | replace: '[years]', years | replace: '[threshold]', threshold | replace: '[owner]', owner | replace: '[email]', settings.pl_contact_email | replace: '[phone]', settings.pl_contact_phone | replace: '[hours]', settings.pl_contact_hours | replace: '[dispatch]', dispatch_text | replace: '[transit]', transit_text | replace: '[returns_policy]', policy_link
+            assign shown = shown | append: '¦' | append: q | append: '¦¦' | append: a
+          -%}
+          <details class="pl-details pl-faq__item" {{ block.shopify_attributes }}{% if block.settings.open %} open{% endif %}>
+            <summary class="pl-faq__q"><span>{{ q | escape }}</span>{% render 'pl-icon', name: 'chevron', class: 'pl-details__chevron' %}</summary>
+            <div class="pl-faq__a rte">{{ a }}</div>
+          </details>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </div>
+</div>
+{%- if s.structured_data and shown != '' -%}
+  {%- assign pairs = shown | split: '¦' -%}
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+  {%- assign first = true -%}
+  {%- for pair in pairs -%}
+    {%- assign qa = pair | split: '¦¦' -%}
+    {%- if qa.size == 2 -%}
+      {%- unless first -%},{%- endunless -%}{%- assign first = false -%}
+      {"@type":"Question","name":{{ qa[0] | strip_html | strip | json }},"acceptedAnswer":{"@type":"Answer","text":{{ qa[1] | strip_html | strip | json }}}}
+    {%- endif -%}
+  {%- endfor -%}
+  ]}
+  </script>
+{%- endif -%}
+
+{% stylesheet %}
+  .pl-faq__grid {
+    display: grid;
+    gap: var(--gap-xl);
+    align-items: start;
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-faq__grid {
+      grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+      gap: var(--gap-3xl);
+    }
+
+    .pl-faq__intro {
+      position: sticky;
+      top: calc(var(--header-height, 60px) + 1.5rem);
+    }
+  }
+
+  .pl-faq__intro {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+  }
+
+  .pl-faq__contact {
+    margin: 0;
+  }
+
+  .pl-faq__list {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--pl-line);
+  }
+
+  .pl-faq__item {
+    border-bottom: 1px solid var(--pl-line);
+  }
+
+  .pl-faq__q {
+    padding-block: 1rem;
+    font-weight: 600;
+    font-size: 1.0625rem;
+    line-height: 1.35;
+    gap: 1rem;
+  }
+
+  .pl-faq__a {
+    padding-block: 0 1.1rem;
+    color: var(--color-foreground-muted);
+    max-width: 44rem;
+  }
+
+  .pl-faq__a p {
+    margin: 0 0 0.6em;
+  }
+
+  .pl-faq__a p:last-child {
+    margin-bottom: 0;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: FAQ",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 16,
+  "settings": [
+    { "type": "paragraph", "content": "Tokens in questions and answers: [nights] [years] [threshold] [owner] [email] [phone] [hours] [dispatch] [transit] [returns_policy]." },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Before you decide" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "The questions owners ask first." },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "Straight answers, in the order people usually ask them." },
+    { "type": "text", "id": "contact_prompt", "label": "Contact prompt", "default": "Something we haven't covered?" },
+    { "type": "checkbox", "id": "structured_data", "label": "Add FAQ structured data for search", "default": true },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "qa", "name": "Question", "settings": [
+      { "type": "text", "id": "question", "label": "Question" },
+      { "type": "richtext", "id": "answer", "label": "Answer" },
+      { "type": "checkbox", "id": "open", "label": "Open by default", "default": false },
+      { "type": "select", "id": "requires", "label": "On product pages, show only for", "options": [
+        { "value": "any", "label": "Every product" }, { "value": "foam", "label": "Foam beds (memory or egg-crate)" }, { "value": "memory", "label": "Memory foam beds with the guarantee" },
+        { "value": "trial", "label": "Products the trial covers" }, { "value": "own_stock", "label": "Own-stock beds (not partner warehouse)" }, { "value": "partner", "label": "Partner-warehouse beds only" } ], "default": "any" }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: FAQ", "category": "PawLunova", "blocks": [
+      { "type": "qa", "settings": { "question": "How do I know which size to get?", "answer": "<p>Measure nose to base of tail while they're lying down, then add about 20cm. Between two sizes? Go up: a bed a little too big is fine, one too small isn't. Every bed's page lists the sleeping area, breeds and weight for each size, and if you'd rather not guess, send us a photo of them asleep and we'll tell you.</p>" } },
+      { "type": "qa", "settings": { "question": "What's inside, and isn't firmer better?", "answer": "<p>It depends on the bed, so each page says what's inside that one: memory foam, egg-crate foam, crumb memory foam, fibre or mesh. Firmness is only how a bed feels on day one; what matters is whether it still holds them up a few winters on. Loose fibre packs down under a dog's weight. Foam keeps its shape far longer, which is why the memory foam beds carry a [years]-year guarantee on the core.</p>", "requires": "any" } },
+      { "type": "qa", "settings": { "question": "Will it help a dog with arthritis or stiff hips?", "answer": "<p>A supportive bed spreads their weight so pressure isn't concentrated on hips, elbows and shoulders, which is what makes lying down and getting back up harder for a dog with joint wear. But a bed is for comfort, not a treatment, and it won't replace veterinary care. What it can change is the surface they spend twelve to fourteen hours a day on.</p>", "requires": "foam" } },
+      { "type": "qa", "settings": { "question": "What if my dog just won't use it?", "answer": "<p>Then it comes back. Some dogs claim a new bed the first night; some take a fortnight. Put it where they already sleep, with a blanket that smells of home on top, and give it time. You've got [nights] nights. If it still isn't right, tell us and we collect it free from the UK mainland and refund in full. It doesn't need to be unused. Full terms are in our [returns_policy].</p>", "requires": "trial" } },
+      { "type": "qa", "settings": { "question": "Can I actually wash it?", "answer": "<p>On most of the range the cover comes off and washes, following the care label sewn into it. Beds with a coated, waterproof cover are wiped clean instead, because detergent strips the coating. Each bed's page says which applies, and whether it has a waterproof inner liner that keeps accidents off the foam.</p>" } },
+      { "type": "qa", "settings": { "question": "When will it arrive, and what does delivery cost?", "answer": "<p>Our own stock is dispatched in [dispatch] working days, then standard delivery takes [transit] working days, free on orders over £[threshold] and £4.99 below. Express is £6.99. Every bed's page shows its dates before you order, and tracking comes by email as soon as it's on its way. A few beds ship from our partner warehouse and take longer; their pages say so.</p>", "requires": "own_stock" } },
+      { "type": "qa", "settings": { "question": "When will it arrive?", "answer": "<p>This bed ships from our partner warehouse, so it takes a little longer than our own stock. Delivery is free and tracked. Message us before you order and we'll tell you the expected date.</p>", "requires": "partner" } },
+      { "type": "qa", "settings": { "question": "What does the [years]-year guarantee cover?", "answer": "<p>The memory foam core. If it loses its shape under normal home use within [years] years, we replace it. Covers, zips, liners, waterproof layers, bolsters, fibre filling and non-slip bases are wearing parts and sit outside it, as does damage from chewing, scratching or accidents, foam damaged by liquid or by washing, and commercial use. Beds whose page doesn't mention the guarantee, such as the fibre-filled nest beds, aren't covered.</p>", "requires": "memory" } },
+      { "type": "qa", "settings": { "question": "Is it chew-proof?", "answer": "<p>No dog bed is, and we won't pretend otherwise. If your dog chews or digs at beds, message us before you order and we'll tell you which bed stands the best chance.</p>" } },
+      { "type": "qa", "settings": { "question": "Who will I be talking to?", "answer": "<p>[owner]. PawLunova is a small UK business and every message is answered by a person who knows the beds: [email] or [phone], [hours]. Ask about size before you buy, or anything after.</p>" } }
+    ] }
+  ]
+}
+{% endschema %}

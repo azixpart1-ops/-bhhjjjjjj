@@ -1,0 +1,136 @@
+{% comment %}
+  Section contract.
+  Four promises in a row, each one true by construction: tokens [nights], [years] and [threshold]
+  read Theme settings › PawLunova promises.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign nights = settings.pl_trial_nights | append: ''
+  assign years = settings.pl_guarantee_years | append: ''
+  assign threshold = settings.pl_free_delivery_threshold | append: ''
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-trust-bar{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  <ul class="pl-trust-bar__list list-unstyled">
+    {%- for block in section.blocks -%}
+      {%- liquid
+        assign show = true
+        if block.settings.requires == 'trial' and settings.pl_trial_enable != true
+          assign show = false
+        elsif block.settings.requires == 'guarantee' and settings.pl_guarantee_enable != true
+          assign show = false
+        elsif block.settings.requires == 'delivery' and settings.pl_free_delivery_threshold <= 0
+          assign show = false
+        endif
+      -%}
+      {%- if show -%}
+        <li class="pl-trust-bar__item" {{ block.shopify_attributes }}>
+          <span class="pl-icon-badge">{% render 'pl-icon', name: block.settings.icon %}</span>
+          <div>
+            <p class="pl-trust-bar__title">{{ block.settings.title | replace: '[nights]', nights | replace: '[years]', years | replace: '[threshold]', threshold | escape }}</p>
+            {%- if block.settings.text != blank -%}
+              <p class="pl-trust-bar__text">{{ block.settings.text | replace: '[nights]', nights | replace: '[years]', years | replace: '[threshold]', threshold | escape }}</p>
+            {%- endif -%}
+          </div>
+        </li>
+      {%- endif -%}
+    {%- endfor -%}
+  </ul>
+</div>
+
+{% stylesheet %}
+  .pl-trust-bar__list {
+    display: grid;
+    gap: var(--gap-md);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-trust-bar__list {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .pl-trust-bar__item {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .pl-trust-bar__title {
+    margin: 0;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    line-height: 1.3;
+  }
+
+  .pl-trust-bar__text {
+    margin: 0.15rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--color-foreground-muted);
+    line-height: 1.45;
+  }
+
+  @media screen and (max-width: 749px) {
+    .pl-trust-bar__item {
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .pl-icon-badge {
+      width: 2rem;
+      height: 2rem;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Trust bar",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header"] },
+  "max_blocks": 4,
+  "settings": [
+    { "type": "paragraph", "content": "Tokens: [nights], [years], [threshold] read theme settings." },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 28 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 28 }
+  ],
+  "blocks": [
+    {
+      "type": "item",
+      "name": "Promise",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "options": [
+          { "value": "moon", "label": "Moon (trial)" }, { "value": "shield", "label": "Shield (guarantee)" }, { "value": "truck", "label": "Truck (delivery)" },
+          { "value": "chat", "label": "Chat (a person)" }, { "value": "leaf", "label": "Leaf" }, { "value": "home", "label": "Home" }, { "value": "layers", "label": "Layers (foam)" },
+          { "value": "paw", "label": "Paw" }, { "value": "ruler", "label": "Ruler" }, { "value": "wash", "label": "Washing" }, { "value": "return", "label": "Returns" }, { "value": "lock", "label": "Lock" } ], "default": "moon" },
+        { "type": "text", "id": "title", "label": "Title", "default": "[nights] nights to decide" },
+        { "type": "text", "id": "text", "label": "Text", "default": "Slept on, hair and all. Free collection if it isn't right." },
+        { "type": "select", "id": "requires", "label": "Show only when", "options": [ { "value": "always", "label": "Always" }, { "value": "trial", "label": "The trial is on" }, { "value": "guarantee", "label": "The guarantee is on" }, { "value": "delivery", "label": "Free delivery has a threshold" } ], "default": "always" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "PL: Trust bar",
+      "category": "PawLunova",
+      "blocks": [
+        { "type": "item", "settings": { "icon": "moon", "title": "[nights] nights to decide", "text": "Slept on, hair and all. Free collection if it isn't right.", "requires": "trial" } },
+        { "type": "item", "settings": { "icon": "shield", "title": "[years]-year foam guarantee", "text": "On our memory foam beds, marked on each bed's page.", "requires": "guarantee" } },
+        { "type": "item", "settings": { "icon": "truck", "title": "Free UK delivery over £[threshold]", "text": "Tracked, with a dated delivery line before you order.", "requires": "delivery" } },
+        { "type": "item", "settings": { "icon": "chat", "title": "A real person in the UK", "text": "Message Abbas about sizing before you buy, or anything after.", "requires": "always" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

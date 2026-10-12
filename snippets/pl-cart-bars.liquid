@@ -1,0 +1,80 @@
+{%- doc -%}
+  Goal-gradient bars for the basket: free UK delivery, and the current automatic offer.
+  Server rendered, so the Section Rendering API keeps them right after every change.
+{%- enddoc -%}
+{%- liquid
+  assign threshold = settings.pl_free_delivery_threshold | default: 0 | times: 100
+  assign subtotal = cart.total_price
+  assign show_delivery = false
+  if threshold > 0 and cart.item_count > 0
+    assign show_delivery = true
+  endif
+
+  assign offer_on = false
+  if settings.pl_offer_enable and settings.pl_offer_amount > 0 and settings.pl_offer_min > 0
+    assign now_s = 'now' | date: '%s' | plus: 0
+    assign ends_s = settings.pl_offer_ends | default: '' | append: '' | date: '%s' | plus: 0
+    if ends_s == 0 or ends_s > now_s
+      assign offer_on = true
+    endif
+  endif
+  assign offer_min = settings.pl_offer_min | times: 100
+  assign items_subtotal = cart.items_subtotal_price
+-%}
+{%- if show_delivery or offer_on -%}
+  <div class="pl-cart-bars" data-pl-cart-bars>
+    {%- if show_delivery -%}
+      {%- liquid
+        if subtotal >= threshold
+          assign pct = 100
+        else
+          assign pct = subtotal | times: 100 | divided_by: threshold
+        endif
+        assign away = threshold | minus: subtotal
+        assign away_text = away | money_without_trailing_zeros | remove: '£'
+      -%}
+      <div class="pl-bar{% if subtotal >= threshold %} pl-bar--done{% endif %}" role="status">
+        <p class="pl-bar__text">
+          {%- render 'pl-icon', name: 'truck' -%}
+          {%- if subtotal >= threshold -%}
+            {{ 'pl.cart.free_delivery_unlocked' | t }}
+          {%- else -%}
+            {{ 'pl.cart.free_delivery_away' | t: amount: away_text }}
+          {%- endif -%}
+        </p>
+        <div class="pl-bar__track" aria-hidden="true"><span class="pl-bar__fill" style="width: {{ pct }}%"></span></div>
+      </div>
+    {%- endif -%}
+    {%- if offer_on and cart.item_count > 0 -%}
+      {%- liquid
+        assign offer_applied = false
+        for d in cart.cart_level_discount_applications
+          if d.title == settings.pl_offer_label
+            assign offer_applied = true
+          endif
+        endfor
+        if items_subtotal >= offer_min or offer_applied
+          assign opct = 100
+        else
+          assign opct = items_subtotal | times: 100 | divided_by: offer_min
+        endif
+        assign oaway = offer_min | minus: items_subtotal
+        assign oaway_text = oaway | money_without_trailing_zeros | remove: '£'
+      -%}
+      <div class="pl-bar pl-bar--offer{% if opct == 100 %} pl-bar--done{% endif %}" role="status">
+        <p class="pl-bar__text">
+          {%- render 'pl-icon', name: 'sparkle' -%}
+          {%- if opct == 100 -%}
+            {{ 'pl.cart.offer_unlocked' | t: label: settings.pl_offer_label, amount: settings.pl_offer_amount }}
+          {%- else -%}
+            {{ 'pl.cart.offer_away' | t: away: oaway_text, amount: settings.pl_offer_amount }}
+          {%- endif -%}
+        </p>
+        <div class="pl-bar__track" aria-hidden="true"><span class="pl-bar__fill" style="width: {{ opct }}%"></span></div>
+        {%- if settings.pl_offer_note != blank and opct < 100 -%}
+          <p class="pl-bar__note">{{ settings.pl_offer_note | escape }}</p>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+  </div>
+{%- endif -%}

@@ -1,0 +1,69 @@
+{%- doc -%}
+  Product card line: "Best for: Stiff mornings", then up to three honest chips (what's inside,
+  waterproof liner, low step-in, washable cover) and the size range. Every chip comes from a metafield.
+{%- enddoc -%}
+{%- liquid
+  assign product = closest.product
+  assign mf = product.metafields.custom
+  assign best = mf.best_for | default: ''
+  assign core = mf.core_type | default: '' | append: ''
+  assign chips = ''
+  if core != ''
+    assign chips = chips | append: core | append: '¦'
+  endif
+  if mf.has_liner.value == true
+    assign chips = chips | append: 'Waterproof liner¦'
+  endif
+  if mf.low_entry.value == true
+    assign chips = chips | append: 'Low step-in¦'
+  endif
+  assign wash = mf.wash_temp | default: 0 | plus: 0
+  if wash > 0
+    assign chips = chips | append: wash | append: '°C wash¦'
+  endif
+  assign chip_list = chips | split: '¦'
+  assign size_text = ''
+  for opt in product.options_with_values
+    assign on = opt.name | downcase
+    if on contains 'size' and opt.values.size > 1
+      assign first_v = opt.values.first
+      assign last_v = opt.values.last
+      capture p1
+        render 'pl-size-label', value: first_v
+      endcapture
+      capture p2
+        render 'pl-size-label', value: last_v
+      endcapture
+      assign l1 = p1 | split: '|' | slice: 1 | first
+      assign l2 = p2 | split: '|' | slice: 1 | first
+      assign size_text = l1 | append: '–' | append: l2
+    endif
+  endfor
+-%}
+{%- if best != '' or chip_list.size > 0 or size_text != '' -%}
+  <div class="pl-card-meta" {{ block.shopify_attributes }}>
+    {%- if best != '' -%}
+      <p class="pl-card-meta__best"><strong>{{ 'pl.general.best_for' | t }}:</strong> {{ best | escape }}</p>
+    {%- endif -%}
+    {%- if chip_list.size > 0 or size_text != '' -%}
+      <div class="pl-chips">
+        {%- if size_text != '' -%}<span class="pl-chip">{{ size_text | escape }}</span>{%- endif -%}
+        {%- for c in chip_list limit: 3 -%}
+          {%- assign cs = c | strip -%}
+          {%- if cs != '' -%}<span class="pl-chip">{{ cs | escape }}</span>{%- endif -%}
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+    <span class="pl-chip pl-chip--accent" data-pl-match-handle="{{ product.handle }}" hidden></span>
+  </div>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Card details",
+  "tag": null,
+  "settings": [
+    { "type": "paragraph", "content": "\"Best for\" and up to three chips, all from the product's metafields. Sizes show as a range (S–L)." }
+  ],
+  "presets": [{ "name": "Card details", "category": "PawLunova" }]
+}
+{% endschema %}

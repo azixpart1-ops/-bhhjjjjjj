@@ -1,0 +1,114 @@
+{% comment %}
+  Section contract.
+  Brand and differentiation: why the beds are named for the Lakes, and what that stands for. Image or a
+  product's photo, body copy, the place names, a link to the full story.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign img = s.image
+  if img == blank and s.fallback_product != blank
+    assign img = s.fallback_product.featured_image
+  endif
+  assign places = s.places | default: '' | split: ','
+  assign alt_text = img.alt | default: s.heading
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-story pl-story--image-{{ s.image_position }}{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  <div class="pl-story__grid">
+    <div class="pl-story__media">
+      {%- if img != blank -%}
+        {{ img | image_url: width: 1400 | image_tag: widths: '480, 720, 960, 1200, 1400', sizes: '(min-width: 990px) 45vw, 100vw', loading: 'lazy', class: 'pl-story__img', alt: alt_text }}
+      {%- else -%}
+        {{ 'lifestyle-1' | placeholder_svg_tag: 'pl-story__img placeholder-svg' }}
+      {%- endif -%}
+    </div>
+    <div class="pl-story__copy">
+      {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: s.heading -%}
+      {%- if s.body != blank -%}<div class="rte pl-story__body">{{ s.body }}</div>{%- endif -%}
+      {%- if places.size > 0 and s.places != blank -%}
+        <ul class="pl-chips list-unstyled">
+          {%- for place in places -%}
+            {%- assign pl = place | strip -%}
+            {%- if pl != '' -%}<li class="pl-chip">{{ pl | escape }}</li>{%- endif -%}
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+      {%- if s.link_label != blank and s.link != blank -%}
+        <a class="pl-link" href="{{ s.link }}">{{ s.link_label | escape }}</a>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .pl-story__grid {
+    display: grid;
+    gap: var(--gap-xl);
+    align-items: center;
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-story__grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--gap-3xl);
+    }
+
+    .pl-story--image-right .pl-story__media {
+      order: 2;
+    }
+  }
+
+  .pl-story__media {
+    border-radius: var(--pl-radius-lg);
+    overflow: hidden;
+    background: var(--pl-oat);
+  }
+
+  .pl-story__img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+  }
+
+  .pl-story__copy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+  }
+
+  .pl-story__body p {
+    color: var(--color-foreground-muted);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Named for Lakes",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Named for the Lakes" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Why they're named after fells and dales." },
+    { "type": "richtext", "id": "body", "label": "Body", "default": "<p>Borrowdale, Coniston, Grasmere, Windermere. The range takes its names from the places the walking gets done at weekends, which is also where most of the thinking about these beds happened.</p><p>Each one is built around a sleeping style rather than a price point. Curlers get walls. Sprawlers get surface. Old joints get foam that doesn't bottom out. Where a bed is fibre-filled rather than foam, its page says so.</p>" },
+    { "type": "text", "id": "places", "label": "Place names (comma separated)", "default": "Borrowdale, Coniston, Grasmere, Windermere, Kendal, Ambleside" },
+    { "type": "text", "id": "link_label", "label": "Link label", "default": "Read our story" },
+    { "type": "url", "id": "link", "label": "Link", "default": "/pages/our-story" },
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "product", "id": "fallback_product", "label": "Or use this product's photo" },
+    { "type": "select", "id": "image_position", "label": "Image position", "options": [ { "value": "left", "label": "Left" }, { "value": "right", "label": "Right" } ], "default": "left" },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "presets": [{ "name": "PL: Named for Lakes", "category": "PawLunova" }]
+}
+{% endschema %}

@@ -1,0 +1,169 @@
+{% comment %}
+  Section contract.
+  Price justification: what is inside the orthopaedic beds, drawn as a cross-section so the invisible
+  becomes visible. Concrete layers, not adjectives. On a product page it can be limited to foam beds.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  assign render_it = true
+  if template.name == 'product' and s.only_foam
+    capture foam_ok
+      render 'pl-foam-bed', product: product
+    endcapture
+    assign core = product.metafields.custom.core_type | default: '' | append: '' | downcase
+    assign is_foam = false
+    if foam_ok == 'true' or core contains 'foam'
+      assign is_foam = true
+    endif
+    if is_foam == false
+      assign render_it = false
+    endif
+  endif
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+-%}
+{%- if render_it -%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-mech{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  <div class="pl-mech__grid">
+    <div class="pl-mech__copy">
+      {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: s.heading -%}
+      {%- if s.body != blank -%}<div class="rte pl-mech__body">{{ s.body }}</div>{%- endif -%}
+      <ul class="pl-trust-inline">
+        {%- if settings.pl_guarantee_enable -%}<li>{% render 'pl-icon', name: 'shield' %}{{ settings.pl_guarantee_years }}-year foam guarantee on memory foam beds</li>{%- endif -%}
+        {%- if settings.pl_trial_enable -%}<li>{% render 'pl-icon', name: 'moon' %}{{ settings.pl_trial_nights }} nights to decide</li>{%- endif -%}
+        <li>{% render 'pl-icon', name: 'layers' %}Foam cores, not loose filling</li>
+      </ul>
+    </div>
+    <figure class="pl-mech__figure">
+      <ol class="pl-mech__layers list-unstyled">
+        {%- for block in section.blocks -%}
+          <li class="pl-mech__layer pl-mech__layer--{{ forloop.index }}" style="--i: {{ forloop.index }}; --n: {{ section.blocks.size }};" {{ block.shopify_attributes }}>
+            <span class="pl-mech__layer-bar" aria-hidden="true"></span>
+            <span class="pl-mech__layer-text">
+              <strong>{{ block.settings.title | escape }}</strong>
+              {%- if block.settings.note != blank -%} <em class="pl-muted">{{ block.settings.note | escape }}</em>{%- endif -%}
+              {%- if block.settings.text != blank -%}<span class="pl-mech__layer-desc">{{ block.settings.text | escape }}</span>{%- endif -%}
+            </span>
+          </li>
+        {%- endfor -%}
+      </ol>
+      {%- if s.caption != blank -%}<figcaption class="pl-small pl-muted">{{ s.caption | escape }}</figcaption>{%- endif -%}
+    </figure>
+  </div>
+</div>
+{%- endif -%}
+
+{% stylesheet %}
+  .pl-mech__grid {
+    display: grid;
+    gap: var(--gap-2xl);
+    align-items: start;
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-mech__grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--gap-3xl);
+    }
+  }
+
+  .pl-mech__copy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-lg);
+  }
+
+  .pl-mech__body p {
+    color: var(--color-foreground-muted);
+  }
+
+  .pl-mech__figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+  }
+
+  .pl-mech__layers {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: var(--padding-lg);
+    border-radius: var(--pl-radius-lg);
+    background: var(--pl-oat);
+  }
+
+  .pl-mech__layer {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr;
+    gap: 0.9rem;
+    align-items: center;
+  }
+
+  .pl-mech__layer-bar {
+    display: block;
+    height: calc(0.8rem + var(--i) * 0.45rem);
+    border-radius: 6px;
+    background: var(--pl-moss);
+    opacity: calc(0.35 + (var(--i) / var(--n)) * 0.65);
+  }
+
+  .pl-mech__layer-text {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+  }
+
+  .pl-mech__layer-text em {
+    font-style: normal;
+    font-size: 0.8125rem;
+  }
+
+  .pl-mech__layer-desc {
+    color: var(--color-foreground-muted);
+    font-size: 0.875rem;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: What's inside",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 6,
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "What's inside the orthopaedic beds" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Foam, not filling." },
+    { "type": "richtext", "id": "body", "label": "Body", "default": "<p>A lot of dog beds are filled with loose fibre or shredded offcuts. They feel plump in the shop and are flat by March, at which point your dog is sleeping on the floor with a cover over it.</p><p>Our orthopaedic beds are built on foam instead. On many, memory foam on top contours to hip and shoulder while a profiled egg-crate layer underneath spreads their weight, so it doesn't compress to the floor. Each bed's page says exactly how it's built, and the fibre-filled nest beds say so too.</p>" },
+    { "type": "text", "id": "caption", "label": "Diagram caption", "default": "A typical orthopaedic bed, top to bottom. Layers vary from bed to bed: each product page lists its own." },
+    { "type": "checkbox", "id": "only_foam", "label": "On product pages, show only for foam beds", "default": true },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "layer", "name": "Layer", "settings": [
+      { "type": "text", "id": "title", "label": "Layer", "default": "Zip-off cover" },
+      { "type": "text", "id": "note", "label": "Note", "info": "e.g. on selected beds" },
+      { "type": "text", "id": "text", "label": "What it does", "default": "Comes off to wash, following the care label sewn into each one." }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: What's inside", "category": "PawLunova", "blocks": [
+      { "type": "layer", "settings": { "title": "Zip-off cover", "text": "Comes off to wash, following the care label sewn into each one." } },
+      { "type": "layer", "settings": { "title": "Waterproof inner liner", "note": "on selected beds", "text": "Sits between cover and foam, so a wet coat or an accident stops before the core." } },
+      { "type": "layer", "settings": { "title": "Memory foam", "text": "Contours to hip and shoulder, then comes back to shape by morning." } },
+      { "type": "layer", "settings": { "title": "Egg-crate support foam", "text": "Profiled foam underneath that spreads their weight rather than compressing flat." } },
+      { "type": "layer", "settings": { "title": "Non-slip base", "note": "on many beds", "text": "Grips wood and tile, so the bed stays where you put it." } }
+    ] }
+  ]
+}
+{% endschema %}

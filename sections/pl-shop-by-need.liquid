@@ -1,0 +1,147 @@
+{% comment %}
+  Section contract.
+  "Start with what they struggle with": eight collections framed by need rather than product type,
+  each with its own photo and a one-line note. Fewer, clearer doors into a 70-bed range.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-needs{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: s.heading, lede: s.lede -%}
+  <ul class="pl-needs__grid list-unstyled">
+    {%- for block in section.blocks -%}
+      {%- liquid
+        assign c = block.settings.collection
+        if c == blank
+          continue
+        endif
+        assign img = block.settings.image | default: c.featured_image
+        assign label = block.settings.label | default: c.title
+      -%}
+      <li class="pl-needs__item" {{ block.shopify_attributes }}>
+        <a class="pl-needs__link" href="{{ c.url }}">
+          <span class="pl-needs__media">
+            {%- if img != blank -%}
+              {{ img | image_url: width: 800 | image_tag: widths: '320, 480, 640, 800', sizes: '(min-width: 990px) 25vw, 50vw', loading: 'lazy', class: 'pl-needs__img', alt: img.alt | default: label }}
+            {%- else -%}
+              {{ 'collection-1' | placeholder_svg_tag: 'pl-needs__img placeholder-svg' }}
+            {%- endif -%}
+          </span>
+          <span class="pl-needs__copy">
+            <strong class="pl-needs__label">{{ label | escape }}</strong>
+            {%- if block.settings.note != blank -%}<span class="pl-needs__note pl-small pl-muted">{{ block.settings.note | escape }}</span>{%- endif -%}
+            <span class="pl-needs__count pl-small pl-muted">{{ c.products_count }} beds</span>
+          </span>
+        </a>
+      </li>
+    {%- endfor -%}
+  </ul>
+  {%- if s.finder_prompt != blank -%}
+    <p class="pl-needs__finder">{{ s.finder_prompt | escape }} <a class="pl-link" href="{{ settings.pl_finder_url }}">{{ s.finder_label | escape }}</a></p>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .pl-needs__grid {
+    display: grid;
+    gap: var(--gap-md);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-needs__grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .pl-needs__link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .pl-needs__media {
+    display: block;
+    border-radius: var(--pl-radius);
+    overflow: hidden;
+    background: var(--pl-oat);
+    aspect-ratio: 4 / 3;
+  }
+
+  .pl-needs__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s var(--pl-ease);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .pl-needs__link:hover .pl-needs__img {
+      transform: scale(1.03);
+    }
+  }
+
+  .pl-needs__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .pl-needs__label {
+    font-size: 1rem;
+  }
+
+  .pl-needs__finder {
+    margin: 0;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Shop by need",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 8,
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Shop dog beds by need" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Start with what they struggle with." },
+    { "type": "textarea", "id": "lede", "label": "Lede" },
+    { "type": "text", "id": "finder_prompt", "label": "Finder prompt", "default": "Still not sure where to start?" },
+    { "type": "text", "id": "finder_label", "label": "Finder link label", "default": "Answer four questions instead" },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "need", "name": "Need", "settings": [
+      { "type": "collection", "id": "collection", "label": "Collection" },
+      { "type": "text", "id": "label", "label": "Label", "info": "Empty: the collection's title." },
+      { "type": "text", "id": "note", "label": "Note", "default": "Foam cores for joints under load" },
+      { "type": "image_picker", "id": "image", "label": "Image", "info": "Empty: the collection's image." }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: Shop by need", "category": "PawLunova", "blocks": [
+      { "type": "need", "settings": { "collection": "orthopaedic-dog-beds", "label": "Orthopaedic dog beds", "note": "Foam cores for joints under load" } },
+      { "type": "need", "settings": { "collection": "dog-beds-for-older-dogs", "label": "Beds for older dogs", "note": "Firmer support, easier to rise from" } },
+      { "type": "need", "settings": { "collection": "low-entry-dog-beds", "label": "Low step-in beds", "note": "Easy in, easy out for stiff legs" } },
+      { "type": "need", "settings": { "collection": "large-dog-beds", "label": "Large dog beds", "note": "Sized for dogs that flatten ordinary beds" } },
+      { "type": "need", "settings": { "collection": "nest-dog-beds", "label": "Nest and bolster beds", "note": "Walls to lean into for dogs that burrow" } },
+      { "type": "need", "settings": { "collection": "dog-sofa-beds", "label": "Dog sofa beds", "note": "A back and arms to lean on, a seat of their own" } },
+      { "type": "need", "settings": { "collection": "waterproof-dog-beds", "label": "Waterproof dog beds", "note": "Wipe clean after wet walks and muddy paws" } },
+      { "type": "need", "settings": { "collection": "elevated-cooling-dog-beds", "label": "Raised and cooling beds", "note": "Mesh that lets air move underneath" } }
+    ] }
+  ]
+}
+{% endschema %}

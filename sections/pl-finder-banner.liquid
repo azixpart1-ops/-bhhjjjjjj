@@ -1,0 +1,99 @@
+{% comment %}
+  Section contract.
+  A compact band that routes an undecided shopper to the Bed Finder: after a grid, on the 404,
+  on empty search results and in the basket.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  <div class="pl-banner pl-card pl-card--moss">
+    <span class="pl-icon-badge pl-banner__icon">{% render 'pl-icon', name: 'paw' %}</span>
+    <div class="pl-banner__copy">
+      <p class="pl-banner__heading h4">{{ s.heading | escape }}</p>
+      {%- if s.text != blank -%}<p class="pl-banner__text">{{ s.text | escape }}</p>{%- endif -%}
+    </div>
+    <div class="pl-banner__cta">
+      <a class="button" href="{{ s.link | default: settings.pl_finder_url }}">{{ s.label | escape }}</a>
+      {%- if s.note != blank -%}<span class="pl-btn-note pl-banner__note">{{ s.note | escape }}</span>{%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .pl-banner {
+    display: grid;
+    gap: var(--gap-md);
+    align-items: center;
+    padding: var(--padding-xl);
+    border-radius: var(--pl-radius-lg);
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-banner {
+      grid-template-columns: auto 1fr auto;
+      gap: var(--gap-xl);
+    }
+  }
+
+  .pl-banner__icon {
+    background: rgb(241 233 219 / 0.12);
+    color: #f1e9db;
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .pl-banner__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .pl-banner__heading {
+    margin: 0;
+    color: #f1e9db;
+  }
+
+  .pl-banner__text {
+    margin: 0;
+    color: rgb(241 233 219 / 0.78);
+  }
+
+  .pl-banner__cta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .pl-banner__note {
+    color: rgb(241 233 219 / 0.7);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Finder banner",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Not sure which bed? Answer four questions." },
+    { "type": "text", "id": "text", "label": "Text", "default": "How they sleep, their joints, their size, their name. One bed in the right size, about 30 seconds." },
+    { "type": "text", "id": "label", "label": "Button", "default": "Find my dog's bed" },
+    { "type": "url", "id": "link", "label": "Link", "info": "Empty: the Bed Finder page." },
+    { "type": "text", "id": "note", "label": "Note", "default": "No email needed" },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 24 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 24 }
+  ],
+  "presets": [{ "name": "PL: Finder banner", "category": "PawLunova" }]
+}
+{% endschema %}

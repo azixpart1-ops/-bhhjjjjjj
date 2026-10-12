@@ -1,0 +1,56 @@
+{%- doc -%}
+  The three promises under the Add button, each opening its terms: the sleep trial (when it covers
+  this product), the foam guarantee (memory foam beds) or free delivery (the rest), and a named person.
+{%- enddoc -%}
+{%- liquid
+  assign product = closest.product
+  capture trial_ok
+    render 'pl-trial-eligible', product: product
+  endcapture
+  capture foam_ok
+    render 'pl-foam-bed', product: product
+  endcapture
+  assign type_lc = product.type | default: '' | downcase
+  assign nights = settings.pl_trial_nights
+  assign years = settings.pl_guarantee_years
+  assign dispatch_text = settings.pl_dispatch_min | append: ' to ' | append: settings.pl_dispatch_max
+  assign transit_text = settings.pl_transit_min | append: ' to ' | append: settings.pl_transit_max
+-%}
+<div class="pl-pdp-block pl-trust-row" {{ block.shopify_attributes }}>
+  {%- if trial_ok == 'true' -%}
+    <details class="pl-details pl-trust-row__item">
+      <summary>{% render 'pl-icon', name: 'moon' %}<span>{{ 'pl.pdp.trial_title' | t: nights: nights }}</span>{% render 'pl-icon', name: 'chevron', class: 'pl-details__chevron' %}</summary>
+      <p class="pl-trust-row__body">{{ 'pl.pdp.trial_text' | t: nights: nights }} <a class="pl-link" href="{{ shop.refund_policy.url | default: '/policies/refund-policy' }}">{{ 'pl.pdp.returns_policy' | t }}</a></p>
+    </details>
+  {%- elsif type_lc contains 'personalised' -%}
+    <details class="pl-details pl-trust-row__item">
+      <summary>{% render 'pl-icon', name: 'info' %}<span>{{ 'pl.pdp.not_in_trial_short' | t: nights: nights }}</span>{% render 'pl-icon', name: 'chevron', class: 'pl-details__chevron' %}</summary>
+      <p class="pl-trust-row__body">{{ 'pl.pdp.not_in_trial' | t: nights: nights }}</p>
+    </details>
+  {%- endif -%}
+  {%- if foam_ok == 'true' and settings.pl_guarantee_enable -%}
+    <details class="pl-details pl-trust-row__item">
+      <summary>{% render 'pl-icon', name: 'shield' %}<span>{{ 'pl.pdp.guarantee_title' | t: years: years }}</span>{% render 'pl-icon', name: 'chevron', class: 'pl-details__chevron' %}</summary>
+      <p class="pl-trust-row__body">{{ 'pl.pdp.guarantee_text' | t: years: years }}</p>
+    </details>
+  {%- else -%}
+    <details class="pl-details pl-trust-row__item">
+      <summary>{% render 'pl-icon', name: 'truck' %}<span>{{ 'pl.pdp.delivery_title' | t: threshold: settings.pl_free_delivery_threshold }}</span>{% render 'pl-icon', name: 'chevron', class: 'pl-details__chevron' %}</summary>
+      <p class="pl-trust-row__body">{{ 'pl.pdp.delivery_text' | t: dispatch: dispatch_text, transit: transit_text, express: settings.pl_delivery_express_price }}</p>
+    </details>
+  {%- endif -%}
+  <details class="pl-details pl-trust-row__item">
+    <summary>{% render 'pl-icon', name: 'chat' %}<span>{{ 'pl.pdp.support_title' | t }}</span>{% render 'pl-icon', name: 'chevron', class: 'pl-details__chevron' %}</summary>
+    <p class="pl-trust-row__body">{{ 'pl.pdp.support_text' | t: name: settings.pl_owner_name, email: settings.pl_contact_email, phone: settings.pl_contact_phone, hours: settings.pl_contact_hours }}</p>
+  </details>
+</div>
+{% schema %}
+{
+  "name": "Trust row",
+  "tag": null,
+  "settings": [
+    { "type": "paragraph", "content": "Each line opens its terms. The trial shows only on products it covers; the guarantee only on memory foam beds (free delivery takes its place otherwise)." }
+  ],
+  "presets": [{ "name": "Trust row", "category": "PawLunova" }]
+}
+{% endschema %}

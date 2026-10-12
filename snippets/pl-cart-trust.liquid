@@ -1,0 +1,30 @@
+{%- doc -%}
+  The promises that sit under the Checkout button: the sleep trial (when any line is covered),
+  the foam guarantee (when any memory foam bed is in the basket), secure checkout.
+{%- enddoc -%}
+{%- liquid
+  capture basket_trial
+    render 'pl-trial-eligible', basket: cart
+  endcapture
+  assign any_foam = false
+  for item in cart.items
+    capture item_foam
+      render 'pl-foam-bed', product: item.product
+    endcapture
+    if item_foam == 'true'
+      assign any_foam = true
+      break
+    endif
+  endfor
+-%}
+{%- if cart.item_count > 0 -%}
+  <ul class="pl-cart-trust list-unstyled">
+    {%- if basket_trial == 'true' -%}
+      <li>{% render 'pl-icon', name: 'moon' %}<span>{{ 'pl.cart.trial_line' | t: nights: settings.pl_trial_nights }}</span></li>
+    {%- endif -%}
+    {%- if any_foam and settings.pl_guarantee_enable -%}
+      <li>{% render 'pl-icon', name: 'shield' %}<span>{{ 'pl.cart.guarantee_line' | t: years: settings.pl_guarantee_years }}</span></li>
+    {%- endif -%}
+    <li>{% render 'pl-icon', name: 'lock' %}<span>{{ 'pl.cart.secure' | t }}</span></li>
+  </ul>
+{%- endif -%}
