@@ -7,11 +7,11 @@ unpublished. The live theme has not been touched.
 
 | What | Where |
 | --- | --- |
-| Theme in admin | Online Store > Themes > **PawLunova Horizon (12 Oct 2026)** (id 208803594582) |
-| Preview on the real domain | https://pawlunova.co.uk/?preview_theme_id=208803594582 (works on your phone too; the preview sticks for the session) |
+| Theme in admin | Online Store > Themes > **PawLunova Horizon (12 Oct 2026)** (id 208804020566) |
+| Preview on the real domain | https://pawlunova.co.uk/?preview_theme_id=208804020566 (works on your phone too; the preview sticks for the session) |
 | Customise | Online Store > Themes > PawLunova Horizon (12 Oct 2026) > Customize |
 | Code | repo branch `claude/pawlunova-horizon-theme`, folder `horizon/`; the plain theme files are also on branch `pawlunova-horizon-dist` |
-| Housekeeping | Delete the theme named **ZZ broken import, delete me (12 Oct 2026)**: it is a half-imported first attempt. Delete `pawlunova-horizon-12oct2026.zip` from Content > Files once you are happy (it was only used to import). **Copy of Horizon** is still your untouched stock copy; keep it or delete it as you like. |
+| Housekeeping | Delete the two themes whose names start with **ZZ** (a half-imported first attempt and a superseded build). Delete `pawlunova-horizon-12oct2026.zip` and `pawlunova-horizon-12oct2026-b.zip` from Content > Files once you are happy (they were only used to import). **Copy of Horizon** is still your untouched stock copy; keep it or delete it as you like. |
 
 Publishing: Themes > PawLunova Horizon (12 Oct 2026) > ... > Publish. Rolling back is the same
 action on the theme that is live today (Shopify keeps it in the library when you publish another).
@@ -156,8 +156,14 @@ dog bed cover, bolster dog bed, dog sofa bed, dog mattress, raised cooling dog b
   reference in templates fail too.
 - To re-import from scratch: zip the `horizon/` folder, upload it under Content > Files, and
   create a theme from the file's CDN URL (`themeCreate(source:)`), or use `shopify theme push`.
-  A theme created from a zip is not linked to the Theme Store, so Horizon updates will not be
-  offered for it; apply them by hand if you ever want them.
+  Shopify would not fetch the GitHub codeload zip ("Src is empty"), so the Files route is the
+  one that works from the API. A theme created from a zip is not linked to the Theme Store, so
+  Horizon updates will not be offered for it; apply them by hand if you ever want them.
+- When uploading single files, send a section before any template that uses a new setting of
+  it: Shopify normalises templates on save and silently drops settings its schema does not know
+  yet.
+- `assets/pl-finder.js` is over 16KB, so it cannot go through the MCP upsert; change it in the
+  repo and re-import, or push with the Shopify CLI.
 - `pl-` prefixes everything that is PawLunova's: `assets/pl-base.css`, `pl-ui.js` (delivery
   dates, finder memory), `pl-finder.js` (the Bed Finder), sections `sections/pl-*.liquid`,
   blocks `blocks/pl-*.liquid`, snippets `snippets/pl-*.liquid`. Stock Horizon files were
@@ -165,6 +171,28 @@ dog bed cover, bolster dog bed, dog sofa bed, dog mattress, raised cooling dog b
   (finder button), `snippets/cart-summary` (bars and trust), `snippets/price` and
   `snippets/format-price` (no trailing zeros), and the two product-card blocks (card meta).
 
-## 8. Verification
+## 8. Verification (12 October 2026, theme 208804020566)
 
-_Filled in below once the imported theme has been rendered and driven in a browser._
+Checked in headless Chromium at 390px and 1440px against the live domain with
+`preview_theme_id`, after the clean import:
+
+- Home, Bed Finder page, collection, two product pages (a memory foam bed and the dog house,
+  which is outside the trial), basket, FAQ, contact, search and the 404 page all return the
+  right status with zero `Liquid error` and zero `Translation missing` strings, no horizontal
+  overflow, and exactly one H1 each (the search page has none, as in stock Horizon).
+- Bed Finder: only one step is visible at a time; answering "head on something", "starting to
+  slow down", Medium and "Bella" returns the Coniston in Medium with five reasons, "Bella's bed"
+  (apostrophes render correctly), the add button adds the right variant to the basket, the
+  basket drawer opens with the item, the free-delivery bar reads "unlocked" and the offer bar
+  shows the £15 saving, which the basket also applies. The product page then shows
+  "Recommended for Bella: Medium".
+- Dark sections (What's inside, closing section, footer) keep readable text; the header's Bed
+  Finder button is icon-only on phones so the logo has room.
+- Recommendations, "Shop by need" tiles and the Lakes story all load their images.
+- Theme-check: 0 errors (10 warnings, all `ValidScopedCSSClass` on shared classes or doc
+  params). `validate-templates.py`: 0 errors.
+- Two console messages come from stock Horizon, not this theme: on the 404 page its section
+  renderer logs "Section ... not found in the section rendering response", and once on the
+  contact page "No empty section markup found". Neither affects the page.
+
+Screens from that pass are in `docs/horizon-screens/`.
