@@ -49,24 +49,86 @@ own beat; moss is reserved for mechanism and the final CTA.
 
 ## 3. Colour system
 
-Tokens for the pl-* layer are now derived from Theme settings › Colours in
-`snippets/pl-head.liquid`, so a palette change in the editor recolours every
-PawLunova section at once. The roles are fixed; only the values move.
+Second pass, 13 October. The first pass derived the tokens from the palette; this one gives
+every colour a job, checks every pair on the surface it actually sits on, and lets the editor set
+the emotional rhythm of a page by name rather than by hex.
 
-| Token | Source | Role |
+### The two families
+
+Two hues carry every meaning, each with a text tone, a surface tint and a tone for the dark
+ground. Nothing else is added: "success" is a lighter, more saturated moss, "alert" a deeper
+terracotta, so the semantic colours stay inside the brand and a palette change moves them all.
+
+| Family | Token | Derived from | Job |
+|---|---|---|---|
+| Calm (moss) | `--pl-moss` | color1 | the dark ground: authority ("What's inside") and the close |
+| | `--pl-success` | moss at 40% saturation, 29% lightness | reassurance as text and icons: trial, guarantee, delivery, "done" |
+| | `--pl-success-tint` | page mixed 88% with success | the calm surface: sections whose job is to take fear away |
+| | `--pl-success-on-dark` | success at 62% lightness | the same reassurance on moss |
+| Warm (terracotta) | `--pl-terracotta` | color3 | the one accent: purchase actions, the sensible pick, the offer |
+| | `--pl-terracotta-text` | accent darkened in 6-point steps until it passes 4.5:1 on its own tint | the accent as text |
+| | `--pl-terracotta-tint` | page mixed 88% with accent | the warm surface: comfort, desire, the offer band |
+| | `--pl-terracotta-on-dark` | accent at 62% lightness, with ink text | the accent on moss |
+| Neutrals | `--pl-bone`, `--pl-oat`, `--pl-sand`, `--pl-ink`, `--pl-ink-muted` | palette | page, lean-in band, hairline, text, muted text on oat |
+
+Why these hues. Green is the colour of safety and rest across every study the audit draws on,
+and the dark end of it reads as expertise; it is also what the category leader in orthopaedic
+dog beds uses (Big Barker: warm neutrals, a sage ground, a terracotta accent). Terracotta is
+warmth, appetite and the body; it is the colour of the thing being bought, a warm place to lie,
+so it is reserved for the moment of buying. The UK mattress brands (Simba, Emma, Casper) lean on
+navy for institutional trust; PawLunova is a one-person UK brand selling comfort for old dogs,
+and warm earth with a green promise fits that better than a bank's palette. Emma is the useful
+reference for structure: a green tint under guarantee content and a warm tint under offers.
+
+### Contrast, checked on the real surfaces
+
+The first pass checked the accent on the page only. On oat it was 4.10:1 and on its own tint
+3.95:1, both under 4.5. The accent-as-text token is now darkened until it passes on the tint, the
+darkest light surface it ever sits on (`#9b4824`: 4.97:1 on tint, 5.16 on oat, 5.83 on bone).
+On moss, the primary button was terracotta on dark green at 2.85:1, under the 3:1 a control edge
+needs; on dark surfaces the button now lightens to `#da8662` (5.12:1 against moss) with ink text
+(6.58:1). Success green on the page is 5.85:1; on its own tint 5.15:1. Every derived pair was
+computed, not eyeballed, and the figures are in the commit.
+
+### Surfaces by name
+
+Every PawLunova section has a **Surface** setting: page, oat, calm, warm or moss. It adds a
+`pl-tone--*` class, so the section's mood is a word in the editor and the palette supplies the
+colour. Moss goes through Horizon's contrast override and also gets `pl-on-dark`, as does any
+custom background darker than mid-grey; on dark surfaces buttons, accent eyebrows, trust icons
+and badges all step to their on-dark tones automatically. The old hex backgrounds in
+`templates/index.json` are gone; the homepage now reads:
+
+| Section | Surface | Why |
 |---|---|---|
-| `--pl-bone`, `--pl-ink` | palette background, foreground | page and text |
-| `--pl-moss` | color1 | dark ground (mechanism, final CTA, dark chips) |
-| `--pl-sand` | color2 | hairlines |
-| `--pl-oat` | background mixed 55% with sand | alternate section background |
-| `--pl-terracotta` | color3 | the one accent, purchase actions only |
-| `--pl-terracotta-text` | color3, darkened 12% if its contrast on the background is under 4.5:1 | accent used as text or on a hairline |
-| `--pl-terracotta-tint` | background mixed 88% with the accent | soft warm band (offer bar, the sensible pick) |
-| `--pl-on-moss`, `--pl-on-moss-muted` | background, background mixed with moss | text on dark ground |
+| Hero | page | calm welcome |
+| Trust bar | oat | lean in: the four promises |
+| Current offer | page, warm band | one warm thing to want |
+| Three signs | page | recognition without alarm |
+| First question, Bed Finder | oat | one continuous "choose" zone |
+| Good, better, best | page | the pick card carries the warm tint |
+| What's inside | moss | authority |
+| Real cost | page | |
+| Sleep trial | calm | risk taken away |
+| The first fortnight | warm | the comfort being bought |
+| Honest proof | page | |
+| Shop by need | oat | |
+| Side by side | page | |
+| Named for Lakes | oat | |
+| After you order | calm | certainty |
+| FAQ | page | |
+| The close | moss | the page slows down and the reader decides |
 
-The store's palette is unchanged: bone `#FAF6EF`, ink `#17150F`, moss
-`#1F2E27`, sand `#E3D7C3`, terracotta `#B4532A` (4.99:1 on white, 4.63:1 on
-bone). `pl-base.css` keeps the same values as fallbacks.
+The close is a new PawLunova section (`pl-final-cta`) in place of Horizon's generic section, so
+it follows the same rules as the rest of the page. The newsletter band is still a Horizon section
+with a hex background; it is the one surface not driven by the palette.
+
+### Everything fits
+
+The same colour never means two things. Trust icons are success green everywhere (trust bar,
+honest proof, basket promises, product page delivery line, the close); the offer icon is the
+only warm badge. Every hard-coded colour in the sections, the finder stylesheet and the mechanism
+card is gone, replaced by a token, so a palette change in the editor reaches every pixel.
 
 ## 4. TypeUI rules applied
 
@@ -94,6 +156,8 @@ section stylesheets:
 | `horizon/sections/pl-after.liquid` | new |
 | `horizon/sections/pl-order-timeline.liquid` | new |
 | `horizon/sections/pl-offer-bar.liquid` | new |
+| `horizon/sections/pl-final-cta.liquid` | new, the close on moss |
+| all 23 `horizon/sections/pl-*.liquid` | Surface setting, tokens in place of hex |
 | `horizon/sections/pl-hero.liquid` | sticky bar markup, styles and settings; lede spacing; caption colours |
 | `horizon/snippets/pl-head.liquid` | palette-derived tokens |
 | `horizon/assets/pl-base.css` | token fallbacks, type floor, heading spacing, accent and on-moss colours |

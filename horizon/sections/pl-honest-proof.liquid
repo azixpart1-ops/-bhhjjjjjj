@@ -6,8 +6,20 @@
 {% endcomment %}
 {%- liquid
   assign s = section.settings
-  if s.background_color != blank
-    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  assign pl_surface = s.background_color
+  if pl_surface == blank and s.tone == 'moss'
+    assign pl_surface = settings.color_palette.color1
+  endif
+  assign pl_surface_class = ''
+  if pl_surface != blank
+    render 'contrast-override', background_color: pl_surface, section_id: section.id
+    assign pl_surface_class = ' color-custom-' | append: section.id
+    assign pl_surface_brightness = pl_surface | color_brightness
+    if pl_surface_brightness < 128
+      assign pl_surface_class = pl_surface_class | append: ' pl-on-dark'
+    endif
+  elsif s.tone != blank and s.tone != 'page'
+    assign pl_surface_class = ' pl-tone--' | append: s.tone
   endif
   assign quotes = 0
   assign apps = 0
@@ -19,9 +31,9 @@
     endif
   endfor
 -%}
-<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div class="section-background{{ pl_surface_class }}"></div>
 <div
-  class="section section--{{ s.section_width }} spacing-style pl-section pl-proof{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-proof{{ pl_surface_class }}"
   style="{% render 'spacing-style', settings: s %}"
 >
   {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: s.heading, align: 'center' -%}
@@ -45,12 +57,12 @@
   {%- endif -%}
   <ul class="pl-proof__promises list-unstyled">
     {%- if settings.pl_trial_enable -%}
-      <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'moon' %}</span><strong>{{ settings.pl_trial_nights }} nights at home</strong><span class="pl-small pl-muted">Slept on, hair and all. We collect it free if it isn't right.</span></li>
+      <li class="pl-card pl-card--raised"><span class="pl-icon-badge pl-icon-badge--calm">{% render 'pl-icon', name: 'moon' %}</span><strong>{{ settings.pl_trial_nights }} nights at home</strong><span class="pl-small pl-muted">Slept on, hair and all. We collect it free if it isn't right.</span></li>
     {%- endif -%}
     {%- if settings.pl_guarantee_enable -%}
-      <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'shield' %}</span><strong>{{ settings.pl_guarantee_years }}-year foam guarantee</strong><span class="pl-small pl-muted">On every memory foam bed, against going flat.</span></li>
+      <li class="pl-card pl-card--raised"><span class="pl-icon-badge pl-icon-badge--calm">{% render 'pl-icon', name: 'shield' %}</span><strong>{{ settings.pl_guarantee_years }}-year foam guarantee</strong><span class="pl-small pl-muted">On every memory foam bed, against going flat.</span></li>
     {%- endif -%}
-    <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'chat' %}</span><strong>A named person, not a ticket queue</strong><span class="pl-small pl-muted">{{ s.owner_line | replace: '[name]', settings.pl_owner_name | escape }}</span></li>
+    <li class="pl-card pl-card--raised"><span class="pl-icon-badge pl-icon-badge--calm">{% render 'pl-icon', name: 'chat' %}</span><strong>A named person, not a ticket queue</strong><span class="pl-small pl-muted">{{ s.owner_line | replace: '[name]', settings.pl_owner_name | escape }}</span></li>
   </ul>
 </div>
 
@@ -123,6 +135,7 @@
     { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Straight talk" },
     { "type": "textarea", "id": "heading", "label": "Heading", "default": "No wall of reviews yet. Here's what we can promise instead." },
     { "type": "text", "id": "owner_line", "label": "Owner line", "info": "[name] is the owner's name from theme settings.", "default": "I'm [name]. I answer every message myself, usually the same day." },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat, lean in" }, { "value": "calm", "label": "Calm, sage tint" }, { "value": "warm", "label": "Warm, clay tint" }, { "value": "moss", "label": "Moss, dark" } ], "default": "page", "info": "Named surfaces from the palette. A background colour below overrides it." },
     { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
     { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
     { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },

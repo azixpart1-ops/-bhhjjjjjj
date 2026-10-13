@@ -19,16 +19,28 @@
       endif
     endif
   endif
-  if s.background_color != blank
-    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  assign pl_surface = s.background_color
+  if pl_surface == blank and s.tone == 'moss'
+    assign pl_surface = settings.color_palette.color1
+  endif
+  assign pl_surface_class = ''
+  if pl_surface != blank
+    render 'contrast-override', background_color: pl_surface, section_id: section.id
+    assign pl_surface_class = ' color-custom-' | append: section.id
+    assign pl_surface_brightness = pl_surface | color_brightness
+    if pl_surface_brightness < 128
+      assign pl_surface_class = pl_surface_class | append: ' pl-on-dark'
+    endif
+  elsif s.tone != blank and s.tone != 'page'
+    assign pl_surface_class = ' pl-tone--' | append: s.tone
   endif
   assign nights = settings.pl_trial_nights | append: ''
   assign years = settings.pl_guarantee_years | append: ''
 -%}
 {%- if render_it -%}
-<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div class="section-background{{ pl_surface_class }}"></div>
 <div
-  class="section section--{{ s.section_width }} spacing-style pl-section pl-compare{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-compare{{ pl_surface_class }}"
   style="{% render 'spacing-style', settings: s %}"
 >
   {%- assign heading = s.heading | replace: '[name]', ours_label -%}
@@ -113,12 +125,12 @@
 
   .pl-compare__table td.pl-compare__ours {
     color: var(--color-foreground);
-    background: rgb(31 46 39 / 0.05);
+    background: rgb(var(--pl-moss-rgb) / 0.05);
   }
 
   .pl-compare__table thead th.pl-compare__ours {
     color: var(--pl-moss);
-    background: rgb(31 46 39 / 0.05);
+    background: rgb(var(--pl-moss-rgb) / 0.05);
     border-radius: 10px 10px 0 0;
   }
 
@@ -144,6 +156,7 @@
     { "type": "text", "id": "alt_2_label", "label": "Third column", "default": "Cot mattress + cover" },
     { "type": "text", "id": "note", "label": "Note", "default": "Foam layers, liners and the guarantee vary from bed to bed: each product page says how that bed is built." },
     { "type": "checkbox", "id": "only_foam", "label": "On product pages, show only for memory foam beds", "default": true },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat, lean in" }, { "value": "calm", "label": "Calm, sage tint" }, { "value": "warm", "label": "Warm, clay tint" }, { "value": "moss", "label": "Moss, dark" } ], "default": "page", "info": "Named surfaces from the palette. A background colour below overrides it." },
     { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
     { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
     { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },

@@ -6,39 +6,90 @@
 {%- liquid
   comment
     Colour tokens for the pl-* layer, derived from Theme settings > Colours so a palette change in
-    the editor recolours every PawLunova section at once. The roles are fixed; only the values move:
-    color1 is the dark ground (moss), color2 the hairline (sand), color3 the one accent for purchase
-    actions (terracotta). Oat and the warm tint are mixed from the palette rather than typed in, so
-    they keep their relationship to the background whatever it is set to. pl-base.css holds the
-    fallbacks in case this block is ever missing.
+    the editor recolours every PawLunova section at once. The roles are fixed; only the values move.
+
+    Two hues carry every meaning. Moss (color1) is the calm family: safety, nature, rest, and the
+    dark ground for authority and the close. Terracotta (color3) is the warm family: comfort,
+    appetite and the one accent for purchase actions. Each family has a text tone, a tint for
+    surfaces, and a light tone for use on the dark ground. Sand (color2) is only ever a hairline.
+    Every derived pair is checked against the surfaces it sits on, not just the page, so the accent
+    stays readable on oat and on its own tint. pl-base.css holds the fallbacks in case this block is
+    ever missing.
   endcomment
   assign pl_bg = settings.color_palette.background | default: '#FAF6EF'
   assign pl_fg = settings.color_palette.foreground | default: '#17150F'
   assign pl_moss = settings.color_palette.color1 | default: '#1F2E27'
   assign pl_sand = settings.color_palette.color2 | default: '#E3D7C3'
   assign pl_accent = settings.color_palette.color3 | default: '#B4532A'
+
+  comment
+    Surfaces: oat half a step warmer than the page; the two tints are 12% of a family over the page.
+  endcomment
   assign pl_oat = pl_bg | color_mix: pl_sand, 55
   assign pl_tint = pl_bg | color_mix: pl_accent, 88
+  assign pl_success = pl_moss | color_modify: 's', 40 | color_modify: 'l', 29
+  assign pl_calm = pl_bg | color_mix: pl_success, 88
+
+  comment
+    Text on the light surfaces. The accent as text must pass 4.5:1 on its own tint, the darkest light surface it sits on.
+  endcomment
+  assign pl_accent_text = pl_accent
+  assign pl_accent_contrast = pl_tint | color_contrast: pl_accent_text
+  if pl_accent_contrast < 4.5
+    assign pl_accent_text = pl_accent_text | color_darken: 6
+    assign pl_accent_contrast = pl_tint | color_contrast: pl_accent_text
+  endif
+  if pl_accent_contrast < 4.5
+    assign pl_accent_text = pl_accent_text | color_darken: 6
+  endif
+  assign pl_alert = pl_accent | color_modify: 's', 71 | color_modify: 'l', 32
+  assign pl_ink_muted = pl_fg | color_mix: pl_oat, 70
+
+  comment
+    On the dark ground: the page colour for text, and lighter tones of each family so nothing drops under 4.5:1 on moss.
+  endcomment
   assign pl_on_moss = pl_bg
   assign pl_on_moss_muted = pl_bg | color_mix: pl_moss, 72
-  assign pl_accent_text = pl_accent
-  assign pl_accent_contrast = pl_bg | color_contrast: pl_accent
-  if pl_accent_contrast < 4.5
-    assign pl_accent_text = pl_accent | color_darken: 12
-  endif
+  assign pl_accent_on_dark = pl_accent | color_modify: 'l', 62
+  assign pl_accent_on_dark_hover = pl_accent | color_modify: 'l', 66
+  assign pl_success_on_dark = pl_success | color_modify: 'l', 62
+
+  assign pl_moss_r = pl_moss | color_extract: 'red'
+  assign pl_moss_g = pl_moss | color_extract: 'green'
+  assign pl_moss_b = pl_moss | color_extract: 'blue'
+  assign pl_bone_r = pl_bg | color_extract: 'red'
+  assign pl_bone_g = pl_bg | color_extract: 'green'
+  assign pl_bone_b = pl_bg | color_extract: 'blue'
+  assign pl_accent_r = pl_accent | color_extract: 'red'
+  assign pl_accent_g = pl_accent | color_extract: 'green'
+  assign pl_accent_b = pl_accent | color_extract: 'blue'
+  assign pl_success_r = pl_success | color_extract: 'red'
+  assign pl_success_g = pl_success | color_extract: 'green'
+  assign pl_success_b = pl_success | color_extract: 'blue'
 -%}
 <style>
   :root {
     --pl-bone: {{ pl_bg }};
+    --pl-bone-rgb: {{ pl_bone_r }} {{ pl_bone_g }} {{ pl_bone_b }};
     --pl-ink: {{ pl_fg }};
+    --pl-ink-muted: {{ pl_ink_muted }};
     --pl-oat: {{ pl_oat }};
     --pl-sand: {{ pl_sand }};
     --pl-moss: {{ pl_moss }};
+    --pl-moss-rgb: {{ pl_moss_r }} {{ pl_moss_g }} {{ pl_moss_b }};
     --pl-on-moss: {{ pl_on_moss }};
     --pl-on-moss-muted: {{ pl_on_moss_muted }};
     --pl-terracotta: {{ pl_accent }};
+    --pl-terracotta-rgb: {{ pl_accent_r }} {{ pl_accent_g }} {{ pl_accent_b }};
     --pl-terracotta-text: {{ pl_accent_text }};
     --pl-terracotta-tint: {{ pl_tint }};
+    --pl-terracotta-on-dark: {{ pl_accent_on_dark }};
+    --pl-terracotta-on-dark-hover: {{ pl_accent_on_dark_hover }};
+    --pl-success: {{ pl_success }};
+    --pl-success-rgb: {{ pl_success_r }} {{ pl_success_g }} {{ pl_success_b }};
+    --pl-success-tint: {{ pl_calm }};
+    --pl-success-on-dark: {{ pl_success_on_dark }};
+    --pl-alert: {{ pl_alert }};
   }
 </style>
 {%- liquid

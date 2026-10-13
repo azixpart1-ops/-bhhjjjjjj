@@ -5,8 +5,20 @@
 {% endcomment %}
 {%- liquid
   assign s = section.settings
-  if s.background_color != blank
-    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  assign pl_surface = s.background_color
+  if pl_surface == blank and s.tone == 'moss'
+    assign pl_surface = settings.color_palette.color1
+  endif
+  assign pl_surface_class = ''
+  if pl_surface != blank
+    render 'contrast-override', background_color: pl_surface, section_id: section.id
+    assign pl_surface_class = ' color-custom-' | append: section.id
+    assign pl_surface_brightness = pl_surface | color_brightness
+    if pl_surface_brightness < 128
+      assign pl_surface_class = pl_surface_class | append: ' pl-on-dark'
+    endif
+  elsif s.tone != blank and s.tone != 'page'
+    assign pl_surface_class = ' pl-tone--' | append: s.tone
   endif
   capture basket_trial
     render 'pl-trial-eligible', basket: cart
@@ -14,9 +26,9 @@
   assign dispatch_text = settings.pl_dispatch_min | append: ' to ' | append: settings.pl_dispatch_max
   assign transit_text = settings.pl_transit_min | append: ' to ' | append: settings.pl_transit_max
 -%}
-<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div class="section-background{{ pl_surface_class }}"></div>
 <div
-  class="section section--{{ s.section_width }} spacing-style pl-section{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  class="section section--{{ s.section_width }} spacing-style pl-section{{ pl_surface_class }}"
   style="{% render 'spacing-style', settings: s %}"
 >
   {%- if cart.item_count == 0 -%}
@@ -30,10 +42,10 @@
   {%- else -%}
     <ul class="pl-grid pl-grid--3 list-unstyled">
       {%- if basket_trial == 'true' -%}
-        <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'moon' %}</span><p class="pl-strong" style="margin:.5rem 0 .2rem">{{ settings.pl_trial_nights }} nights to decide</p><p class="pl-small pl-muted" style="margin:0">Your nights start the day it arrives. Slept on, hair and all. Free collection from the UK mainland if it isn't right.</p></li>
+        <li class="pl-card pl-card--raised"><span class="pl-icon-badge pl-icon-badge--calm">{% render 'pl-icon', name: 'moon' %}</span><p class="pl-strong" style="margin:.5rem 0 .2rem">{{ settings.pl_trial_nights }} nights to decide</p><p class="pl-small pl-muted" style="margin:0">Your nights start the day it arrives. Slept on, hair and all. Free collection from the UK mainland if it isn't right.</p></li>
       {%- endif -%}
-      <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'truck' %}</span><p class="pl-strong" style="margin:.5rem 0 .2rem">Delivery, in plain words</p><p class="pl-small pl-muted" style="margin:0">Own stock is dispatched in {{ dispatch_text }} working days, then standard delivery takes {{ transit_text }} working days: free over £{{ settings.pl_free_delivery_threshold }}, £{{ settings.pl_delivery_standard_price }} below. Partner-warehouse beds take a little longer and say so on their page.</p></li>
-      <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'chat' %}</span><p class="pl-strong" style="margin:.5rem 0 .2rem">A real person in the UK</p><p class="pl-small pl-muted" style="margin:0">Questions before you pay? {{ settings.pl_contact_email }} or {{ settings.pl_contact_phone }}, {{ settings.pl_contact_hours }}.</p></li>
+      <li class="pl-card pl-card--raised"><span class="pl-icon-badge pl-icon-badge--calm">{% render 'pl-icon', name: 'truck' %}</span><p class="pl-strong" style="margin:.5rem 0 .2rem">Delivery, in plain words</p><p class="pl-small pl-muted" style="margin:0">Own stock is dispatched in {{ dispatch_text }} working days, then standard delivery takes {{ transit_text }} working days: free over £{{ settings.pl_free_delivery_threshold }}, £{{ settings.pl_delivery_standard_price }} below. Partner-warehouse beds take a little longer and say so on their page.</p></li>
+      <li class="pl-card pl-card--raised"><span class="pl-icon-badge pl-icon-badge--calm">{% render 'pl-icon', name: 'chat' %}</span><p class="pl-strong" style="margin:.5rem 0 .2rem">A real person in the UK</p><p class="pl-small pl-muted" style="margin:0">Questions before you pay? {{ settings.pl_contact_email }} or {{ settings.pl_contact_phone }}, {{ settings.pl_contact_hours }}.</p></li>
     </ul>
   {%- endif -%}
 </div>
@@ -45,6 +57,7 @@
   "class": "section-wrapper",
   "enabled_on": { "templates": ["cart"] },
   "settings": [
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat, lean in" }, { "value": "calm", "label": "Calm, sage tint" }, { "value": "warm", "label": "Warm, clay tint" }, { "value": "moss", "label": "Moss, dark" } ], "default": "page", "info": "Named surfaces from the palette. A background colour below overrides it." },
     { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
     { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
     { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 24 },

@@ -22,8 +22,20 @@
       assign show = true
     endif
   endif
-  if s.background_color != blank
-    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  assign pl_surface = s.background_color
+  if pl_surface == blank and s.tone == 'moss'
+    assign pl_surface = settings.color_palette.color1
+  endif
+  assign pl_surface_class = ''
+  if pl_surface != blank
+    render 'contrast-override', background_color: pl_surface, section_id: section.id
+    assign pl_surface_class = ' color-custom-' | append: section.id
+    assign pl_surface_brightness = pl_surface | color_brightness
+    if pl_surface_brightness < 128
+      assign pl_surface_class = pl_surface_class | append: ' pl-on-dark'
+    endif
+  elsif s.tone != blank and s.tone != 'page'
+    assign pl_surface_class = ' pl-tone--' | append: s.tone
   endif
 -%}
 {%- if show -%}
@@ -40,15 +52,15 @@
       assign text = text | replace: ' until ', ' ' | replace: ', until', ''
     endif
   -%}
-  <div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+  <div class="section-background{{ pl_surface_class }}"></div>
   <div
-    class="section section--{{ s.section_width }} spacing-style pl-section pl-offer{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+    class="section section--{{ s.section_width }} spacing-style pl-section pl-offer{{ pl_surface_class }}"
     style="{% render 'spacing-style', settings: s %}"
     data-pl-offer
     data-ends="{{ ends_raw | escape }}"
   >
     <div class="pl-offer__band{% if s.style == 'tint' %} pl-offer__band--tint{% elsif s.style == 'moss' %} pl-offer__band--moss{% endif %}">
-      <span class="pl-icon-badge pl-offer__icon">{% render 'pl-icon', name: 'sparkle' %}</span>
+      <span class="pl-icon-badge pl-icon-badge--warm pl-offer__icon">{% render 'pl-icon', name: 'sparkle' %}</span>
       <div class="pl-offer__copy">
         {%- if label != '' and s.show_label -%}<p class="pl-eyebrow pl-offer__label">{{ label | escape }}</p>{%- endif -%}
         <p class="pl-offer__text">{{ text | escape }}</p>
@@ -96,8 +108,6 @@
   }
 
   .pl-offer__icon {
-    background: var(--pl-terracotta);
-    color: var(--color-primary-button-text);
     width: 2.75rem;
     height: 2.75rem;
   }
@@ -152,6 +162,7 @@
     { "type": "text", "id": "cta_label", "label": "Button", "default": "Shop the beds" },
     { "type": "url", "id": "cta_link", "label": "Button link" },
     { "type": "select", "id": "style", "label": "Band style", "options": [ { "value": "tint", "label": "Warm tint" }, { "value": "plain", "label": "Plain" }, { "value": "moss", "label": "Dark" } ], "default": "tint" },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat, lean in" }, { "value": "calm", "label": "Calm, sage tint" }, { "value": "warm", "label": "Warm, clay tint" }, { "value": "moss", "label": "Moss, dark" } ], "default": "page", "info": "Named surfaces from the palette. A background colour below overrides it." },
     { "type": "color", "id": "background_color", "label": "Section background", "placeholder": "Default" },
     { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
     { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 8 },

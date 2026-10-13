@@ -19,14 +19,26 @@
       assign render_it = false
     endif
   endif
-  if s.background_color != blank
-    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  assign pl_surface = s.background_color
+  if pl_surface == blank and s.tone == 'moss'
+    assign pl_surface = settings.color_palette.color1
+  endif
+  assign pl_surface_class = ''
+  if pl_surface != blank
+    render 'contrast-override', background_color: pl_surface, section_id: section.id
+    assign pl_surface_class = ' color-custom-' | append: section.id
+    assign pl_surface_brightness = pl_surface | color_brightness
+    if pl_surface_brightness < 128
+      assign pl_surface_class = pl_surface_class | append: ' pl-on-dark'
+    endif
+  elsif s.tone != blank and s.tone != 'page'
+    assign pl_surface_class = ' pl-tone--' | append: s.tone
   endif
 -%}
 {%- if render_it -%}
-<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div class="section-background{{ pl_surface_class }}"></div>
 <div
-  class="section section--{{ s.section_width }} spacing-style pl-section pl-mech{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-mech{{ pl_surface_class }}"
   style="{% render 'spacing-style', settings: s %}"
 >
   <div class="pl-mech__grid">
@@ -96,7 +108,7 @@
     padding: var(--padding-lg);
     border-radius: var(--pl-radius-lg);
     background: var(--pl-oat);
-    color: #17150f;
+    color: var(--pl-ink);
   }
 
   .pl-mech__layer {
@@ -124,12 +136,12 @@
   .pl-mech__layer-text em,
   .pl-mech__layers .pl-muted {
     font-style: normal;
-    font-size: 0.8125rem;
-    color: rgb(23 21 15 / 0.6);
+    font-size: 0.875rem;
+    color: var(--pl-ink-muted);
   }
 
   .pl-mech__layer-desc {
-    color: rgb(23 21 15 / 0.72);
+    color: var(--pl-ink-muted);
     font-size: 0.875rem;
   }
 {% endstylesheet %}
@@ -147,6 +159,7 @@
     { "type": "richtext", "id": "body", "label": "Body", "default": "<p>A lot of dog beds are filled with loose fibre or shredded offcuts. They feel plump in the shop and are flat by March, at which point your dog is sleeping on the floor with a cover over it.</p><p>Our orthopaedic beds are built on foam instead. On many, memory foam on top contours to hip and shoulder while a profiled egg-crate layer underneath spreads their weight, so it doesn't compress to the floor. Each bed's page says exactly how it's built, and the fibre-filled nest beds say so too.</p>" },
     { "type": "text", "id": "caption", "label": "Diagram caption", "default": "A typical orthopaedic bed, top to bottom. Layers vary from bed to bed: each product page lists its own." },
     { "type": "checkbox", "id": "only_foam", "label": "On product pages, show only for foam beds", "default": true },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat, lean in" }, { "value": "calm", "label": "Calm, sage tint" }, { "value": "warm", "label": "Warm, clay tint" }, { "value": "moss", "label": "Moss, dark" } ], "default": "page", "info": "Named surfaces from the palette. A background colour below overrides it." },
     { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
     { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
     { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },

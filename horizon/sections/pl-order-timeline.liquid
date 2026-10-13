@@ -11,8 +11,20 @@
 {% endcomment %}
 {%- liquid
   assign s = section.settings
-  if s.background_color != blank
-    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  assign pl_surface = s.background_color
+  if pl_surface == blank and s.tone == 'moss'
+    assign pl_surface = settings.color_palette.color1
+  endif
+  assign pl_surface_class = ''
+  if pl_surface != blank
+    render 'contrast-override', background_color: pl_surface, section_id: section.id
+    assign pl_surface_class = ' color-custom-' | append: section.id
+    assign pl_surface_brightness = pl_surface | color_brightness
+    if pl_surface_brightness < 128
+      assign pl_surface_class = pl_surface_class | append: ' pl-on-dark'
+    endif
+  elsif s.tone != blank and s.tone != 'page'
+    assign pl_surface_class = ' pl-tone--' | append: s.tone
   endif
   assign nights = settings.pl_trial_nights | append: ''
   assign threshold = settings.pl_free_delivery_threshold | append: ''
@@ -24,9 +36,9 @@
     assign express = 'false'
   endif
 -%}
-<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div class="section-background{{ pl_surface_class }}"></div>
 <div
-  class="section section--{{ s.section_width }} spacing-style pl-section pl-timeline{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-timeline{{ pl_surface_class }}"
   style="{% render 'spacing-style', settings: s %}"
 >
   {%- assign heading = s.heading | replace: '[nights]', nights -%}
@@ -195,6 +207,7 @@
     { "type": "textarea", "id": "heading", "label": "Heading", "default": "Here's exactly what happens next." },
     { "type": "textarea", "id": "lede", "label": "Lede", "default": "No vague 'ships soon'. Own-stock beds leave us in [dispatch] working days and arrive [transit] working days later, tracked, with the dates below worked out for an order placed today." },
     { "type": "text", "id": "note", "label": "Note", "default": "A few beds ship from our partner warehouse and take longer. Their pages say so, with the dates, before you order." },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat, lean in" }, { "value": "calm", "label": "Calm, sage tint" }, { "value": "warm", "label": "Warm, clay tint" }, { "value": "moss", "label": "Moss, dark" } ], "default": "page", "info": "Named surfaces from the palette. A background colour below overrides it." },
     { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
     { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
     { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
