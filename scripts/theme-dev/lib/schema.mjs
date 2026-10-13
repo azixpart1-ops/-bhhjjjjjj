@@ -376,7 +376,7 @@ export const CONTRACT_SETTINGS = {
   color_highlight: ['color'], color_alert: ['color'], color_success: ['color'],
   type_heading_font: ['font_picker', 'playfair_display_n4'], type_body_font: ['font_picker', 'dm_sans_n4'],
   heading_scale: ['range', 100], body_size: ['range', 16],
-  page_width: ['select', '1320'], radius: ['range', 14], button_shape: ['select', 'pill'], animations: ['checkbox', true],
+  page_width: ['select', '1280'], radius: ['range', 14], button_shape: ['select', 'pill'], animations: ['checkbox', true],
   trial_enable: ['checkbox', true], trial_nights: ['number', 100], guarantee_enable: ['checkbox', true], guarantee_years: ['number', 5],
   free_shipping_enable: ['checkbox', true], free_shipping_threshold: ['number', 40], delivery_promise_enable: ['checkbox', false],
   // Delivery (Oct 2026 audit, P0-3): Standard 4 to 6 working days after dispatch, dispatch 1 to 2

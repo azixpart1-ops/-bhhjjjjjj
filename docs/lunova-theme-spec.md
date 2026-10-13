@@ -54,6 +54,10 @@ let several people build different parts at the same time and have them fit.
   `font_modify: 'weight', 'bolder'` where needed) + body sans (`dm_sans_n4`).
   Load via `font_face` with `font_display: 'swap'` and preload the body woff2.
 - Radius: 14px cards, 22px large panels, pill buttons. Soft shadows.
+- Rhythm and type rules from the TypeUI design skills (1280px content width,
+  display headings set solid with 32px to their paragraph, 14px floor for
+  supporting text, page titles capped at 28px outside the heroes, buttons
+  that never wrap or underline): `docs/lunova-design-pass-oct2026.md`.
 - Motion: `transform`/`opacity` only; `cubic-bezier(0.23,1,0.32,1)`; respect
   `prefers-reduced-motion`. Hover effects only under
   `@media (hover:hover) and (pointer:fine)`.
@@ -389,7 +393,7 @@ Colours:     color_bg, color_surface, color_sand, color_ink, color_muted, color_
              color_highlight, color_alert, color_success
 Typography:  type_heading_font (font_picker, playfair_display_n4), type_body_font (font_picker, dm_sans_n4),
              heading_scale (range 80–130 step 5, 100), body_size (range 14–18, 16)
-Layout:      page_width (select 1200|1320|1440, 1320), radius (range 0–24 step 2, 14),
+Layout:      page_width (select 1200|1280|1320|1440, 1280), radius (range 0–24 step 2, 14),
              button_shape (select pill|soft|square, pill), animations (checkbox, true)
 Promises:    trial_enable (true), trial_nights (number 100), guarantee_enable (true), guarantee_years (number 5),
              free_shipping_enable (true), free_shipping_threshold (number 40, major units),
