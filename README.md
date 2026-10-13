@@ -1074,3 +1074,14 @@ this round touches it.
 The live page renders `<span class="pl-bnpl__mark">Klarna</span>` and
 `<span class="pl-bnpl pl-bnpl--compact">`, which are exactly the two hooks the
 branding rules in §14 target. The fix will land on deploy.
+
+---
+
+## 17. Horizon conversion pass
+
+The design-skill pass and the conversion work have also been applied to the
+store's Horizon-based theme, as an unpublished duplicate: **PawLunova Horizon
++ conversion pass (13 Oct 2026)**. Source is in `horizon/`; the write-up, the
+levers used, the colour system and what still needs checking in the editor
+are in `docs/horizon-conversion-pass-oct2026.md`. The Lunova equivalent is
+`docs/lunova-design-pass-oct2026.md`.

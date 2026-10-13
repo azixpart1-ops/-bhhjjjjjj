@@ -1,0 +1,228 @@
+{% comment %}
+  Section contract.
+  The first fortnight, told as what an owner watches for: straight in, sleeps right through, won't
+  get off it. Owners of older dogs buy out of protective pride and want to picture the result, and the
+  three signs here are the behaviours happy owners describe most, written as brand copy in the
+  owner's voice, never as quotes or reviews. Every line is behavioural, not medical; the close hands
+  back to the trial, so the promise is "watch for this, and if you don't see it, send it back", not
+  "this will happen". Tokens [nights] and [years] read theme settings.
+  @example
+  <!-- Add from the editor: PL: The first fortnight. Pick a photo or a bed whose photo stands in. -->
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign nights = settings.pl_trial_nights | append: ''
+  assign years = settings.pl_guarantee_years | append: ''
+  assign img = s.image
+  if img == blank and s.fallback_product != blank
+    assign img = s.fallback_product.featured_image
+  endif
+  assign alt_text = s.image_alt | default: img.alt | default: s.heading
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-after pl-after--image-{{ s.image_position }}{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  <div class="pl-after__grid">
+    <div class="pl-after__media">
+      {%- if img != blank -%}
+        {{ img | image_url: width: 1400 | image_tag: widths: '480, 720, 960, 1200, 1400', sizes: '(min-width: 990px) 45vw, 100vw', loading: 'lazy', class: 'pl-after__img', alt: alt_text }}
+      {%- else -%}
+        {{ 'lifestyle-2' | placeholder_svg_tag: 'pl-after__img placeholder-svg' }}
+      {%- endif -%}
+      {%- if s.caption != blank -%}<p class="pl-after__caption pl-small">{{ s.caption | escape }}</p>{%- endif -%}
+    </div>
+    <div class="pl-after__copy">
+      {%- assign heading = s.heading | replace: '[nights]', nights -%}
+      {%- assign lede = s.lede | replace: '[nights]', nights -%}
+      {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: heading, lede: lede -%}
+      <ol class="pl-after__signs list-unstyled">
+        {%- for block in section.blocks -%}
+          <li class="pl-after__sign" {{ block.shopify_attributes }}>
+            <span class="pl-after__when">{{ block.settings.when | replace: '[nights]', nights | escape }}</span>
+            <div class="pl-after__sign-body">
+              <h3 class="h5 pl-after__sign-title">{{ block.settings.title | escape }}</h3>
+              {%- if block.settings.text != blank -%}<p class="pl-after__sign-text">{{ block.settings.text | replace: '[nights]', nights | escape }}</p>{%- endif -%}
+            </div>
+          </li>
+        {%- endfor -%}
+      </ol>
+      {%- if s.close != blank and settings.pl_trial_enable -%}
+        <p class="pl-after__close">{% render 'pl-icon', name: 'moon' %}<span>{{ s.close | replace: '[nights]', nights | replace: '[years]', years | escape }}</span></p>
+      {%- endif -%}
+      {%- if s.cta_label != blank -%}
+        <div class="pl-actions">
+          <a class="button" href="{{ s.cta_link | default: settings.pl_finder_url }}">{{ s.cta_label | escape }}</a>
+          {%- if s.cta_note != blank -%}<span class="pl-btn-note">{{ s.cta_note | escape }}</span>{%- endif -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .pl-after__grid {
+    display: grid;
+    gap: var(--gap-xl);
+    align-items: center;
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-after__grid {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      gap: var(--gap-3xl);
+    }
+
+    .pl-after--image-right .pl-after__media {
+      order: 2;
+    }
+  }
+
+  .pl-after__media {
+    position: relative;
+    border-radius: var(--pl-radius-lg);
+    overflow: hidden;
+    background: var(--pl-oat);
+  }
+
+  .pl-after__img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+  }
+
+  @media screen and (max-width: 989px) {
+    .pl-after__img {
+      aspect-ratio: 4 / 3;
+    }
+  }
+
+  .pl-after__caption {
+    position: absolute;
+    inset-inline-start: 1rem;
+    inset-block-end: 1rem;
+    margin: 0;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    background: rgb(var(--palette-lightest-rgb) / 0.92);
+    color: var(--palette-darkest);
+  }
+
+  .pl-after__copy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-lg);
+  }
+
+  .pl-after__signs {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .pl-after__sign {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    gap: 1rem;
+    padding-block: 1rem;
+    border-top: 1px solid var(--pl-line-soft);
+  }
+
+  .pl-after__sign:last-child {
+    border-bottom: 1px solid var(--pl-line-soft);
+  }
+
+  @media screen and (max-width: 749px) {
+    .pl-after__sign {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.25rem;
+    }
+  }
+
+  .pl-after__when {
+    font-family: var(--font-heading--family);
+    font-size: 1.125rem;
+    line-height: 1.2;
+    color: var(--pl-terracotta-text);
+  }
+
+  .pl-after__sign-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .pl-after__sign-title {
+    margin: 0;
+  }
+
+  .pl-after__sign-text {
+    margin: 0;
+    color: var(--color-foreground-muted);
+    line-height: 1.5;
+  }
+
+  .pl-after__close {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    margin: 0;
+    font-family: var(--font-accent--family);
+    font-style: italic;
+    font-size: 1.125rem;
+    line-height: 1.45;
+  }
+
+  .pl-after__close .pl-icon {
+    margin-top: 0.3em;
+    color: var(--pl-terracotta);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: The first fortnight",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 4,
+  "settings": [
+    { "type": "paragraph", "content": "What to watch for, not what is promised. Keep every line about behaviour you can see (straight in, sleeps through, won't get off it), never health. Brand copy in quote marks or beside a name reads as a review and is unlawful." },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The first fortnight" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "What you'll be watching for." },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "A bed proves itself at 2am, not in the shop. These are the three things owners of older dogs tell each other to look out for, in the order they usually turn up." },
+    { "type": "text", "id": "close", "label": "Closing line", "default": "See none of it? That's what the [nights] nights are for. We collect it free and refund every penny." },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Find their bed" },
+    { "type": "url", "id": "cta_link", "label": "Button link", "info": "Empty: the Bed Finder page." },
+    { "type": "text", "id": "cta_note", "label": "Note under the button", "default": "4 questions · 30 seconds" },
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "product", "id": "fallback_product", "label": "Or use this product's photo" },
+    { "type": "text", "id": "image_alt", "label": "Image description (alt text)" },
+    { "type": "text", "id": "caption", "label": "Caption on the image" },
+    { "type": "select", "id": "image_position", "label": "Image position", "options": [ { "value": "left", "label": "Left" }, { "value": "right", "label": "Right" } ], "default": "left" },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "sign", "name": "Something to watch for", "settings": [
+      { "type": "text", "id": "when", "label": "When", "default": "Night 1" },
+      { "type": "text", "id": "title", "label": "Title", "default": "Straight in." },
+      { "type": "textarea", "id": "text", "label": "Text", "default": "Put it where they already sleep, with a blanket that smells of home on top. Most dogs claim it the first evening. A cautious few take a fortnight, and that's normal too." }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: The first fortnight", "category": "PawLunova", "blocks": [
+      { "type": "sign", "settings": { "when": "Night 1", "title": "Straight in.", "text": "Put it where they already sleep, with a blanket that smells of home on top. Most dogs claim it the first evening. A cautious few take a fortnight, and that's normal too." } },
+      { "type": "sign", "settings": { "when": "Week 1", "title": "Sleeps right through.", "text": "Fewer laps of the house at 2am, fewer resettles. The circling before lying down gets shorter, because one position finally takes the weight off." } },
+      { "type": "sign", "settings": { "when": "Week 2", "title": "Won't get off it.", "text": "The stage owners talk about most: the bed becomes the spot, the sofa loses its appeal, and the cat starts eyeing it up." } }
+    ] }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,172 @@
+{% comment %}
+  Section contract.
+  Pennies a day: a real bed's price divided by the nights in the foam guarantee, with the maths shown,
+  and the same money framed as everyday spends. On a product page it uses that product when the guarantee
+  covers it, otherwise the bed chosen in settings.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  assign p = s.product
+  if template.name == 'product'
+    capture page_foam
+      render 'pl-foam-bed', product: product
+    endcapture
+    if page_foam == 'true'
+      assign p = product
+    endif
+  endif
+  assign years = settings.pl_guarantee_years | default: 0 | plus: 0
+  assign render_it = false
+  if p != blank and years > 0 and settings.pl_guarantee_enable
+    capture foam_ok
+      render 'pl-foam-bed', product: p
+    endcapture
+    if foam_ok == 'true'
+      assign render_it = true
+    endif
+  endif
+  if render_it
+    assign cents = p.price_min
+    assign nights = years | times: 1461 | divided_by: 4
+    assign twice_nights = nights | times: 2
+    assign per_night = cents | times: 2 | plus: nights | divided_by: twice_nights | floor
+    if per_night < 1
+      assign per_night = 1
+    endif
+    if per_night < 100
+      assign per_night_text = per_night | append: 'p'
+    else
+      assign per_night_text = per_night | money_without_trailing_zeros
+    endif
+    if nights >= 1000
+      assign n_th = nights | divided_by: 1000
+      assign n_rest = nights | modulo: 1000 | prepend: '00' | slice: -3, 3
+      assign nights_text = n_th | append: ',' | append: n_rest
+    else
+      assign nights_text = nights | append: ''
+    endif
+  endif
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+-%}
+{%- if render_it -%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-cost{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  <div class="pl-cost__grid">
+    <div class="pl-cost__copy">
+      {%- assign heading = s.heading | replace: '[per_night]', per_night_text -%}
+      {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: heading -%}
+      {%- if s.body != blank -%}<div class="rte pl-cost__body">{{ s.body | replace: '[years]', years }}</div>{%- endif -%}
+      <p class="pl-cost__maths pl-small pl-muted">
+        {{ p.title | escape }}, {{ cents | money_without_trailing_zeros }} ÷ {{ nights_text }} nights ({{ years }} years) = about {{ per_night_text }} a night. A way of seeing the cost over the guaranteed life of the foam, not a payment plan.
+      </p>
+      <a class="pl-link" href="{{ p.url }}">See the {{ p.title | escape }}</a>
+    </div>
+    {%- if section.blocks.size > 0 -%}
+      <div class="pl-cost__compare pl-card pl-card--raised">
+        {%- if s.compare_heading != blank -%}<p class="pl-eyebrow">{{ s.compare_heading | escape }}</p>{%- endif -%}
+        <ul class="pl-cost__list list-unstyled">
+          {%- for block in section.blocks -%}
+            {%- liquid
+              assign item_pence = block.settings.price | times: 100 | round
+              assign item_nights = item_pence | times: nights | divided_by: cents
+            -%}
+            <li class="pl-cost__item" {{ block.shopify_attributes }}>
+              <span class="pl-cost__label">{{ block.settings.label | escape }} <span class="pl-muted">(about {{ item_pence | money_without_trailing_zeros }})</span></span>
+              <span class="pl-cost__nights">≈ {{ item_nights }} nights</span>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+{%- endif -%}
+
+{% stylesheet %}
+  .pl-cost__grid {
+    display: grid;
+    gap: var(--gap-2xl);
+    align-items: center;
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-cost__grid {
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      gap: var(--gap-3xl);
+    }
+  }
+
+  .pl-cost__copy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+  }
+
+  .pl-cost__body p {
+    color: var(--color-foreground-muted);
+  }
+
+  .pl-cost__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-top: var(--margin-sm);
+  }
+
+  .pl-cost__item {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 0.5rem;
+    border-bottom: 1px solid var(--pl-line-soft);
+    font-size: 0.9375rem;
+  }
+
+  .pl-cost__item:last-child {
+    border-bottom: 0;
+  }
+
+  .pl-cost__nights {
+    font-family: var(--font-heading--family);
+    white-space: nowrap;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Real cost",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 4,
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "What it really costs" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "info": "[per_night] becomes the amount.", "default": "About [per_night] a night." },
+    { "type": "richtext", "id": "body", "label": "Body", "default": "<p>Dogs spend twelve to fourteen hours a day lying down. Spread over the [years] years the foam is guaranteed for, a bed that actually holds them up works out at pennies a night. Worth comparing with a bed that's flat by spring, and the one you buy to replace it.</p>" },
+    { "type": "product", "id": "product", "label": "Bed to use for the sum", "info": "Must be a memory foam bed the guarantee covers. On product pages the bed itself is used." },
+    { "type": "text", "id": "compare_heading", "label": "Comparison heading", "default": "The same money, elsewhere" },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "compare", "name": "Everyday spend", "settings": [
+      { "type": "text", "id": "label", "label": "Label", "default": "A takeaway coffee" },
+      { "type": "number", "id": "price", "label": "Price (£)", "default": 3.5 }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: Real cost", "category": "PawLunova", "blocks": [
+      { "type": "compare", "settings": { "label": "A takeaway coffee", "price": 3.5 } },
+      { "type": "compare", "settings": { "label": "A bag of dog treats", "price": 4 } },
+      { "type": "compare", "settings": { "label": "A cinema ticket", "price": 12 } }
+    ] }
+  ]
+}
+{% endschema %}

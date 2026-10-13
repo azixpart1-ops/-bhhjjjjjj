@@ -1,0 +1,55 @@
+{% comment %}
+  Section contract.
+  Under the basket: the promises that remove the last doubts, in the policy's own words, and the
+  Bed Finder for an empty basket.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  capture basket_trial
+    render 'pl-trial-eligible', basket: cart
+  endcapture
+  assign dispatch_text = settings.pl_dispatch_min | append: ' to ' | append: settings.pl_dispatch_max
+  assign transit_text = settings.pl_transit_min | append: ' to ' | append: settings.pl_transit_max
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  {%- if cart.item_count == 0 -%}
+    <div class="pl-banner pl-card pl-card--moss">
+      <span class="pl-icon-badge pl-banner__icon">{% render 'pl-icon', name: 'paw' %}</span>
+      <div class="pl-banner__copy">
+        <p class="pl-banner__heading h4">{{ 'pl.cart.finder_prompt' | t }}</p>
+      </div>
+      <div class="pl-banner__cta"><a class="button" href="{{ settings.pl_finder_url }}">{{ 'pl.general.find_bed' | t }}</a></div>
+    </div>
+  {%- else -%}
+    <ul class="pl-grid pl-grid--3 list-unstyled">
+      {%- if basket_trial == 'true' -%}
+        <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'moon' %}</span><p class="pl-strong" style="margin:.5rem 0 .2rem">{{ settings.pl_trial_nights }} nights to decide</p><p class="pl-small pl-muted" style="margin:0">Your nights start the day it arrives. Slept on, hair and all. Free collection from the UK mainland if it isn't right.</p></li>
+      {%- endif -%}
+      <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'truck' %}</span><p class="pl-strong" style="margin:.5rem 0 .2rem">Delivery, in plain words</p><p class="pl-small pl-muted" style="margin:0">Own stock is dispatched in {{ dispatch_text }} working days, then standard delivery takes {{ transit_text }} working days: free over £{{ settings.pl_free_delivery_threshold }}, £{{ settings.pl_delivery_standard_price }} below. Partner-warehouse beds take a little longer and say so on their page.</p></li>
+      <li class="pl-card pl-card--raised"><span class="pl-icon-badge">{% render 'pl-icon', name: 'chat' %}</span><p class="pl-strong" style="margin:.5rem 0 .2rem">A real person in the UK</p><p class="pl-small pl-muted" style="margin:0">Questions before you pay? {{ settings.pl_contact_email }} or {{ settings.pl_contact_phone }}, {{ settings.pl_contact_hours }}.</p></li>
+    </ul>
+  {%- endif -%}
+</div>
+
+{% schema %}
+{
+  "name": "PL: Basket promises",
+  "tag": "section",
+  "class": "section-wrapper",
+  "enabled_on": { "templates": ["cart"] },
+  "settings": [
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 24 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 48 }
+  ],
+  "presets": [{ "name": "PL: Basket promises", "category": "PawLunova" }]
+}
+{% endschema %}

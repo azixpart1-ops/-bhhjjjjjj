@@ -1,0 +1,162 @@
+{% comment %}
+  Section contract.
+  The current automatic discount, said once, plainly, with its real end date: "£15 off orders over
+  £129 at checkout, until Sat 31 Oct." A deadline is persuasive only while it is true, so the band
+  renders from Theme settings › PawLunova promises › Current offer, disappears on the server once the
+  end date has passed, and pl-ui.js removes it on the shopper's clock as well, so a cached page cannot
+  keep promising it. No timers, nothing invented.
+  @example
+  <!-- Add from the editor: PL: Current offer. It stays empty while the offer is off or has ended. -->
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  assign show = false
+  assign ends_raw = settings.pl_offer_ends | default: '' | strip
+  if settings.pl_offer_enable and settings.pl_offer_amount > 0 and settings.pl_offer_min > 0
+    assign now_s = 'now' | date: '%s' | plus: 0
+    assign ends_s = 0
+    if ends_raw != ''
+      assign ends_s = ends_raw | date: '%s' | plus: 0
+    endif
+    if ends_s == 0 or ends_s > now_s
+      assign show = true
+    endif
+  endif
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+-%}
+{%- if show -%}
+  {%- liquid
+    assign ends_text = ''
+    if ends_raw != ''
+      assign ends_text = ends_raw | date: '%a %-d %b'
+    endif
+    assign amount = settings.pl_offer_amount | append: ''
+    assign min = settings.pl_offer_min | append: ''
+    assign label = settings.pl_offer_label | default: ''
+    assign text = s.text | replace: '[label]', label | replace: '[amount]', amount | replace: '[min]', min | replace: '[ends]', ends_text
+    if ends_text == ''
+      assign text = text | replace: ' until ', ' ' | replace: ', until', ''
+    endif
+  -%}
+  <div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+  <div
+    class="section section--{{ s.section_width }} spacing-style pl-section pl-offer{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+    style="{% render 'spacing-style', settings: s %}"
+    data-pl-offer
+    data-ends="{{ ends_raw | escape }}"
+  >
+    <div class="pl-offer__band{% if s.style == 'tint' %} pl-offer__band--tint{% elsif s.style == 'moss' %} pl-offer__band--moss{% endif %}">
+      <span class="pl-icon-badge pl-offer__icon">{% render 'pl-icon', name: 'sparkle' %}</span>
+      <div class="pl-offer__copy">
+        {%- if label != '' and s.show_label -%}<p class="pl-eyebrow pl-offer__label">{{ label | escape }}</p>{%- endif -%}
+        <p class="pl-offer__text">{{ text | escape }}</p>
+        {%- if settings.pl_offer_note != blank -%}<p class="pl-offer__note pl-small">{{ settings.pl_offer_note | escape }}</p>{%- endif -%}
+      </div>
+      {%- if s.cta_label != blank -%}
+        <a class="button-secondary pl-offer__cta" href="{{ s.cta_link | default: '/collections/dog-beds' }}">{{ s.cta_label | escape }}</a>
+      {%- endif -%}
+    </div>
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  .pl-offer__band {
+    display: grid;
+    gap: var(--gap-md);
+    align-items: center;
+    padding: var(--padding-xl);
+    border-radius: var(--pl-radius-lg);
+    border: 1px solid var(--pl-line);
+    background: var(--color-background);
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-offer__band {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: var(--gap-xl);
+    }
+  }
+
+  .pl-offer__band--tint {
+    background: var(--pl-terracotta-tint);
+    border-color: transparent;
+  }
+
+  .pl-offer__band--moss {
+    background: var(--pl-moss);
+    color: var(--pl-on-moss);
+    border-color: transparent;
+  }
+
+  .pl-offer__band--moss .pl-eyebrow,
+  .pl-offer__band--moss .pl-offer__note {
+    color: var(--pl-on-moss-muted);
+  }
+
+  .pl-offer__icon {
+    background: var(--pl-terracotta);
+    color: var(--color-primary-button-text);
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .pl-offer__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .pl-offer__label {
+    margin: 0;
+  }
+
+  .pl-offer__text {
+    margin: 0;
+    font-family: var(--font-heading--family);
+    font-size: 1.25rem;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+
+  .pl-offer__note {
+    margin: 0;
+    color: var(--color-foreground-muted);
+  }
+
+  .pl-offer__cta {
+    white-space: nowrap;
+  }
+
+  @media screen and (max-width: 749px) {
+    .pl-offer__cta {
+      width: 100%;
+      justify-content: center;
+      text-align: center;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Current offer",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "paragraph", "content": "Reads Theme settings › PawLunova promises › Current offer. Shows nothing while the offer is off or after its end date. Tokens: [label] [amount] [min] [ends]." },
+    { "type": "text", "id": "text", "label": "Text", "default": "£[amount] off orders over £[min], taken off at checkout until [ends]." },
+    { "type": "checkbox", "id": "show_label", "label": "Show the offer's name above the text", "default": true },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Shop the beds" },
+    { "type": "url", "id": "cta_link", "label": "Button link" },
+    { "type": "select", "id": "style", "label": "Band style", "options": [ { "value": "tint", "label": "Warm tint" }, { "value": "plain", "label": "Plain" }, { "value": "moss", "label": "Dark" } ], "default": "tint" },
+    { "type": "color", "id": "background_color", "label": "Section background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 8 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 24 }
+  ],
+  "presets": [{ "name": "PL: Current offer", "category": "PawLunova" }]
+}
+{% endschema %}

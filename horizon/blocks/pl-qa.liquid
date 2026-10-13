@@ -1,0 +1,40 @@
+{%- doc -%}
+  Owner Q&A from the product's custom.qa metafield (JSON: [{"q": "...", "a": "..."}]), signed by the owner,
+  with the "Worth it?" paragraph from custom.worth_it above it when present.
+{%- enddoc -%}
+{%- liquid
+  assign product = closest.product
+  assign qa = product.metafields.custom.qa.value
+  assign worth = product.metafields.custom.worth_it | default: ''
+-%}
+{%- if worth != '' or qa.size > 0 -%}
+  <div class="pl-pdp-block pl-qa" {{ block.shopify_attributes }}>
+    {%- if worth != '' -%}
+      <div>
+        <p class="pl-qa__q">{{ 'pl.pdp.worth_it' | t }}</p>
+        <p class="pl-qa__a">{{ worth | newline_to_br }}</p>
+      </div>
+    {%- endif -%}
+    {%- for item in qa -%}
+      {%- if item.q != blank and item.a != blank -%}
+        <div>
+          <p class="pl-qa__q">{{ item.q | escape }}</p>
+          <p class="pl-qa__a">{{ item.a | escape }}</p>
+        </div>
+      {%- endif -%}
+    {%- endfor -%}
+    {%- if qa.size > 0 and settings.pl_owner_name != blank -%}
+      <p class="pl-qa__signed">{{ 'pl.pdp.qa_signed' | t: name: settings.pl_owner_name }}</p>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Owner Q&A",
+  "tag": null,
+  "settings": [
+    { "type": "paragraph", "content": "Reads custom.worth_it and custom.qa. Nothing shows when both are empty." }
+  ],
+  "presets": [{ "name": "Owner Q&A", "category": "PawLunova" }]
+}
+{% endschema %}

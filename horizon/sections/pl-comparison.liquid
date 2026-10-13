@@ -1,0 +1,172 @@
+{% comment %}
+  Section contract.
+  A side-by-side that answers "couldn't I just…": the bed against a fibre-filled bed and the cot
+  mattress owners suggest on forums. On product pages it uses the product's name and can be limited to
+  memory foam beds.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  assign render_it = true
+  assign ours_label = s.ours_label
+  if template.name == 'product'
+    assign ours_label = product.title
+    if s.only_foam
+      capture foam_ok
+        render 'pl-foam-bed', product: product
+      endcapture
+      if foam_ok != 'true'
+        assign render_it = false
+      endif
+    endif
+  endif
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign nights = settings.pl_trial_nights | append: ''
+  assign years = settings.pl_guarantee_years | append: ''
+-%}
+{%- if render_it -%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-compare{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  {%- assign heading = s.heading | replace: '[name]', ours_label -%}
+  {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: heading, lede: s.lede -%}
+  <p class="pl-compare__hint pl-small pl-muted" aria-hidden="true">Swipe sideways to see every column.</p>
+  <div class="pl-compare__scroll">
+    <table class="pl-compare__table">
+      <thead>
+        <tr>
+          <th scope="col"><span class="visually-hidden">Feature</span></th>
+          <th scope="col" class="pl-compare__ours">{{ ours_label | escape }}</th>
+          <th scope="col">{{ s.alt_1_label | escape }}</th>
+          <th scope="col">{{ s.alt_2_label | escape }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for block in section.blocks -%}
+          <tr {{ block.shopify_attributes }}>
+            <th scope="row">{{ block.settings.feature | escape }}</th>
+            <td class="pl-compare__ours">{% render 'pl-icon', name: 'check', class: 'pl-compare__tick' %}{{ block.settings.ours | replace: '[nights]', nights | replace: '[years]', years | escape }}</td>
+            <td>{{ block.settings.alt_1 | escape }}</td>
+            <td>{{ block.settings.alt_2 | escape }}</td>
+          </tr>
+        {%- endfor -%}
+      </tbody>
+    </table>
+  </div>
+  {%- if s.note != blank -%}<p class="pl-small pl-muted">{{ s.note | escape }}</p>{%- endif -%}
+</div>
+{%- endif -%}
+
+{% stylesheet %}
+  .pl-compare__hint {
+    margin: 0 0 0.5rem;
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-compare__hint {
+      display: none;
+    }
+  }
+
+  .pl-compare__scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pl-compare__table {
+    width: 100%;
+    min-width: 40rem;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+
+  .pl-compare__table th,
+  .pl-compare__table td {
+    text-align: start;
+    vertical-align: top;
+    padding: 0.8rem 0.75rem;
+    border-bottom: 1px solid var(--pl-line-soft);
+    line-height: 1.45;
+  }
+
+  .pl-compare__table thead th {
+    font-family: var(--font-subheading--family);
+    font-weight: 600;
+    font-size: 0.8125rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-foreground-muted);
+  }
+
+  .pl-compare__table tbody th {
+    font-weight: 600;
+    width: 22%;
+  }
+
+  .pl-compare__table td {
+    color: var(--color-foreground-muted);
+  }
+
+  .pl-compare__table td.pl-compare__ours {
+    color: var(--color-foreground);
+    background: rgb(31 46 39 / 0.05);
+  }
+
+  .pl-compare__table thead th.pl-compare__ours {
+    color: var(--pl-moss);
+    background: rgb(31 46 39 / 0.05);
+    border-radius: 10px 10px 0 0;
+  }
+
+  .pl-compare__tick {
+    color: var(--pl-success);
+    margin-inline-end: 0.35rem;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Side by side",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 8,
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Before you decide" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "info": "[name] becomes the bed's name on product pages.", "default": "[name] vs the alternatives" },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "On UK owner forums the same question comes up: couldn't I just use a cot mattress and a cover? Here's the honest answer." },
+    { "type": "text", "id": "ours_label", "label": "Our column label", "default": "A PawLunova memory foam bed" },
+    { "type": "text", "id": "alt_1_label", "label": "Second column", "default": "Fibre-filled bed" },
+    { "type": "text", "id": "alt_2_label", "label": "Third column", "default": "Cot mattress + cover" },
+    { "type": "text", "id": "note", "label": "Note", "default": "Foam layers, liners and the guarantee vary from bed to bed: each product page says how that bed is built." },
+    { "type": "checkbox", "id": "only_foam", "label": "On product pages, show only for memory foam beds", "default": true },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "row", "name": "Row", "settings": [
+      { "type": "text", "id": "feature", "label": "Feature", "default": "What's inside" },
+      { "type": "text", "id": "ours", "label": "Ours", "default": "Memory foam over egg-crate foam, stated on the page" },
+      { "type": "text", "id": "alt_1", "label": "Second column", "default": "Polyester fibre that packs down" },
+      { "type": "text", "id": "alt_2", "label": "Third column", "default": "Foam made for a baby, not a 30kg dog" }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: Side by side", "category": "PawLunova", "blocks": [
+      { "type": "row", "settings": { "feature": "What's inside", "ours": "Memory foam over egg-crate foam, stated on the page", "alt_1": "Polyester fibre that packs down", "alt_2": "Foam made for a baby, not a 30kg dog" } },
+      { "type": "row", "settings": { "feature": "Chin rest and sides", "ours": "Bolsters or a raised rim where the bed has them", "alt_1": "Soft sides that collapse", "alt_2": "None" } },
+      { "type": "row", "settings": { "feature": "Stepping in", "ours": "Low fronts on the low step-in beds", "alt_1": "Varies", "alt_2": "Flat, but thin at the edges" } },
+      { "type": "row", "settings": { "feature": "Accidents", "ours": "Waterproof inner liner on marked beds", "alt_1": "Rarely", "alt_2": "Depends on the cover you buy" } },
+      { "type": "row", "settings": { "feature": "Washing", "ours": "Cover comes off and washes", "alt_1": "Often the whole bed, which never quite dries", "alt_2": "Depends on the cover" } },
+      { "type": "row", "settings": { "feature": "Trying it", "ours": "[nights] nights, free collection, slept on", "alt_1": "Often 14 to 30 days, you pay postage", "alt_2": "None for dog use" } },
+      { "type": "row", "settings": { "feature": "Guarantee", "ours": "[years] years on the memory foam core", "alt_1": "Rarely any", "alt_2": "None for dog use" } }
+    ] }
+  ]
+}
+{% endschema %}

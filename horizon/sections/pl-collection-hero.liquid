@@ -1,0 +1,118 @@
+{% comment %}
+  Section contract.
+  The top of a collection: the H1 (the part of the title before any "|"), the first paragraph of the
+  description as an intro, and the honest brand line in place of a review count. The long SEO text
+  goes below the grid (PawLunova › Collection description).
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign col = collection
+  assign title = col.title | split: '|' | first | strip
+  if title == blank
+    assign title = col.title
+  endif
+  assign desc = col.description | default: ''
+  assign intro = ''
+  if desc != ''
+    assign paras = desc | split: '</p>'
+    for para in paras
+      assign pt = para | strip_html | strip
+      if pt != '' and pt.size > 40
+        assign intro = pt
+        break
+      endif
+    endfor
+  endif
+  assign intro = intro | truncatewords: 42
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-colhero{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  <div class="pl-colhero__grid{% if s.show_image and col.image != blank %} pl-colhero__grid--image{% endif %}">
+    <div class="pl-colhero__copy">
+      <h1 class="h2 pl-colhero__title">{{ title | escape }}</h1>
+      {%- if s.show_intro and intro != '' -%}<p class="pl-lede">{{ intro | escape }}</p>{%- endif -%}
+      <p class="pl-small pl-muted pl-colhero__meta">
+        {{ col.products_count }} {% if col.products_count == 1 %}bed{% else %}beds{% endif %}
+        {%- if s.show_brand_line and settings.pl_young_brand_line != blank %} · {{ settings.pl_young_brand_line | escape }}{% endif -%}
+      </p>
+    </div>
+    {%- if s.show_image and col.image != blank -%}
+      <div class="pl-colhero__media">
+        {{ col.image | image_url: width: 1200 | image_tag: widths: '480, 720, 960, 1200', sizes: '(min-width: 990px) 40vw, 100vw', loading: 'eager', class: 'pl-colhero__img', alt: col.image.alt | default: title }}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .pl-colhero__grid {
+    display: grid;
+    gap: var(--gap-lg);
+    align-items: center;
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-colhero__grid--image {
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    }
+  }
+
+  .pl-colhero__copy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-sm);
+    max-width: 44rem;
+  }
+
+  .pl-colhero__title {
+    margin: 0;
+  }
+
+  .pl-colhero__meta {
+    margin: 0;
+  }
+
+  .pl-colhero__media {
+    border-radius: var(--pl-radius-lg);
+    overflow: hidden;
+    background: var(--pl-oat);
+  }
+
+  .pl-colhero__img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+  }
+
+  @media screen and (max-width: 989px) {
+    .pl-colhero__media {
+      display: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Collection intro",
+  "tag": "section",
+  "class": "section-wrapper",
+  "enabled_on": { "templates": ["collection"] },
+  "settings": [
+    { "type": "checkbox", "id": "show_intro", "label": "Show the first paragraph of the description", "default": true },
+    { "type": "checkbox", "id": "show_brand_line", "label": "Show the honest brand line", "default": true },
+    { "type": "checkbox", "id": "show_image", "label": "Show the collection image on desktop", "default": true },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 32 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 16 }
+  ],
+  "presets": [{ "name": "PL: Collection intro", "category": "PawLunova" }]
+}
+{% endschema %}

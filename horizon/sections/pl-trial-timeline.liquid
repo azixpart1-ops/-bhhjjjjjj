@@ -1,0 +1,147 @@
+{% comment %}
+  Section contract.
+  Risk reversal as a story in three nights: it arrives, give them time, not right? tell us.
+  Ownership cue ("put it where they already sleep") and the honest exclusions line. On a product page
+  it stays silent for a product the trial doesn't cover.
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  assign render_it = settings.pl_trial_enable
+  if template.name == 'product' and render_it
+    capture trial_ok
+      render 'pl-trial-eligible', product: product
+    endcapture
+    if trial_ok != 'true'
+      assign render_it = false
+    endif
+  endif
+  assign nights = settings.pl_trial_nights | append: ''
+  assign mid = settings.pl_trial_nights | divided_by: 3 | round | append: ''
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+-%}
+{%- if render_it -%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-trial{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  {%- assign heading = s.heading | replace: '[nights]', nights -%}
+  {%- assign lede = s.lede | replace: '[nights]', nights -%}
+  {%- assign eyebrow = s.eyebrow | replace: '[nights]', nights -%}
+  {%- render 'pl-section-head', eyebrow: eyebrow, heading: heading, lede: lede, align: 'center' -%}
+  <ol class="pl-trial__steps list-unstyled">
+    {%- for block in section.blocks -%}
+      <li class="pl-trial__step" {{ block.shopify_attributes }}>
+        <span class="pl-trial__night">{{ block.settings.night | replace: '[nights]', nights | replace: '[mid]', mid | escape }}</span>
+        <h3 class="h5 pl-trial__title">{{ block.settings.title | escape }}</h3>
+        <p class="pl-trial__text">{{ block.settings.text | replace: '[nights]', nights | escape }}</p>
+      </li>
+    {%- endfor -%}
+  </ol>
+  <div class="pl-trial__foot">
+    {%- if s.reassurance != blank -%}<p class="pl-trial__reassure">{{ s.reassurance | replace: '[nights]', nights | escape }}</p>{%- endif -%}
+    {%- if s.exclusions != blank -%}<p class="pl-small pl-muted">{{ s.exclusions | escape }}</p>{%- endif -%}
+    <a class="pl-link pl-small" href="{{ shop.refund_policy.url | default: '/policies/refund-policy' }}">{{ s.policy_label | default: 'Read the full returns policy' | escape }}</a>
+  </div>
+</div>
+{%- endif -%}
+
+{% stylesheet %}
+  .pl-trial {
+    text-align: center;
+  }
+
+  .pl-trial__steps {
+    display: grid;
+    gap: var(--gap-md);
+    max-width: 60rem;
+    margin-inline: auto;
+    width: 100%;
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-trial__steps {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .pl-trial__step {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: var(--padding-lg);
+    border-radius: var(--pl-radius);
+    background: rgb(var(--color-foreground-rgb) / 0.05);
+  }
+
+  .pl-trial__night {
+    font-family: var(--font-heading--family);
+    font-size: 1.75rem;
+    line-height: 1;
+    color: var(--pl-terracotta);
+  }
+
+  .pl-trial__title {
+    margin: 0.25rem 0 0;
+  }
+
+  .pl-trial__text {
+    margin: 0;
+    color: var(--color-foreground-muted);
+    line-height: 1.5;
+  }
+
+  .pl-trial__foot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+    max-width: 40rem;
+    margin-inline: auto;
+  }
+
+  .pl-trial__reassure {
+    margin: 0;
+    font-family: var(--font-accent--family);
+    font-style: italic;
+    font-size: 1.125rem;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: Sleep trial",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 4,
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The [nights]-night trial" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Try it for [nights] nights. At our risk, not yours." },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "Nobody expects a trial on a dog bed. We think it's the only honest way to sell one, because a bed only proves itself at 2am." },
+    { "type": "text", "id": "reassurance", "label": "Reassurance", "default": "It doesn't need to be unused. Send it back slept on, hair and all." },
+    { "type": "text", "id": "exclusions", "label": "Exclusions line", "default": "A few products aren't part of the trial. Where that's the case, the product page says so before you buy." },
+    { "type": "text", "id": "policy_label", "label": "Policy link label", "default": "Read the full returns policy" },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "night", "name": "Night", "settings": [
+      { "type": "text", "id": "night", "label": "Night label", "default": "Night 1" },
+      { "type": "text", "id": "title", "label": "Title", "default": "It arrives" },
+      { "type": "textarea", "id": "text", "label": "Text", "default": "Put it where they already sleep, with a blanket that smells of home on top." }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: Sleep trial", "category": "PawLunova", "blocks": [
+      { "type": "night", "settings": { "night": "Night 1", "title": "It arrives", "text": "Put it where they already sleep, with a blanket that smells of home on top." } },
+      { "type": "night", "settings": { "night": "Night [mid]", "title": "Give them time", "text": "Plenty of dogs claim a new bed the first evening. Some take a fortnight. Both are normal, and you've got [nights]." } },
+      { "type": "night", "settings": { "night": "Night [nights]", "title": "Not right? Tell us", "text": "Any time inside the [nights] nights. We collect it free from the UK mainland and refund every penny." } }
+    ] }
+  ]
+}
+{% endschema %}

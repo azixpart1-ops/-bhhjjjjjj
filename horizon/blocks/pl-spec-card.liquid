@@ -1,0 +1,59 @@
+{%- doc -%}
+  "What's inside": a spec list built only from the product's own metafields. A field that is empty
+  is left out, so nothing is ever guessed.
+{%- enddoc -%}
+{%- liquid
+  assign product = closest.product
+  assign mf = product.metafields.custom
+  assign core = mf.core_type | default: ''
+  assign depth = mf.foam_depth | default: ''
+  assign feel = mf.feel | default: 0 | plus: 0
+  assign density = mf.density_kg_m3 | default: 0 | plus: 0
+  assign liner = mf.has_liner.value
+  assign cover = mf.cover_type | default: ''
+  assign wash = mf.wash_temp | default: 0 | plus: 0
+  assign nonslip = mf.non_slip.value
+  assign low = mf.low_entry.value
+  assign entry = mf.entry_height_cm | default: 0 | plus: 0
+  assign shape = mf.shape | default: ''
+  assign has_sizes = false
+  for opt in product.options_with_values
+    assign on = opt.name | downcase
+    if on contains 'size' and opt.values.size > 1
+      assign has_sizes = true
+    endif
+  endfor
+  assign area = product.selected_or_first_available_variant.metafields.custom.sleep_area | default: ''
+  assign any = false
+  if core != '' or depth != '' or feel > 0 or density > 0 or liner == true or cover != '' or wash > 0 or nonslip == true or low == true or shape != '' or area != ''
+    assign any = true
+  endif
+-%}
+{%- if any -%}
+  <div class="pl-pdp-block pl-spec-card" {{ block.shopify_attributes }}>
+    {%- if block.settings.intro != blank -%}<p class="pl-small pl-muted">{{ block.settings.intro | escape }}</p>{%- endif -%}
+    <dl class="pl-spec">
+      {%- if core != '' -%}<dt>{{ 'pl.pdp.spec_core' | t }}</dt><dd>{{ core | escape }}</dd>{%- endif -%}
+      {%- if depth != '' -%}<dt>{{ 'pl.pdp.spec_depth' | t }}</dt><dd>{{ depth | escape }}</dd>{%- endif -%}
+      {%- if density > 0 -%}<dt>{{ 'pl.pdp.spec_density' | t }}</dt><dd>{{ density }}kg/m³</dd>{%- endif -%}
+      {%- if feel > 0 -%}<dt>{{ 'pl.pdp.spec_feel' | t }}</dt><dd>{{ 'pl.pdp.spec_feel_scale' | t: feel: feel }}</dd>{%- endif -%}
+      {%- if liner == true -%}<dt>{{ 'pl.pdp.spec_liner' | t }}</dt><dd>{{ 'pl.pdp.spec_yes' | t }}</dd>{%- endif -%}
+      {%- if cover != '' -%}<dt>{{ 'pl.pdp.spec_cover' | t }}</dt><dd>{{ cover | escape }}</dd>{%- endif -%}
+      {%- if wash > 0 -%}<dt>{{ 'pl.pdp.spec_wash' | t }}</dt><dd>{{ 'pl.pdp.spec_wash_value' | t: temp: wash }}</dd>{%- endif -%}
+      {%- if nonslip == true -%}<dt>{{ 'pl.pdp.spec_base' | t }}</dt><dd>{{ 'pl.pdp.spec_base_value' | t }}</dd>{%- endif -%}
+      {%- if low == true and entry > 0 -%}<dt>{{ 'pl.pdp.spec_entry' | t }}</dt><dd>{{ 'pl.pdp.spec_entry_value' | t: cm: entry }}</dd>{%- elsif low == true -%}<dt>{{ 'pl.pdp.spec_entry' | t }}</dt><dd>{{ 'pl.general.low_entry' | t }}</dd>{%- endif -%}
+      {%- if has_sizes -%}<dt>{{ 'pl.pdp.spec_area' | t }}</dt><dd>{{ 'pl.pdp.spec_area_sizes' | t }}</dd>{%- elsif area != '' -%}<dt>{{ 'pl.pdp.spec_area' | t }}</dt><dd>{{ area | escape }}</dd>{%- endif -%}
+      {%- if shape != '' -%}<dt>{{ 'pl.pdp.spec_shape' | t }}</dt><dd>{{ shape | escape }}</dd>{%- endif -%}
+    </dl>
+  </div>
+{%- endif -%}
+{% schema %}
+{
+  "name": "What's inside",
+  "tag": null,
+  "settings": [
+    { "type": "text", "id": "intro", "label": "Intro line", "default": "No mystery stuffing. It says exactly what's inside." }
+  ],
+  "presets": [{ "name": "What's inside", "category": "PawLunova" }]
+}
+{% endschema %}

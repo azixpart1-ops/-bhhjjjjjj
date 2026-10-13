@@ -1,0 +1,57 @@
+{%- doc -%}
+  Reads a size option value and echoes "rank|label|detail". Rank: XS 2, S 3, M 4, L 5, XL 6, XXL 7, 3XL 8,
+  one size / default title 0, anything else -1. Label is the size word as written; detail is what follows
+  the first separator (" · ", " - ", ":", " (").
+
+  @param {string} value - the option value, e.g. "Medium · 76 × 64cm"
+{%- enddoc -%}
+{%- liquid
+  assign v = value | default: '' | strip
+  assign label = v
+  assign detail = ''
+  assign seps = ' · , - ,: ,:, (' | split: ','
+  for sep in seps
+    if label contains sep
+      assign parts = label | split: sep
+      assign label = parts[0] | strip
+      assign detail = v | remove_first: parts[0] | remove_first: sep | strip
+      break
+    endif
+  endfor
+  assign l = label | downcase | replace: '-', ' ' | strip
+  assign rank = -1
+  case l
+    when 'xxs', 'xx small', 'extra extra small'
+      assign rank = 1
+    when 'xs', 'x small', 'xsmall', 'extra small'
+      assign rank = 2
+    when 's', 'sm', 'small'
+      assign rank = 3
+    when 'm', 'med', 'medium'
+      assign rank = 4
+    when 'l', 'lg', 'large'
+      assign rank = 5
+    when 'xl', 'x large', 'xlarge', 'extra large'
+      assign rank = 6
+    when 'xxl', '2xl', 'xx large', 'extra extra large'
+      assign rank = 7
+    when '3xl', 'xxxl'
+      assign rank = 8
+    when '4xl', 'xxxxl'
+      assign rank = 9
+    when 'one size', 'onesize', 'default title', 'os', 'one size fits all'
+      assign rank = 0
+  endcase
+  if rank == -1
+    assign first_word = l | split: ' ' | first
+    case first_word
+      when 'small'
+        assign rank = 3
+      when 'medium'
+        assign rank = 4
+      when 'large'
+        assign rank = 5
+    endcase
+  endif
+  echo rank | append: '|' | append: label | append: '|' | append: detail
+-%}

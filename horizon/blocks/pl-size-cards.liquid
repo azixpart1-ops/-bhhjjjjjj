@@ -1,0 +1,106 @@
+{%- doc -%}
+  Under the size buttons: what each size means for a dog, from the variants' own metafields
+  (sleep_area, suits_breeds, suits_weight) and a fit line worked out from the sleeping area.
+  Then size help: the Bed Finder and a WhatsApp photo link.
+{%- enddoc -%}
+{%- liquid
+  assign product = closest.product
+  assign size_index = -1
+  for opt in product.options_with_values
+    assign on = opt.name | downcase
+    if on contains 'size' and opt.values.size > 0
+      assign size_index = forloop.index0
+      assign size_option = opt
+      break
+    endif
+  endfor
+  assign allowance = settings.pl_fit_allowance | default: 20 | plus: 0
+-%}
+<div class="pl-pdp-block pl-size-cards" {{ block.shopify_attributes }}>
+  {%- if size_index > -1 and size_option.values.size > 1 -%}
+    <details class="pl-details">
+      <summary class="pl-small pl-strong">{% render 'pl-icon', name: 'ruler' %}<span>{{ block.settings.heading | escape }}</span>{% render 'pl-icon', name: 'chevron', class: 'pl-details__chevron' %}</summary>
+      <ul class="pl-size-cards__list">
+        {%- for value in size_option.values -%}
+          {%- liquid
+            assign v = blank
+            for variant in product.variants
+              if variant.options[size_index] == value
+                assign v = variant
+                break
+              endif
+            endfor
+            assign area = v.metafields.custom.sleep_area | default: ''
+            assign breeds = v.metafields.custom.suits_breeds | default: ''
+            assign weight = v.metafields.custom.suits_weight | default: ''
+            capture parsed
+              render 'pl-size-label', value: value
+            endcapture
+            assign parts = parsed | split: '|'
+            assign label = parts[1]
+            assign detail = ''
+            if parts.size > 2
+              assign detail = parts[2]
+            endif
+            assign fit = 0
+            if area != ''
+              assign a1 = area | split: '×' | first | strip | plus: 0
+              assign a2 = area | split: '×' | last | strip | plus: 0
+              if a1 >= a2
+                assign fit = a1 | minus: allowance
+              else
+                assign fit = a2 | minus: allowance
+              endif
+            endif
+          -%}
+          <li class="pl-size-card">
+            <span class="pl-size-card__name">{{ label | escape }}{% if detail != '' %} <span class="pl-muted">· {{ detail | escape }}</span>{% endif %}{% if v != blank %} <span class="pl-muted">· {{ v.price | money_without_trailing_zeros }}</span>{% endif %}</span>
+            {%- if area != '' -%}
+              <span class="pl-size-card__label">{{ 'pl.pdp.size_sleeps' | t }}</span><span>{{ area | escape }}</span>
+            {%- endif -%}
+            {%- if breeds != '' or weight != '' -%}
+              <span class="pl-size-card__label">{{ 'pl.pdp.size_suits' | t }}</span><span>{{ breeds | escape }}{% if breeds != '' and weight != '' %} · {% endif %}{{ weight | escape }}</span>
+            {%- endif -%}
+            {%- if fit >= 20 -%}
+              <span class="pl-size-card__label"></span><span class="pl-muted">{{ 'pl.pdp.size_fits' | t: length: fit }}</span>
+            {%- endif -%}
+          </li>
+        {%- endfor -%}
+      </ul>
+    </details>
+  {%- else -%}
+    {%- liquid
+      assign v = product.selected_or_first_available_variant
+      assign area = v.metafields.custom.sleep_area | default: ''
+      assign breeds = v.metafields.custom.suits_breeds | default: ''
+      assign weight = v.metafields.custom.suits_weight | default: ''
+    -%}
+    {%- if area != '' or breeds != '' or weight != '' -%}
+      <ul class="pl-size-cards__list">
+        <li class="pl-size-card">
+          <span class="pl-size-card__name">{{ 'pl.general.one_size' | t }}</span>
+          {%- if area != '' -%}<span class="pl-size-card__label">{{ 'pl.pdp.size_sleeps' | t }}</span><span>{{ area | escape }}</span>{%- endif -%}
+          {%- if breeds != '' or weight != '' -%}<span class="pl-size-card__label">{{ 'pl.pdp.size_suits' | t }}</span><span>{{ breeds | escape }}{% if breeds != '' and weight != '' %} · {% endif %}{{ weight | escape }}</span>{%- endif -%}
+        </li>
+      </ul>
+    {%- endif -%}
+  {%- endif -%}
+  <p class="pl-size-help">
+    <span class="pl-muted">{{ 'pl.pdp.size_help' | t }}</span>
+    <a class="pl-link" href="{{ settings.pl_finder_url | default: '/pages/bed-finder' }}">{{ 'pl.pdp.size_help_finder' | t }}</a>
+    {%- if settings.pl_whatsapp != blank -%}
+      <a class="pl-link" href="https://wa.me/{{ settings.pl_whatsapp }}?text={{ block.settings.whatsapp_text | append: ' ' | append: product.title | url_encode }}" target="_blank" rel="noopener">{{ 'pl.pdp.size_help_photo' | t }}</a>
+    {%- endif -%}
+  </p>
+</div>
+{% schema %}
+{
+  "name": "Size cards",
+  "tag": null,
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Size details heading", "default": "What each size means" },
+    { "type": "text", "id": "whatsapp_text", "label": "WhatsApp opening message", "default": "Hi, could you help me pick a size for my dog? I'm looking at the" }
+  ],
+  "presets": [{ "name": "Size cards", "category": "PawLunova" }]
+}
+{% endschema %}

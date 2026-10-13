@@ -1,0 +1,228 @@
+{% comment %}
+  Section contract.
+  The first question, asked on the page before the Bed Finder is: "How does your dog sleep?" Three
+  picture cards, one tap each. On a page that carries the Bed Finder the tap fills in question one and
+  scrolls to question two; anywhere else it opens the finder page with ?style= set, which
+  pl-finder.js reads. A small commitment that makes the next three questions feel like finishing
+  something already started, and one easy choice instead of seventy beds.
+  @example
+  <!-- Add from the editor: PL: First question. Three blocks, one per sleeping style. -->
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign finder_url = settings.pl_finder_url | default: '/pages/bed-finder'
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-sleep{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: s.heading, lede: s.lede, align: 'center' -%}
+  <ul class="pl-sleep__list list-unstyled" data-pl-sleep-start>
+    {%- for block in section.blocks -%}
+      {%- liquid
+        assign img = block.settings.image
+        if img == blank and block.settings.product != blank
+          assign img = block.settings.product.featured_image
+        endif
+        assign style = block.settings.value | default: 'curl'
+        assign href = finder_url | append: '?style=' | append: style
+        assign icon = block.settings.icon | default: 'moon'
+      -%}
+      <li class="pl-sleep__item" {{ block.shopify_attributes }}>
+        <a class="pl-sleep__card" href="{{ href }}" data-pl-style="{{ style }}">
+          <span class="pl-sleep__media">
+            {%- if img != blank -%}
+              {{ img | image_url: width: 900 | image_tag: widths: '320, 480, 640, 900', sizes: '(min-width: 750px) 33vw, 100vw', loading: 'lazy', class: 'pl-sleep__img', alt: img.alt | default: block.settings.title }}
+            {%- else -%}
+              <span class="pl-sleep__art" aria-hidden="true">{% render 'pl-icon', name: icon %}</span>
+            {%- endif -%}
+          </span>
+          <span class="pl-sleep__copy">
+            <strong class="pl-sleep__title h5">{{ block.settings.title | escape }}</strong>
+            {%- if block.settings.text != blank -%}<span class="pl-sleep__text">{{ block.settings.text | escape }}</span>{%- endif -%}
+            <span class="pl-sleep__go">{{ s.card_cta | escape }} {% render 'pl-icon', name: 'arrow' %}</span>
+          </span>
+        </a>
+      </li>
+    {%- endfor -%}
+  </ul>
+  {%- if s.note != blank -%}
+    <p class="pl-sleep__note pl-small pl-muted">{{ s.note | escape }}</p>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .pl-sleep {
+    align-items: center;
+  }
+
+  .pl-sleep__list {
+    display: grid;
+    gap: var(--gap-md);
+    width: 100%;
+    max-width: 60rem;
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-sleep__list {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .pl-sleep__item {
+    min-width: 0;
+  }
+
+  .pl-sleep__card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border: 1.5px solid var(--pl-line);
+    border-radius: var(--pl-radius-lg);
+    background: var(--color-background);
+    color: inherit;
+    text-decoration: none;
+    overflow: hidden;
+    transition: border-color 0.15s var(--pl-ease), transform 0.15s var(--pl-ease), box-shadow 0.2s var(--pl-ease);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .pl-sleep__card:hover {
+      border-color: var(--color-foreground);
+      box-shadow: 0 12px 32px -16px rgb(var(--color-foreground-rgb) / 0.35);
+    }
+  }
+
+  .pl-sleep__card:active {
+    transform: scale(0.99);
+  }
+
+  .pl-sleep__card:focus-visible {
+    outline: 2px solid var(--color-foreground);
+    outline-offset: 3px;
+  }
+
+  @media screen and (max-width: 749px) {
+    .pl-sleep__card {
+      flex-direction: row;
+      align-items: stretch;
+    }
+
+    .pl-sleep__media {
+      flex: 0 0 7rem;
+    }
+  }
+
+  .pl-sleep__media {
+    display: block;
+    background: var(--pl-oat);
+    aspect-ratio: 4 / 3;
+    position: relative;
+  }
+
+  @media screen and (max-width: 749px) {
+    .pl-sleep__media {
+      aspect-ratio: auto;
+      min-height: 7rem;
+    }
+  }
+
+  .pl-sleep__img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .pl-sleep__art {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--pl-terracotta);
+  }
+
+  .pl-sleep__art .pl-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .pl-sleep__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: var(--padding-lg);
+    flex: 1;
+  }
+
+  .pl-sleep__title {
+    margin: 0;
+  }
+
+  .pl-sleep__text {
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--color-foreground-muted);
+  }
+
+  .pl-sleep__go {
+    margin-top: auto;
+    padding-top: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--pl-terracotta-text);
+  }
+
+  .pl-sleep__note {
+    margin: 0;
+    text-align: center;
+    max-width: 36rem;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: First question",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 3,
+  "settings": [
+    { "type": "paragraph", "content": "One tap answers the Bed Finder's first question. On a page with the finder it jumps straight to question two; elsewhere it opens the finder page with the answer filled in." },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Start here" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "How does your dog sleep?" },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "Think of how you find them at 2am, not how they settle at 9pm. Tap the closest, and we'll take it from there." },
+    { "type": "text", "id": "card_cta", "label": "Card link text", "default": "Start with this" },
+    { "type": "text", "id": "note", "label": "Note under the cards", "default": "Three more questions after this one, about 30 seconds. No email needed." },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "style", "name": "Sleeping style", "settings": [
+      { "type": "select", "id": "value", "label": "Answer", "options": [ { "value": "curl", "label": "Curled in a ball" }, { "value": "lean", "label": "Head on something" }, { "value": "sprawl", "label": "Stretched flat out" } ], "default": "curl" },
+      { "type": "text", "id": "title", "label": "Title", "default": "Curled in a ball" },
+      { "type": "text", "id": "text", "label": "Text", "default": "Nose tucked under the tail, back pressed into something." },
+      { "type": "image_picker", "id": "image", "label": "Photo" },
+      { "type": "product", "id": "product", "label": "Or use this bed's photo" },
+      { "type": "select", "id": "icon", "label": "Icon when there is no photo", "options": [ { "value": "moon", "label": "Moon" }, { "value": "bed", "label": "Bed" }, { "value": "dog", "label": "Dog" }, { "value": "paw", "label": "Paw" } ], "default": "moon" }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: First question", "category": "PawLunova", "blocks": [
+      { "type": "style", "settings": { "value": "curl", "title": "Curled in a ball", "text": "Nose tucked under the tail, back pressed into something.", "icon": "moon" } },
+      { "type": "style", "settings": { "value": "lean", "title": "Head on something", "text": "Chin on the sofa arm, a cushion, a wall, or you.", "icon": "bed" } },
+      { "type": "style", "settings": { "value": "sprawl", "title": "Stretched flat out", "text": "On their side, legs at full stretch, taking the whole bed.", "icon": "dog" } }
+    ] }
+  ]
+}
+{% endschema %}

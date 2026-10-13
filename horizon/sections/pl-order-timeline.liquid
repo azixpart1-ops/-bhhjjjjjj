@@ -1,0 +1,221 @@
+{% comment %}
+  Section contract.
+  What happens after you order, in four dated steps: today, dispatched, arrives, night one of the
+  trial. Uncertainty about delivery is the second most common complaint in rival reviews, and a
+  dated line is the one answer that works. The dates come from the shipping policy in theme settings
+  (dispatch and transit working days, weekends and bank holidays skipped) and are filled in by
+  pl-ui.js on the shopper's clock; without JavaScript the working-day counts show instead.
+  Tokens: [dispatch], [transit], [nights], [threshold], [express].
+  @example
+  <!-- Add from the editor: PL: After you order. Four steps are the default; edit the words, not the dates. -->
+{% endcomment %}
+{%- liquid
+  assign s = section.settings
+  if s.background_color != blank
+    render 'contrast-override', background_color: s.background_color, section_id: section.id
+  endif
+  assign nights = settings.pl_trial_nights | append: ''
+  assign threshold = settings.pl_free_delivery_threshold | append: ''
+  assign dispatch_text = settings.pl_dispatch_min | append: ' to ' | append: settings.pl_dispatch_max
+  assign transit_text = settings.pl_transit_min | append: ' to ' | append: settings.pl_transit_max
+  assign express_price = settings.pl_delivery_express_price | default: '' | strip
+  assign express = 'true'
+  if express_price == ''
+    assign express = 'false'
+  endif
+-%}
+<div class="section-background{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<div
+  class="section section--{{ s.section_width }} spacing-style pl-section pl-timeline{% if s.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="{% render 'spacing-style', settings: s %}"
+>
+  {%- assign heading = s.heading | replace: '[nights]', nights -%}
+  {%- assign lede = s.lede | replace: '[nights]', nights | replace: '[dispatch]', dispatch_text | replace: '[transit]', transit_text | replace: '[threshold]', threshold -%}
+  {%- render 'pl-section-head', eyebrow: s.eyebrow, heading: heading, lede: lede, align: 'center' -%}
+  <ol class="pl-timeline__steps list-unstyled">
+    {%- for block in section.blocks -%}
+      {%- liquid
+        assign text = block.settings.text | replace: '[nights]', nights | replace: '[dispatch]', dispatch_text | replace: '[transit]', transit_text | replace: '[threshold]', threshold | replace: '[express]', express_price
+        assign when = block.settings.when | replace: '[nights]', nights | replace: '[dispatch]', dispatch_text | replace: '[transit]', transit_text
+      -%}
+      <li class="pl-timeline__step pl-timeline__step--{{ block.settings.kind }}" {{ block.shopify_attributes }}>
+        <span class="pl-timeline__dot" aria-hidden="true">{% render 'pl-icon', name: block.settings.icon %}</span>
+        <div class="pl-timeline__body">
+          {%- if block.settings.kind == 'arrives' -%}
+            <p class="pl-timeline__when" data-pl-delivery data-dispatch-min="{{ settings.pl_dispatch_min | default: 1 }}" data-dispatch-max="{{ settings.pl_dispatch_max | default: 2 }}" data-express="{{ express }}" hidden>
+              <span data-pl-delivery-text></span>
+              <span class="pl-timeline__express pl-small pl-muted" data-pl-delivery-express hidden></span>
+            </p>
+            <noscript><p class="pl-timeline__when">{{ when | escape }}</p></noscript>
+          {%- else -%}
+            <p class="pl-timeline__when">{{ when | escape }}</p>
+          {%- endif -%}
+          <h3 class="h5 pl-timeline__title">{{ block.settings.title | replace: '[nights]', nights | escape }}</h3>
+          {%- if text != blank -%}<p class="pl-timeline__text">{{ text | escape }}</p>{%- endif -%}
+        </div>
+      </li>
+    {%- endfor -%}
+  </ol>
+  {%- if s.note != blank -%}
+    <p class="pl-timeline__note pl-small pl-muted">{{ s.note | replace: '[nights]', nights | replace: '[threshold]', threshold | escape }}</p>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .pl-timeline {
+    align-items: center;
+  }
+
+  .pl-timeline__steps {
+    display: grid;
+    gap: var(--gap-lg);
+    width: 100%;
+    max-width: 64rem;
+    counter-reset: pl-step;
+  }
+
+  @media screen and (min-width: 750px) {
+    .pl-timeline__steps {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-timeline__steps {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--gap-md);
+    }
+  }
+
+  .pl-timeline__step {
+    position: relative;
+    display: flex;
+    gap: 0.9rem;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  @media screen and (min-width: 990px) {
+    .pl-timeline__step {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    /* The rail that joins the steps, drawn once per step so it survives any count. */
+    .pl-timeline__step::before {
+      content: "";
+      position: absolute;
+      inset-inline-start: 1.25rem;
+      inset-inline-end: -0.9rem;
+      top: 1.25rem;
+      height: 1px;
+      background: var(--pl-line);
+    }
+
+    .pl-timeline__step:last-child::before {
+      display: none;
+    }
+  }
+
+  .pl-timeline__dot {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--pl-moss);
+    color: var(--pl-on-moss);
+  }
+
+  .pl-timeline__step--arrives .pl-timeline__dot {
+    background: var(--pl-terracotta);
+    color: var(--color-primary-button-text);
+  }
+
+  .pl-timeline__dot .pl-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .pl-timeline__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .pl-timeline__when {
+    margin: 0;
+    font-weight: 600;
+    font-size: 0.875rem;
+    letter-spacing: 0.02em;
+    color: var(--pl-terracotta-text);
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .pl-timeline__express {
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  .pl-timeline__title {
+    margin: 0;
+  }
+
+  .pl-timeline__text {
+    margin: 0;
+    color: var(--color-foreground-muted);
+    line-height: 1.5;
+    font-size: 0.9375rem;
+  }
+
+  .pl-timeline__note {
+    margin: 0;
+    text-align: center;
+    max-width: 40rem;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "PL: After you order",
+  "tag": "section",
+  "class": "section-wrapper",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "max_blocks": 5,
+  "settings": [
+    { "type": "paragraph", "content": "Dates are worked out from Theme settings › PawLunova promises › Delivery, on the shopper's own clock. Tokens: [dispatch] [transit] [nights] [threshold] [express]." },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "After you order" },
+    { "type": "textarea", "id": "heading", "label": "Heading", "default": "Here's exactly what happens next." },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "No vague 'ships soon'. Own-stock beds leave us in [dispatch] working days and arrive [transit] working days later, tracked, with the dates below worked out for an order placed today." },
+    { "type": "text", "id": "note", "label": "Note", "default": "A few beds ship from our partner warehouse and take longer. Their pages say so, with the dates, before you order." },
+    { "type": "color", "id": "background_color", "label": "Background", "placeholder": "Default" },
+    { "type": "select", "id": "section_width", "label": "Width", "options": [ { "value": "page-width", "label": "Page" }, { "value": "full-width", "label": "Full" } ], "default": "page-width" },
+    { "type": "range", "id": "padding-block-start", "label": "Top padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom padding", "min": 0, "max": 100, "step": 1, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "step", "name": "Step", "settings": [
+      { "type": "select", "id": "kind", "label": "Kind", "info": "\"Arrives\" shows the dated delivery line instead of the When text.", "options": [ { "value": "plain", "label": "Plain" }, { "value": "arrives", "label": "Arrives (dated)" } ], "default": "plain" },
+      { "type": "select", "id": "icon", "label": "Icon", "options": [ { "value": "lock", "label": "Lock (secure order)" }, { "value": "truck", "label": "Truck" }, { "value": "home", "label": "Home" }, { "value": "moon", "label": "Moon" }, { "value": "chat", "label": "Chat" }, { "value": "check", "label": "Tick" } ], "default": "check" },
+      { "type": "text", "id": "when", "label": "When", "default": "Today" },
+      { "type": "text", "id": "title", "label": "Title", "default": "You order" },
+      { "type": "textarea", "id": "text", "label": "Text", "default": "A few taps. Card, PayPal, Apple Pay or Google Pay, on a secure checkout." }
+    ] }
+  ],
+  "presets": [
+    { "name": "PL: After you order", "category": "PawLunova", "blocks": [
+      { "type": "step", "settings": { "kind": "plain", "icon": "lock", "when": "Today", "title": "You order", "text": "A few taps. Card, PayPal, Apple Pay or Google Pay, on a secure checkout." } },
+      { "type": "step", "settings": { "kind": "plain", "icon": "truck", "when": "Within [dispatch] working days", "title": "It's dispatched", "text": "Own stock leaves us tracked. The tracking number lands in your inbox the moment it does." } },
+      { "type": "step", "settings": { "kind": "arrives", "icon": "home", "when": "[transit] working days after dispatch", "title": "It arrives", "text": "Free over £[threshold]. Put it where they already sleep, with a blanket that smells of home on top." } },
+      { "type": "step", "settings": { "kind": "plain", "icon": "moon", "when": "Night 1 of [nights]", "title": "Your trial starts", "text": "Your [nights] nights start the day it arrives. Not right? Tell us and we collect it free, slept on, hair and all." } }
+    ] }
+  ]
+}
+{% endschema %}

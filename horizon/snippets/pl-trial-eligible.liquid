@@ -1,0 +1,72 @@
+{%- doc -%}
+  Does the sleep trial cover this product? Echoes "true" or nothing. Capture it.
+  Covered when the trial is on and the product is not excluded: tag trial:no, or a product
+  type containing a line of Theme settings > PawLunova promises > Not covered, or a tag equal
+  to one. Tag trial:yes includes a product whatever the list says (trial:no still wins).
+
+  @param {product} [product] - the product (the page's product when omitted)
+  @param {object} [basket] - a cart instead: "true" when ANY line's product is covered
+{%- enddoc -%}
+{%- liquid
+  assign te_nights = settings.pl_trial_nights | default: 0 | plus: 0
+  assign te_on = false
+  if settings.pl_trial_enable and te_nights > 0
+    assign te_on = true
+  endif
+  assign te_lines = settings.pl_trial_excluded | default: '' | downcase | newline_to_br | split: '<br />'
+  assign te_is_cart = false
+  if basket.items
+    assign te_is_cart = true
+  endif
+  assign te_count = 0
+  if te_on
+    if te_is_cart
+      assign te_count = basket.items.size
+    elsif product != blank
+      assign te_count = 1
+    endif
+  endif
+  assign te_any = false
+  if te_on and te_is_cart == false and product == blank
+    assign te_any = true
+  endif
+  if te_count > 0
+    for n in (1..te_count)
+      if te_is_cart
+        assign te_index = n | minus: 1
+        assign te_p = basket.items[te_index].product
+      else
+        assign te_p = product
+      endif
+      if te_p == blank
+        continue
+      endif
+      assign te_tags = te_p.tags | join: '|' | downcase | prepend: '|' | append: '|'
+      assign te_type = te_p.type | default: '' | downcase
+      assign te_ok = true
+      for te_line in te_lines
+        assign te_l = te_line | strip
+        if te_l == ''
+          continue
+        endif
+        assign te_tag_key = '|' | append: te_l | append: '|'
+        if te_type contains te_l or te_tags contains te_tag_key
+          assign te_ok = false
+          break
+        endif
+      endfor
+      if te_tags contains '|trial:yes|'
+        assign te_ok = true
+      endif
+      if te_tags contains '|trial:no|'
+        assign te_ok = false
+      endif
+      if te_ok
+        assign te_any = true
+      endif
+    endfor
+  endif
+  if te_any
+    echo 'true'
+  endif
+-%}
