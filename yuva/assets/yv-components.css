@@ -1,0 +1,3131 @@
+/*
+ * Yuva shared component styles (foundation-components).
+ * Loaded globally from snippets/stylesheets.liquid, after base.css and yv-base.css.
+ *
+ * Contents
+ *  1. Shared helpers
+ *  2. yv-carousel (+ Yuva arrows for Horizon slideshows: .yv-horizon-arrows)
+ *  3. yv-drag-scroll
+ *  4. yv-tabs
+ *  5. yv-countdown
+ *  6. yv-counter
+ *  7. yv-rotating-text
+ *  8. Scroll reveal ([data-yv-reveal])
+ *  9. yv-draw-icon
+ * 10. yv-video-modal
+ * 11. yv-hotspot
+ * 12. Quick view buttons and pill buttons
+ * 13. Product card (Yuva look on Horizon's _product-card) + .yv-product-grid
+ * 14. Badges and saved-amount pill
+ * 15. Card actions (quick view / add to cart)
+ * 16. Card vendor and extras
+ * 17. Quick view modal (popup and drawer)
+ * 18. Compact product row (yv-product-list-card)
+ *
+ * Tokens come from snippets/yv-theme-variables.liquid (--yv-image-bg, --yv-radius, --yv-grid-radius,
+ * --yv-arrow-radius, --yv-text-*, …). Every one has a fallback here so components work without it.
+ */
+
+/* ------------------------------------------------------------------ */
+/* 1. Shared helpers                                                   */
+/* ------------------------------------------------------------------ */
+
+:where(yv-carousel, yv-tabs, yv-countdown, yv-counter, yv-hotspot, yv-draw-icon, yv-drag-scroll)[hidden],
+:where(.yv-countdown__unit, .yv-countdown__units, .yv-countdown__expired, .yv-carousel__dots, .yv-tabs__panel)[hidden] {
+  display: none !important; /* stylelint-disable-line declaration-no-important */
+}
+
+.yv-draw-icon-host {
+  position: relative;
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. yv-carousel                                                      */
+/* ------------------------------------------------------------------ */
+
+yv-carousel {
+  --_per-view: var(--yv-carousel-per-view-mobile, 1);
+  --_gap: var(--yv-carousel-gap-mobile, var(--yv-carousel-gap, 10px));
+  --_peek: var(--yv-carousel-peek-mobile, 0px);
+  --_inset: var(--yv-carousel-inset-mobile, var(--yv-carousel-inset, 0px));
+  --_arrow-size: var(--yv-carousel-arrow-size-mobile, 30px);
+  --_slide-width: calc(
+    (100cqi - 2 * var(--_inset) - var(--_gap) * (var(--_per-view) - 1) - var(--_peek)) / var(--_per-view)
+  );
+
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+}
+
+@media screen and (min-width: 750px) {
+  yv-carousel {
+    --_per-view: var(--yv-carousel-per-view-tablet, var(--yv-carousel-per-view, 3));
+    --_gap: var(--yv-carousel-gap, 20px);
+    --_peek: var(--yv-carousel-peek-tablet, var(--yv-carousel-peek, 0px));
+    --_inset: var(--yv-carousel-inset, 0px);
+    --_arrow-size: var(--yv-carousel-arrow-size, 34px);
+  }
+}
+
+@media screen and (min-width: 990px) {
+  yv-carousel {
+    --_per-view: var(--yv-carousel-per-view, 4);
+    --_peek: var(--yv-carousel-peek, 0px);
+  }
+}
+
+.yv-carousel__track {
+  position: relative;
+  display: flex;
+  gap: var(--_gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding-inline: var(--_inset);
+  scroll-padding-inline: var(--_inset);
+  -webkit-overflow-scrolling: touch;
+}
+
+.yv-carousel__track::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yv-carousel__track {
+    scroll-behavior: auto;
+  }
+}
+
+.yv-carousel__track > * {
+  flex: 0 0 var(--_slide-width);
+  width: var(--_slide-width);
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+yv-carousel[data-align='center'] .yv-carousel__track {
+  padding-inline: calc((100cqi - var(--_slide-width)) / 2);
+  scroll-padding-inline: 0;
+}
+
+yv-carousel[data-align='center'] .yv-carousel__track > * {
+  scroll-snap-align: center;
+}
+
+yv-carousel[data-dragging] .yv-carousel__track {
+  cursor: grabbing;
+  user-select: none;
+}
+
+yv-carousel[data-dragging] .yv-carousel__track * {
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  yv-carousel[data-overflow='true']:not([data-drag='false']) .yv-carousel__track {
+    cursor: grab;
+  }
+}
+
+/* Stack as a grid below 750px instead of scrolling. */
+@media screen and (max-width: 749px) {
+  yv-carousel.yv-carousel--stack-mobile .yv-carousel__track {
+    display: grid;
+    grid-template-columns: repeat(var(--yv-carousel-columns-mobile, 2), minmax(0, 1fr));
+    row-gap: var(--yv-carousel-row-gap-mobile, var(--_gap));
+    overflow: visible;
+    scroll-snap-type: none;
+    padding-inline: 0;
+  }
+
+  yv-carousel.yv-carousel--stack-mobile .yv-carousel__track > * {
+    width: auto;
+  }
+}
+
+/* Controls: arrows, dots, autoplay toggle */
+.yv-carousel__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.yv-carousel__arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--_arrow-size, 34px);
+  height: var(--_arrow-size, 34px);
+  padding: 0;
+  margin: 0;
+  color: var(--yv-carousel-arrow-color, #000);
+  background: var(--yv-carousel-arrow-bg, #fff);
+  border: 1px solid var(--yv-carousel-arrow-border, #ececec);
+  border-radius: var(--yv-carousel-arrow-radius, var(--yv-arrow-radius, 14px));
+  box-shadow: 0 1px 3px #d9d9d9;
+  cursor: pointer;
+  overflow: hidden;
+  pointer-events: auto;
+  transition: opacity 0.3s ease;
+}
+
+.yv-carousel__arrow-icon,
+.yv-carousel__arrow-icon svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+.yv-carousel__arrow-icon svg {
+  --icon-stroke-width: 1.5px;
+}
+
+.yv-carousel__arrow--prev .yv-carousel__arrow-icon {
+  scale: -1 1;
+}
+
+[dir='rtl'] .yv-carousel__arrow--prev .yv-carousel__arrow-icon {
+  scale: 1 1;
+}
+
+[dir='rtl'] .yv-carousel__arrow--next .yv-carousel__arrow-icon {
+  scale: -1 1;
+}
+
+.yv-carousel__arrow:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.yv-carousel__arrow:focus-visible,
+.yv-carousel__dot:focus-visible,
+.yv-carousel__toggle:focus-visible {
+  outline: 2px solid var(--yv-theme-color, currentColor);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .yv-carousel__arrow-icon {
+    transition: translate 0.4s ease;
+  }
+
+  .yv-carousel__arrow--next:not(:disabled):hover .yv-carousel__arrow-icon {
+    translate: 4px 0;
+  }
+
+  .yv-carousel__arrow--prev:not(:disabled):hover .yv-carousel__arrow-icon {
+    translate: -4px 0;
+  }
+
+  [dir='rtl'] .yv-carousel__arrow--next:not(:disabled):hover .yv-carousel__arrow-icon {
+    translate: -4px 0;
+  }
+
+  [dir='rtl'] .yv-carousel__arrow--prev:not(:disabled):hover .yv-carousel__arrow-icon {
+    translate: 4px 0;
+  }
+}
+
+.yv-carousel__dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.yv-carousel__dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 6px;
+  background: rgb(var(--color-foreground-rgb, 0 0 0) / 0.3);
+  cursor: pointer;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.yv-carousel__dot[aria-current='true'] {
+  width: 24px;
+  background: var(--color-foreground, #000);
+}
+
+/* Touch target for the 6px dots without changing their look. */
+.yv-carousel__dot {
+  position: relative;
+}
+
+.yv-carousel__dot::after {
+  content: '';
+  position: absolute;
+  inset: -8px -2px;
+}
+
+.yv-carousel__toggle {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.yv-carousel__toggle:not(:focus-visible) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.yv-carousel__toggle-icon,
+.yv-carousel__toggle-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.yv-carousel__toggle[aria-pressed='true'] .yv-carousel__toggle-icon--pause,
+.yv-carousel__toggle:not([aria-pressed='true']) .yv-carousel__toggle-icon--play {
+  display: none;
+}
+
+/* No overflow: nothing to control. */
+yv-carousel[data-overflow='false'] > .yv-carousel__controls .yv-carousel__arrow,
+yv-carousel[data-overflow='false'] > .yv-carousel__controls .yv-carousel__dots {
+  display: none;
+}
+
+/* Arrow positions. data-arrows-mobile applies below 750px, data-arrows from 750px. */
+@media screen and (max-width: 749px) {
+  yv-carousel:is([data-arrows-mobile='sides'], [data-arrows-mobile='sides-outside']) > .yv-carousel__controls {
+    position: absolute;
+    inset: var(--yv-carousel-arrow-top, 50%) 0 auto;
+    translate: 0 -50%;
+    justify-content: space-between;
+    padding-inline: var(--yv-carousel-arrow-offset-mobile, 6px);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Side arrows plus dots: the controls row dissolves, the arrows sit on the slides and the dots
+     go below them. */
+  yv-carousel:is([data-arrows-mobile='sides'], [data-arrows-mobile='sides-outside']):has(
+      > .yv-carousel__controls > .yv-carousel__dots:not([hidden])
+    )
+    > .yv-carousel__controls {
+    display: contents;
+  }
+
+  yv-carousel:is([data-arrows-mobile='sides'], [data-arrows-mobile='sides-outside']):has(
+      > .yv-carousel__controls > .yv-carousel__dots:not([hidden])
+    )
+    .yv-carousel__arrow {
+    position: absolute;
+    top: calc(var(--yv-carousel-arrow-top, 50%) - 18px);
+    translate: 0 -50%;
+    z-index: 2;
+  }
+
+  yv-carousel:is([data-arrows-mobile='sides'], [data-arrows-mobile='sides-outside']):has(
+      > .yv-carousel__controls > .yv-carousel__dots:not([hidden])
+    )
+    .yv-carousel__arrow--prev {
+    inset-inline-start: var(--yv-carousel-arrow-offset-mobile, 6px);
+  }
+
+  yv-carousel:is([data-arrows-mobile='sides'], [data-arrows-mobile='sides-outside']):has(
+      > .yv-carousel__controls > .yv-carousel__dots:not([hidden])
+    )
+    .yv-carousel__arrow--next {
+    inset-inline-end: var(--yv-carousel-arrow-offset-mobile, 6px);
+  }
+
+  yv-carousel:is([data-arrows-mobile='sides'], [data-arrows-mobile='sides-outside'])
+    > .yv-carousel__controls
+    > .yv-carousel__dots {
+    margin-block-start: 30px;
+  }
+
+  yv-carousel[data-arrows-mobile='top-right'] > .yv-carousel__controls {
+    order: -1;
+    justify-content: flex-end;
+    margin-block-end: 15px;
+  }
+
+  yv-carousel[data-arrows-mobile='bottom'] > .yv-carousel__controls {
+    margin-block-start: 30px;
+    gap: 20px;
+  }
+
+  yv-carousel[data-arrows-mobile='none'] .yv-carousel__arrow {
+    display: none;
+  }
+
+  yv-carousel[data-arrows-mobile='none'] > .yv-carousel__controls {
+    margin-block-start: 16px;
+  }
+}
+
+@media screen and (min-width: 750px) {
+  yv-carousel:is([data-arrows='sides'], [data-arrows='sides-outside']) > .yv-carousel__controls {
+    position: absolute;
+    inset: var(--yv-carousel-arrow-top, 50%) 0 auto;
+    translate: 0 -50%;
+    justify-content: space-between;
+    padding-inline: var(--yv-carousel-arrow-offset, 10px);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  yv-carousel:is([data-arrows='sides'], [data-arrows='sides-outside']):has(
+      > .yv-carousel__controls > .yv-carousel__dots:not([hidden])
+    )
+    > .yv-carousel__controls {
+    display: contents;
+  }
+
+  yv-carousel:is([data-arrows='sides'], [data-arrows='sides-outside']):has(
+      > .yv-carousel__controls > .yv-carousel__dots:not([hidden])
+    )
+    .yv-carousel__arrow {
+    position: absolute;
+    top: calc(var(--yv-carousel-arrow-top, 50%) - 18px);
+    translate: 0 -50%;
+    z-index: 2;
+  }
+
+  yv-carousel:is([data-arrows='sides'], [data-arrows='sides-outside']):has(
+      > .yv-carousel__controls > .yv-carousel__dots:not([hidden])
+    )
+    .yv-carousel__arrow--prev {
+    inset-inline-start: var(--yv-carousel-arrow-offset, 10px);
+  }
+
+  yv-carousel:is([data-arrows='sides'], [data-arrows='sides-outside']):has(
+      > .yv-carousel__controls > .yv-carousel__dots:not([hidden])
+    )
+    .yv-carousel__arrow--next {
+    inset-inline-end: var(--yv-carousel-arrow-offset, 10px);
+  }
+
+  yv-carousel:is([data-arrows='sides'], [data-arrows='sides-outside']) > .yv-carousel__controls > .yv-carousel__dots {
+    margin-block-start: 30px;
+  }
+
+  yv-carousel[data-arrows='top-right'] > .yv-carousel__controls {
+    order: -1;
+    justify-content: flex-end;
+    margin-block-end: 15px;
+  }
+
+  yv-carousel[data-arrows='bottom'] > .yv-carousel__controls {
+    margin-block-start: 30px;
+    gap: 20px;
+  }
+
+  yv-carousel[data-arrows='none'] .yv-carousel__arrow {
+    display: none;
+  }
+
+  yv-carousel[data-arrows='none'] > .yv-carousel__controls {
+    margin-block-start: 20px;
+  }
+}
+
+/* Arrows outside the track, in the page margin, where there is room for them. */
+@media screen and (min-width: 1300px) {
+  yv-carousel[data-arrows='sides-outside'] > .yv-carousel__controls {
+    inset-inline: calc(-1 * (var(--_arrow-size) + 12px));
+    padding-inline: 0;
+  }
+
+  yv-carousel[data-arrows='sides-outside']:has(> .yv-carousel__controls > .yv-carousel__dots:not([hidden]))
+    .yv-carousel__arrow--prev {
+    inset-inline-start: calc(-1 * (var(--_arrow-size) + 12px));
+  }
+
+  yv-carousel[data-arrows='sides-outside']:has(> .yv-carousel__controls > .yv-carousel__dots:not([hidden]))
+    .yv-carousel__arrow--next {
+    inset-inline-end: calc(-1 * (var(--_arrow-size) + 12px));
+  }
+}
+
+/* Yuva arrows on Horizon slideshows (resource-list-carousel, product carousels): add the class
+   `yv-horizon-arrows` to any ancestor of a <slideshow-component>. */
+.yv-horizon-arrows slideshow-arrows .slideshow-control {
+  min-width: 0;
+  min-height: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+  background: #fff;
+  border: 1px solid #ececec;
+  border-radius: var(--yv-arrow-radius, 14px);
+  box-shadow: 0 1px 3px #d9d9d9;
+  mix-blend-mode: normal;
+  opacity: 1;
+}
+
+.yv-horizon-arrows slideshow-arrows {
+  mix-blend-mode: normal;
+}
+
+.yv-horizon-arrows slideshow-arrows .slideshow-control .svg-wrapper,
+.yv-horizon-arrows slideshow-arrows .slideshow-control svg {
+  width: 12px;
+  height: 12px;
+}
+
+.yv-horizon-arrows slideshow-arrows .slideshow-control[disabled] {
+  display: inline-flex;
+  opacity: 0.4;
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. yv-drag-scroll                                                   */
+/* ------------------------------------------------------------------ */
+
+.yv-drag-scroll {
+  display: flex;
+  gap: var(--yv-drag-scroll-gap, 20px);
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.yv-drag-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.yv-drag-scroll[data-snap='mandatory'] {
+  scroll-snap-type: x mandatory;
+}
+
+.yv-drag-scroll[data-snap='none'] {
+  scroll-snap-type: none;
+}
+
+.yv-drag-scroll > * {
+  flex: 0 0 auto;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .yv-drag-scroll {
+    cursor: grab;
+  }
+}
+
+.yv-drag-scroll[data-dragging] {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.yv-drag-scroll[data-dragging] * {
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. yv-tabs                                                          */
+/* ------------------------------------------------------------------ */
+
+yv-tabs {
+  display: block;
+}
+
+.yv-tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: var(--yv-tabs-justify, center);
+  gap: var(--yv-tabs-gap, 10px);
+  margin: 0;
+  padding: 0;
+}
+
+.yv-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 20px;
+  font-family: var(--yv-tab-font-family, inherit);
+  font-style: var(--yv-tab-font-style, normal);
+  font-size: var(--yv-text-lg, 15.36px);
+  font-weight: 400;
+  line-height: 1.3;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--style-border-radius-pills, 40px);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, opacity 0.3s ease;
+}
+
+.yv-tabs__tab:focus-visible {
+  outline: 2px solid var(--yv-theme-color, currentColor);
+  outline-offset: 2px;
+}
+
+.yv-tabs__panel {
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .yv-tabs__panel:not([hidden]) {
+    animation: yv-fade-in 0.3s ease both;
+  }
+}
+
+/* Pill: bordered pills, the active one filled with the text colour. */
+.yv-tabs--pill .yv-tabs__tab {
+  border-color: var(--yv-border-color, rgb(0 0 0 / 0.15));
+}
+
+.yv-tabs--pill .yv-tabs__tab:hover {
+  border-color: var(--color-foreground, #000);
+}
+
+.yv-tabs--pill .yv-tabs__tab[aria-selected='true'] {
+  color: var(--color-background, #fff);
+  background: var(--color-foreground, #000);
+  border-color: var(--color-foreground, #000);
+}
+
+/* Underline: text tabs, the active one bold with a 2px underline. */
+.yv-tabs--underline .yv-tabs__tab {
+  padding: 6px 2px;
+  border-radius: 0;
+  border-width: 0 0 2px;
+  opacity: 0.6;
+}
+
+.yv-tabs--underline .yv-tabs__list {
+  gap: var(--yv-tabs-gap, 24px);
+}
+
+.yv-tabs--underline .yv-tabs__tab:hover {
+  opacity: 1;
+}
+
+.yv-tabs--underline .yv-tabs__tab[aria-selected='true'] {
+  opacity: 1;
+  font-weight: 700;
+  border-color: currentColor;
+}
+
+/* Tilted: text tabs separated by slanted dividers (Yuva "tilted" tab style without images). */
+.yv-tabs--tilted .yv-tabs__list {
+  gap: 0;
+}
+
+.yv-tabs--tilted .yv-tabs__tab {
+  position: relative;
+  padding: 6px 18px;
+  border: 0;
+  border-radius: 0;
+  opacity: 0.5;
+}
+
+.yv-tabs--tilted .yv-tabs__tab + .yv-tabs__tab::before {
+  content: '';
+  position: absolute;
+  inset-block: 25%;
+  inset-inline-start: 0;
+  width: 1px;
+  background: currentColor;
+  rotate: 20deg;
+  opacity: 0.6;
+}
+
+.yv-tabs--tilted .yv-tabs__tab[aria-selected='true'] {
+  opacity: 1;
+  font-weight: 700;
+}
+
+/* Circle images: a photo in a thin ring above the label (Yuva collection tabs). */
+.yv-tabs--circle .yv-tabs__list {
+  gap: 0;
+  align-items: flex-start;
+}
+
+.yv-tabs--circle .yv-tabs__tab {
+  flex-direction: column;
+  gap: 15px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 0;
+  font-size: var(--yv-text-md, 13.44px);
+  white-space: normal;
+  text-align: center;
+  opacity: 0.5;
+}
+
+.yv-tabs--circle .yv-tabs__tab[aria-selected='true'] {
+  opacity: 1;
+  font-weight: 700;
+}
+
+.yv-tabs__media {
+  display: block;
+  width: var(--yv-tabs-image-size, 75px);
+  aspect-ratio: 1;
+  padding: 6px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  overflow: hidden;
+  flex: none;
+}
+
+.yv-tabs__media img,
+.yv-tabs__media svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  background: var(--yv-image-bg, #f3efec);
+}
+
+@media screen and (min-width: 750px) and (max-width: 989px) {
+  .yv-tabs__media {
+    width: var(--yv-tabs-image-size-tablet, 60px);
+  }
+}
+
+@media screen and (max-width: 749px) {
+  .yv-tabs__list {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-block: 4px;
+  }
+
+  .yv-tabs__list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .yv-tabs__tab {
+    font-size: var(--yv-text-md, 13.44px);
+  }
+
+  .yv-tabs--circle .yv-tabs__tab {
+    font-size: var(--yv-text-sm, 11.52px);
+    padding: 0 7px;
+  }
+
+  .yv-tabs__media {
+    width: var(--yv-tabs-image-size-mobile, 40px);
+    padding: 3px;
+    border-width: 1px;
+  }
+}
+
+/* Vertical: tabs in a column beside the panels (Tabbed collage, mega menus). */
+.yv-tabs--vertical {
+  display: grid;
+  grid-template-columns: minmax(0, var(--yv-tabs-column, 30%)) minmax(0, 1fr);
+  gap: var(--yv-tabs-vertical-gap, 30px);
+  align-items: start;
+}
+
+.yv-tabs--vertical .yv-tabs__list {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+
+.yv-tabs--vertical .yv-tabs__tab {
+  justify-content: flex-start;
+  text-align: start;
+  white-space: normal;
+  border-radius: var(--yv-radius, 10px);
+  padding: 12px 18px;
+}
+
+.yv-tabs--vertical .yv-tabs__tab[aria-selected='true'] {
+  background: var(--yv-tabs-active-bg, #f2f2f2);
+  font-weight: 600;
+}
+
+@media screen and (max-width: 749px) {
+  .yv-tabs--vertical {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yv-tabs--vertical .yv-tabs__list {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .yv-tabs--vertical .yv-tabs__tab {
+    white-space: nowrap;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. yv-countdown                                                     */
+/* ------------------------------------------------------------------ */
+
+yv-countdown {
+  --_digit-size: var(--yv-countdown-digit-size, 32px);
+  --_label-size: var(--yv-countdown-label-size, 12px);
+
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  color: var(--yv-countdown-label-color, inherit);
+}
+
+.yv-countdown--small {
+  --_digit-size: var(--yv-countdown-digit-size, 22px);
+  --_label-size: var(--yv-countdown-label-size, 10px);
+}
+
+.yv-countdown--large {
+  --_digit-size: var(--yv-countdown-digit-size, 40px);
+}
+
+@media screen and (max-width: 749px) {
+  yv-countdown {
+    --_digit-size: var(--yv-countdown-digit-size-mobile, 24px);
+  }
+
+  .yv-countdown--small {
+    --_digit-size: var(--yv-countdown-digit-size-mobile, 18px);
+  }
+
+  .yv-countdown--large {
+    --_digit-size: var(--yv-countdown-digit-size-mobile, 28px);
+  }
+}
+
+.yv-countdown__units {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--yv-countdown-gap, 8px);
+  max-width: 100%;
+}
+
+.yv-countdown__unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.yv-countdown__value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--yv-countdown-digit-font, var(--font-heading--family));
+  font-weight: var(--yv-countdown-digit-weight, var(--font-heading--weight, 600));
+  font-size: var(--_digit-size);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--yv-countdown-digit-color, inherit);
+}
+
+.yv-countdown__label {
+  margin-block-start: 3px;
+  font-size: var(--_label-size);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.yv-countdown__separator {
+  display: flex;
+  align-items: center;
+  font-size: var(--_digit-size);
+  line-height: 1.2;
+  color: var(--yv-countdown-digit-color, inherit);
+}
+
+/* Boxes: filled boxes with ":" between them (Countdown with images). */
+.yv-countdown--boxes .yv-countdown__value {
+  min-width: var(--yv-countdown-box-min-width, 64px);
+  padding: 8px 12px;
+  background: var(--yv-countdown-box-bg, #2b2b2b);
+  color: var(--yv-countdown-digit-color, #fff);
+  border-radius: var(--yv-countdown-box-radius, 10px);
+}
+
+.yv-countdown--boxes .yv-countdown__separator {
+  height: calc(var(--_digit-size) * 1.2 + 16px);
+  color: var(--yv-countdown-separator-color, var(--yv-countdown-label-color, inherit));
+}
+
+.yv-countdown--boxes .yv-countdown__label {
+  margin-block-start: 6px;
+}
+
+@media screen and (max-width: 749px) {
+  .yv-countdown--boxes .yv-countdown__value {
+    min-width: var(--yv-countdown-box-min-width-mobile, 52px);
+    padding: 6px 8px;
+  }
+
+  .yv-countdown__units {
+    gap: var(--yv-countdown-gap-mobile, 4px);
+  }
+}
+
+/* Outlined: bordered boxes on any background. */
+.yv-countdown--outlined .yv-countdown__value {
+  min-width: var(--yv-countdown-box-min-width, 64px);
+  padding: 8px 12px;
+  border: 1px solid var(--yv-countdown-box-border, currentColor);
+  border-radius: var(--yv-countdown-box-radius, 10px);
+}
+
+.yv-countdown--outlined .yv-countdown__separator {
+  height: calc(var(--_digit-size) * 1.2 + 18px);
+}
+
+.yv-countdown--outlined .yv-countdown__label {
+  margin-block-start: 6px;
+}
+
+/* Glass: one frosted panel on dark media (Offer banner). */
+.yv-countdown--glass .yv-countdown__units {
+  padding: 14px 20px;
+  max-width: 340px;
+  background: var(--yv-countdown-box-bg, rgb(116 116 116 / 0.11));
+  border: 1px solid var(--yv-countdown-box-border, transparent);
+  border-radius: var(--yv-countdown-box-radius, 10px);
+  box-shadow: 0 4px 30px rgb(0 0 0 / 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.yv-countdown--glass .yv-countdown__unit {
+  flex: 1 1 0;
+  min-width: 50px;
+}
+
+.yv-countdown--glass .yv-countdown__value {
+  font-family: var(--yv-countdown-digit-font, var(--font-body--family));
+  font-weight: var(--yv-countdown-digit-weight, 400);
+  line-height: 1.4;
+}
+
+.yv-countdown--glass .yv-countdown__label {
+  font-size: var(--yv-countdown-label-size, 10px);
+  font-weight: 400;
+}
+
+@media screen and (max-width: 749px) {
+  .yv-countdown--glass .yv-countdown__units {
+    padding: 10px 12px;
+  }
+}
+
+/* Plain: numbers and labels only. */
+.yv-countdown--plain .yv-countdown__value {
+  min-width: 1.6em;
+}
+
+/* Inline: compact "DD : HH : MM : SS" with tiny labels for bars and blocks. */
+.yv-countdown--inline {
+  --_digit-size: var(--yv-countdown-digit-size, 1em);
+  --_label-size: var(--yv-countdown-label-size, 0.7em);
+
+  display: inline-flex;
+  flex-direction: row;
+  vertical-align: middle;
+}
+
+.yv-countdown--inline .yv-countdown__units {
+  align-items: baseline;
+  gap: 4px;
+}
+
+.yv-countdown--inline .yv-countdown__unit {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.yv-countdown--inline .yv-countdown__value {
+  font-family: inherit;
+  font-weight: 700;
+  line-height: inherit;
+}
+
+.yv-countdown--inline .yv-countdown__label {
+  margin: 0;
+  font-weight: 400;
+}
+
+.yv-countdown--inline .yv-countdown__separator {
+  font-size: inherit;
+}
+
+.yv-countdown--no-labels .yv-countdown__label {
+  display: none;
+}
+
+.yv-countdown__expired {
+  display: block;
+  margin: 0;
+  font-weight: 600;
+}
+
+.yv-countdown-notice {
+  display: inline-block;
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  font-size: var(--yv-text-sm, 12px);
+  background: rgb(255 214 102 / 0.35);
+  border: 1px dashed rgb(0 0 0 / 0.3);
+  border-radius: 6px;
+  color: inherit;
+}
+
+/* ------------------------------------------------------------------ */
+/* 6. yv-counter                                                       */
+/* ------------------------------------------------------------------ */
+
+yv-counter {
+  display: inline-flex;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+
+.yv-counter__value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. yv-rotating-text                                                 */
+/* ------------------------------------------------------------------ */
+
+/* Layout (one grid cell, first word only until ready) lives in assets/yv-base.css (core);
+   these rules add the clipping and the in/out word animation. */
+yv-rotating-text {
+  overflow: hidden;
+
+  /* Room for descenders without changing the line box. */
+  padding-block: 0.12em;
+  margin-block: -0.12em;
+}
+
+yv-rotating-text[data-ready] > span {
+  visibility: hidden;
+}
+
+yv-rotating-text[data-ready] > span[data-active] {
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  yv-rotating-text[data-ready] > span[data-state='in'] {
+    visibility: visible;
+    animation: yv-rotate-in 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+
+  yv-rotating-text[data-ready] > span[data-state='out'] {
+    visibility: visible;
+    animation: yv-rotate-out 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+}
+
+@keyframes yv-rotate-in {
+  from {
+    opacity: 0;
+    translate: 0 100%;
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes yv-rotate-out {
+  from {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  to {
+    opacity: 0;
+    translate: 0 -100%;
+    visibility: hidden;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 8. Scroll reveal                                                    */
+/* ------------------------------------------------------------------ */
+
+/* The reveal states ([data-yv-reveal='pending'|'done'], data-yv-reveal-effect fade|zoom-out, the
+   --yv-reveal-distance / --yv-reveal-duration / --yv-reveal-delay tokens) are styled in
+   assets/yv-base.css (core, scoped to body.yv-animate). assets/yv-reveal.js only sets the attributes. */
+
+/* ------------------------------------------------------------------ */
+/* 9. yv-draw-icon                                                     */
+/* ------------------------------------------------------------------ */
+
+yv-draw-icon {
+  position: absolute;
+  inset-inline-start: var(--yv-draw-x-mobile, 2%);
+  top: var(--yv-draw-y-mobile, 2%);
+  z-index: 1;
+  display: block;
+  width: var(--yv-draw-size-mobile, 90px);
+  aspect-ratio: 1;
+  color: var(--yv-draw-color, currentColor);
+  pointer-events: none;
+}
+
+@media screen and (min-width: 750px) {
+  yv-draw-icon {
+    inset-inline-start: var(--yv-draw-x, 0%);
+    top: var(--yv-draw-y, 0%);
+    width: var(--yv-draw-size, 130px);
+  }
+}
+
+yv-draw-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+yv-draw-icon path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  yv-draw-icon path {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+  }
+
+  yv-draw-icon.is-drawn path {
+    animation: yv-draw 1.2s ease-out forwards;
+  }
+
+  yv-draw-icon.is-drawn path:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  yv-draw-icon.is-drawn path:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  yv-draw-icon.is-drawn path:nth-child(4) {
+    animation-delay: 0.6s;
+  }
+
+  yv-draw-icon.is-drawn path:nth-child(5) {
+    animation-delay: 0.8s;
+  }
+
+  yv-draw-icon.is-drawn path:nth-child(n + 6) {
+    animation-delay: 1s;
+  }
+}
+
+@keyframes yv-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Positioned content above the icon. */
+.yv-draw-icon-host > :not(yv-draw-icon, script) {
+  position: relative;
+  z-index: 2;
+}
+
+/* ------------------------------------------------------------------ */
+/* 10. yv-video-modal                                                  */
+/* ------------------------------------------------------------------ */
+
+.yv-video-modal {
+  display: contents;
+}
+
+.yv-video-modal__trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.yv-video-modal__trigger--custom {
+  display: block;
+  width: 100%;
+}
+
+.yv-video-modal__play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--yv-video-play-size, 64px);
+  height: var(--yv-video-play-size, 64px);
+  color: #fff;
+  background: rgb(255 255 255 / 0.2);
+  border: 1px solid rgb(255 255 255 / 0.6);
+  border-radius: 50%;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: scale 0.3s ease, background-color 0.3s ease;
+}
+
+.yv-video-modal__trigger--custom .yv-video-modal__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+}
+
+.yv-video-modal__play .svg-wrapper,
+.yv-video-modal__play svg {
+  width: 40%;
+  height: 40%;
+}
+
+.yv-video-modal__trigger:hover .yv-video-modal__play {
+  background: rgb(255 255 255 / 0.35);
+}
+
+.yv-video-modal__trigger:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .yv-video-modal__play::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgb(255 255 255 / 0.4);
+    animation: yv-pulse-ring 1.5s ease-out infinite;
+  }
+
+  .yv-video-modal__play {
+    position: relative;
+  }
+
+  .yv-video-modal__trigger--custom .yv-video-modal__play {
+    position: absolute;
+  }
+}
+
+.yv-video-modal__dialog.dialog-modal {
+  width: min(1100px, 92vw);
+  max-width: none;
+  height: fit-content;
+  padding: 0;
+  overflow: visible;
+  background: #000;
+  border-radius: var(--yv-radius, 10px);
+}
+
+/* Horizon's default dialog animation slides margin-top, which un-centres a fit-content modal;
+   slide with a transform instead. */
+.yv-video-modal__dialog.dialog-modal[open] {
+  animation: modalSlideInTop var(--animation-speed, 0.2s) var(--animation-easing, ease) forwards;
+}
+
+.yv-video-modal__dialog.dialog-modal.dialog-closing {
+  animation: modalSlideOutTop var(--animation-speed, 0.2s) var(--animation-easing, ease) forwards;
+}
+
+.yv-video-modal__dialog::backdrop {
+  background: rgb(0 0 0 / 0.75);
+}
+
+.yv-video-modal__frame {
+  position: relative;
+  aspect-ratio: var(--yv-video-ratio, 16 / 9);
+  max-height: 85vh;
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.yv-video-modal__frame video,
+.yv-video-modal__frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: contain;
+  background: #000;
+}
+
+.yv-video-modal__close {
+  position: absolute;
+  top: -44px;
+  inset-inline-end: 0;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgb(255 255 255 / 0.15);
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.yv-video-modal__close .svg-wrapper,
+.yv-video-modal__close svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media screen and (max-width: 749px) {
+  .yv-video-modal__dialog.dialog-modal {
+    width: 100vw;
+    height: fit-content;
+    max-height: none;
+    margin: auto;
+    padding: 0;
+    border-radius: 0;
+    background: #000;
+  }
+
+  .yv-video-modal__close {
+    top: -44px;
+    inset-inline-end: 10px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 11. yv-hotspot                                                      */
+/* ------------------------------------------------------------------ */
+
+yv-hotspot {
+  --_dot: 18px;
+
+  position: absolute;
+  left: var(--yv-hotspot-x-mobile, var(--yv-hotspot-x, 50%));
+  top: var(--yv-hotspot-y-mobile, var(--yv-hotspot-y, 50%));
+  z-index: 3;
+  width: 0;
+  height: 0;
+}
+
+@media screen and (min-width: 750px) {
+  yv-hotspot {
+    left: var(--yv-hotspot-x, 50%);
+    top: var(--yv-hotspot-y, 50%);
+  }
+}
+
+yv-hotspot[open] {
+  z-index: 6;
+}
+
+.yv-hotspot__dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  translate: -50% -50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--_dot);
+  height: var(--_dot);
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--yv-hotspot-color, #fff) 30%, transparent);
+  cursor: pointer;
+}
+
+/* Bigger touch target than the 18px dot. */
+.yv-hotspot__dot::before {
+  content: '';
+  position: absolute;
+  inset: -13px;
+  border-radius: 50%;
+}
+
+.yv-hotspot__core {
+  width: 40%;
+  height: 40%;
+  border-radius: 50%;
+  background: var(--yv-hotspot-color, #fff);
+  transition: scale 0.3s ease;
+}
+
+.yv-hotspot__dot:hover .yv-hotspot__core,
+.yv-hotspot__dot:focus-visible .yv-hotspot__core,
+yv-hotspot[open] .yv-hotspot__core {
+  scale: 1.2;
+}
+
+.yv-hotspot__dot:focus-visible {
+  outline: 2px solid var(--yv-hotspot-color, #fff);
+  outline-offset: 3px;
+}
+
+/* Marker variant (Shop the look): 36px ring with a 14px dot. */
+.yv-hotspot--marker {
+  --_dot: 36px;
+}
+
+.yv-hotspot--marker .yv-hotspot__dot {
+  background: color-mix(in srgb, var(--yv-hotspot-color, #fff) 40%, transparent);
+}
+
+.yv-hotspot--marker .yv-hotspot__core {
+  width: 14px;
+  height: 14px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .yv-hotspot--ring .yv-hotspot__dot {
+    animation: yv-hotspot-wave 1.6s ease-out infinite;
+  }
+
+  .yv-hotspot--marker .yv-hotspot__dot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--yv-hotspot-pulse, var(--yv-hotspot-color, #fff)) 60%, transparent);
+    animation: yv-hotspot-scale 2s ease-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes yv-hotspot-wave {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--yv-hotspot-pulse, #fff) 30%, transparent);
+  }
+
+  70% {
+    box-shadow: 0 0 0 20px color-mix(in srgb, var(--yv-hotspot-pulse, #fff) 0%, transparent);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes yv-hotspot-scale {
+  from {
+    scale: 1;
+    opacity: 0.6;
+  }
+
+  to {
+    scale: 1.6;
+    opacity: 0;
+  }
+}
+
+@keyframes yv-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgb(255 255 255 / 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 18px rgb(255 255 255 / 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Desktop popover (non-modal <dialog>). */
+.yv-hotspot__popover {
+  position: absolute;
+  top: 0;
+  left: 28px;
+  right: auto;
+  margin: 0;
+  padding: 10px;
+  width: max-content;
+  max-width: min(350px, 70vw);
+  color: var(--color-foreground, #000);
+  background: var(--color-background, #fff);
+  border: 0;
+  border-radius: var(--yv-radius, 10px);
+  box-shadow: 2px 2px 5px rgb(0 0 0 / 0.1), 0 8px 24px rgb(0 0 0 / 0.08);
+  translate: 0 calc(-50% + var(--yv-hotspot-shift-y, 0px));
+  transform-origin: left center;
+  overflow: visible;
+}
+
+.yv-hotspot__popover[data-side='left'] {
+  left: auto;
+  right: 28px;
+  transform-origin: right center;
+}
+
+@media screen and (min-width: 750px) and (max-width: 989px) {
+  .yv-hotspot__popover {
+    max-width: 250px;
+  }
+}
+
+/* The 8px pointer triangle. */
+.yv-hotspot__popover:not([data-side])::before,
+.yv-hotspot__popover[data-side='right']::before {
+  content: '';
+  position: absolute;
+  top: calc(50% - var(--yv-hotspot-shift-y, 0px));
+  left: -8px;
+  translate: 0 -50%;
+  border-block: 8px solid transparent;
+  border-inline-end: 8px solid var(--color-background, #fff);
+}
+
+.yv-hotspot__popover[data-side='left']::before {
+  content: '';
+  position: absolute;
+  top: calc(50% - var(--yv-hotspot-shift-y, 0px));
+  right: -8px;
+  translate: 0 -50%;
+  border-block: 8px solid transparent;
+  border-inline-start: 8px solid var(--color-background, #fff);
+}
+
+[dir='rtl'] .yv-hotspot__popover[data-side='right']::before {
+  border-inline-end: 0;
+  border-inline-start: 8px solid var(--color-background, #fff);
+}
+
+[dir='rtl'] .yv-hotspot__popover[data-side='left']::before {
+  border-inline-start: 0;
+  border-inline-end: 8px solid var(--color-background, #fff);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  yv-hotspot:not([data-sheet]) .yv-hotspot__popover[open] {
+    animation: yv-hotspot-pop 0.4s cubic-bezier(0.75, 0, 0.175, 1) both;
+  }
+}
+
+@keyframes yv-hotspot-pop {
+  from {
+    opacity: 0;
+    scale: 0.8;
+  }
+
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+.yv-hotspot__close {
+  display: none;
+}
+
+.yv-hotspot__card {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.yv-hotspot__popover--vertical .yv-hotspot__card {
+  grid-template-columns: minmax(0, 1fr);
+  width: 200px;
+}
+
+.yv-hotspot__media {
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--yv-radius, 10px);
+  background: var(--yv-image-bg, #f3efec);
+}
+
+.yv-hotspot__popover--vertical .yv-hotspot__media {
+  aspect-ratio: 1;
+}
+
+.yv-hotspot__media img,
+.yv-hotspot__media svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yv-hotspot__info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.yv-hotspot__title {
+  font-size: var(--yv-text-sm, 11.52px);
+  line-height: 1.3;
+  color: inherit;
+  text-decoration: none;
+}
+
+.yv-hotspot__title:hover {
+  text-decoration: underline;
+}
+
+.yv-hotspot__price,
+.yv-hotspot__price .price {
+  font-size: var(--yv-text-md, 13.44px);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.yv-hotspot__price .compare-at-price {
+  font-weight: 400;
+  font-size: var(--yv-text-sm, 11.52px);
+}
+
+.yv-hotspot__info [ref='priceContainer'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 7px;
+  align-items: baseline;
+}
+
+.yv-hotspot__action,
+.yv-hotspot__action.yv-quick-view__button {
+  padding: 0;
+  margin-block-start: 2px;
+  font-size: var(--yv-text-sm, 11.52px);
+  line-height: 1.3;
+  color: inherit;
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.yv-hotspot__action:hover {
+  color: var(--yv-theme-color, #4c5765);
+}
+
+.yv-hotspot .yv-quick-view {
+  display: contents;
+}
+
+.yv-hotspot__content {
+  max-width: 280px;
+}
+
+/* Mobile bottom sheet (modal <dialog>). */
+yv-hotspot[data-sheet] .yv-hotspot__popover {
+  position: fixed;
+  inset: auto 0 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: none;
+  max-height: 70vh;
+  margin: 0;
+  padding: 24px 20px calc(24px + var(--safe-area-inset-bottom, 0px));
+  translate: none;
+  overflow-y: auto;
+  border-radius: var(--yv-radius-card, 25px) var(--yv-radius-card, 25px) 0 0;
+  box-shadow: none;
+}
+
+yv-hotspot[data-sheet] .yv-hotspot__popover::before {
+  display: none;
+}
+
+yv-hotspot[data-sheet] .yv-hotspot__popover::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  yv-hotspot[data-sheet] .yv-hotspot__popover[open] {
+    animation: yv-sheet-in 0.35s var(--animation-timing-fade-in, ease-out) both;
+  }
+}
+
+@keyframes yv-sheet-in {
+  from {
+    translate: 0 100%;
+  }
+
+  to {
+    translate: 0 0;
+  }
+}
+
+yv-hotspot[data-sheet] .yv-hotspot__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.1);
+  color: inherit;
+}
+
+yv-hotspot[data-sheet] .yv-hotspot__close svg {
+  width: 12px;
+  height: 12px;
+}
+
+yv-hotspot[data-sheet] .yv-hotspot__card {
+  grid-template-columns: 96px minmax(0, 1fr);
+  padding-inline-end: 40px;
+}
+
+yv-hotspot[data-sheet] .yv-hotspot__content {
+  max-width: none;
+  padding-inline-end: 40px;
+}
+
+@keyframes yv-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 12. Quick view buttons and pill buttons                             */
+/* ------------------------------------------------------------------ */
+
+/* Small Yuva pill (xsmall button): 32px tall, 10px uppercase. Add it next to `button`
+   (class="button yv-pill-button") so the theme's hover fill applies. */
+.button.yv-pill-button,
+.yv-pill-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  min-width: 90px;
+  height: auto;
+  padding: 10px 12px;
+  font-size: 10px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: normal;
+  white-space: nowrap;
+  border-radius: var(--style-border-radius-buttons-primary, 50px);
+  text-decoration: none;
+}
+
+.yv-quick-view {
+  display: contents;
+}
+
+.yv-quick-view__button {
+  cursor: pointer;
+}
+
+.yv-quick-view__button--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.yv-quick-view__icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* ------------------------------------------------------------------ */
+/* 13. Product card (Yuva look on Horizon's _product-card)             */
+/* ------------------------------------------------------------------ */
+
+/* Product grid for sections that list cards without Horizon's resource-list: 2 / 3 / 4 columns
+   (mobile / tablet / desktop), 10px / 20px column gaps, 30px / 40px row gaps. Override per section
+   with --yv-product-grid-columns(-tablet|-mobile) and --yv-product-grid-gap-x/-y(-mobile). */
+.yv-product-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--yv-product-grid-columns-mobile, 2), minmax(0, 1fr));
+  column-gap: var(--yv-product-grid-gap-x-mobile, 10px);
+  row-gap: var(--yv-product-grid-gap-y-mobile, 30px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.yv-product-grid > * {
+  min-width: 0;
+}
+
+@media screen and (min-width: 750px) {
+  .yv-product-grid {
+    grid-template-columns: repeat(var(--yv-product-grid-columns-tablet, 3), minmax(0, 1fr));
+    column-gap: var(--yv-product-grid-gap-x, 20px);
+    row-gap: var(--yv-product-grid-gap-y, 40px);
+  }
+}
+
+@media screen and (min-width: 990px) {
+  .yv-product-grid {
+    grid-template-columns: repeat(var(--yv-product-grid-columns, 4), minmax(0, 1fr));
+  }
+}
+
+/* Image box: square (Images > Product), 15/10px radius (Product grid > Grid radius, or the section's
+   --yv-grid-radius / --yv-grid-radius-mobile), image background, optional border. */
+.yv-card .card-gallery {
+  border-radius: var(--yv-grid-radius-mobile, var(--yv-grid-radius, 12px));
+  background-color: var(--yv-image-bg, #f3efec);
+  border: var(--yv-product-image-border, 0 none);
+  overflow: hidden;
+  isolation: isolate;
+  margin-block-end: 5px;
+}
+
+@media screen and (min-width: 750px) {
+  .yv-card .card-gallery {
+    border-radius: var(--yv-grid-radius, 12px);
+  }
+}
+
+.yv-card .card-gallery :is(slideshow-component, slideshow-container, slideshow-slides, slideshow-slide) {
+  background-color: transparent;
+}
+
+.yv-card .card-gallery .product-media-container.media-fit img,
+.yv-card .card-gallery .product-media-container img {
+  object-fit: var(--yv-media-fit, cover);
+}
+
+.yv-pass-through .yv-card .card-gallery img {
+  mix-blend-mode: multiply;
+}
+
+.yv-card .card-gallery svg.placeholder-svg,
+.yv-card .card-gallery .card-gallery__placeholder svg {
+  background-color: var(--yv-image-bg, #f3efec);
+}
+
+/* "Second image" hover: the next image fades in over the first (0.7s, slight zoom). */
+.yv-card-gallery__hover {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  background-color: var(--yv-image-bg, #f3efec);
+}
+
+.yv-card-gallery__hover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: var(--yv-media-fit, cover);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .yv-card .card-gallery:hover .yv-card-gallery__hover {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-card-gallery__hover {
+      transition: opacity 0.7s ease, scale 0.7s ease;
+    }
+
+    .yv-card .card-gallery:hover .yv-card-gallery__hover {
+      scale: 1.02;
+    }
+  }
+}
+
+/* "Carousel" hover: Yuva's small square arrows, visible on hover from 990px. */
+.yv-card .card-gallery slideshow-arrows {
+  padding-inline: 5px;
+  mix-blend-mode: normal;
+}
+
+.yv-card .card-gallery slideshow-arrows .slideshow-control {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-foreground, #000);
+  background: var(--color-background, #fff);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  opacity: 0;
+}
+
+.yv-card .card-gallery slideshow-arrows .slideshow-control .svg-wrapper,
+.yv-card .card-gallery slideshow-arrows .slideshow-control svg {
+  width: 12.6px;
+  height: 12.6px;
+}
+
+@media screen and (min-width: 990px) and (hover: hover) {
+  .yv-card .card-gallery:hover slideshow-arrows .slideshow-control {
+    opacity: 0.6;
+    animation: none;
+  }
+
+  .yv-card .card-gallery:hover slideshow-arrows .slideshow-control:hover,
+  .yv-card .card-gallery slideshow-arrows .slideshow-control:focus-visible {
+    opacity: 1;
+  }
+}
+
+@media screen and (max-width: 989px) {
+  .yv-card .card-gallery slideshow-arrows {
+    display: none;
+  }
+}
+
+/* Card text: vendor 11.52px muted, title 13.44px (2 lines), bold price, 14px swatch dots. */
+.yv-card .product-card__content {
+  text-align: start;
+}
+
+/* Yuva sizes win over the blocks' type presets (override per grid with --yv-card-title-size /
+   --yv-card-price-size). */
+.yv-card [ref='productTitleLink'] .text-block {
+  font-size: var(--yv-card-title-size, var(--yv-text-base, 13.44px));
+  line-height: 1.4;
+}
+
+.yv-card [ref='productTitleLink'] :is(p, h1, h2, h3, h4, h5, h6),
+.yv-card [ref='productTitleLink'] .text-block > * {
+  font-family: var(--font-body--family);
+  font-style: var(--font-body--style, normal);
+  font-weight: var(--font-body--weight, 400);
+  font-size: inherit;
+  line-height: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  margin: 0;
+}
+
+.yv-card [ref='productTitleLink'] {
+  color: inherit;
+  text-decoration: none;
+}
+
+.yv-card [ref='productTitleLink'] .text-block {
+  opacity: var(--yv-grid-title-opacity, 1);
+}
+
+.yv-card [ref='productTitleLink']:hover .text-block {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.yv-card product-price.text-block,
+.yv-card product-price.text-block > * {
+  font-family: var(--yv-price-font-family, inherit);
+  font-style: var(--yv-price-font-style, normal);
+  font-size: var(--yv-card-price-size, var(--yv-text-base, 13.44px));
+  line-height: 1.2;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.yv-card product-price [ref='priceContainer'] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 7px;
+}
+
+.yv-card product-price .price {
+  font-weight: 700;
+  color: var(--color, var(--color-foreground));
+}
+
+.yv-card product-price .compare-at-price {
+  font-size: var(--yv-text-sm, 11.52px);
+  font-weight: 400;
+  opacity: 0.7;
+  text-decoration: line-through;
+}
+
+.yv-card--no-price product-price,
+.yv-card--no-swatches product-swatches {
+  display: none;
+}
+
+/* Swatches: 20px rings with a 14px dot, 3px apart; selected = 1px ring in the text colour. */
+.yv-card swatches-variant-picker-component overflow-list::part(list) {
+  gap: 3px;
+}
+
+.yv-card swatches-variant-picker-component {
+  --overflow-list-padding-block: 2px;
+}
+
+.yv-card .variant-option__button-label--has-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--variant-picker-swatch-radius, 50%);
+  outline: none;
+  flex: none;
+}
+
+.yv-card .variant-option__button-label--has-swatch .swatch {
+  --swatch-width: 14px;
+  --swatch-height: 14px;
+
+  border: 1px solid rgb(0 0 0 / 0.3);
+}
+
+.yv-card .variant-option__button-label--has-swatch:hover {
+  outline: none;
+  border-color: rgb(var(--color-foreground-rgb, 0 0 0) / 0.3);
+}
+
+.yv-card .variant-option__button-label--has-swatch:has(:checked) {
+  outline: none;
+  border-color: var(--color-foreground, #000);
+}
+
+.yv-card .variant-option__button-label--has-swatch:has(:focus-visible) {
+  outline: 2px solid var(--yv-theme-color, currentColor);
+  outline-offset: 1px;
+}
+
+.yv-card .variant-option__button-label--has-swatch:has([data-option-available='false']) {
+  opacity: 0.5;
+}
+
+.yv-card .hidden-swatches__count {
+  font-size: var(--yv-text-sm, 11.52px);
+}
+
+/* Content alignment (Product grid > Content alignment). */
+.yv-card--align-center .product-card__content {
+  text-align: center;
+  align-items: center;
+}
+
+.yv-card--align-right .product-card__content {
+  text-align: end;
+  align-items: flex-end;
+}
+
+/* The global card alignment wins over each text block's own alignment setting. */
+.yv-card--align-center .product-card__content :is(.text-block > *, product-price, .yv-card__vendor) {
+  text-align: center;
+}
+
+.yv-card--align-right .product-card__content :is(.text-block > *, product-price, .yv-card__vendor) {
+  text-align: end;
+}
+
+.yv-card--align-center :is(.yv-card-extras__labels, product-price [ref='priceContainer']) {
+  justify-content: center;
+}
+
+.yv-card--align-right :is(.yv-card-extras__labels, product-price [ref='priceContainer']) {
+  justify-content: flex-end;
+}
+
+.yv-card--align-center swatches-variant-picker-component {
+  --product-swatches-alignment: center;
+  --product-swatches-alignment-mobile: center;
+  --overflow-list-alignment: center;
+  --overflow-list-alignment-mobile: center;
+}
+
+.yv-card--align-right swatches-variant-picker-component {
+  --product-swatches-alignment: end;
+  --product-swatches-alignment-mobile: end;
+  --overflow-list-alignment: flex-end;
+  --overflow-list-alignment-mobile: flex-end;
+}
+
+/* ------------------------------------------------------------------ */
+/* 14. Badges and saved-amount pill                                    */
+/* ------------------------------------------------------------------ */
+
+.yv-badges.product-badges {
+  --badge-inset: 10px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.yv-badges.product-badges--top-left {
+  top: var(--badge-inset);
+  inset-inline-start: var(--badge-inset);
+}
+
+.yv-badges.product-badges--top-right {
+  top: var(--badge-inset);
+  inset-inline-end: var(--badge-inset);
+  inset-inline-start: auto;
+  align-items: flex-end;
+}
+
+.yv-badges.product-badges--bottom-left {
+  bottom: var(--badge-inset);
+  inset-inline-start: var(--badge-inset);
+  flex-direction: column-reverse;
+}
+
+.yv-badges .product-badges__badge.yv-badge {
+  padding: 4px 10px;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.yv-badge--preorder {
+  --color-background: var(--yv-badge-preorder-bg, #e22120);
+  --color-foreground: var(--yv-badge-preorder-text, #fff);
+}
+
+.yv-badge--custom {
+  --color-background: var(--yv-badge-custom-bg, #000);
+  --color-foreground: var(--yv-badge-custom-text, #fff);
+}
+
+.yv-badges__saved {
+  position: absolute;
+  bottom: 8px;
+  inset-inline-start: 8px;
+  z-index: 2;
+  padding: 4px 10px;
+  font-size: var(--yv-text-sm, 11.52px);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--yv-saved-text, #e22120);
+  background: var(--yv-saved-bg, #fff);
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+/* When the badges sit bottom-left, lift the saved pill above them. */
+.card-gallery:has(.yv-badges.product-badges--bottom-left) .yv-badges__saved {
+  inset-inline-start: auto;
+  inset-inline-end: 8px;
+}
+
+[product-grid-view='zoom-out'] .card-gallery > :is(.yv-badges__saved, .yv-card-actions) {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* 15. Card actions (quick view / add to cart)                         */
+/* ------------------------------------------------------------------ */
+
+.yv-card-actions {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.yv-card-actions__item {
+  position: relative;
+  display: block;
+  pointer-events: auto;
+}
+
+.yv-card-actions__item form {
+  display: block;
+}
+
+.yv-card-action,
+.yv-card-actions .add-to-cart-button.yv-card-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  font-size: 0;
+  line-height: 0;
+  color: var(--color-foreground, #000);
+  background: var(--color-background, #fff);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.yv-card-action::before,
+.yv-card-action::after {
+  content: none;
+}
+
+.yv-card-action__icon,
+.yv-card-action .add-to-cart-icon,
+.yv-card-action .add-to-cart-icon svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.yv-card-action .add-to-cart__added-icon,
+.yv-card-action .add-to-cart__added-icon svg,
+.yv-card-action .checkmark-burst {
+  width: 26px;
+  height: 26px;
+}
+
+.yv-card-action:focus-visible {
+  outline: 2px solid var(--yv-theme-color, currentColor);
+  outline-offset: 2px;
+}
+
+.yv-card-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Tooltip (desktop, fine pointers): the label in a small dark bubble to the left of the icon. */
+@media (hover: hover) and (pointer: fine) {
+  .yv-card-actions__item[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 50%;
+    inset-inline-end: calc(100% + 8px);
+    translate: 0 -50%;
+    padding: 5px 8px;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: #fff;
+    background: #000;
+    border-radius: 4px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+
+  .yv-card-actions__item[data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* From 990px: hidden until the card is hovered or focused, then they pop in (staggered). */
+@media screen and (min-width: 990px) {
+  .yv-card-actions__item {
+    opacity: 0;
+    scale: 0;
+  }
+
+  product-card:is(:hover, :focus-within) .yv-card-actions__item,
+  .yv-card-actions__item:is([stay-visible], :focus-within) {
+    opacity: 1;
+    scale: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-card-actions__item {
+      transition: scale 0.3s ease, opacity 0.3s ease;
+    }
+
+    .yv-card-actions__item:nth-child(2) {
+      transition-delay: 0.05s;
+    }
+
+    .yv-card-actions__item:nth-child(3) {
+      transition-delay: 0.1s;
+    }
+  }
+}
+
+@media screen and (max-width: 749px) {
+  .yv-card-actions--hide-mobile-quick-view .yv-card-actions__item--quick-view,
+  .yv-card-actions--hide-mobile-atc .yv-card-actions__item--atc {
+    display: none;
+  }
+
+  .yv-card-action,
+  .yv-card-actions .add-to-cart-button.yv-card-action {
+    width: 34px;
+    height: 34px;
+  }
+
+  .yv-card-actions {
+    top: 6px;
+    inset-inline-end: 6px;
+    gap: 6px;
+  }
+}
+
+/* Small cards (zoomed-out grids): no actions. */
+@container card-gallery-container (max-width: 120px) {
+  .yv-card-actions {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 16. Card vendor and extras                                          */
+/* ------------------------------------------------------------------ */
+
+.yv-card__vendor {
+  margin: 0;
+  max-width: 100%;
+  font-size: var(--yv-text-sm, 11.52px);
+  line-height: 1.4;
+  color: rgb(var(--color-foreground-rgb, 0 0 0) / 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.yv-card-extras {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--yv-text-sm, 11.52px);
+  line-height: 1.4;
+}
+
+.yv-card--align-center .yv-card-extras {
+  align-items: center;
+}
+
+.yv-card--align-right .yv-card-extras {
+  align-items: flex-end;
+}
+
+.yv-card-extras__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.yv-card-extras__stars {
+  --yv-star: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 1.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L10 14.8l-5.2 2.8 1-5.8L1.5 7.7l5.9-.8z'/%3E%3C/svg%3E");
+
+  position: relative;
+  display: inline-block;
+  width: 64px;
+  height: 12px;
+  background: rgb(var(--color-foreground-rgb, 0 0 0) / 0.2);
+  mask: var(--yv-star) 0 0 / 12.8px 12px repeat-x;
+}
+
+.yv-card-extras__stars::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: calc(var(--yv-rating, 0) * 12.8px);
+  background: currentColor;
+}
+
+.yv-card-extras__count {
+  opacity: 0.7;
+}
+
+.yv-card-extras__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.yv-card-label {
+  padding: 3px 10px;
+  border: 1px solid rgb(var(--color-foreground-rgb, 0 0 0) / 0.1);
+  border-radius: 20px;
+  line-height: 1.2;
+}
+
+.yv-card-extras__stock,
+.yv-card-extras__pickup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.yv-card-extras__dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.yv-card-extras__stock--in .yv-card-extras__dot,
+.yv-card-extras__pickup[data-state='available'] .yv-card-extras__dot {
+  background: #6cad61;
+}
+
+.yv-card-extras__stock--low {
+  color: #ec7c7c;
+}
+
+.yv-card-extras__stock--low .yv-card-extras__dot {
+  background: #ec7c7c;
+}
+
+.yv-card-extras__stock--out,
+.yv-card-extras__pickup[data-state='unavailable'] {
+  color: #747474;
+}
+
+.yv-card-extras__stock--out .yv-card-extras__dot,
+.yv-card-extras__pickup[data-state='unavailable'] .yv-card-extras__dot {
+  background: #747474;
+}
+
+yv-card-pickup[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* 17. Quick view modal (popup and drawer)                             */
+/* ------------------------------------------------------------------ */
+
+/* The header row ("Quick View") only shows in the drawer. */
+.yv-quick-view-modal__header {
+  display: none;
+}
+
+#quick-add-dialog .yv-quick-view-modal::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+.yv-pass-through #quick-add-dialog .product-information__media img {
+  mix-blend-mode: multiply;
+}
+
+/* Media: Horizon stacks every image vertically in the modal; Yuva shows a slider with arrows and
+   thumbnails (added by assets/yv-quick-view.js). */
+@media screen and (min-width: 750px) {
+  #quick-add-dialog .yv-quick-view-modal .product-information__media media-gallery {
+    pointer-events: auto;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal media-gallery .media-gallery__grid {
+    display: none;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal media-gallery slideshow-component {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal .product-information__media slideshow-slides {
+    flex-direction: row;
+    gap: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal .product-information__media slideshow-slide {
+    --gallery-aspect-ratio: 4 / 5;
+
+    flex: 0 0 100%;
+    width: 100%;
+    scroll-snap-align: start;
+    animation: none;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal .product-information__media slideshow-slide[aria-hidden='true'] {
+    display: block;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal .product-information__media slideshow-slide[hidden]:not([reveal]) {
+    display: none;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal .product-information__media slideshow-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--yv-radius, 10px);
+    background: var(--yv-image-bg, #f3efec);
+  }
+
+  #quick-add-dialog .yv-quick-view-modal .product-information__media .product-media-container {
+    aspect-ratio: 4 / 5;
+    max-height: none;
+    background: var(--yv-image-bg, #f3efec);
+  }
+
+  #quick-add-dialog .yv-quick-view-modal .product-information__media .product-media-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal .product-information__media :is(slideshow-controls, slideshow-arrows) {
+    display: none;
+  }
+}
+
+.yv-qv-arrows {
+  position: absolute;
+  inset: 50% 0 auto;
+  translate: 0 -50%;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  padding-inline: 20px;
+  pointer-events: none;
+}
+
+.yv-qv-arrows .yv-carousel__arrow {
+  --_arrow-size: 34px;
+}
+
+.yv-qv-arrows .yv-carousel__arrow:disabled {
+  opacity: 0.4;
+}
+
+.yv-qv-thumbs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.yv-qv-thumbs::-webkit-scrollbar {
+  display: none;
+}
+
+.yv-qv-thumbs__item {
+  flex: 0 0 58px;
+  width: 58px;
+  height: 80px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--yv-image-bg, #f3efec);
+  cursor: pointer;
+}
+
+.yv-qv-thumbs__item[aria-selected='true'] {
+  border-color: var(--yv-theme-color, #4c5765);
+}
+
+.yv-qv-thumbs__item:focus-visible {
+  outline: 2px solid var(--yv-theme-color, #4c5765);
+  outline-offset: 2px;
+}
+
+.yv-qv-thumbs__item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media screen and (max-width: 749px) {
+  .yv-qv-thumbs,
+  .yv-qv-arrows {
+    display: none;
+  }
+}
+
+/* Details: title (h4 size, links to the product page), big bold price, options, quantity, buttons. */
+#quick-add-dialog .yv-quick-view-modal .view-product-title a {
+  font-family: var(--font-heading--family);
+  font-weight: var(--font-heading--weight, 600);
+  font-size: var(--font-size--h4, 26.6px);
+  line-height: 1.1;
+  letter-spacing: var(--letter-spacing--heading-normal, -0.025em);
+}
+
+#quick-add-dialog .yv-quick-view-modal .product-details product-price .price,
+#quick-add-dialog .yv-quick-view-modal .product-header product-price .price {
+  font-family: var(--yv-price-font-family, inherit);
+  font-size: var(--font-size--h2, 32.3px);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+#quick-add-dialog .yv-quick-view-modal product-price .compare-at-price {
+  font-size: var(--yv-text-lg, 15.36px);
+  opacity: 0.6;
+}
+
+/* Add to cart and Buy it now side by side, 20px apart. */
+#quick-add-dialog .yv-quick-view-modal .product-form-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 20px;
+  align-items: stretch;
+}
+
+#quick-add-dialog .yv-quick-view-modal .product-form-buttons > * {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+#quick-add-dialog .yv-quick-view-modal .quantity-selector-wrapper {
+  flex: 0 0 100%;
+}
+
+#quick-add-dialog .yv-quick-view-modal .quantity-selector {
+  flex: 0 0 135px;
+  width: 135px;
+  min-height: 35px;
+  height: 35px;
+}
+
+#quick-add-dialog .yv-quick-view-modal :is(.add-to-cart-button, .shopify-payment-button__button) {
+  min-height: 50px;
+  height: 50px;
+}
+
+/* Buy it now as Yuva's secondary button (white, 1px border, pill). */
+#quick-add-dialog .yv-quick-view-modal .shopify-payment-button__button--unbranded {
+  color: var(--color-secondary-button-text, #000);
+  background: var(--color-secondary-button-background, #fff);
+  border: var(--style-border-width-secondary, 1px) solid var(--color-secondary-button-border, #000);
+  border-radius: var(--style-border-radius-buttons-secondary, 50px);
+  font-family: var(--button-font-family-secondary, inherit);
+  font-size: var(--yv-button-font-size, 14px);
+  text-transform: var(--button-text-case-secondary, uppercase);
+}
+
+#quick-add-dialog .yv-quick-view-modal--no-checkout :is(.shopify-payment-button, accelerated-checkout, .accelerated-checkout-block) {
+  display: none !important; /* stylelint-disable-line declaration-no-important */
+}
+
+/* Share links (added under the buy buttons). */
+.yv-qv-share {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-block-start: 20px;
+}
+
+.yv-qv-share__label {
+  font-size: var(--yv-text-md, 13.44px);
+  font-weight: 600;
+}
+
+.yv-qv-share__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: #000;
+  background: #e6e6e6;
+  border-radius: 50%;
+  transition: background-color 0.3s ease;
+}
+
+.yv-qv-share__link:hover {
+  background: #d6d6d6;
+}
+
+.yv-qv-share__link svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+/* Popup (750px+): 960px wide, media 50% on the left, details scrolling on the right. */
+@media screen and (min-width: 750px) {
+  #quick-add-dialog .yv-quick-view-modal--popup {
+    width: min(960px, calc(100vw - 48px));
+    /* fit-content (not auto): a modal dialog is inset-block: 0, so auto would stretch it to max-height. */
+    height: fit-content;
+    max-height: calc(100dvh - 48px);
+    border-radius: var(--yv-radius-card, 25px);
+    padding: 0;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal--popup .quick-add-modal__content {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto;
+    height: auto;
+    max-height: calc(100dvh - 48px);
+  }
+
+  #quick-add-dialog .yv-quick-view-modal--popup .product-information__media {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    width: 100%;
+    height: auto;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal--popup .product-details {
+    height: auto;
+    max-height: calc(100dvh - 48px);
+    padding-block-end: 30px;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal--popup .product-details :is(.buy-buttons-block, .buy-buttons-block__bar) {
+    position: static;
+    margin-top: 0;
+    padding-bottom: 0;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal--popup .product-details :is(.buy-buttons-block, .buy-buttons-block__bar)::before {
+    display: none;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal--popup .product-information__media media-gallery {
+    position: static;
+    inset: auto;
+  }
+
+  #quick-add-dialog .yv-quick-view-modal--popup .product-details {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+/* Drawer (750px+): pinned to the inline end, full height, 25px radius on the start corners. */
+@media screen and (min-width: 750px) {
+  #quick-add-dialog .quick-add-modal--drawer {
+    position: fixed;
+    inset: 0 0 0 auto;
+    margin: 0;
+    width: min(600px, 100vw);
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 0;
+    border-radius: var(--yv-radius-card, 25px) 0 0 var(--yv-radius-card, 25px);
+    box-shadow: none;
+    flex-direction: column;
+  }
+
+  [dir='rtl'] #quick-add-dialog .quick-add-modal--drawer {
+    inset: 0 auto 0 0;
+    border-radius: 0 var(--yv-radius-card, 25px) var(--yv-radius-card, 25px) 0;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer[open] {
+    animation: yv-drawer-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer.dialog-closing {
+    animation: yv-drawer-out 0.35s ease-in both;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .yv-quick-view-modal__header {
+    display: flex;
+    align-items: center;
+    flex: none;
+    height: 92px;
+    padding: 0 70px 0 35px;
+    border-bottom: 1px solid rgb(0 0 0 / 0.1);
+  }
+
+  .yv-quick-view-modal__title {
+    margin: 0;
+    font-family: var(--font-heading--family);
+    font-weight: var(--font-heading--weight, 600);
+    font-size: var(--font-size--h6, 19px);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .quick-add-modal__close {
+    top: 29px;
+    inset-inline-end: 18px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(0 0 0 / 0.1);
+    border-radius: 50%;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .quick-add-modal__close svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .quick-add-modal__content {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    padding: 20px 20px 30px;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .product-information__media {
+    position: static;
+    width: 100%;
+    overflow: visible;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .product-information__media media-gallery {
+    position: static;
+    inset: auto;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .product-details {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    margin-block-start: 25px;
+    mask-image: none;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .product-details > .group-block {
+    padding-block: 0;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer :where(.product-details > .group-block > .group-block-content > *) {
+    padding-inline: 0;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .product-details :is(.buy-buttons-block, .buy-buttons-block__bar) {
+    position: static;
+    padding-bottom: 0;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .product-details :is(.buy-buttons-block, .buy-buttons-block__bar)::before {
+    display: none;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer .view-product-title {
+    padding-inline-end: 0;
+  }
+}
+
+@keyframes yv-drawer-in {
+  from {
+    translate: 100% 0;
+  }
+
+  to {
+    translate: 0 0;
+  }
+}
+
+@keyframes yv-drawer-out {
+  from {
+    translate: 0 0;
+  }
+
+  to {
+    translate: 100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #quick-add-dialog .quick-add-modal--drawer[open] {
+    animation: yv-fade-in 0.2s ease both;
+  }
+
+  #quick-add-dialog .quick-add-modal--drawer.dialog-closing {
+    animation: yv-fade-out 0.15s ease both;
+  }
+}
+
+@keyframes yv-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+/* Mobile (both styles): Horizon's bottom sheet, with Yuva's 25px top corners. */
+@media screen and (max-width: 749px) {
+  #quick-add-dialog .yv-quick-view-modal[open] {
+    border-start-start-radius: var(--yv-radius-card, 25px);
+    border-start-end-radius: var(--yv-radius-card, 25px);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 18. Compact product row (yv-product-list-card)                      */
+/* ------------------------------------------------------------------ */
+
+.yv-product-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--yv-product-row-thumb, 90px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  color: var(--color-foreground, #000);
+  background: var(--yv-card-bg, #fff);
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: var(--yv-product-row-radius, 15px);
+  box-shadow: 0 6px 8px rgb(0 0 0 / 0.09);
+}
+
+.yv-product-row__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+.yv-product-row__media {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--yv-product-row-radius, 15px);
+  background: var(--yv-image-bg, #f3efec);
+  pointer-events: none;
+}
+
+.yv-product-row__media img,
+.yv-product-row__media svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yv-product-row__media--contain img {
+  object-fit: contain;
+}
+
+.yv-product-row__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding-inline-start: 10px;
+}
+
+.yv-product-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.yv-product-row__title {
+  position: relative;
+  z-index: 1;
+  font-size: var(--yv-text-md, 13.44px);
+  line-height: 1.4;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.yv-product-row__title:hover {
+  text-decoration: underline;
+}
+
+.yv-product-row__price,
+.yv-product-row__price .price {
+  font-size: var(--yv-text-md, 13.44px);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.yv-product-row__price [ref='priceContainer'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 7px;
+  align-items: baseline;
+}
+
+.yv-product-row__price .compare-at-price {
+  font-size: var(--yv-text-sm, 11.52px);
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.yv-product-row__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 1px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.yv-product-row__swatch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.yv-product-row__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--variant-picker-swatch-radius, 50%);
+  border: 1px solid rgb(0 0 0 / 0.3);
+
+  /* An unknown colour name invalidates the gradient layer, leaving the grey fallback. */
+  background-color: #d9d9d9;
+  background-image: var(--yv-dot-image, none),
+    linear-gradient(var(--yv-dot-color, transparent), var(--yv-dot-color, transparent));
+  background-size: cover;
+  background-position: center;
+}
+
+.yv-product-row__swatch.is-unavailable {
+  opacity: 0.5;
+}
+
+.yv-product-row__swatch.is-unavailable::after {
+  content: '';
+  position: absolute;
+  width: 1px;
+  height: 18px;
+  background: rgb(0 0 0 / 0.5);
+  rotate: 45deg;
+}
+
+.yv-product-row__action {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  margin-inline-end: 10px;
+}
+
+.yv-product-row__button-icon {
+  display: none;
+  width: 18px;
+  height: 18px;
+}
+
+@media screen and (max-width: 749px) {
+  .yv-product-row {
+    grid-template-columns: var(--yv-product-row-thumb-mobile, 80px) minmax(0, 1fr);
+    border-radius: var(--yv-product-row-radius-mobile, 12px);
+  }
+
+  .yv-product-row__media {
+    border-radius: var(--yv-product-row-radius-mobile, 12px);
+  }
+
+  .yv-product-row__action {
+    margin-inline-end: 0;
+  }
+
+  .button.yv-product-row__button,
+  .yv-product-row__button {
+    min-width: 40px;
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .yv-product-row__button-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .yv-product-row__button-icon {
+    display: block;
+  }
+}

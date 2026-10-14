@@ -1,0 +1,26 @@
+{% comment %}
+  Section contract: yv-card-pickup
+  Rendering-only section (no presets; never added in the editor). Product cards fetch it with
+  `<product url>?variant=<id>&section_id=yv-card-pickup` (assets/yv-card.js, <yv-card-pickup>) and
+  read the JSON list of the variant's store availabilities: [{ "name", "available", "time" }].
+  @example
+  /products/handle?variant=123&section_id=yv-card-pickup
+{% endcomment %}
+
+{%- assign pickup_variant = product.selected_or_first_available_variant -%}
+<script type="application/json" data-yv-pickup>
+  [
+    {%- for availability in pickup_variant.store_availabilities -%}
+      {"name": {{ availability.location.name | json }}, "available": {{ availability.available | json }}, "time": {{ availability.pick_up_time | json }}}{% unless forloop.last %},{% endunless %}
+    {%- endfor -%}
+  ]
+</script>
+
+{% schema %}
+{
+  "name": "t:yv.names.card_pickup",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  }
+}
+{% endschema %}

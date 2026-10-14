@@ -1,0 +1,163 @@
+{%- doc -%}
+  Inline JSON configuration for Yuva's global scripts (yv-theme.js, yv-overlays.js and others).
+  Scripts read it with:
+  `JSON.parse(document.getElementById('yv-theme-config')?.textContent || '{}')`.
+  Every value is a plain JSON type; strings are escaped with the `json` filter.
+  The shape is documented in the foundation API doc (build/api/core.md).
+
+  @example
+  {%- render 'yv-theme-config' -%}
+{%- enddoc -%}
+
+{%- liquid
+  assign shipping_threshold_cents = settings.yv_shipping_bar_threshold | default: 0 | times: 100 | round
+
+  assign color_names = settings.yv_color_option_names | downcase | split: ','
+  assign size_names = settings.yv_size_option_names | downcase | split: ','
+
+  assign search_prompts = ''
+  if settings.yv_search_prompts
+    if settings.yv_search_prompt_1 != blank
+      assign search_prompts = search_prompts | append: settings.yv_search_prompt_1 | append: '||'
+    endif
+    if settings.yv_search_prompt_2 != blank
+      assign search_prompts = search_prompts | append: settings.yv_search_prompt_2 | append: '||'
+    endif
+    if settings.yv_search_prompt_3 != blank
+      assign search_prompts = search_prompts | append: settings.yv_search_prompt_3 | append: '||'
+    endif
+  endif
+  assign search_prompts = search_prompts | split: '||'
+
+  assign sticker_delay_ms = settings.yv_stickers_delay | default: 2 | times: 60000
+  if settings.yv_stickers_test
+    assign sticker_delay_ms = 5000
+  endif
+-%}
+
+<script type="application/json" id="yv-theme-config">
+  {
+    "designMode": {{ request.design_mode | json }},
+    "template": {{ template.name | json }},
+    "templateSuffix": {{ template.suffix | json }},
+    "locale": {{ request.locale.iso_code | json }},
+    "moneyFormat": {{ shop.money_format | json }},
+    "moneyWithCurrencyFormat": {{ shop.money_with_currency_format | json }},
+    "shopCurrency": {{ shop.currency | json }},
+    "cartCurrency": {{ cart.currency.iso_code | json }},
+    "routes": {
+      "root": {{ routes.root_url | json }},
+      "cart": {{ routes.cart_url | json }},
+      "cartAdd": {{ routes.cart_add_url | json }},
+      "cartChange": {{ routes.cart_change_url | json }},
+      "cartUpdate": {{ routes.cart_update_url | json }},
+      "search": {{ routes.search_url | json }},
+      "predictiveSearch": {{ routes.predictive_search_url | json }},
+      "collections": {{ routes.collections_url | json }},
+      "allProducts": {{ routes.all_products_collection_url | json }},
+      "account": {{ routes.account_url | json }},
+      "productRecommendations": {{ routes.product_recommendations_url | json }}
+    },
+    "animation": {
+      "enabled": {{ settings.yv_enable_animation | json }}
+    },
+    "layout": {
+      "style": {{ settings.yv_layout_style | json }},
+      "width": {{ settings.yv_layout_width | json }},
+      "buttonAnimation": {{ settings.yv_button_animation | json }}
+    },
+    "images": {
+      "lazyload": {{ settings.yv_enable_lazyload | json }}
+    },
+    "cart": {
+      "type": {{ settings.cart_type | json }},
+      "itemCount": {{ cart.item_count | json }},
+      "totalPrice": {{ cart.total_price | json }},
+      "autoOpen": {{ settings.auto_open_cart_drawer | json }},
+      "browserNotification": {% if settings.yv_browser_notification and settings.cart_type == 'drawer' %}true{% else %}false{% endif %},
+      "notificationBg": {{ settings.yv_browser_notification_bg | append: '' | json }},
+      "notificationText": {{ settings.yv_browser_notification_text | append: '' | json }},
+      "shippingBar": {
+        "enabled": {{ settings.yv_shipping_bar | json }},
+        "thresholdCents": {{ shipping_threshold_cents | json }},
+        "message": {{ settings.yv_shipping_bar_message | json }},
+        "success": {{ settings.yv_shipping_bar_success | json }}
+      },
+      "giftWrap": {
+        "productId": {{ settings.yv_gift_wrap_product.id | json }},
+        "variantId": {{ settings.yv_gift_wrap_product.selected_or_first_available_variant.id | json }},
+        "text": {{ settings.yv_gift_wrap_text | json }}
+      },
+      "upsell": {
+        "enabled": {{ settings.yv_upsell_enable | json }},
+        "heading": {{ settings.yv_upsell_heading | json }},
+        "source": {{ settings.yv_upsell_source | json }},
+        "count": {{ settings.yv_upsell_count | json }}
+      }
+    },
+    "product": {
+      "preorder": {{ settings.yv_enable_preorder | json }},
+      "optionStyle": {{ settings.yv_option_style | json }},
+      "colorOptionNames": [{% for name in color_names %}{{ name | strip | json }}{% unless forloop.last %},{% endunless %}{% endfor %}],
+      "sizeOptionNames": [{% for name in size_names %}{{ name | strip | json }}{% unless forloop.last %},{% endunless %}{% endfor %}],
+      "showSavedAmount": {{ settings.yv_show_saved_amount | json }},
+      "savedAmountStyle": {{ settings.yv_saved_amount_style | json }},
+      "atcAudio": {{ settings.yv_atc_audio | json }},
+      "atcHaptic": {{ settings.yv_atc_haptic | json }}
+    },
+    "grid": {
+      "hover": {{ settings.yv_grid_hover | json }},
+      "autoslide": {{ settings.yv_grid_autoslide | json }},
+      "similar": {{ settings.yv_grid_similar | json }},
+      "similarBasis": {{ settings.yv_grid_similar_basis | json }},
+      "pickup": {{ settings.yv_grid_pickup | json }}
+    },
+    "quickView": {
+      "enabled": {{ settings.quick_add | json }},
+      "mobile": {{ settings.mobile_quick_add | json }},
+      "style": {{ settings.yv_quick_view_style | json }},
+      "dynamicCheckout": {{ settings.yv_quick_view_dynamic_checkout | json }}
+    },
+    "search": {
+      "suggestions": {{ settings.yv_search_suggestions | json }},
+      "articles": {{ settings.yv_search_articles | json }},
+      "pages": {{ settings.yv_search_pages | json }},
+      "collections": {{ settings.yv_search_collections | json }},
+      "prompts": [{% for prompt in search_prompts %}{{ prompt | json }}{% unless forloop.last %},{% endunless %}{% endfor %}]
+    },
+    "popups": {
+      "newsletter": {
+        "enabled": {{ settings.yv_newsletter_popup | json }},
+        "days": {{ settings.yv_newsletter_popup_days | json }}
+      },
+      "ageVerification": {
+        "enabled": {{ settings.yv_age_verification | json }},
+        "days": {{ settings.yv_age_days | json }}
+      },
+      "privacyBanner": {
+        "enabled": {{ settings.yv_privacy_banner | json }}
+      }
+    },
+    "stickers": {
+      "enabled": {{ settings.yv_stickers | json }},
+      "testMode": {{ settings.yv_stickers_test | json }},
+      "delayMs": {{ sticker_delay_ms | json }},
+      "useGradient": {{ settings.yv_sticker_gradient | json }},
+      "colors": [{{ settings.yv_sticker_color_1 | append: '' | json }}, {{ settings.yv_sticker_color_2 | append: '' | json }}, {{ settings.yv_sticker_color_3 | append: '' | json }}, {{ settings.yv_sticker_color_4 | append: '' | json }}, {{ settings.yv_sticker_color_5 | append: '' | json }}],
+      "gradients": [{{ settings.yv_sticker_gradient_1 | json }}, {{ settings.yv_sticker_gradient_2 | json }}, {{ settings.yv_sticker_gradient_3 | json }}, {{ settings.yv_sticker_gradient_4 | json }}, {{ settings.yv_sticker_gradient_5 | json }}]
+    },
+    "scrollTop": {
+      "enabled": {{ settings.yv_scroll_top | json }},
+      "showText": {{ settings.yv_scroll_top_text | json }},
+      "showBackground": {{ settings.yv_scroll_top_bg | json }},
+      "position": {{ settings.yv_scroll_top_position | json }}
+    },
+    "seo": {
+      "disableMicrodata": {{ settings.yv_disable_microdata | json }},
+      "productUrlWithoutCollection": {{ settings.yv_product_url_without_collection | json }}
+    },
+    "maps": {
+      "hasApiKey": {% if settings.yv_google_maps_api_key != blank %}true{% else %}false{% endif %}
+    }
+  }
+</script>

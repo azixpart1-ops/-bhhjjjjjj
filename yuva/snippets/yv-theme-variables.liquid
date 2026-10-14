@@ -1,0 +1,297 @@
+{%- doc -%}
+  Yuva theme tokens. Turns the Yuva theme settings into CSS custom properties on :root and
+  overrides the Horizon variables that Yuva's type scale, containers, radii, buttons and inputs
+  need. Render it directly after `color-palette` (layout/theme.liquid and layout/password.liquid)
+  so these declarations win over `theme-styles-variables` and `color-palette`.
+
+  Every token is documented in the foundation API doc (build/api/core.md).
+
+  @example
+  {%- render 'yv-theme-variables' -%}
+{%- enddoc -%}
+
+{%- liquid
+  assign is_rounded = true
+  if settings.yv_layout_style == 'sharp'
+    assign is_rounded = false
+  endif
+
+  # Typography: Yuva ranges are percentages (95 → 0.95, -2.5 → -0.025em).
+  assign heading_scale = settings.yv_heading_scale | divided_by: 100.0
+  assign heading_scale_mobile = settings.yv_heading_scale_mobile | divided_by: 100.0
+  assign heading_spacing = settings.yv_heading_letter_spacing | divided_by: 100.0 | round: 4
+  assign heading_spacing_tight = heading_spacing | minus: 0.03 | round: 4
+  assign heading_spacing_loose = heading_spacing | plus: 0.03 | round: 4
+  assign heading_line = settings.yv_heading_line_height | divided_by: 100.0 | round: 3
+  assign heading_line_tight = heading_line | minus: 0.1 | round: 3
+  assign heading_line_loose = heading_line | plus: 0.1 | round: 3
+  assign body_scale = settings.yv_body_scale | divided_by: 100.0
+  assign body_spacing = settings.yv_body_letter_spacing | divided_by: 100.0 | round: 4
+  assign body_spacing_tight = body_spacing | minus: 0.03 | round: 4
+  assign body_spacing_loose = body_spacing | plus: 0.03 | round: 4
+  assign body_line = settings.yv_body_line_height | divided_by: 100.0 | round: 3
+  assign body_line_tight = body_line | minus: 0.2 | round: 3
+  assign body_line_loose = body_line | plus: 0.2 | round: 3
+  assign accent_scale = settings.yv_accent_scale | divided_by: 100.0
+  assign accent_spacing = settings.yv_accent_letter_spacing | divided_by: 100.0 | round: 4
+  assign accent_line = settings.yv_accent_line_height | divided_by: 100.0 | round: 3
+
+  # Font roles (Typography > Others, Product > fonts): 'heading' or 'body'.
+  assign nav_font = settings.yv_navigation_font | default: 'body'
+  assign button_font = settings.yv_button_font | default: 'body'
+  assign tab_font = settings.yv_tab_heading_font | default: 'body'
+  assign filter_font = settings.yv_filters_heading_font | default: 'body'
+  assign variant_font = settings.yv_options_font | default: 'heading'
+  assign price_font = settings.yv_price_font | default: 'body'
+
+  # Image ratios (Images group).
+  assign ratio_keys = 'yv_product_image_ratio,yv_collection_image_ratio,yv_post_image_ratio' | split: ','
+  assign ratios = ''
+  for ratio_key in ratio_keys
+    case settings[ratio_key]
+      when 'square'
+        assign ratio_value = '1 / 1'
+      when 'portrait'
+        assign ratio_value = '3 / 4'
+      when 'landscape'
+        assign ratio_value = '4 / 3'
+      else
+        assign ratio_value = 'auto'
+    endcase
+    assign ratios = ratios | append: ratio_value | append: '|'
+  endfor
+  assign ratios = ratios | split: '|'
+
+  # Hover label of the animated button fill: the button background, or the page background
+  # when the button background is transparent (so the label never disappears).
+  assign primary_label_hover = 'var(--color-primary-button-background)'
+  if settings.palette_primary_button_background.alpha == 0
+    assign primary_label_hover = 'var(--color-background)'
+  endif
+  assign secondary_label_hover = 'var(--color-secondary-button-background)'
+  if settings.palette_secondary_button_background.alpha == 0
+    assign secondary_label_hover = 'var(--color-background)'
+  endif
+-%}
+
+{% style %}
+  :root {
+    /* Yuva colours (Theme settings > Colors) */
+    --yv-theme-color: {{ settings.yv_base_color }};
+    --yv-theme-color-rgb: {{ settings.yv_base_color.rgb }};
+    --yv-theme-color-light: rgb({{ settings.yv_base_color.rgb }} / 0.1);
+    --yv-image-bg: {{ settings.yv_image_background }};
+    --yv-image-border: {{ settings.yv_image_border }};
+    --yv-saved-bg: {{ settings.yv_saved_amount_background }};
+    --yv-saved-text: {{ settings.yv_saved_amount_text }};
+    --yv-sale: {{ settings.yv_saved_amount_text }};
+    --yv-cart-dot: {{ settings.yv_cart_indicator }};
+    --yv-cart-dot-light: rgb({{ settings.yv_cart_indicator.rgb }} / 0.3);
+    --yv-notification-bg: {{ settings.yv_browser_notification_bg }};
+    --yv-notification-text: {{ settings.yv_browser_notification_text }};
+    --yv-badge-preorder-bg: {{ settings.yv_badge_preorder_background }};
+    --yv-badge-preorder-text: {{ settings.yv_badge_preorder_text }};
+    --yv-badge-custom-bg: {{ settings.yv_badge_custom_background }};
+    --yv-badge-custom-text: {{ settings.yv_badge_custom_text }};
+
+    /* Colour sets: Primary is the page; yv-color-set re-scopes the three per-section tokens */
+    --yv-heading-color: {{ settings.yv_primary_heading }};
+    --yv-card-bg: {{ settings.yv_primary_card_background }};
+    --yv-border-color: {{ settings.yv_primary_section_border }};
+    --yv-primary-bg: {{ settings.page_background_color }};
+    --yv-primary-text: {{ settings.page_text_color }};
+    --yv-primary-heading: {{ settings.yv_primary_heading }};
+    --yv-primary-card-bg: {{ settings.yv_primary_card_background }};
+    --yv-primary-border: {{ settings.yv_primary_section_border }};
+    --yv-secondary-bg: {{ settings.yv_secondary_background }};
+    --yv-secondary-text: {{ settings.yv_secondary_text }};
+    --yv-secondary-heading: {{ settings.yv_secondary_heading }};
+    --yv-secondary-card-bg: {{ settings.yv_secondary_card_background }};
+    --yv-secondary-border: {{ settings.yv_secondary_section_border }};
+    --yv-tertiary-bg: {{ settings.yv_tertiary_background }};
+    --yv-tertiary-text: {{ settings.yv_tertiary_text }};
+    --yv-tertiary-heading: {{ settings.yv_tertiary_heading }};
+    --yv-tertiary-card-bg: {{ settings.yv_tertiary_card_background }};
+    --yv-tertiary-border: {{ settings.yv_tertiary_section_border }};
+    --yv-quaternary-bg: {{ settings.yv_quaternary_background }};
+    --yv-quaternary-text: {{ settings.yv_quaternary_text }};
+    --yv-quaternary-heading: {{ settings.yv_quaternary_heading }};
+    --yv-quaternary-card-bg: {{ settings.yv_quaternary_card_background }};
+    --yv-quaternary-border: {{ settings.yv_quaternary_section_border }};
+    --yv-gradient-bg: {{ settings.yv_gradient_background | default: settings.page_background_color }};
+
+    /* Radii (Theme settings > Layout) */
+    --yv-layout-radius: {% if is_rounded %}{{ settings.yv_layout_radius }}px{% else %}0px{% endif %};
+    --yv-card-radius: {% if is_rounded %}{{ settings.yv_card_radius }}px{% else %}0px{% endif %};
+    --yv-radius: var(--yv-layout-radius);
+    --yv-radius-card: var(--yv-card-radius);
+    --yv-radius-sm: min(var(--yv-layout-radius), 6px);
+    --yv-arrow-radius: {% if settings.yv_arrow_style == 'square' %}var(--yv-radius-sm){% else %}50%{% endif %};
+    --yv-grid-radius: {% if is_rounded %}{{ settings.yv_grid_radius }}px{% else %}0px{% endif %};
+    {%- unless is_rounded %}
+      --style-border-radius-inputs: 0px;
+      --style-border-radius-popover: 0px;
+    {%- endunless %}
+
+    /* Images (Theme settings > Images) */
+    --yv-product-ratio: {{ ratios[0] }};
+    --yv-collection-ratio: {{ ratios[1] }};
+    --yv-post-ratio: {{ ratios[2] }};
+    --yv-media-fit: {% if settings.yv_product_grid_image_size == 'natural' %}contain{% else %}cover{% endif %};
+    --yv-product-image-border: {% if settings.yv_product_image_border %}1px solid var(--yv-image-border){% else %}0 none{% endif %};
+    --yv-collection-image-border: {% if settings.yv_collection_image_border %}1px solid var(--yv-image-border){% else %}0 none{% endif %};
+    --yv-post-image-border: {% if settings.yv_post_image_border %}1px solid var(--yv-image-border){% else %}0 none{% endif %};
+
+    /* Product (Theme settings > Product) */
+    --variant-picker-swatch-radius: {% if settings.yv_swatch_style == 'square' %}var(--yv-radius-sm){% else %}50%{% endif %};
+    --yv-variant-font-family: var(--font-{{ variant_font }}--family);
+    --yv-variant-font-style: var(--font-{{ variant_font }}--style);
+    --yv-variant-font-weight: var(--font-{{ variant_font }}--weight);
+    --yv-price-font-family: var(--font-{{ price_font }}--family);
+    --yv-price-font-style: var(--font-{{ price_font }}--style);
+    --yv-price-font-weight: var(--font-{{ price_font }}--weight);
+    --yv-option-title-transform: {{ settings.yv_option_title_transform | default: 'none' }};
+    --yv-grid-title-opacity: {{ settings.yv_grid_title_opacity | divided_by: 100.0 }};
+
+    /* Typography: heading roles, letter spacing and line height become Horizon's "normal" tokens */
+    --yv-heading-scale: {{ heading_scale_mobile }};
+    --letter-spacing--display-tight: {{ heading_spacing_tight }}em;
+    --letter-spacing--display-normal: {{ heading_spacing }}em;
+    --letter-spacing--display-loose: {{ heading_spacing_loose }}em;
+    --letter-spacing--heading-tight: {{ heading_spacing_tight }}em;
+    --letter-spacing--heading-normal: {{ heading_spacing }}em;
+    --letter-spacing--heading-loose: {{ heading_spacing_loose }}em;
+    --letter-spacing--body-tight: {{ body_spacing_tight }}em;
+    --letter-spacing--body-normal: {{ body_spacing }}em;
+    --letter-spacing--body-loose: {{ body_spacing_loose }}em;
+    --line-height--display-tight: {{ heading_line_tight }};
+    --line-height--display-normal: {{ heading_line }};
+    --line-height--display-loose: {{ heading_line_loose }};
+    --line-height--heading-tight: {{ heading_line_tight }};
+    --line-height--heading-normal: {{ heading_line }};
+    --line-height--heading-loose: {{ heading_line_loose }};
+    --line-height--body-tight: {{ body_line_tight }};
+    --line-height--body-normal: {{ body_line }};
+    --line-height--body-loose: {{ body_line_loose }};
+
+    /* Heading sizes (mobile base × mobile scale; larger bases in the media queries below) */
+    --font-size--h1: calc(36px * var(--yv-heading-scale));
+    --font-size--h2: calc(26px * var(--yv-heading-scale));
+    --font-size--h3: calc(24px * var(--yv-heading-scale));
+    --font-size--h4: calc(22px * var(--yv-heading-scale));
+    --font-size--h5: calc(20px * var(--yv-heading-scale));
+    --font-size--h6: calc(18px * var(--yv-heading-scale));
+    --font-size--paragraph: calc(14px * {{ body_scale }});
+    {%- assign levels = 'h1,h2,h3,h4,h5,h6' | split: ',' %}
+    {%- for level in levels %}
+      --font-{{ level }}--family: var(--font-heading--family);
+      --font-{{ level }}--style: var(--font-heading--style);
+      --font-{{ level }}--weight: var(--font-heading--weight);
+      --font-{{ level }}--size: var(--font-size--{{ level }});
+      --font-{{ level }}--letter-spacing: var(--letter-spacing--heading-normal);
+      --font-{{ level }}--line-height: var(--line-height--display-normal);
+      --font-{{ level }}--case: {{ settings.yv_heading_text_transform | default: 'none' }};
+    {%- endfor %}
+    --font-paragraph--size: var(--font-size--paragraph);
+    --font-paragraph--line-height: var(--line-height--body-normal);
+
+    /* Yuva text tokens (10/12/14/16/18/20px × body scale → 9.6/11.52/13.44/15.36/17.28/19.2) */
+    --yv-text-xs: calc(10px * {{ body_scale }});
+    --yv-text-sm: calc(12px * {{ body_scale }});
+    --yv-text-md: calc(14px * {{ body_scale }});
+    --yv-text-lg: calc(16px * {{ body_scale }});
+    --yv-text-xl: calc(18px * {{ body_scale }});
+    --yv-text-2xl: calc(20px * {{ body_scale }});
+    --yv-text-base: var(--yv-text-md);
+
+    /* Accent (highlight) font */
+    --yv-accent-scale: {{ accent_scale }};
+    --yv-accent-letter-spacing: {{ accent_spacing }}em;
+    --yv-accent-line-height: {{ accent_line }};
+
+    /* Font roles: navigation, buttons, tab headings, filter headings */
+    --yv-nav-font-family: var(--font-{{ nav_font }}--family);
+    --yv-nav-font-style: var(--font-{{ nav_font }}--style);
+    --yv-nav-font-weight: var(--font-{{ nav_font }}--weight);
+    --yv-button-font-family: var(--font-{{ button_font }}--family);
+    --yv-button-font-style: var(--font-{{ button_font }}--style);
+    --yv-button-font-weight: var(--font-{{ button_font }}--weight);
+    --yv-tab-font-family: var(--font-{{ tab_font }}--family);
+    --yv-tab-font-style: var(--font-{{ tab_font }}--style);
+    --yv-tab-font-weight: var(--font-{{ tab_font }}--weight);
+    --yv-filter-font-family: var(--font-{{ filter_font }}--family);
+    --yv-filter-font-style: var(--font-{{ filter_font }}--style);
+    --yv-filter-font-weight: var(--font-{{ filter_font }}--weight);
+
+    /* Buttons: one radius for every button, Yuva font and 48px default height */
+    --style-border-radius-buttons-secondary: var(--style-border-radius-buttons-primary);
+    --button-font-family-primary: var(--yv-button-font-family);
+    --button-font-family-secondary: var(--yv-button-font-family);
+    --yv-btn-primary-label-hover: {{ primary_label_hover }};
+    --yv-btn-secondary-label-hover: {{ secondary_label_hover }};
+    --button-padding-block: 14px;
+    --button-padding-inline: 20px;
+
+    /* Inputs: 49px tall pills (radius from Input fields > Corner radius) */
+    --input-padding-y: 12px;
+    --input-padding-x: 15px;
+    --input-textarea-min-height: 58px;
+
+    /* Containers (Layout width). Horizon's hidden page_width stays "narrow"; its width follows Yuva. */
+    {%- if settings.yv_layout_width == 'full' %}
+      --narrow-page-width: 100vw;
+    {%- endif %}
+  }
+
+  @media screen and (min-width: 750px) {
+    :root {
+      --yv-heading-scale: {{ heading_scale }};
+      --font-size--h1: calc(45px * var(--yv-heading-scale));
+      --font-size--h2: calc(30px * var(--yv-heading-scale));
+      --font-size--h3: calc(28px * var(--yv-heading-scale));
+      --font-size--h4: calc(26px * var(--yv-heading-scale));
+      --font-size--h5: calc(22px * var(--yv-heading-scale));
+      --font-size--h6: calc(20px * var(--yv-heading-scale));
+      {%- if settings.yv_layout_width != 'full' %}
+        --narrow-page-width: 950px;
+      {%- endif %}
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    :root {
+      {%- if settings.yv_layout_width != 'full' %}
+        --narrow-page-width: 1120px;
+      {%- endif %}
+    }
+  }
+
+  @media screen and (min-width: 1200px) {
+    :root {
+      --font-size--h1: calc(55px * var(--yv-heading-scale));
+      --font-size--h2: calc(34px * var(--yv-heading-scale));
+      --font-size--h3: calc(30px * var(--yv-heading-scale));
+      --font-size--h4: calc(28px * var(--yv-heading-scale));
+      {%- if settings.yv_layout_width != 'full' %}
+        --narrow-page-width: 1270px;
+      {%- endif %}
+    }
+  }
+
+  @media screen and (min-width: 1441px) {
+    :root {
+      --font-size--h5: calc(24px * var(--yv-heading-scale));
+      {%- if settings.yv_layout_width != 'full' %}
+        --narrow-page-width: 1370px;
+      {%- endif %}
+    }
+  }
+
+  {%- if settings.yv_layout_width != 'full' %}
+    @media screen and (min-width: 1800px) {
+      :root {
+        --narrow-page-width: 1700px;
+      }
+    }
+  {%- endif %}
+{% endstyle %}

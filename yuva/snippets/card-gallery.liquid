@@ -60,6 +60,36 @@
       assign ratio = product.featured_media.preview_image.aspect_ratio | default: '1'
   endcase
 
+  # yv: Theme settings > Images > Product (global ratio) replaces the block's image_ratio when set.
+  assign image_ratio_key = block_settings.image_ratio
+  case settings.yv_product_image_ratio
+    when 'square'
+      assign ratio = '1'
+      assign image_ratio_key = 'square'
+    when 'portrait'
+      assign ratio = '3 / 4'
+      assign image_ratio_key = 'portrait'
+    when 'landscape'
+      assign ratio = '4 / 3'
+      assign image_ratio_key = 'landscape'
+    when 'auto'
+      assign ratio = product.featured_media.preview_image.aspect_ratio | default: '1'
+      assign image_ratio_key = 'adapt'
+  endcase
+
+  # yv: Theme settings > Product grid > Action on product image hover replaces Horizon's
+  # show_second_image_on_hover / product_card_carousel (they still apply when the Yuva setting is absent).
+  assign yv_hover = settings.yv_grid_hover
+  if yv_hover == blank
+    if settings.product_card_carousel
+      assign yv_hover = 'carousel'
+    elsif settings.show_second_image_on_hover
+      assign yv_hover = 'horizon_second'
+    else
+      assign yv_hover = 'none'
+    endif
+  endif
+
   if block_settings.image_ratio == 'adapt' and block_settings.constrain_to_viewport
     if block_settings.constrain_to_viewport != ''
       assign constrain_to_viewport = true
@@ -77,14 +107,15 @@
     --gallery-aspect-ratio: {{ ratio }};
   "
   data-product-id="{{ product.id }}"
-  {% if settings.show_second_image_on_hover and product.media.size > 1 %}
+  {% if yv_hover == 'horizon_second' and product.media.size > 1 %}
     on:pointerenter="/previewImage"
     on:pointerleave="/resetImage"
   {% endif %}
   {% if settings.transition_to_main_product %}
     data-view-transition-to-main-product
   {% endif %}
-  data-image-ratio="{{ block_settings.image_ratio }}"
+  data-image-ratio="{{ image_ratio_key }}"
+  data-yv-hover="{{ yv_hover }}"
   {{ block.shopify_attributes }}
 >
   {%- if product.media.size > 0 -%}
@@ -140,9 +171,9 @@
 
           # Don't overfetch media if we don't need to
           assign max_visible_slide_count = 1
-          if settings.product_card_carousel
+          if yv_hover == 'carousel'
             assign max_visible_slide_count = 5
-          elsif settings.show_second_image_on_hover
+          elsif yv_hover == 'horizon_second'
             assign max_visible_slide_count = 2
           endif
 
@@ -195,9 +226,13 @@
           if product.media.size > 2 and visible_slide_count > 1
             assign show_arrows = true
           endif
+          # yv: the Yuva hover carousel shows its arrows from two images.
+          if yv_hover == 'carousel' and visible_slide_count > 1
+            assign show_arrows = true
+          endif
 
           assign slideshow_attributes = 'data-generic-media-size="[generic_media_size]"' | replace: '[generic_media_size]', generic_media_size
-          if settings.product_card_carousel == false
+          if yv_hover != 'carousel'
             assign slideshow_attributes = slideshow_attributes | append: ' disabled="true"'
           endif
         %}
@@ -209,6 +244,42 @@
           show_arrows: show_arrows,
           attributes: slideshow_attributes
         %}
+        {%- comment -%} yv: "Second image" hover action: the next image fades in over the first. {%- endcomment -%}
+        {%- if yv_hover == 'second_image' -%}
+          {%- liquid
+            # The first other image that is not another variant's image; any other image otherwise.
+            assign hover_media = null
+            assign hover_fallback = null
+            for media in media_list_to_show
+              if media.id == featured_media.id or media.preview_image == blank
+                continue
+              endif
+              if variant_images contains media.src
+                if hover_fallback == null
+                  assign hover_fallback = media
+                endif
+                continue
+              endif
+              assign hover_media = media
+              break
+            endfor
+            if hover_media == null
+              assign hover_media = hover_fallback
+            endif
+          -%}
+          {%- if hover_media.preview_image != blank -%}
+            <div
+              class="yv-card-gallery__hover"
+              aria-hidden="true"
+            >
+              {{
+                hover_media.preview_image
+                | image_url: width: 1100
+                | image_tag: widths: '240, 360, 480, 600, 720, 900, 1100', sizes: image_sizes, loading: 'lazy', alt: ''
+              }}
+            </div>
+          {%- endif -%}
+        {%- endif -%}
       {%- endif -%}
     </a>
   {% elsif product != blank and product.media.size == 0 %}

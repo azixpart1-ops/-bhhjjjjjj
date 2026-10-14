@@ -5,6 +5,7 @@
   @param {product} product_resource - The product to render
   @param {boolean} [show_unit_price] - Whether to show the unit price
   @param {boolean} [show_sale_price_first] - Whether to show the sale price first
+  @param {boolean} [show_from] - yv: show "From <lowest price>" when the variants have different prices and no variant is selected (never for the product page's own product)
 {%- enddoc -%}
 
 {% render 'price-styles' %}
@@ -60,6 +61,31 @@
     assign use_currency = true
   endif
 
+  # yv: Yuva cards read "From <lowest price>" for products whose variants have different prices.
+  assign show_from_price = false
+  if show_from and product_resource.price_varies and product_resource.selected_variant == blank and has_volume_pricing != true
+    if product == blank or product.handle != product_resource.handle
+      assign show_from_price = true
+      assign from_price = product_resource.price_min
+      assign from_compare_price = product_resource.compare_at_price_min
+      if use_currency
+        assign from_price = from_price | money_with_currency
+      else
+        assign from_price = from_price | money
+      endif
+      assign from_price_text = 'content.price_from' | t: price: from_price
+      assign show_from_compare = false
+      if product_resource.compare_at_price_min > product_resource.price_min
+        assign show_from_compare = true
+        if use_currency
+          assign from_compare_price = from_compare_price | money_with_currency
+        else
+          assign from_compare_price = from_compare_price | money
+        endif
+      endif
+    endif
+  endif
+
   # Format all prices
   if use_currency
     assign price = price | money_with_currency
@@ -75,7 +101,18 @@
 -%}
 
 <div ref="priceContainer">
-  {% if has_volume_pricing %}
+  {% if show_from_price %}
+    {% comment %} yv: "From" price {% endcomment %}
+    <span class="price-item__group price price--from">
+      <bdi>{{ from_price_text }}</bdi>
+    </span>
+    {% if show_from_compare %}
+      <span class="price-item__group price-item--regular compare-at-price">
+        <span class="visually-hidden">{{ 'content.price_regular' | t }}&nbsp;</span>
+        <bdi>{{- from_compare_price -}}</bdi>
+      </span>
+    {% endif %}
+  {% elsif has_volume_pricing %}
     {% comment %} Volume pricing display {% endcomment %}
     {% if show_compare_price %}
       <span class="price-item__group compare-at-price">

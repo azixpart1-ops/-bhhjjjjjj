@@ -1,0 +1,35 @@
+{%- doc -%}
+  Optional solid "shadow" block behind an image (docs part 2 §0.5): when enabled, wraps the given
+  markup in `.yv-shadow`, which draws a block in `color` offset 20px sideways and 20px down
+  (10px on mobile) behind it, with the same corner radius. When disabled, outputs the markup
+  unchanged. The wrapper adds matching margins so the block is never clipped.
+
+  @param {string} content - The image markup (capture it first).
+  @param {boolean} [enabled] - Draw the shadow. Default: false
+  @param {string} [color] - Shadow colour (color setting). Default: #000000
+  @param {string} [direction] - 'right' (default) or 'left'.
+  @param {number} [radius] - Corner radius in px; default follows Theme settings > Layout.
+  @param {string} [class] - Extra classes on the wrapper.
+
+  @example
+  {%- capture image_markup -%}{{ section.settings.image | image_url: width: 1200 | image_tag: loading: 'lazy' }}{%- endcapture -%}
+  {% render 'yv-image-shadow', content: image_markup, enabled: section.settings.show_shadow, color: section.settings.shadow_color, direction: 'right' %}
+{%- enddoc -%}
+
+{%- if enabled -%}
+  {%- liquid
+    assign shadow_direction = direction | default: 'right'
+    unless shadow_direction == 'left'
+      assign shadow_direction = 'right'
+    endunless
+    assign shadow_color = color | default: '#000000'
+  -%}
+  <div
+    class="yv-shadow yv-shadow--{{ shadow_direction }}{% if class != blank %} {{ class }}{% endif %}"
+    style="--yv-shadow-color: {{ shadow_color }};{% if radius != blank %} --yv-shadow-radius: {{ radius }}px;{% endif %}"
+  >
+    {{- content -}}
+  </div>
+{%- else -%}
+  {{- content -}}
+{%- endif -%}

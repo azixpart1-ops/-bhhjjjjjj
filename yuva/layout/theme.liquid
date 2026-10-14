@@ -23,6 +23,8 @@
     {%- render 'scripts' -%}
     {%- render 'theme-styles-variables' -%}
     {%- render 'color-palette' -%}
+    {%- comment -%} yv: Yuva tokens; must come right after color-palette so they win over Horizon's. {%- endcomment -%}
+    {%- render 'yv-theme-variables' -%}
 
     {% if request.design_mode %}
       {%- render 'theme-editor' -%}
@@ -31,7 +33,18 @@
     {{ content_for_header }}
   </head>
 
-  <body class="page-width-{{ settings.page_width }} card-hover-effect-{{ settings.card_hover_effect }}">
+  {%- comment -%} yv: global Yuva switches read by assets/yv-base.css and Yuva scripts. {%- endcomment -%}
+  {%- capture yv_body_classes -%}
+    yv-layout-{{ settings.yv_layout_style }} yv-layout-{{ settings.yv_layout_width }} yv-btn-anim-{{ settings.yv_button_animation }} yv-arrows-{{ settings.yv_arrow_style }}
+    {%- if settings.yv_enable_animation %} yv-animate{% endif -%}
+    {%- if settings.yv_pass_through_product %} yv-pass-through{% endif -%}
+  {%- endcapture -%}
+  <body class="page-width-{{ settings.page_width }} card-hover-effect-{{ settings.card_hover_effect }} {{ yv_body_classes | strip }}">
+    {%- comment -%}
+      yv: insertion point (age gate, first child of <body> so the store never flashes behind it).
+      The overlays builder adds its render line here, for example:
+      {% render 'yv-global-overlays', part: 'age-gate' %}
+    {%- endcomment -%}
     {% render 'skip-to-content-link', href: '#MainContent', text: 'accessibility.skip_to_text' %}
 
     {% render 'chat-drawer' %}
@@ -156,6 +169,10 @@
         data-product-transition="{{ settings.transition_to_main_product }}"
         data-template="{{ template }}"
       >
+        {%- comment -%}
+          yv: insertion point (breadcrumbs, directly before the template content). Uncomment once the snippet exists:
+        {%- endcomment -%}
+        {%- comment -%}{% render 'yv-breadcrumbs' %}{%- endcomment -%}
         {{ content_for_layout }}
       </main>
 
@@ -163,6 +180,16 @@
         {% sections 'footer-group' %}
       </footer>
     </div>
+
+    {%- comment -%}
+      yv: insertion point (static Yuva sections, rendered after </footer> and outside .page-wrapper,
+      which is the desktop scroll container and squeezes when a drawer opens). Each builder
+      uncomments only its own line once its section file exists; a missing section breaks the page.
+    {%- endcomment -%}
+    {%- comment -%}{% section 'yv-store-locator' %}{%- endcomment -%}
+    {%- comment -%}{% section 'yv-side-drawer' %}{%- endcomment -%}
+    {%- comment -%}{% section 'yv-newsletter-popup' %}{%- endcomment -%}
+    {%- comment -%}{% section 'yv-mobile-dock' %}{%- endcomment -%}
 
     {% render 'cart-drawer', render_wrapper: true %}
     {% render 'theme-drawer' %}
@@ -172,5 +199,13 @@
     {% if settings.quick_add or settings.mobile_quick_add %}
       {% render 'quick-add-modal' %}
     {% endif %}
+
+    {%- comment -%} yv: configuration read by Yuva's global scripts (yv-theme.js, yv-overlays.js, …). {%- endcomment -%}
+    {%- render 'yv-theme-config' -%}
+    {%- comment -%}
+      yv: insertion point (global overlays: newsletter popup, cookie banner, stickers, scroll to top).
+      Uncomment once snippets/yv-global-overlays.liquid exists:
+    {%- endcomment -%}
+    {%- comment -%}{% render 'yv-global-overlays' %}{%- endcomment -%}
   </body>
 </html>

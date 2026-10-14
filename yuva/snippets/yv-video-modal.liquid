@@ -1,0 +1,116 @@
+{%- doc -%}
+  A play trigger plus a modal <dialog> holding a video (spec part 2 §0.5). Opening plays the video
+  with sound and controls; closing (× button, Escape or a backdrop click) pauses it and rewinds it,
+  and focus returns to the trigger. Uses assets/yv-video-modal.js (extends Horizon's DialogComponent).
+
+  Pass a Shopify-hosted `video` (a `video` setting) or a `video_url` (a `video_url` setting, YouTube or
+  Vimeo). Renders nothing when both are blank. By default the trigger is a 64px round play button;
+  pass `trigger` HTML (e.g. a poster image) to wrap your own content in the trigger button.
+
+  @param {object} [video] - Shopify-hosted video (video setting).
+  @param {object} [video_url] - External video (video_url setting: YouTube or Vimeo).
+  @param {string} [label] - Accessible name of the trigger. Default: "Play video"
+  @param {string} [title] - Accessible name of the dialog. Default: "Video"
+  @param {string} [trigger] - Custom trigger content (HTML). The play icon is appended over it.
+  @param {string} [trigger_class] - Extra classes on the trigger button.
+  @param {string} [class] - Extra classes on the component.
+  @param {string} [aspect_ratio] - Player aspect ratio, CSS value. Default: the video's own ratio, or '16 / 9'
+
+  @example
+  {% render 'yv-video-modal', video: block.settings.video, label: block.settings.heading %}
+{%- enddoc -%}
+
+{%- liquid
+  assign has_video = false
+  if video != blank or video_url != blank
+    assign has_video = true
+  endif
+  assign trigger_label = label | default: ''
+  if trigger_label == blank
+    assign trigger_label = 'yv.video.play' | t
+  endif
+  assign dialog_title = title | default: ''
+  if dialog_title == blank
+    assign dialog_title = 'yv.video.title' | t
+  endif
+  assign player_ratio = aspect_ratio | default: ''
+  if player_ratio == blank
+    if video != blank and video.aspect_ratio
+      assign player_ratio = video.aspect_ratio
+    else
+      assign player_ratio = '16 / 9'
+    endif
+  endif
+-%}
+
+{%- if has_video -%}
+  <script
+    src="{{ 'yv-video-modal.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  {% render 'dialog-styles' %}
+
+  <yv-video-modal-component class="yv-video-modal{% if class != blank %} {{ class }}{% endif %}">
+    <button
+      type="button"
+      class="yv-video-modal__trigger{% if trigger != blank %} yv-video-modal__trigger--custom{% endif %}{% if trigger_class != blank %} {{ trigger_class }}{% endif %}"
+      aria-haspopup="dialog"
+      aria-label="{{ trigger_label | strip_html | escape }}"
+      on:click="/showDialog"
+    >
+      {{- trigger -}}
+      <span
+        class="yv-video-modal__play"
+        aria-hidden="true"
+      >
+        <span class="svg-wrapper">{{- 'icon-play.svg' | inline_asset_content -}}</span>
+      </span>
+    </button>
+    <dialog
+      ref="dialog"
+      class="yv-video-modal__dialog dialog-modal"
+      aria-label="{{ dialog_title | strip_html | escape }}"
+      scroll-lock
+    >
+      <button
+        type="button"
+        class="button button-unstyled close-button yv-video-modal__close"
+        aria-label="{{ 'accessibility.close_dialog' | t }}"
+        on:click="/closeDialog"
+      >
+        <span class="svg-wrapper">{{- 'icon-close.svg' | inline_asset_content -}}</span>
+      </button>
+      <div
+        class="yv-video-modal__frame"
+        ref="frame"
+        style="--yv-video-ratio: {{ player_ratio }};"
+      >
+        {%- if video != blank -%}
+          {{
+            video
+            | video_tag: image_size: '1600x', autoplay: false, loop: false, muted: false, controls: true, preload: 'none', playsinline: true, class: 'yv-video-modal__video'
+          }}
+        {%- elsif video_url.type == 'youtube' -%}
+          <template ref="embed">
+            <iframe
+              class="yv-video-modal__iframe"
+              src="https://www.youtube-nocookie.com/embed/{{ video_url.id }}?autoplay=1&rel=0&playsinline=1&modestbranding=1"
+              title="{{ dialog_title | strip_html | escape }}"
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            ></iframe>
+          </template>
+        {%- elsif video_url.type == 'vimeo' -%}
+          <template ref="embed">
+            <iframe
+              class="yv-video-modal__iframe"
+              src="https://player.vimeo.com/video/{{ video_url.id }}?autoplay=1&dnt=1"
+              title="{{ dialog_title | strip_html | escape }}"
+              allow="autoplay; fullscreen; picture-in-picture"
+            ></iframe>
+          </template>
+        {%- endif -%}
+      </div>
+    </dialog>
+  </yv-video-modal-component>
+{%- endif -%}

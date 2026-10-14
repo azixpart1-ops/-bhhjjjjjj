@@ -1,0 +1,140 @@
+{%- doc -%}
+  Renders a complete Yuva carousel: the <yv-carousel> element, its scroll-snap track holding
+  `slides`, and its controls. Every top-level element in `slides` becomes one slide, so block roots,
+  `.resource-list__item` wrappers or plain divs all work. Loads assets/yv-carousel.js.
+
+  Slide widths come from CSS custom properties, so the same markup gives N slides per view on
+  desktop (990px+), tablet (750-989px) and mobile (<750px), with an optional peek of the next slide.
+
+  @param {string} id - Unique element id, e.g. "YvCarousel-<section.id>". The track gets `<id>-track`.
+  @param {string} slides - Captured slide markup (one top-level element per slide).
+  @param {string} [label] - Accessible name of the carousel region (e.g. the section heading as text). Default: "Carousel"
+  @param {number} [per_view] - Slides per view at 990px and up. Default: 4
+  @param {number} [per_view_tablet] - Slides per view at 750-989px. Default: per_view minus 1 (min 1)
+  @param {number} [per_view_mobile] - Slides per view below 750px; decimals give a peek (1.2). Default: 1
+  @param {number} [gap] - Gap between slides in px (desktop). Default: 20
+  @param {number} [gap_mobile] - Gap between slides in px below 750px. Default: 10
+  @param {number} [peek] - Extra visible width of the next slide in px, desktop (includes the gap). Default: 0
+  @param {number} [peek_mobile] - Same, below 750px. Default: 0
+  @param {string} [arrows] - 'sides' | 'sides-outside' | 'top-right' | 'bottom' | 'none'. Default: 'sides'
+  @param {string} [arrows_mobile] - Same options, below 750px. Default: same as `arrows`
+  @param {boolean} [dots] - Show page dots. Default: false
+  @param {number} [autoplay] - Seconds between automatic moves; 0 = off. Default: 0
+  @param {boolean} [loop] - Wrap from the last page back to the first. Default: false
+  @param {string} [step] - 'page' (arrows move a full view, Yuva default) or 'slide'. Default: 'page'
+  @param {string} [align] - 'start' or 'center' (centre-emphasised, neighbours peek on both sides). Default: 'start'
+  @param {boolean} [drag] - Mouse drag-to-scroll on desktop. Default: true
+  @param {string} [icon] - Arrow glyph: 'arrow' or 'chevron'. Default: 'arrow'
+  @param {boolean} [stack_mobile] - Below 750px render the slides as a grid instead of a scroll row. Default: false
+  @param {string} [class] - Extra classes on <yv-carousel>.
+  @param {string} [track_class] - Extra classes on the track.
+  @param {string} [style] - Extra inline CSS on <yv-carousel> (e.g. '--yv-carousel-arrow-top: 40%;').
+  @param {string} [attributes] - Extra raw attributes on <yv-carousel> (e.g. data-reveal).
+
+  @example
+  {% capture slides %}{% content_for 'blocks' %}{% endcapture %}
+  {% assign carousel_id = 'YvCarousel-' | append: section.id %}
+  {% assign carousel_label = section.settings.heading | strip_html %}
+  {% render 'yv-carousel',
+    id: carousel_id,
+    slides: slides,
+    label: carousel_label,
+    per_view: section.settings.columns,
+    per_view_mobile: 1.2,
+    gap: 20,
+    arrows: 'sides',
+    arrows_mobile: 'none',
+    dots: true
+  %}
+{%- enddoc -%}
+
+<script
+  src="{{ 'yv-carousel.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+{%- liquid
+  assign carousel_per_view = per_view | default: 4
+  assign default_tablet = carousel_per_view | minus: 1
+  if default_tablet < 1
+    assign default_tablet = 1
+  endif
+  assign carousel_per_view_tablet = per_view_tablet | default: default_tablet
+  assign carousel_per_view_mobile = per_view_mobile | default: 1
+  assign carousel_gap = gap | default: 20
+  assign carousel_gap_mobile = gap_mobile | default: 10
+  assign carousel_peek = peek | default: 0
+  assign carousel_peek_mobile = peek_mobile | default: 0
+  assign carousel_arrows = arrows | default: 'sides'
+  assign carousel_arrows_mobile = arrows_mobile | default: carousel_arrows
+  assign carousel_autoplay = autoplay | default: 0
+  assign carousel_step = step | default: 'page'
+  assign carousel_align = align | default: 'start'
+  assign carousel_label = label | default: ''
+  if carousel_label == blank
+    assign carousel_label = 'yv.carousel.label' | t
+  endif
+
+  assign show_arrows = true
+  if carousel_arrows == 'none' and carousel_arrows_mobile == 'none'
+    assign show_arrows = false
+  endif
+
+  assign has_autoplay = false
+  if carousel_autoplay > 0
+    assign has_autoplay = true
+  endif
+-%}
+
+<yv-carousel
+  id="{{ id }}"
+  class="yv-carousel{% if stack_mobile %} yv-carousel--stack-mobile{% endif %}{% if class != blank %} {{ class }}{% endif %}"
+  role="region"
+  aria-roledescription="{{ 'yv.carousel.roledescription' | t }}"
+  aria-label="{{ carousel_label | escape }}"
+  data-arrows="{{ carousel_arrows }}"
+  data-arrows-mobile="{{ carousel_arrows_mobile }}"
+  data-step="{{ carousel_step }}"
+  data-align="{{ carousel_align }}"
+  {% if loop %}
+    data-loop
+  {% endif %}
+  {% if has_autoplay %}
+    data-autoplay="{{ carousel_autoplay }}"
+  {% endif %}
+  {% if drag == false %}
+    data-drag="false"
+  {% endif %}
+  data-slide-label="{{ 'yv.carousel.slide_label' | t: index: '[index]', count: '[count]' | escape }}"
+  data-slide-roledescription="{{ 'yv.carousel.slide' | t | escape }}"
+  data-dot-label="{{ 'yv.carousel.go_to_slide' | t: index: '[index]' | escape }}"
+  style="
+    --yv-carousel-per-view: {{ carousel_per_view }};
+    --yv-carousel-per-view-tablet: {{ carousel_per_view_tablet }};
+    --yv-carousel-per-view-mobile: {{ carousel_per_view_mobile }};
+    --yv-carousel-gap: {{ carousel_gap }}px;
+    --yv-carousel-gap-mobile: {{ carousel_gap_mobile }}px;
+    --yv-carousel-peek: {{ carousel_peek }}px;
+    --yv-carousel-peek-mobile: {{ carousel_peek_mobile }}px;
+    {{ style }}
+  "
+  {{ attributes }}
+>
+  <div
+    class="yv-carousel__track{% if track_class != blank %} {{ track_class }}{% endif %}"
+    id="{{ id }}-track"
+    ref="track"
+  >
+    {{- slides -}}
+  </div>
+  {%- if show_arrows or dots or has_autoplay -%}
+    {% render 'yv-carousel-controls',
+      carousel_id: id,
+      arrows: show_arrows,
+      dots: dots,
+      autoplay: has_autoplay,
+      icon: icon
+    %}
+  {%- endif -%}
+</yv-carousel>

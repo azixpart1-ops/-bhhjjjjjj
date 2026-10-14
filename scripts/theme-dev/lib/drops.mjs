@@ -259,6 +259,13 @@ const FONT_LIBRARY = {
   helvetica: { family: 'Helvetica', fallback: 'Arial, sans-serif', weights: [400, 700], italic: true, baseline: 0.25, system: true },
   sans_serif: { family: 'sans-serif', fallback: '', weights: [400, 700], italic: true, baseline: 0.25, system: true },
   serif: { family: 'serif', fallback: '', weights: [400, 700], italic: true, baseline: 0.25, system: true },
+  // Google families used by the Yuva theme's presets (Shopify's font library serves them too).
+  manrope: { family: 'Manrope', fallback: 'sans-serif', weights: [200, 300, 400, 500, 600, 700, 800], italic: false, baseline: 0.25 },
+  inter: { family: 'Inter', fallback: 'sans-serif', weights: [100, 200, 300, 400, 500, 600, 700, 800, 900], italic: true, baseline: 0.25 },
+  outfit: { family: 'Outfit', fallback: 'sans-serif', weights: [100, 200, 300, 400, 500, 600, 700, 800, 900], italic: false, baseline: 0.25 },
+  poppins: { family: 'Poppins', fallback: 'sans-serif', weights: [100, 200, 300, 400, 500, 600, 700, 800, 900], italic: true, baseline: 0.25 },
+  lato: { family: 'Lato', fallback: 'sans-serif', weights: [100, 300, 400, 700, 900], italic: true, baseline: 0.25 },
+  archivo: { family: 'Archivo', fallback: 'sans-serif', weights: [100, 200, 300, 400, 500, 600, 700, 800, 900], italic: true, baseline: 0.25 },
 };
 
 export function parseFontHandle(handle) {

@@ -1,0 +1,57 @@
+{%- doc -%}
+  Vertical side heading on a media edge (docs part 2, Featured product > Side heading). Limited to
+  10 characters. Without marquee: a narrow tab at the top of the edge with the letters stacked
+  one per line. With marquee: a full-height 40px strip where the text, rotated to read top to
+  bottom, scrolls continuously (static under reduced motion). The parent must be positioned.
+  The visible text is decorative; a visually hidden copy carries it for screen readers.
+
+  @param {string} text - Heading text (sliced to 10 characters).
+  @param {boolean} [marquee] - Scrolling strip instead of the stacked tab. Default: false
+  @param {number} [speed] - Seconds per marquee loop. Default: 8
+  @param {string} [position] - 'left' (default) or 'right' edge.
+  @param {string} [class] - Extra classes.
+
+  @example
+  {% render 'yv-side-heading', text: section.settings.side_heading, marquee: section.settings.side_heading_marquee, speed: section.settings.side_heading_speed, position: 'left' %}
+{%- enddoc -%}
+
+{%- liquid
+  assign label = text | default: '' | strip | slice: 0, 10
+  assign edge = position | default: 'left'
+  unless edge == 'right'
+    assign edge = 'left'
+  endunless
+  assign loop_seconds = speed | default: 8
+-%}
+
+{%- if label != blank -%}
+  {%- if marquee -%}
+    <div
+      class="yv-side-heading yv-side-heading--marquee yv-side-heading--{{ edge }}{% if class != blank %} {{ class }}{% endif %}"
+      style="--yv-side-heading-speed: {{ loop_seconds }}s;"
+    >
+      <span class="visually-hidden">{{ label | escape }}</span>
+      <div
+        class="yv-side-heading__track"
+        aria-hidden="true"
+      >
+        {%- for i in (1..12) -%}
+          <span>{{ label | escape }} –</span>
+        {%- endfor -%}
+      </div>
+    </div>
+  {%- else -%}
+    <div class="yv-side-heading yv-side-heading--{{ edge }}{% if class != blank %} {{ class }}{% endif %}">
+      <span class="visually-hidden">{{ label | escape }}</span>
+      <span
+        class="yv-side-heading__letters"
+        aria-hidden="true"
+      >
+        {%- assign letters = label | split: '' -%}
+        {%- for letter in letters -%}
+          <span>{% if letter == ' ' %}&nbsp;{% else %}{{ letter | escape }}{% endif %}</span>
+        {%- endfor -%}
+      </span>
+    </div>
+  {%- endif -%}
+{%- endif -%}

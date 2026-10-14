@@ -1,0 +1,77 @@
+{%- doc -%}
+  Social profile links from Theme settings > Social media (docs part 3 §0.5 item 7, part 4 Social),
+  in Yuva's order: Facebook, Twitter, LinkedIn, Instagram, Pinterest, Snapchat, TikTok, Tumblr,
+  YouTube, Vimeo. Only filled links render; each opens in a new tab. With no links it renders
+  nothing, except a short notice in the theme editor.
+
+  Styles: 'circle' (default; ring with a 1px border at 40% of the text colour, solid on hover),
+  'filled' (solid disc in --yv-social-bg), 'outline' (same as circle) and 'plain' (icons only).
+  Icons are Horizon's brand glyphs in the current text colour.
+
+  @param {string} [style] - 'circle', 'filled', 'outline' or 'plain'. Default: 'circle'
+  @param {number} [size] - Icon size in px; circles are size + 16px (filled: + 20px). Default: 14
+  @param {string} [alignment] - 'left' (default) or 'center'.
+  @param {string} [label] - aria-label for the list, e.g. "Follow us".
+  @param {string} [class] - Extra classes on the list.
+
+  @example
+  {% render 'yv-social-icons', style: 'circle', size: 14 %}
+{%- enddoc -%}
+
+{%- liquid
+  assign icon_style = style | default: 'circle'
+  if icon_style == 'outline'
+    assign icon_style = 'circle'
+  endif
+  unless icon_style == 'plain' or icon_style == 'filled'
+    assign icon_style = 'circle'
+  endunless
+  assign icon_size = size | default: 14
+
+  assign networks = 'facebook,twitter,linkedin,instagram,pinterest,snapchat,tiktok,tumblr,youtube,vimeo' | split: ','
+  assign names = 'Facebook,Twitter,LinkedIn,Instagram,Pinterest,Snapchat,TikTok,Tumblr,YouTube,Vimeo' | split: ','
+  assign link_count = 0
+  for network in networks
+    assign setting_id = 'yv_social_' | append: network
+    if settings[setting_id] != blank
+      assign link_count = link_count | plus: 1
+    endif
+  endfor
+-%}
+
+{%- if link_count > 0 -%}
+  <ul
+    class="yv-social yv-social--{{ icon_style }}{% if alignment == 'center' %} yv-social--center{% endif %}{% if class != blank %} {{ class }}{% endif %}"
+    style="--yv-social-icon: {{ icon_size }}px;"
+    {% if label != blank %}
+      aria-label="{{ label | escape }}"
+    {% endif %}
+    role="list"
+  >
+    {%- for network in networks -%}
+      {%- assign setting_id = 'yv_social_' | append: network -%}
+      {%- if settings[setting_id] != blank -%}
+        <li class="yv-social__item">
+          <a
+            class="yv-social__link yv-social__link--{{ network }}"
+            href="{{ settings[setting_id] }}"
+            target="_blank"
+            rel="noopener"
+            aria-label="{{ names[forloop.index0] }} ({{ 'yv.common.opens_new_window' | t }})"
+          >
+            <svg
+              class="yv-social__icon"
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+              focusable="false"
+            >
+              {%- render 'icon', icon: network -%}
+            </svg>
+          </a>
+        </li>
+      {%- endif -%}
+    {%- endfor -%}
+  </ul>
+{%- elsif request.design_mode -%}
+  <p class="yv-social__notice">{{ 'yv.common.social_empty' | t }}</p>
+{%- endif -%}

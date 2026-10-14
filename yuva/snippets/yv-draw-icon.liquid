@@ -1,0 +1,103 @@
+{%- doc -%}
+  "Icon over section" (spec part 2 §0.3): a hand-drawn stroke icon, absolutely positioned inside
+  the closest positioned container, that draws itself once when the section is 30% in view
+  (assets/yv-draw-icon.js). Decorative: aria-hidden, no pointer events. Under reduced motion and in
+  the theme editor it shows fully drawn.
+
+  Either pass the section's settings object as `icon_settings` (reads the shared ids draw_icon_show, draw_icon,
+  draw_icon_x_desktop, draw_icon_y_desktop, draw_icon_x_mobile, draw_icon_y_mobile, draw_icon_color)
+  or pass the values one by one. The container it sits in must have `position: relative`
+  (add the utility class `yv-draw-icon-host`).
+
+  @param {object} [icon_settings] - A settings object with the shared draw_icon_* ids (section.settings or block.settings).
+  @param {string} [icon] - sparkle | star | heart | swirl | arrow | circle | underline | flower. Default: 'sparkle'
+  @param {string} [color] - Stroke colour. Default: '#012921'
+  @param {number} [x] - Left offset in % of the container (desktop). Default: 0
+  @param {number} [y] - Top offset in % of the container (desktop). Default: 0
+  @param {number} [x_mobile] - Left offset in % below 750px. Default: 2
+  @param {number} [y_mobile] - Top offset in % below 750px. Default: 2
+  @param {number} [size] - Icon size in px (desktop). Default: 130
+  @param {number} [size_mobile] - Icon size in px below 750px. Default: 90
+  @param {string} [class] - Extra classes.
+
+  @example
+  <div class="page-width yv-draw-icon-host">
+    {% render 'yv-draw-icon', icon_settings: section.settings %}
+    …
+  </div>
+{%- enddoc -%}
+
+{%- liquid
+  assign draw_show = true
+  if icon_settings != blank
+    assign draw_show = icon_settings.draw_icon_show
+    assign draw_icon = icon_settings.draw_icon | default: icon | default: 'sparkle'
+    assign draw_color = icon_settings.draw_icon_color | default: color | default: '#012921'
+    assign draw_x = icon_settings.draw_icon_x_desktop | default: x | default: 0
+    assign draw_y = icon_settings.draw_icon_y_desktop | default: y | default: 0
+    assign draw_x_mobile = icon_settings.draw_icon_x_mobile | default: x_mobile | default: 2
+    assign draw_y_mobile = icon_settings.draw_icon_y_mobile | default: y_mobile | default: 2
+  else
+    assign draw_icon = icon | default: 'sparkle'
+    assign draw_color = color | default: '#012921'
+    assign draw_x = x | default: 0
+    assign draw_y = y | default: 0
+    assign draw_x_mobile = x_mobile | default: 2
+    assign draw_y_mobile = y_mobile | default: 2
+  endif
+  assign draw_size = size | default: 130
+  assign draw_size_mobile = size_mobile | default: 90
+-%}
+
+{%- if draw_show -%}
+  <script
+    src="{{ 'yv-draw-icon.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  <yv-draw-icon
+    class="yv-draw-icon yv-draw-icon--{{ draw_icon }}{% if class != blank %} {{ class }}{% endif %}"
+    aria-hidden="true"
+    style="
+      --yv-draw-x: {{ draw_x }}%;
+      --yv-draw-y: {{ draw_y }}%;
+      --yv-draw-x-mobile: {{ draw_x_mobile }}%;
+      --yv-draw-y-mobile: {{ draw_y_mobile }}%;
+      --yv-draw-size: {{ draw_size }}px;
+      --yv-draw-size-mobile: {{ draw_size_mobile }}px;
+      --yv-draw-color: {{ draw_color }};
+    "
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 200 200"
+      fill="none"
+      focusable="false"
+    >
+      {%- case draw_icon -%}
+        {%- when 'star' -%}
+          <path pathLength="1000" d="M100 30 L120 80.5 L174.2 83.9 L132.3 118.5 L145.8 171.1 L100 142 L54.2 171.1 L67.7 118.5 L25.8 83.9 L80 80.5 Z"/>
+          <path pathLength="1000" d="M168 34 L170 46 M176 40 L164 40"/>
+        {%- when 'heart' -%}
+          <path pathLength="1000" d="M100 166 C58 136 26 108 30 76 C33 52 54 40 72 44 C86 47 96 58 100 72 C105 57 116 46 131 44 C150 42 170 56 170 80 C170 110 140 136 100 166 Z"/>
+          <path pathLength="1000" d="M150 30 C156 22 166 22 172 28 M168 48 L182 46"/>
+        {%- when 'swirl' -%}
+          <path pathLength="1000" d="M106 100 Q107.6 102.8 107.7 104.6 Q107.7 106.5 106.9 108.5 Q106.1 110.5 104.3 112.3 Q102.5 114 99.8 115 Q97.2 116 94 116 Q90.8 115.9 87.6 114.5 Q84.4 113.1 81.6 110.4 Q78.9 107.7 77.2 103.8 Q75.5 100 75.3 95.5 Q75 90.9 76.6 86.3 Q78.1 81.6 81.4 77.5 Q84.7 73.4 89.5 70.6 Q94.3 67.8 100.2 66.7 Q106 65.7 112.2 66.9 Q118.4 68.1 124.1 71.5 Q129.8 75 134.2 80.5 Q138.5 86 140.8 93 Q143 100 142.7 107.7 Q142.4 115.4 139.2 122.9 Q136.1 130.3 130.4 136.5 Q124.6 142.6 116.8 146.5 Q108.9 150.5 99.8 151.5 Q90.7 152.5 81.5 150.2 Q72.3 148 64.2 142.4 Q56 136.9 50.1 128.6 Q44.1 120.3 41.3 110.2 Q38.5 100 39.3 89.1 Q40.2 78.2 45 68 Q49.7 57.8 57.9 49.6 Q66.1 41.4 77 36.3 Q87.9 31.3 100.2 30.3 Q112.5 29.3 124.7 32.6 Q136.9 36 147.6 43.6 L158.2 51.2"/>
+        {%- when 'arrow' -%}
+          <path pathLength="1000" d="M26 160 C40 104 74 66 118 62 C140 60 158 68 170 84"/>
+          <path pathLength="1000" d="M142 82 L172 88 L176 58"/>
+        {%- when 'circle' -%}
+          <path pathLength="1000" d="M148 62 C122 34 64 34 40 70 C18 104 38 152 92 164 C142 174 182 142 176 104 C172 76 146 56 110 52 C90 50 72 56 58 64"/>
+        {%- when 'underline' -%}
+          <path pathLength="1000" d="M18 124 C62 106 120 100 182 108"/>
+          <path pathLength="1000" d="M44 148 C84 134 128 132 166 138"/>
+        {%- when 'flower' -%}
+          <path pathLength="1000" d="M92.5 81.5 C67.1 38.2 100 22 100 22 C100 22 132.9 38.2 107.5 81.5 M112.3 84.2 C137.1 40.6 167.5 61 167.5 61 C167.5 61 170 97.6 119.8 97.2 M119.8 102.8 C170 102.4 167.5 139 167.5 139 C167.5 139 137.1 159.4 112.3 115.8 M107.5 118.5 C132.9 161.8 100 178 100 178 C100 178 67.1 161.8 92.5 118.5 M87.7 115.8 C62.9 159.4 32.5 139 32.5 139 C32.5 139 30 102.4 80.2 102.8 M80.2 97.2 C30 97.6 32.5 61 32.5 61 C32.5 61 62.9 40.6 87.7 84.2"/>
+          <path pathLength="1000" d="M100 86 C108 86 114 92 114 100 C114 108 108 114 100 114 C92 114 86 108 86 100 C86 92 92 86 100 86 Z"/>
+        {%- else -%}
+          <path pathLength="1000" d="M100 44 Q107.4 58.4 113.5 80.6 Q127.8 80.7 146.8 77 Q142.2 89.2 130 104 Q139 118.5 153.7 135 Q136.5 133.3 113 126.5 Q106 140.3 100 160 Q91.5 149.4 84.5 130.8 Q68.6 130.5 48 134 Q56.3 120.4 72 104 Q66.3 92 55 78 Q67.2 75.8 85.5 78.9 Q93.3 64.4 100 44 Z"/>
+          <path pathLength="1000" d="M137 39.9 L145 26.1 M174 104 L190 104 M137 168.1 L145 181.9 M63 168.1 L55 181.9 M26 104 L10 104 M63 39.9 L55 26.1"/>
+      {%- endcase -%}
+    </svg>
+  </yv-draw-icon>
+{%- endif -%}

@@ -1,0 +1,73 @@
+{%- doc -%}
+  Applies a Yuva colour set (Theme settings > Colors) to a section or block.
+
+  Renders Horizon's `contrast-override` for the set's background and text colour, then emits the
+  Yuva per-set tokens on `.color-custom-{section_id}`: --yv-heading-color, --yv-border-color,
+  --yv-card-bg and --yv-set-background. For the Gradient set it also paints the gradient on the
+  section's `.section-background` and on any `.yv-set-bg` element carrying the same class.
+
+  Put `color-custom-{{ section.id }}` on BOTH the `.section-background` div and the section element
+  (for a block: `color-custom-{{ block.id }}` on the block root, plus `yv-set-bg` if it should paint).
+
+  @param {string} [set] - 'primary' (default), 'secondary', 'tertiary', 'quaternary' or 'gradient' (the shared `color_set` setting).
+  @param {string} section_id - section.id (or block.id for a block); suffix of the color-custom-* class.
+  @param {boolean} [skip_contrast] - true when an image or video sits under the content: only background tokens are set, text keeps the inherited colour.
+
+  @example
+  {% render 'yv-color-set', set: section.settings.color_set, section_id: section.id %}
+  <div class="section-background color-custom-{{ section.id }}"></div>
+  <div class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}">
+{%- enddoc -%}
+
+{%- liquid
+  assign set_name = set | default: 'primary'
+  assign skip = skip_contrast | default: false, allow_false: true
+
+  case set_name
+    when 'secondary'
+      assign set_background = settings.yv_secondary_background
+      assign set_text = settings.yv_secondary_text
+      assign set_heading = settings.yv_secondary_heading
+      assign set_card = settings.yv_secondary_card_background
+      assign set_border = settings.yv_secondary_section_border
+    when 'tertiary'
+      assign set_background = settings.yv_tertiary_background
+      assign set_text = settings.yv_tertiary_text
+      assign set_heading = settings.yv_tertiary_heading
+      assign set_card = settings.yv_tertiary_card_background
+      assign set_border = settings.yv_tertiary_section_border
+    when 'quaternary'
+      assign set_background = settings.yv_quaternary_background
+      assign set_text = settings.yv_quaternary_text
+      assign set_heading = settings.yv_quaternary_heading
+      assign set_card = settings.yv_quaternary_card_background
+      assign set_border = settings.yv_quaternary_section_border
+    else
+      assign set_background = settings.page_background_color
+      assign set_text = settings.page_text_color
+      assign set_heading = settings.yv_primary_heading
+      assign set_card = settings.yv_primary_card_background
+      assign set_border = settings.yv_primary_section_border
+  endcase
+
+  if skip
+    render 'contrast-override', background_color: set_background, section_id: section_id, skip_contrast: true
+  else
+    render 'contrast-override', background_color: set_background, text_color: set_text, section_id: section_id
+  endif
+-%}
+
+{%- style -%}
+  .color-custom-{{ section_id }} {
+    --yv-heading-color: {{ set_heading }};
+    --yv-card-bg: {{ set_card }};
+    --yv-border-color: {{ set_border }};
+    --yv-set-background: {% if set_name == 'gradient' %}{{ settings.yv_gradient_background | default: set_background }}{% else %}{{ set_background }}{% endif %};
+  }
+  {%- if set_name == 'gradient' and settings.yv_gradient_background != blank %}
+    .shopify-section .section-background.color-custom-{{ section_id }},
+    .yv-set-bg.color-custom-{{ section_id }} {
+      background: {{ settings.yv_gradient_background }};
+    }
+  {%- endif %}
+{%- endstyle -%}

@@ -1,0 +1,104 @@
+{%- doc -%}
+  Yuva carousel controls: previous/next arrows (34px rounded white boxes), page dots and an
+  optional autoplay pause toggle, for a <yv-carousel> (assets/yv-carousel.js).
+
+  Render it inside the <yv-carousel> element (dots and the pause toggle only work there). To put
+  the arrows somewhere else on the page (for example next to a section heading), render it again
+  with `outside: true`; those arrows drive the carousel through its id and stay in sync.
+
+  @param {string} carousel_id - The id of the <yv-carousel> element. The track id is `<carousel_id>-track`.
+  @param {boolean} [arrows] - Render the previous/next arrows. Default: true
+  @param {boolean} [dots] - Render the dots container (filled by JS, one dot per page). Default: false
+  @param {boolean} [autoplay] - Render the autoplay pause/play toggle (visually hidden until focused). Default: false
+  @param {string} [icon] - Arrow glyph: 'arrow' (long-tailed, Yuva default) or 'chevron'. Default: 'arrow'
+  @param {boolean} [outside] - The controls are rendered outside the <yv-carousel> element. Default: false
+  @param {string} [class] - Extra classes for the controls wrapper.
+
+  @example
+  {% render 'yv-carousel-controls', carousel_id: carousel_id, dots: true %}
+  {% render 'yv-carousel-controls', carousel_id: carousel_id, outside: true, class: 'yv-carousel__controls--inline' %}
+{%- enddoc -%}
+
+{%- liquid
+  assign show_arrows = true
+  if arrows == false
+    assign show_arrows = false
+  endif
+  assign glyph = icon | default: 'arrow'
+  if outside
+    assign action_target = '#' | append: carousel_id
+  else
+    assign action_target = 'yv-carousel'
+  endif
+  assign track_id = carousel_id | append: '-track'
+-%}
+
+<div class="yv-carousel__controls{% if outside %} yv-carousel__controls--outside{% endif %}{% if class != blank %} {{ class }}{% endif %}">
+  {%- if show_arrows -%}
+    <button
+      type="button"
+      class="yv-carousel__arrow yv-carousel__arrow--prev"
+      data-yv-carousel-action="prev"
+      aria-controls="{{ track_id }}"
+      aria-label="{{ 'yv.carousel.previous' | t }}"
+      on:click="{{ action_target }}/previous"
+    >
+      <span class="yv-carousel__arrow-icon svg-wrapper" aria-hidden="true">
+        {%- if glyph == 'chevron' -%}
+          {{- 'icon-chevron-right.svg' | inline_asset_content -}}
+        {%- else -%}
+          {{- 'icon-arrow.svg' | inline_asset_content -}}
+        {%- endif -%}
+      </span>
+    </button>
+  {%- endif -%}
+
+  {%- if dots and outside != true -%}
+    <div
+      class="yv-carousel__dots"
+      ref="dots"
+      role="group"
+      aria-label="{{ 'yv.carousel.choose_slide' | t }}"
+      hidden
+    ></div>
+  {%- endif -%}
+
+  {%- if autoplay and outside != true -%}
+    <button
+      type="button"
+      class="yv-carousel__toggle"
+      ref="playToggle"
+      aria-pressed="false"
+      aria-label="{{ 'yv.carousel.pause' | t }}"
+      data-label-pause="{{ 'yv.carousel.pause' | t }}"
+      data-label-play="{{ 'yv.carousel.play' | t }}"
+      on:click="yv-carousel/togglePlay"
+    >
+      <span class="yv-carousel__toggle-icon yv-carousel__toggle-icon--pause svg-wrapper" aria-hidden="true">
+        {{- 'icon-pause.svg' | inline_asset_content -}}
+      </span>
+      <span class="yv-carousel__toggle-icon yv-carousel__toggle-icon--play svg-wrapper" aria-hidden="true">
+        {{- 'icon-play.svg' | inline_asset_content -}}
+      </span>
+    </button>
+  {%- endif -%}
+
+  {%- if show_arrows -%}
+    <button
+      type="button"
+      class="yv-carousel__arrow yv-carousel__arrow--next"
+      data-yv-carousel-action="next"
+      aria-controls="{{ track_id }}"
+      aria-label="{{ 'yv.carousel.next' | t }}"
+      on:click="{{ action_target }}/next"
+    >
+      <span class="yv-carousel__arrow-icon svg-wrapper" aria-hidden="true">
+        {%- if glyph == 'chevron' -%}
+          {{- 'icon-chevron-right.svg' | inline_asset_content -}}
+        {%- else -%}
+          {{- 'icon-arrow.svg' | inline_asset_content -}}
+        {%- endif -%}
+      </span>
+    </button>
+  {%- endif -%}
+</div>

@@ -1,0 +1,135 @@
+{%- doc -%}
+  Yuva product card action icons, stacked at the top-right of the card image (Theme settings >
+  Product grid / Quick view). Rendered inside the card gallery by blocks/_product-card-gallery.liquid;
+  it must sit inside a <product-card> (Horizon's quick add reads the product URL from the card).
+
+  1. Quick view (Theme settings > Quick view > Enable): Horizon's quick-add-component always taking the
+     "choose" path, so the quick view opens for every product (selling-plan products go to the page).
+  2. Add to cart (Product grid > Enable add to cart; single-variant, available products only): Horizon's
+     product-form-component + add-to-cart-component, so cart events, the drawer and fly-to-cart work as
+     on the product page. Reads "Preorder" when the preorder rule holds.
+
+  From 990px the icons appear when the card is hovered or focused (scale 0 → 1, staggered).
+  Below 990px they are always visible, except quick view when "Show quick view on mobile" is off and
+  add to cart when "Hide add to cart on mobile" is on (both below 750px).
+
+  @param {product} product - The card's product.
+  @param {string} section_id - The section id (passed to the product form).
+  @param {string} [form_id] - Unique suffix for the add-to-cart form id. Default: product id + section id
+
+  @example
+  {% render 'yv-card-actions', product: product, section_id: section.id %}
+{%- enddoc -%}
+
+{%- liquid
+  assign uses_selling_plans = false
+  if product.requires_selling_plan or product.selling_plan_groups.size > 0
+    assign uses_selling_plans = true
+  endif
+
+  assign show_quick_view = false
+  if settings.quick_add and product != blank
+    assign show_quick_view = true
+  endif
+
+  assign card_variant = product.selected_or_first_available_variant
+  assign show_atc = false
+  if settings.yv_grid_atc and product.variants_count == 1 and product.available and uses_selling_plans == false
+    assign show_atc = true
+  endif
+
+  assign is_preorder = false
+  if settings.yv_enable_preorder and card_variant.available and card_variant.inventory_management == 'shopify' and card_variant.inventory_quantity <= 0 and card_variant.inventory_policy == 'continue'
+    assign is_preorder = true
+  endif
+
+  if is_preorder
+    assign atc_label = 'yv.product_card.preorder' | t
+  else
+    assign atc_label = 'actions.add_to_cart' | t
+  endif
+  assign quick_view_label = 'yv.quick_view.open' | t
+
+  assign atc_form_id = 'YvCardAtc-' | append: section_id | append: '-' | append: product.id
+  if form_id != blank
+    assign atc_form_id = 'YvCardAtc-' | append: form_id
+  endif
+-%}
+
+{%- if show_quick_view or show_atc -%}
+  <div
+    class="yv-card-actions{% if settings.mobile_quick_add == false %} yv-card-actions--hide-mobile-quick-view{% endif %}{% if settings.yv_grid_atc_hide_mobile %} yv-card-actions--hide-mobile-atc{% endif %}"
+  >
+    {%- if show_quick_view -%}
+      <quick-add-component
+        class="yv-card-actions__item yv-card-actions__item--quick-view"
+        data-tooltip="{{ quick_view_label | escape }}"
+        ref="quickAdd"
+        data-product-title="{{ product.title | escape }}"
+        data-product-id="{{ product.id }}"
+        data-quick-add-button="choose"
+        data-product-options-count="{{ product.options.size }}"
+        data-uses-selling-plans="{{ uses_selling_plans }}"
+      >
+        <button
+          type="button"
+          class="yv-card-action yv-card-action--quick-view"
+          aria-haspopup="dialog"
+          aria-label="{{ quick_view_label | escape }}"
+          on:click="quick-add-component/handleClick"
+        >
+          <svg
+            class="yv-card-action__icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {% render 'icon', icon: 'eye' %}
+          </svg>
+        </button>
+      </quick-add-component>
+    {%- endif -%}
+
+    {%- if show_atc -%}
+      <product-form-component
+        class="yv-card-actions__item yv-card-actions__item--atc"
+        data-tooltip="{{ atc_label | escape }}"
+        data-section-id="{{ section_id }}"
+        data-product-id="{{ product.id }}"
+        on:submit="/handleSubmit"
+      >
+        <div
+          class="visually-hidden"
+          aria-live="assertive"
+          role="status"
+          aria-atomic="true"
+          ref="liveRegion"
+        ></div>
+        {%- form 'product', product, id: atc_form_id, novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+          <input
+            type="hidden"
+            name="id"
+            ref="variantId"
+            value="{{ card_variant.id }}"
+          >
+          <input
+            type="hidden"
+            name="quantity"
+            value="{{ card_variant.quantity_rule.min | default: 1 }}"
+          >
+          {% render 'add-to-cart-button',
+            add_to_cart_text: atc_label,
+            class: 'button-unstyled add-to-cart-button yv-card-action yv-card-action--atc',
+            can_add_to_cart: true,
+            show_icon: true,
+            product: product
+          %}
+        {%- endform -%}
+      </product-form-component>
+    {%- endif -%}
+  </div>
+  {% render 'add-to-cart-button-styles' %}
+  {% render 'fly-to-cart-styles' %}
+{%- endif -%}

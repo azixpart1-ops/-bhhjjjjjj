@@ -1,0 +1,96 @@
+{%- doc -%}
+  A button that opens Horizon's quick view (the quick-add modal) for any product, outside a product
+  card: hotspots, lookbook pins, mega menus, compact rows. Uses <yv-quick-view-component>
+  (assets/yv-quick-view.js, a QuickAddComponent subclass that knows the product URL).
+  Inside a Horizon <product-card> use the card's own quick view (snippets/yv-card-actions.liquid).
+
+  Renders a plain link to the product instead when Theme settings > Quick view is off, or when the
+  product sells only with a subscription (selling plans), exactly as Horizon's quick add does.
+
+  @param {product} product - The product to open.
+  @param {string} [label] - Visible label. Default: "Quick view"
+  @param {string} [class] - Classes for the button/link (e.g. 'button' or 'yv-pill-button').
+  @param {boolean} [icon_only] - Show only the eye icon (the label becomes the accessible name). Default: false
+
+  @example
+  {% render 'yv-quick-view-button', product: product, class: 'yv-pill-button' %}
+{%- enddoc -%}
+
+{%- liquid
+  assign qv_label = label | default: ''
+  if qv_label == blank
+    assign qv_label = 'yv.quick_view.open' | t
+  endif
+
+  assign uses_selling_plans = false
+  if product.requires_selling_plan or product.selling_plan_groups.size > 0
+    assign uses_selling_plans = true
+  endif
+-%}
+
+{%- if product != blank -%}
+  {%- if settings.quick_add and uses_selling_plans == false -%}
+    <script
+      src="{{ 'yv-quick-view.js' | asset_url }}"
+      type="module"
+      fetchpriority="low"
+    ></script>
+    <yv-quick-view-component
+      class="yv-quick-view"
+      data-product-url="{{ product.url }}"
+      data-product-title="{{ product.title | escape }}"
+      data-product-id="{{ product.id }}"
+      data-quick-add-button="choose"
+      data-product-options-count="{{ product.options.size }}"
+      data-uses-selling-plans="{{ uses_selling_plans }}"
+    >
+      <button
+        type="button"
+        class="yv-quick-view__button{% if icon_only %} yv-quick-view__button--icon{% endif %}{% if class != blank %} {{ class }}{% endif %}"
+        aria-haspopup="dialog"
+        {% if icon_only %}
+          aria-label="{{ qv_label | escape }}"
+        {% endif %}
+        on:click="/handleClick"
+      >
+        {%- if icon_only -%}
+          <svg
+            class="yv-quick-view__icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {% render 'icon', icon: 'eye' %}
+          </svg>
+        {%- else -%}
+          <span class="yv-quick-view__label">{{ qv_label }}</span>
+        {%- endif -%}
+      </button>
+    </yv-quick-view-component>
+  {%- else -%}
+    <a
+      class="yv-quick-view__button{% if icon_only %} yv-quick-view__button--icon{% endif %}{% if class != blank %} {{ class }}{% endif %}"
+      href="{{ product.url }}"
+      {% if icon_only %}
+        aria-label="{{ qv_label | escape }}"
+      {% endif %}
+    >
+      {%- if icon_only -%}
+        <svg
+          class="yv-quick-view__icon"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+          focusable="false"
+        >
+          {% render 'icon', icon: 'eye' %}
+        </svg>
+      {%- else -%}
+        <span class="yv-quick-view__label">{{ qv_label }}</span>
+      {%- endif -%}
+    </a>
+  {%- endif -%}
+{%- endif -%}

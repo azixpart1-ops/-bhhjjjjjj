@@ -1,0 +1,214 @@
+{%- doc -%}
+  Compact horizontal product row (spec part 3 §0.5 item 8), used by Color based collections and mega
+  menus: thumbnail, title, price, up to 4 colour dots, and a "Quick view" pill (a 40px round eye
+  button below 750px) that opens Horizon's quick view. When Theme settings > Quick view is off, or the
+  product sells by subscription, the pill links to the product instead.
+
+  The root is a Horizon <product-card> (whole row links to the product, quick view resolves the
+  product URL from it, product view events fire). Renders a placeholder row when `product` is blank.
+
+  @param {product} [product] - The product (blank renders a placeholder row).
+  @param {string} [section_id] - The section id (kept for parity with Horizon quick add).
+  @param {string} [image_fit] - 'cover' (default) or 'contain' for the thumbnail.
+  @param {boolean} [show_swatches] - Show the colour dots. Default: true
+  @param {string} [view_context] - Standard event context. Default: 'collection'
+  @param {string} [class] - Extra classes on the row.
+  @param {string} [loading] - Thumbnail loading attribute. Default: 'lazy'
+
+  @example
+  {% for product in block.settings.collection.products limit: 6 %}
+    {% render 'yv-product-list-card', product: product, section_id: section.id %}
+  {% endfor %}
+{%- enddoc -%}
+
+{%- liquid
+  assign row_product = product
+  if product.id == blank
+    assign row_product = nil
+  endif
+  assign row_context = view_context | default: 'collection'
+  assign row_fit = image_fit | default: 'cover'
+  assign row_loading = loading | default: 'lazy'
+  if settings.yv_enable_lazyload == false
+    assign row_loading = 'eager'
+  endif
+  assign row_quick_view_label = 'yv.quick_view.open' | t
+
+  assign uses_selling_plans = false
+  if row_product.requires_selling_plan or row_product.selling_plan_groups.size > 0
+    assign uses_selling_plans = true
+  endif
+
+  assign row_has_quick_view = false
+  if settings.quick_add and row_product != blank and uses_selling_plans == false
+    assign row_has_quick_view = true
+  endif
+
+  assign color_option = null
+  if show_swatches != false and row_product != blank
+    for option in row_product.options_with_values
+      assign option_name = option.name | downcase | strip
+      if option_name == 'color' or option_name == 'colour'
+        assign color_option = option
+        break
+      endif
+      if settings.yv_color_option_names != blank
+        assign color_names = settings.yv_color_option_names | downcase | split: ','
+        for color_name in color_names
+          assign wanted = color_name | strip
+          if wanted == option_name
+            assign color_option = option
+            break
+          endif
+        endfor
+        if color_option
+          break
+        endif
+      endif
+    endfor
+  endif
+
+  assign placeholder_title = 'placeholders.product_title' | t
+-%}
+
+<product-card
+  class="yv-product-row{% if class != blank %} {{ class }}{% endif %}"
+  data-product-id="{{ row_product.id }}"
+  {% if section_id != blank %}
+    data-section-id="{{ section_id }}"
+  {% endif %}
+  {% if row_product == blank %}
+    data-placeholder="true"
+  {% else %}
+    view-event-payload="{{ row_product | standard_event_data: 'view', context: row_context | escape }}"
+  {% endif %}
+>
+  <a
+    class="yv-product-row__overlay"
+    ref="productCardLink"
+    {% if row_product != blank %}
+      href="{{ row_product.url }}"
+    {% endif %}
+    aria-label="{{ row_product.title | default: placeholder_title | escape }}"
+    tabindex="-1"
+  ></a>
+
+  <div class="yv-product-row__media{% if row_fit == 'contain' %} yv-product-row__media--contain{% endif %}">
+    {%- if row_product.featured_media != blank -%}
+      {{
+        row_product.featured_media
+        | image_url: width: 240
+        | image_tag: widths: '90, 120, 180, 240', sizes: '(min-width: 750px) 90px, 80px', loading: row_loading, alt: row_product.featured_media.alt
+      }}
+    {%- else -%}
+      {{ 'product-apparel-1' | placeholder_svg_tag: 'yv-product-row__placeholder' }}
+    {%- endif -%}
+  </div>
+
+  <div class="yv-product-row__body">
+    <div class="yv-product-row__info">
+      {%- if row_product != blank -%}
+        <a
+          class="yv-product-row__title"
+          href="{{ row_product.url }}"
+        >
+          {{- row_product.title | escape -}}
+        </a>
+      {%- else -%}
+        <span class="yv-product-row__title">{{ placeholder_title }}</span>
+      {%- endif -%}
+
+      <div class="yv-product-row__price">
+        {%- if row_product.price_varies -%}
+          {%- assign row_min_price = row_product.price_min | money -%}
+          <span class="price">{{ 'content.price_from' | t: price: row_min_price }}</span>
+        {%- else -%}
+          {% render 'price', product_resource: row_product, show_sale_price_first: true %}
+        {%- endif -%}
+      </div>
+
+      {%- if color_option -%}
+        <ul
+          class="yv-product-row__swatches"
+          aria-label="{{ color_option.name | escape }}"
+        >
+          {%- for value in color_option.values limit: 4 -%}
+            {%- liquid
+              # Swatch image, swatch colour, or the value name as a CSS colour (unknown names show grey).
+              if value.swatch.image
+                assign dot_style = value.swatch.image | image_url: width: 40 | prepend: '--yv-dot-image: url(' | append: ');'
+              elsif value.swatch.color
+                assign dot_style = '--yv-dot-color: rgb(' | append: value.swatch.color.rgb | append: ');'
+              else
+                assign dot_name = value.name | downcase | remove: ' ' | remove: '-' | escape
+                assign dot_style = '--yv-dot-color: ' | append: dot_name | append: ';'
+              endif
+            -%}
+            <li
+              class="yv-product-row__swatch{% unless value.available %} is-unavailable{% endunless %}"
+              title="{{ value.name | escape }}"
+            >
+              <span
+                class="yv-product-row__dot"
+                style="{{ dot_style }}"
+              ></span>
+              <span class="visually-hidden">{{ value.name }}</span>
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </div>
+
+    {%- if row_has_quick_view -%}
+      <quick-add-component
+        class="yv-product-row__action"
+        ref="quickAdd"
+        data-product-title="{{ row_product.title | escape }}"
+        data-product-id="{{ row_product.id }}"
+        data-quick-add-button="choose"
+        data-product-options-count="{{ row_product.options.size }}"
+        data-uses-selling-plans="{{ uses_selling_plans }}"
+      >
+        <button
+          type="button"
+          class="button yv-pill-button yv-product-row__button"
+          aria-haspopup="dialog"
+          aria-label="{{ row_quick_view_label | escape }}"
+          on:click="quick-add-component/handleClick"
+        >
+          <span class="yv-product-row__button-label">{{ row_quick_view_label }}</span>
+          <svg
+            class="yv-product-row__button-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {% render 'icon', icon: 'eye' %}
+          </svg>
+        </button>
+      </quick-add-component>
+    {%- elsif row_product != blank -%}
+      <div class="yv-product-row__action">
+        <a
+          class="button yv-pill-button yv-product-row__button"
+          href="{{ row_product.url }}"
+          aria-label="{{ row_quick_view_label | escape }}"
+        >
+          <span class="yv-product-row__button-label">{{ row_quick_view_label }}</span>
+          <svg
+            class="yv-product-row__button-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {% render 'icon', icon: 'eye' %}
+          </svg>
+        </a>
+      </div>
+    {%- endif -%}
+  </div>
+</product-card>

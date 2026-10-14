@@ -1,0 +1,140 @@
+{%- doc -%}
+  Background video from a "Video link" text setting (docs part 1 §0.4): a muted, looping,
+  autoplaying, decorative video that covers its positioned parent.
+  - YouTube (watch, youtu.be, shorts, embed links) → youtube-nocookie iframe;
+  - Vimeo (vimeo.com/<id>, player.vimeo.com/video/<id>) → background iframe;
+  - any URL whose path ends in .mp4 → <video> loaded by Horizon's video-background-component.
+  Under prefers-reduced-motion the video is hidden and the poster (if any) shows.
+  Renders nothing for a blank or unsupported URL. The parent must be position: relative (or
+  absolute) with a size; the output fills it.
+
+  With output: 'type' it prints only 'youtube', 'vimeo', 'mp4' or '' (capture it), and with
+  output: 'id' only the YouTube/Vimeo id.
+
+  @param {string} url - The video link.
+  @param {image} [poster] - Image shown under the video and instead of it for reduced motion.
+  @param {string} [fit] - 'cover' (default, crops to fill) or 'contain'.
+  @param {string} [loading] - 'lazy' (default) or 'eager' for the poster and iframe.
+  @param {string} [title] - Accessible title for the iframe. Default: translated "Background video".
+  @param {string} [class] - Extra classes on the wrapper.
+  @param {string} [output] - 'markup' (default), 'type' or 'id'.
+
+  @example
+  <div class="yv-banner__media">
+    {% render 'yv-video-url', url: section.settings.video_url, poster: section.settings.image %}
+  </div>
+{%- enddoc -%}
+
+{%- liquid
+  assign video_type = ''
+  assign video_id = ''
+  assign source = url | default: '' | strip
+
+  if source != blank
+    assign lower = source | downcase
+    assign path = lower | split: '?' | first | split: '#' | first
+
+    if lower contains 'youtube.com/watch'
+      assign video_type = 'youtube'
+      assign video_id = source | split: 'v=' | last | split: '&' | first | split: '#' | first
+    elsif lower contains 'youtu.be/'
+      assign video_type = 'youtube'
+      assign video_id = source | split: 'youtu.be/' | last | split: '?' | first | split: '/' | first
+    elsif lower contains 'youtube.com/shorts/'
+      assign video_type = 'youtube'
+      assign video_id = source | split: 'shorts/' | last | split: '?' | first | split: '/' | first
+    elsif lower contains '/embed/'
+      if lower contains 'youtube'
+        assign video_type = 'youtube'
+        assign video_id = source | split: '/embed/' | last | split: '?' | first | split: '/' | first
+      endif
+    elsif lower contains 'vimeo.com/'
+      assign video_type = 'vimeo'
+      assign video_id = source | split: 'vimeo.com/' | last | remove: 'video/' | split: '?' | first | split: '/' | first
+    else
+      assign tail = path | slice: -4, 4
+      if tail == '.mp4'
+        assign video_type = 'mp4'
+      endif
+    endif
+
+    if video_type == 'youtube' or video_type == 'vimeo'
+      if video_id == blank
+        assign video_type = ''
+      endif
+    endif
+  endif
+
+  assign mode = output | default: 'markup'
+  assign video_fit = fit | default: 'cover'
+  assign media_loading = loading | default: 'lazy'
+  assign frame_title = title | default: ''
+  if frame_title == blank
+    assign frame_title = 'yv.common.video_label' | t
+  endif
+-%}
+
+{%- if mode == 'type' -%}
+  {{- video_type -}}
+{%- elsif mode == 'id' -%}
+  {{- video_id -}}
+{%- elsif video_type != blank -%}
+  <div
+    class="yv-video-url yv-video-url--{{ video_type }} yv-video-url--{{ video_fit }}{% if class != blank %} {{ class }}{% endif %}"
+    style="--yv-video-fit: {{ video_fit }};"
+  >
+    {%- if poster != blank -%}
+      {{
+        poster
+        | image_url: width: 3840
+        | image_tag:
+          widths: '832, 1200, 1600, 1920, 2560, 3840',
+          sizes: '100vw',
+          loading: media_loading,
+          alt: '',
+          class: 'yv-video-url__poster'
+      }}
+    {%- endif -%}
+
+    {%- case video_type -%}
+      {%- when 'youtube' -%}
+        <iframe
+          class="yv-video-url__frame"
+          src="https://www.youtube-nocookie.com/embed/{{ video_id | url_encode }}?autoplay=1&mute=1&loop=1&playlist={{ video_id | url_encode }}&controls=0&playsinline=1&modestbranding=1&rel=0&disablekb=1"
+          title="{{ frame_title | escape }}"
+          allow="autoplay; encrypted-media; picture-in-picture"
+          loading="{{ media_loading }}"
+          tabindex="-1"
+          aria-hidden="true"
+        ></iframe>
+      {%- when 'vimeo' -%}
+        <iframe
+          class="yv-video-url__frame"
+          src="https://player.vimeo.com/video/{{ video_id | url_encode }}?background=1&autoplay=1&loop=1&muted=1"
+          title="{{ frame_title | escape }}"
+          allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+          loading="{{ media_loading }}"
+          tabindex="-1"
+          aria-hidden="true"
+        ></iframe>
+      {%- when 'mp4' -%}
+        <video-background-component class="yv-video-url__media">
+          <video
+            playsinline
+            muted
+            autoplay
+            loop
+            preload="metadata"
+            aria-hidden="true"
+            ref="videoElement"
+          >
+            <source
+              data-video-source="{{ source | escape }}"
+              type="video/mp4"
+              ref="videoSources[]"
+            >
+          </video>
+        </video-background-component>
+    {%- endcase -%}
+  </div>
+{%- endif -%}

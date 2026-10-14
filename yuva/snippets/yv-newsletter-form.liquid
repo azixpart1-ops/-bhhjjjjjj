@@ -1,0 +1,140 @@
+{%- doc -%}
+  Yuva newsletter form (docs part 3 §0.5 item 6): a Shopify customer form that subscribes the
+  email with the tag "newsletter". Pill input and button side by side ('inline', stacking when the
+  form is narrower than 400px) or stacked full width ('stacked'). Success and error messages are
+  rendered after Shopify reloads the page (Shopify scrolls to #form_id).
+
+  @param {string} form_id - Unique id for the form on the page, e.g. 'yv-newsletter-' | append: section.id.
+  @param {string} [placeholder] - Input placeholder. Default: translated "Enter your email".
+  @param {string} [button_label] - Button text. Default: translated "Subscribe".
+  @param {string} [layout] - 'inline' (default) or 'stacked'.
+  @param {string} [button_variant] - 'primary' (default) or 'secondary' theme button colours.
+  @param {string} [button_bg] - Button background colour (color setting).
+  @param {string} [button_text] - Button text colour (color setting).
+  @param {string} [button_border] - Button border colour (color setting).
+  @param {string} [tags] - Customer tags. Default: 'newsletter'
+  @param {string} [success_text] - Message after a successful sign-up. Default: translated "Thanks for subscribing!".
+  @param {string} [class] - Extra classes on the form.
+
+  @example
+  {% render 'yv-newsletter-form',
+    form_id: 'yv-newsletter-' | append: section.id,
+    layout: 'inline',
+    button_label: section.settings.button_label
+  %}
+{%- enddoc -%}
+
+{%- liquid
+  assign form_layout = layout | default: 'inline'
+  unless form_layout == 'stacked'
+    assign form_layout = 'inline'
+  endunless
+
+  assign form_class = 'yv-newsletter-form yv-newsletter-form--' | append: form_layout
+  if class != blank
+    assign form_class = form_class | append: ' ' | append: class
+  endif
+
+  assign input_placeholder = placeholder | default: ''
+  if input_placeholder == blank
+    assign input_placeholder = 'yv.common.newsletter.placeholder' | t
+  endif
+  assign label_text = button_label | default: ''
+  if label_text == blank
+    assign label_text = 'yv.common.newsletter.subscribe' | t
+  endif
+  assign success_message = success_text | default: ''
+  if success_message == blank
+    assign success_message = 'yv.common.newsletter.success' | t
+  endif
+
+  assign button_class = 'button yv-button yv-newsletter-form__button'
+  if button_variant == 'secondary'
+    assign button_class = 'button-secondary yv-button yv-newsletter-form__button'
+  endif
+  assign button_style = ''
+  if button_bg != blank or button_text != blank or button_border != blank
+    assign button_class = button_class | append: ' yv-button--custom'
+    if button_bg != blank
+      assign button_style = button_style | append: '--yv-btn-bg: ' | append: button_bg | append: ';'
+    endif
+    if button_text != blank
+      assign button_style = button_style | append: '--yv-btn-text: ' | append: button_text | append: ';'
+    endif
+    if button_border != blank
+      assign button_style = button_style | append: '--yv-btn-border: ' | append: button_border | append: ';'
+    endif
+  endif
+
+  assign input_id = form_id | append: '-email'
+-%}
+
+{%- form 'customer', id: form_id, class: form_class -%}
+  <input
+    type="hidden"
+    name="contact[tags]"
+    value="{{ tags | default: 'newsletter' | escape }}"
+  >
+  <div class="yv-newsletter-form__fields">
+    <label
+      for="{{ input_id }}"
+      class="visually-hidden"
+    >
+      {{- 'yv.common.newsletter.email_label' | t -}}
+    </label>
+    <input
+      id="{{ input_id }}"
+      class="yv-input yv-newsletter-form__input"
+      type="email"
+      name="contact[email]"
+      autocomplete="email"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      placeholder="{{ input_placeholder | escape }}"
+      required
+      {% if form.errors %}
+        aria-invalid="true"
+        aria-describedby="{{ form_id }}-error"
+      {% elsif form.posted_successfully? %}
+        aria-describedby="{{ form_id }}-success"
+      {% endif %}
+    >
+    <button
+      type="submit"
+      class="{{ button_class }}"
+      {% if button_style != blank %}
+        style="{{ button_style }}"
+      {% endif %}
+    >
+      {{- label_text | escape -}}
+    </button>
+  </div>
+
+  {%- if form.errors -%}
+    <p
+      id="{{ form_id }}-error"
+      class="yv-newsletter-form__message yv-newsletter-form__message--error"
+      role="alert"
+    >
+      {%- render 'yv-icon', name: 'alert', size: 16 -%}
+      <span>
+        {%- if form.errors.messages.email != blank -%}
+          {{- form.errors.translated_fields.email | capitalize }}
+          {{ form.errors.messages.email -}}
+        {%- else -%}
+          {{- 'yv.common.newsletter.error' | t -}}
+        {%- endif -%}
+      </span>
+    </p>
+  {%- elsif form.posted_successfully? -%}
+    <p
+      id="{{ form_id }}-success"
+      class="yv-newsletter-form__message yv-newsletter-form__message--success"
+      role="status"
+    >
+      {%- render 'yv-icon', name: 'check-circle', size: 16 -%}
+      <span>{{ success_message | escape }}</span>
+    </p>
+  {%- endif -%}
+{%- endform -%}

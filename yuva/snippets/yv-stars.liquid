@@ -1,0 +1,57 @@
+{%- doc -%}
+  Star rating (docs part 2 §0.5): `rating` filled stars (original 5-point star, currentColor),
+  optionally followed by the remaining empty stars up to `max`. Renders nothing when the rounded
+  rating is 0. Colour follows the text colour; set --yv-star-color to change it.
+
+  @param {number} rating - Rating from 0 to max; decimals are rounded to the nearest whole star.
+  @param {number} [size] - Star size in px. Default: 14
+  @param {number} [max] - Number of stars in the scale. Default: 5
+  @param {boolean} [show_empty] - Also draw the empty stars up to max. Default: false
+  @param {string} [class] - Extra classes.
+
+  @example
+  {% render 'yv-stars', rating: block.settings.rating, size: 16 %}
+{%- enddoc -%}
+
+{%- liquid
+  assign scale = max | default: 5
+  assign filled = rating | default: 0 | times: 1.0 | round
+  if filled > scale
+    assign filled = scale
+  endif
+  assign star_size = size | default: 14
+-%}
+
+{%- if filled > 0 -%}
+  {%- liquid
+    assign total = filled
+    if show_empty
+      assign total = scale
+    endif
+  -%}
+  <span
+    class="yv-stars{% if class != blank %} {{ class }}{% endif %}"
+    role="img"
+    aria-label="{{ 'yv.common.stars' | t: rating: filled }}"
+    style="--yv-star-size: {{ star_size }}px;"
+  >
+    {%- for i in (1..total) -%}
+      <svg
+        class="yv-stars__star{% if i > filled %} yv-stars__star--empty{% endif %}"
+        viewBox="0 0 20 20"
+        width="{{ star_size }}"
+        height="{{ star_size }}"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path
+          d="M10 2.1 12.12 7.59 17.99 7.9 13.42 11.61 14.94 17.3 10 14.1 5.06 17.3 6.58 11.61 2.01 7.9 7.88 7.59Z"
+          fill="{% if i > filled %}none{% else %}currentColor{% endif %}"
+          stroke="currentColor"
+          stroke-width="1.2"
+          stroke-linejoin="round"
+        />
+      </svg>
+    {%- endfor -%}
+  </span>
+{%- endif -%}

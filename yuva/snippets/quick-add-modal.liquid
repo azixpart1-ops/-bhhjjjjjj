@@ -6,12 +6,43 @@
 
 {% render 'dialog-styles' %}
 
+{%- comment -%}
+  yv: Yuva quick view. Theme settings > Quick view > style picks the right-hand drawer or the popup
+  (classes styled in assets/yv-components.css); assets/yv-quick-view.js adds the gallery arrows,
+  thumbnails and share links when the modal opens. Horizon's add-to-cart contract is unchanged.
+{%- endcomment -%}
+{%- liquid
+  assign yv_quick_view_style = settings.yv_quick_view_style | default: 'popup'
+  assign yv_quick_view_classes = 'yv-quick-view-modal yv-quick-view-modal--' | append: yv_quick_view_style
+  if yv_quick_view_style == 'drawer'
+    assign yv_quick_view_classes = yv_quick_view_classes | append: ' quick-add-modal--drawer'
+  endif
+  if settings.yv_quick_view_dynamic_checkout == false
+    assign yv_quick_view_classes = yv_quick_view_classes | append: ' yv-quick-view-modal--no-checkout'
+  endif
+-%}
+<script
+  src="{{ 'yv-quick-view.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
 <quick-add-dialog id="quick-add-dialog">
   <dialog
-    class="quick-add-modal dialog-modal color-custom-popover"
+    class="quick-add-modal dialog-modal color-custom-popover {{ yv_quick_view_classes }}"
     ref="dialog"
+    aria-label="{{ 'yv.quick_view.title' | t }}"
+    data-yv-thumb-label="{{ 'yv.carousel.go_to_slide' | t: index: '[index]' | escape }}"
+    data-yv-prev-label="{{ 'yv.carousel.previous' | t }}"
+    data-yv-next-label="{{ 'yv.carousel.next' | t }}"
     scroll-lock
   >
+    <div
+      class="yv-quick-view-modal__header"
+      aria-hidden="true"
+    >
+      <p class="yv-quick-view-modal__title">{{ 'yv.quick_view.title' | t }}</p>
+    </div>
     <button
       ref="closeButton"
       on:click="/closeDialog"
@@ -26,6 +57,68 @@
       class="quick-add-modal__content"
       view-event-trigger="dialog"
     ></product-component>
+
+    {%- comment -%} yv: parts that assets/yv-quick-view.js clones into the quick view when it opens. {%- endcomment -%}
+    <template id="YvQuickViewParts">
+      <span
+        class="yv-carousel__arrow-icon svg-wrapper"
+        aria-hidden="true"
+        data-yv-part="arrow"
+      >
+        {{- 'icon-arrow.svg' | inline_asset_content -}}
+      </span>
+      <div
+        class="yv-qv-share"
+        data-yv-part="share"
+      >
+        <span class="yv-qv-share__label">{{ 'yv.quick_view.share' | t }}</span>
+        <a
+          class="yv-qv-share__link"
+          href="https://www.facebook.com/sharer/sharer.php?u=[url]"
+          target="_blank"
+          rel="noopener"
+          aria-label="{{ 'yv.quick_view.share_on' | t: network: 'Facebook' }}"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {% render 'icon', icon: 'facebook' %}
+          </svg>
+        </a>
+        <a
+          class="yv-qv-share__link"
+          href="https://x.com/intent/post?url=[url]&text=[title]"
+          target="_blank"
+          rel="noopener"
+          aria-label="{{ 'yv.quick_view.share_on' | t: network: 'X' }}"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {% render 'icon', icon: 'x' %}
+          </svg>
+        </a>
+        <a
+          class="yv-qv-share__link"
+          href="https://pinterest.com/pin/create/button/?url=[url]&description=[title]"
+          target="_blank"
+          rel="noopener"
+          aria-label="{{ 'yv.quick_view.share_on' | t: network: 'Pinterest' }}"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {% render 'icon', icon: 'pinterest' %}
+          </svg>
+        </a>
+      </div>
+    </template>
   </dialog>
 </quick-add-dialog>
 

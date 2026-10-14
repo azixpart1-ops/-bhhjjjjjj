@@ -1,0 +1,107 @@
+{%- doc -%}
+  Yuva button link (docs part 1 §0.3, part 3 §0.5 item 1). Renders nothing unless BOTH `label`
+  and `link` are filled in (Yuva's rule).
+
+  Variants: 'primary' (Horizon .button), 'secondary' (.button-secondary), 'outline' (transparent
+  pill in the current text colour) and 'link' (underlined text). Theme settings control radius,
+  case, font and the animated hover fill. Sizes: 'default' (48px), 'small', 'medium', 'large',
+  chosen separately for desktop (≥750px) and mobile (<750px). Optional colours turn the button
+  into a custom-coloured pill (link variant: `text` colours the link).
+
+  @param {string} label - Button text (escaped here).
+  @param {string} link - URL (a url setting).
+  @param {string} [variant] - 'primary', 'secondary', 'outline' or 'link'. Default: 'primary'
+  @param {string} [size_desktop] - 'default', 'small', 'medium' or 'large'. Default: 'default'
+  @param {string} [size_mobile] - 'default', 'small', 'medium' or 'large'. Default: 'default'
+  @param {string} [bg] - Background colour (color setting); blank keeps the theme colour.
+  @param {string} [text] - Text colour (color setting).
+  @param {string} [border] - Border colour (color setting); defaults to the background colour.
+  @param {boolean} [new_tab] - Open in a new tab. Default: false
+  @param {boolean} [full_width] - Stretch to the container width. Default: false
+  @param {string} [class] - Extra classes.
+  @param {string} [aria_label] - Accessible name when the label alone is ambiguous ("Shop now").
+  @param {boolean} [reveal] - Add data-yv-reveal. Default: false
+
+  @example
+  {% render 'yv-button',
+    label: section.settings.button_label,
+    link: section.settings.button_link,
+    variant: 'primary',
+    size_desktop: section.settings.button_size_desktop,
+    size_mobile: section.settings.button_size_mobile
+  %}
+{%- enddoc -%}
+
+{%- if label != blank and link != blank -%}
+  {%- liquid
+    assign button_variant = variant | default: 'primary'
+    assign desktop_size = size_desktop | default: 'default'
+    assign mobile_size = size_mobile | default: 'default'
+
+    case button_variant
+      when 'secondary'
+        assign base_class = 'button-secondary yv-button'
+      when 'outline'
+        assign base_class = 'button-secondary yv-button yv-button--outline'
+      when 'link'
+        assign base_class = 'yv-button yv-button--link'
+      else
+        assign base_class = 'button yv-button'
+    endcase
+
+    assign classes = base_class
+    if desktop_size == 'small' or desktop_size == 'medium' or desktop_size == 'large'
+      assign classes = classes | append: ' yv-button--d-' | append: desktop_size
+    endif
+    if mobile_size == 'small' or mobile_size == 'medium' or mobile_size == 'large'
+      assign classes = classes | append: ' yv-button--m-' | append: mobile_size
+    endif
+    if full_width
+      assign classes = classes | append: ' yv-button--full'
+    endif
+
+    assign style = ''
+    if button_variant == 'link'
+      if text != blank
+        assign style = '--yv-btn-text: ' | append: text | append: ';'
+      endif
+    elsif bg != blank or text != blank or border != blank
+      assign classes = classes | append: ' yv-button--custom'
+      if bg != blank
+        assign style = style | append: '--yv-btn-bg: ' | append: bg | append: ';'
+      endif
+      if text != blank
+        assign style = style | append: '--yv-btn-text: ' | append: text | append: ';'
+      endif
+      if border != blank
+        assign style = style | append: '--yv-btn-border: ' | append: border | append: ';'
+      endif
+    endif
+
+    if class != blank
+      assign classes = classes | append: ' ' | append: class
+    endif
+  -%}
+  <a
+    href="{{ link }}"
+    class="{{ classes }}"
+    {% if style != blank %}
+      style="{{ style }}"
+    {% endif %}
+    {% if aria_label != blank %}
+      aria-label="{{ aria_label | escape }}"
+    {% endif %}
+    {% if new_tab %}
+      target="_blank"
+      rel="noopener noreferrer"
+    {% endif %}
+    {% if reveal %}
+      data-yv-reveal
+    {% endif %}
+  >
+    {{- label | escape -}}
+    {%- if new_tab -%}
+      <span class="visually-hidden"> ({{ 'yv.common.opens_new_window' | t }})</span>
+    {%- endif -%}
+  </a>
+{%- endif -%}

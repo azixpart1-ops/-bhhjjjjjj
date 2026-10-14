@@ -1,0 +1,116 @@
+{%- doc -%}
+  Yuva product badges for product cards (Theme settings > Product grid > Product badges, Custom badge;
+  Colors > badge colours; Badges > position, corner radius, font, case). Rendered inside the card
+  gallery by blocks/_product-card-gallery.liquid; any other media box can render it too (the box must
+  be `position: relative`).
+
+  Order (stacked, 6px apart, at the theme's badge position): Sold out, Preorder, Sale, Custom (tag
+  match). Then, separately at the bottom-left of the image, the saved-amount pill ("$10.00 OFF" or
+  "20% OFF") when Theme settings > Product > Show saved amount is on and the variant is discounted.
+
+  @param {product} product - The product.
+  @param {boolean} [show_saved] - Render the saved-amount pill. Default: true (the theme setting still applies)
+  @param {boolean} [show_custom] - Render the custom (tag) badge. Default: true
+
+  @example
+  {% render 'yv-badges', product: product %}
+{%- enddoc -%}
+
+{%- liquid
+  assign badge_variant = product.selected_or_first_available_variant
+
+  assign show_sold_out = false
+  if product.available == false and settings.yv_badge_sold_out != false
+    assign show_sold_out = true
+  endif
+
+  assign show_preorder = false
+  if settings.yv_enable_preorder and settings.yv_badge_preorder != false and badge_variant.available
+    if badge_variant.inventory_management == 'shopify' and badge_variant.inventory_quantity <= 0 and badge_variant.inventory_policy == 'continue'
+      assign show_preorder = true
+    endif
+  endif
+
+  assign show_sale = false
+  if product.available and product.compare_at_price > product.price and settings.yv_badge_sale != false
+    assign show_sale = true
+  endif
+
+  assign show_custom_badge = false
+  assign custom_text = settings.yv_custom_badge_text | strip
+  if show_custom != false and custom_text != blank and settings.yv_custom_badge_tags != blank
+    assign badge_tags = settings.yv_custom_badge_tags | downcase | split: ','
+    assign product_tags = product.tags | join: ',' | downcase | split: ','
+    for badge_tag in badge_tags
+      assign wanted = badge_tag | strip
+      if wanted == blank
+        continue
+      endif
+      for product_tag in product_tags
+        assign have = product_tag | strip
+        if have == wanted
+          assign show_custom_badge = true
+          break
+        endif
+      endfor
+      if show_custom_badge
+        break
+      endif
+    endfor
+  endif
+
+  assign show_saved_pill = false
+  if show_saved != false and settings.yv_show_saved_amount != false and badge_variant.compare_at_price > badge_variant.price and product.available
+    assign show_saved_pill = true
+    assign saved_cents = badge_variant.compare_at_price | minus: badge_variant.price
+    if settings.yv_saved_amount_style == 'percentage'
+      assign saved_percent = saved_cents | times: 100.0 | divided_by: badge_variant.compare_at_price | round
+      assign saved_text = 'yv.badges.saved_percent' | t: percent: saved_percent
+    else
+      assign saved_amount = saved_cents | money
+      assign saved_text = 'yv.badges.saved_amount' | t: amount: saved_amount
+    endif
+  endif
+
+  assign badge_position = settings.badge_position | default: 'top-left'
+  assign badge_radius = settings.badge_corner_radius | default: 10
+  assign badge_font = settings.badge_font_family | default: 'body'
+  assign badge_case = settings.badge_text_transform | default: 'uppercase'
+-%}
+
+{%- if show_sold_out or show_preorder or show_sale or show_custom_badge -%}
+  <div
+    class="product-badges product-badges--{{ badge_position }} yv-badges"
+    style="
+      --badge-border-radius: {{ badge_radius }}px;
+      --badge-font-family: var(--font-{{ badge_font }}--family);
+      --badge-font-weight: var(--font-{{ badge_font }}--weight);
+      --badge-text-transform: {{ badge_case }};
+    "
+  >
+    {%- if show_sold_out -%}
+      <span class="product-badges__badge product-badges__badge--rectangle yv-badge yv-badge--sold-out color-custom-badge-sold-out">
+        {{- 'content.product_badge_sold_out' | t -}}
+      </span>
+    {%- endif -%}
+    {%- if show_preorder -%}
+      <span class="product-badges__badge product-badges__badge--rectangle yv-badge yv-badge--preorder">
+        {{- 'yv.badges.preorder' | t -}}
+      </span>
+    {%- endif -%}
+    {%- if show_sale -%}
+      <span class="product-badges__badge product-badges__badge--rectangle yv-badge yv-badge--sale color-custom-badge-sale">
+        {{- 'content.product_badge_sale' | t -}}
+      </span>
+    {%- endif -%}
+    {%- if show_custom_badge -%}
+      <span class="product-badges__badge product-badges__badge--rectangle yv-badge yv-badge--custom">
+        {{- custom_text | escape -}}
+      </span>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+
+{%- if show_saved_pill -%}
+  <span class="yv-badges__saved">{{ saved_text }}</span>
+{%- endif -%}

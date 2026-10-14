@@ -1,0 +1,289 @@
+{%- doc -%}
+  Yuva countdown timer (Days / Hours / Minutes / Seconds) driven by assets/yv-countdown.js.
+
+  It parses the merchant's date text, renders the boxes with server-side starting values (so there is
+  no empty flash or layout shift) and outputs <yv-countdown data-end="YYYY-MM-DDT00:00:00">, which
+  counts down to midnight at the start of that date in the visitor's time zone.
+
+  Invalid or blank dates render nothing (plus an editor-only warning in the theme editor).
+
+  @param {string} end_date - The end date text, e.g. '31/12/2026'. Two-digit years mean 20YY.
+  @param {string} [date_format] - 'dmy' (DD/MM/YYYY, Yuva sections), 'mdy' (MM/DD/YYYY, product countdown block) or 'iso' (YYYY-MM-DD). ISO text is always accepted. Default: 'dmy'
+  @param {string} [variant] - 'boxes' (filled boxes, separators), 'glass' (frosted panel on dark media), 'plain' (numbers only), 'outlined' (bordered boxes) or 'inline' (compact one-line HH:MM:SS for bars). Default: 'boxes'
+  @param {string} [size] - 'small' | 'medium' | 'large' digit size. Default: 'medium'
+  @param {string} [on_expire] - 'keep' (show 00s), 'hide' (hide the timer), 'hide_block' (hide the closest [data-yv-countdown-block]), 'hide_section' (hide the whole section) or 'message' (replace the digits with `expired_message`). Default: 'keep'
+  @param {string} [expired_message] - Text shown when on_expire is 'message'. Default: "This offer has ended"
+  @param {boolean} [show_labels] - Show the unit labels. Default: true
+  @param {boolean} [separators] - Show ":" between units. Default: true for boxes/plain/outlined/inline, false for glass
+  @param {string} [output] - 'timer' (markup), 'status' (outputs active | expired | invalid | blank) or 'iso' (outputs YYYY-MM-DD or nothing). Default: 'timer'
+  @param {string} [class] - Extra classes on <yv-countdown>.
+  @param {string} [style] - Inline CSS, e.g. '--yv-countdown-digit-color: #fff; --yv-countdown-box-bg: #2b2b2b;'
+
+  @example
+  {% render 'yv-countdown-timer', end_date: section.settings.end_date, variant: 'glass', on_expire: 'message' %}
+  {%- capture status -%}{% render 'yv-countdown-timer', end_date: section.settings.end_date, output: 'status' %}{%- endcapture -%}
+{%- enddoc -%}
+
+{%- liquid
+  assign countdown_output = output | default: 'timer'
+  assign countdown_format = date_format | default: 'dmy'
+  assign raw_date = end_date | default: '' | strip
+  assign parsed_iso = ''
+  assign countdown_status = 'blank'
+
+  if raw_date != blank
+    assign countdown_status = 'invalid'
+    assign y_text = ''
+    assign m_text = ''
+    assign d_text = ''
+
+    if raw_date contains '-'
+      assign date_part = raw_date | split: 'T' | first | split: ' ' | first
+      assign parts = date_part | split: '-'
+      if parts.size == 3
+        assign y_text = parts[0]
+        assign m_text = parts[1]
+        assign d_text = parts[2]
+      endif
+    else
+      assign parts = raw_date | replace: '.', '/' | split: '/'
+      if parts.size == 3
+        assign y_text = parts[2] | strip
+        if countdown_format == 'mdy'
+          assign m_text = parts[0] | strip
+          assign d_text = parts[1] | strip
+        else
+          assign d_text = parts[0] | strip
+          assign m_text = parts[1] | strip
+        endif
+      endif
+    endif
+
+    if y_text.size == 2
+      assign y_text = '20' | append: y_text
+    endif
+
+    assign y_num = y_text | plus: 0
+    assign m_num = m_text | plus: 0
+    assign d_num = d_text | plus: 0
+    assign y_check = y_num | append: ''
+    assign m_check = m_num | append: '' | prepend: '0' | slice: -2, 2
+    assign m_given = m_text | prepend: '0' | slice: -2, 2
+    assign d_check = d_num | append: '' | prepend: '0' | slice: -2, 2
+    assign d_given = d_text | prepend: '0' | slice: -2, 2
+
+    assign max_day = 31
+    case m_num
+      when 4, 6, 9, 11
+        assign max_day = 30
+      when 2
+        assign max_day = 28
+        assign leap4 = y_num | modulo: 4
+        assign leap100 = y_num | modulo: 100
+        assign leap400 = y_num | modulo: 400
+        if leap4 == 0
+          if leap100 != 0 or leap400 == 0
+            assign max_day = 29
+          endif
+        endif
+    endcase
+
+    if y_check == y_text and m_check == m_given and d_check == d_given and y_num >= 2000 and y_num <= 2999 and m_num >= 1 and m_num <= 12 and d_num >= 1 and d_num <= max_day
+      assign parsed_iso = y_text | append: '-' | append: m_check | append: '-' | append: d_check
+      assign end_epoch = parsed_iso | append: ' 00:00:00' | date: '%s' | plus: 0
+      assign now_epoch = 'now' | date: '%s' | plus: 0
+      assign remaining = end_epoch | minus: now_epoch
+      if remaining > 0
+        assign countdown_status = 'active'
+      else
+        assign countdown_status = 'expired'
+        assign remaining = 0
+      endif
+    endif
+  endif
+-%}
+
+{%- if countdown_output == 'status' -%}
+  {{- countdown_status -}}
+{%- elsif countdown_output == 'iso' -%}
+  {{- parsed_iso -}}
+{%- elsif countdown_status == 'blank' or countdown_status == 'invalid' -%}
+  {%- if countdown_status == 'invalid' and request.design_mode -%}
+    <span class="yv-countdown-notice">
+      {%- if countdown_format == 'mdy' -%}
+        {{ 'yv.countdown.invalid_date' | t: format: 'MM/DD/YYYY' }}
+      {%- else -%}
+        {{ 'yv.countdown.invalid_date' | t: format: 'DD/MM/YYYY' }}
+      {%- endif -%}
+    </span>
+  {%- endif -%}
+{%- else -%}
+  {%- liquid
+    assign countdown_variant = variant | default: 'boxes'
+    assign countdown_size = size | default: 'medium'
+    assign expire_mode = on_expire | default: 'keep' | replace: '_', '-'
+    assign show_unit_labels = true
+    if show_labels == false
+      assign show_unit_labels = false
+    endif
+    assign show_separators = true
+    if countdown_variant == 'glass'
+      assign show_separators = false
+    endif
+    if separators == true
+      assign show_separators = true
+    elsif separators == false
+      assign show_separators = false
+    endif
+
+    assign render_timer = true
+    if countdown_status == 'expired' and request.design_mode == false
+      if expire_mode == 'hide' or expire_mode == 'hide-block' or expire_mode == 'hide-section'
+        assign render_timer = false
+      endif
+    endif
+
+    assign days_left = remaining | divided_by: 86400
+    assign hours_left = remaining | modulo: 86400 | divided_by: 3600
+    assign minutes_left = remaining | modulo: 3600 | divided_by: 60
+    assign seconds_left = remaining | modulo: 60
+    assign days_text = days_left | prepend: '0' | slice: -2, 2
+    if days_left > 99
+      assign days_text = days_left
+    endif
+    assign hours_text = hours_left | prepend: '0' | slice: -2, 2
+    assign minutes_text = minutes_left | prepend: '0' | slice: -2, 2
+    assign seconds_text = seconds_left | prepend: '0' | slice: -2, 2
+
+    if countdown_variant == 'inline'
+      assign label_days = 'yv.countdown.days_short' | t
+      assign label_hours = 'yv.countdown.hours_short' | t
+      assign label_minutes = 'yv.countdown.minutes_short' | t
+      assign label_seconds = 'yv.countdown.seconds_short' | t
+    else
+      assign label_days = 'yv.countdown.days' | t
+      assign label_hours = 'yv.countdown.hours' | t
+      assign label_minutes = 'yv.countdown.minutes' | t
+      assign label_seconds = 'yv.countdown.seconds' | t
+    endif
+    assign message_text = expired_message | default: ''
+    if message_text == blank
+      assign message_text = 'yv.countdown.expired' | t
+    endif
+  -%}
+
+  {%- if render_timer -%}
+    <script
+      src="{{ 'yv-countdown.js' | asset_url }}"
+      type="module"
+      fetchpriority="low"
+    ></script>
+    <yv-countdown
+      class="yv-countdown yv-countdown--{{ countdown_variant }} yv-countdown--{{ countdown_size }}{% if show_unit_labels == false %} yv-countdown--no-labels{% endif %}{% if class != blank %} {{ class }}{% endif %}"
+      role="timer"
+      aria-label="{{ 'yv.countdown.label' | t }}"
+      data-end="{{ parsed_iso }}T00:00:00"
+      data-expired="{{ expire_mode }}"
+      {% if countdown_variant == 'inline' %}
+        data-hide-empty-days
+      {% endif %}
+      {% if countdown_status == 'expired' %}
+        expired
+      {% endif %}
+      {% if style != blank %}
+        style="{{ style }}"
+      {% endif %}
+    >
+      <span
+        class="yv-countdown__units"
+        ref="units"
+        {% if countdown_status == 'expired' and expire_mode == 'message' %}
+          hidden
+        {% endif %}
+      >
+        <span
+          class="yv-countdown__unit"
+          data-unit="days"
+          {% if countdown_variant == 'inline' and days_left == 0 %}
+            hidden
+          {% endif %}
+        >
+          <span
+            class="yv-countdown__value"
+            ref="days"
+          >
+            {{- days_text -}}
+          </span>
+          {%- if show_unit_labels -%}
+            <span class="yv-countdown__label">{{ label_days }}</span>
+          {%- endif -%}
+        </span>
+        {%- if show_separators -%}
+          <span class="yv-countdown__separator" aria-hidden="true">:</span>
+        {%- endif -%}
+        <span
+          class="yv-countdown__unit"
+          data-unit="hours"
+        >
+          <span
+            class="yv-countdown__value"
+            ref="hours"
+          >
+            {{- hours_text -}}
+          </span>
+          {%- if show_unit_labels -%}
+            <span class="yv-countdown__label">{{ label_hours }}</span>
+          {%- endif -%}
+        </span>
+        {%- if show_separators -%}
+          <span class="yv-countdown__separator" aria-hidden="true">:</span>
+        {%- endif -%}
+        <span
+          class="yv-countdown__unit"
+          data-unit="minutes"
+        >
+          <span
+            class="yv-countdown__value"
+            ref="minutes"
+          >
+            {{- minutes_text -}}
+          </span>
+          {%- if show_unit_labels -%}
+            <span class="yv-countdown__label">{{ label_minutes }}</span>
+          {%- endif -%}
+        </span>
+        {%- if show_separators -%}
+          <span class="yv-countdown__separator" aria-hidden="true">:</span>
+        {%- endif -%}
+        <span
+          class="yv-countdown__unit"
+          data-unit="seconds"
+        >
+          <span
+            class="yv-countdown__value"
+            ref="seconds"
+          >
+            {{- seconds_text -}}
+          </span>
+          {%- if show_unit_labels -%}
+            <span class="yv-countdown__label">{{ label_seconds }}</span>
+          {%- endif -%}
+        </span>
+      </span>
+      {%- if expire_mode == 'message' -%}
+        <span
+          class="yv-countdown__expired"
+          ref="expiredMessage"
+          {% unless countdown_status == 'expired' %}
+            hidden
+          {% endunless %}
+        >
+          {{ message_text | escape }}
+        </span>
+      {%- endif -%}
+    </yv-countdown>
+    {%- if countdown_status == 'expired' and request.design_mode and expire_mode != 'keep' and expire_mode != 'message' -%}
+      <span class="yv-countdown-notice">{{ 'yv.countdown.hidden_notice' | t }}</span>
+    {%- endif -%}
+  {%- endif -%}
+{%- endif -%}

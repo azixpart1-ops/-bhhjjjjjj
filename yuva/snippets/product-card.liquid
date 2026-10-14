@@ -57,10 +57,24 @@
   if block_settings.background_color != blank
     render 'contrast-override', background_color: block_settings.background_color, text_color: block_settings.text_color, section_id: block.id
   endif
+
+  # yv: Yuva card look and options (Theme settings > Product grid), styled in assets/yv-components.css.
+  assign yv_card_hover = settings.yv_grid_hover | default: 'carousel'
+  assign yv_card_alignment = settings.yv_grid_alignment | default: 'left'
+  assign yv_card_classes = 'yv-card yv-card--align-' | append: yv_card_alignment | append: ' yv-card--hover-' | append: yv_card_hover
+  if settings.yv_grid_price == false
+    assign yv_card_classes = yv_card_classes | append: ' yv-card--no-price'
+  endif
+  if settings.yv_grid_swatches == false
+    assign yv_card_classes = yv_card_classes | append: ' yv-card--no-swatches'
+  endif
+  if yv_card_hover == 'carousel' and settings.yv_grid_autoslide
+    assign yv_card_classes = yv_card_classes | append: ' yv-card--autoslide'
+  endif
 %}
 
 <product-card
-  class="product-card size-style"
+  class="product-card size-style {{ yv_card_classes }}"
   style="{% render 'size-style', settings: block_settings %}"
   data-product-id="{{ product.id }}"
   id="product-card-{{ block.id }}"
@@ -117,3 +131,11 @@
 </product-card>
 
 {% render 'product-card-styles' %}
+{%- if yv_card_hover == 'carousel' and settings.yv_grid_autoslide -%}
+  {%- comment -%} yv: auto slide on hover (assets/yv-card.js). {%- endcomment -%}
+  <script
+    src="{{ 'yv-card.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}

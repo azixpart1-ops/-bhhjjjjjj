@@ -1,0 +1,201 @@
+{%- doc -%}
+  A pulsing hotspot dot placed by x/y % over media, with a popover card (assets/yv-hotspot.js).
+  Place it inside a `position: relative` media box that carries `data-yv-hotspot-container`
+  (the popover stays inside that box). Renders a product card popover for `product`, or your own
+  `content`. With neither, it renders only in the theme editor (as a placeholder product card).
+
+  Desktop: hover (or click/Enter) opens the card beside the dot; "View product" opens Horizon's quick
+  view when Theme settings > Quick view is on (otherwise it links to the product).
+  Mobile: a tap opens the product's quick view (mobile_action 'quick-view') or the card as a bottom sheet ('sheet').
+
+  @param {string} id - Unique id (e.g. block.id). The popover gets id "YvHotspot-<id>".
+  @param {number} x - Horizontal position of the dot centre in % (desktop).
+  @param {number} y - Vertical position of the dot centre in % (desktop).
+  @param {number} [x_mobile] - Horizontal position below 750px. Default: x
+  @param {number} [y_mobile] - Vertical position below 750px. Default: y
+  @param {product} [product] - Product shown in the card.
+  @param {string} [layout] - Product card layout: 'horizontal' (thumb left) or 'vertical' (image on top). Default: 'horizontal'
+  @param {string} [content] - Custom popover HTML (used instead of the product card).
+  @param {string} [label] - Accessible name of the dot. Default: "Show <product title>" / "Show details"
+  @param {string} [variant] - Dot look: 'ring' (18px translucent dot, box-shadow pulse; media grid) or 'marker' (36px ring + 14px dot, scale pulse; Shop the look). Default: 'ring'
+  @param {string} [color] - Dot colour. Default: '#ffffff'
+  @param {string} [pulse_color] - Pulse colour. Default: same as `color`
+  @param {string} [side] - Preferred desktop popover side: 'right' or 'left' (flips when there is no room). Default: 'right'
+  @param {string} [mobile_action] - 'quick-view' or 'sheet'. Default: 'quick-view' for products when quick view is on, else 'sheet'
+  @param {string} [attributes] - Extra raw attributes for the root (e.g. block.shopify_attributes).
+  @param {string} [class] - Extra classes on the root.
+
+  @example
+  <div class="yv-media" data-yv-hotspot-container>
+    {{ image | image_url: width: 1600 | image_tag: loading: 'lazy' }}
+    {% render 'yv-hotspot', id: block.id, x: block.settings.pos_x, y: block.settings.pos_y,
+      product: block.settings.product, attributes: block.shopify_attributes %}
+  </div>
+{%- enddoc -%}
+
+{%- liquid
+  assign hotspot_product = product
+  assign render_hotspot = true
+  if hotspot_product == blank and content == blank and request.design_mode == false
+    assign render_hotspot = false
+  endif
+
+  assign hotspot_layout = layout | default: 'horizontal'
+  assign hotspot_variant = variant | default: 'ring'
+  assign hotspot_color = color | default: '#ffffff'
+  assign hotspot_pulse = pulse_color | default: hotspot_color
+  assign hotspot_side = side | default: 'right'
+  assign hx = x | default: 50
+  assign hy = y | default: 50
+  assign hx_mobile = x_mobile | default: hx
+  assign hy_mobile = y_mobile | default: hy
+
+  assign quick_view_enabled = false
+  if settings.quick_add and hotspot_product != blank and content == blank
+    assign quick_view_enabled = true
+  endif
+
+  assign hotspot_mobile_action = mobile_action | default: ''
+  if hotspot_mobile_action == blank
+    if quick_view_enabled
+      assign hotspot_mobile_action = 'quick-view'
+    else
+      assign hotspot_mobile_action = 'sheet'
+    endif
+  endif
+  if hotspot_mobile_action == 'quick-view' and quick_view_enabled == false
+    assign hotspot_mobile_action = 'sheet'
+  endif
+
+  assign placeholder_title = 'placeholders.product_title' | t
+  assign hotspot_title = hotspot_product.title | default: placeholder_title
+  assign hotspot_label = label | default: ''
+  if hotspot_label == blank
+    if content != blank and hotspot_product == blank
+      assign hotspot_label = 'yv.hotspot.show_details' | t
+    else
+      assign hotspot_label = 'yv.hotspot.show_product' | t: title: hotspot_title
+    endif
+  endif
+  assign popover_id = 'YvHotspot-' | append: id
+-%}
+
+{%- if render_hotspot -%}
+  <script
+    src="{{ 'yv-hotspot.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  {%- if quick_view_enabled -%}
+    <script
+      src="{{ 'yv-quick-view.js' | asset_url }}"
+      type="module"
+      fetchpriority="low"
+    ></script>
+  {%- endif -%}
+
+  <yv-hotspot
+    class="yv-hotspot yv-hotspot--{{ hotspot_variant }}{% if class != blank %} {{ class }}{% endif %}"
+    data-side="{{ hotspot_side }}"
+    data-mobile-action="{{ hotspot_mobile_action }}"
+    style="
+      --yv-hotspot-x: {{ hx }}%;
+      --yv-hotspot-y: {{ hy }}%;
+      --yv-hotspot-x-mobile: {{ hx_mobile }}%;
+      --yv-hotspot-y-mobile: {{ hy_mobile }}%;
+      --yv-hotspot-color: {{ hotspot_color }};
+      --yv-hotspot-pulse: {{ hotspot_pulse }};
+    "
+    {{ attributes }}
+  >
+    <button
+      type="button"
+      class="yv-hotspot__dot"
+      ref="trigger"
+      aria-expanded="false"
+      aria-controls="{{ popover_id }}"
+      aria-label="{{ hotspot_label | strip_html | escape }}"
+      on:click="yv-hotspot/toggle"
+    >
+      <span
+        class="yv-hotspot__core"
+        aria-hidden="true"
+      ></span>
+    </button>
+
+    <dialog
+      class="yv-hotspot__popover yv-hotspot__popover--{{ hotspot_layout }}"
+      id="{{ popover_id }}"
+      ref="popover"
+      aria-label="{{ hotspot_title | strip_html | escape }}"
+    >
+      <button
+        type="button"
+        class="yv-hotspot__close button-unstyled"
+        aria-label="{{ 'accessibility.close_dialog' | t }}"
+        on:click="yv-hotspot/close"
+      >
+        <span class="svg-wrapper">{{- 'icon-close.svg' | inline_asset_content -}}</span>
+      </button>
+      {%- if content != blank -%}
+        <div class="yv-hotspot__content">{{ content }}</div>
+      {%- else -%}
+        <div class="yv-hotspot__card">
+          <a
+            class="yv-hotspot__media"
+            {% if hotspot_product != blank %}
+              href="{{ hotspot_product.url }}"
+            {% endif %}
+            tabindex="-1"
+            aria-hidden="true"
+          >
+            {%- if hotspot_product.featured_media != blank -%}
+              {{
+                hotspot_product.featured_media
+                | image_url: width: 400
+                | image_tag: widths: '120, 200, 300, 400', sizes: '(min-width: 750px) 120px, 40vw', loading: 'lazy', alt: hotspot_product.featured_media.alt
+              }}
+            {%- else -%}
+              {{ 'product-apparel-1' | placeholder_svg_tag: 'yv-hotspot__placeholder' }}
+            {%- endif -%}
+          </a>
+          <div class="yv-hotspot__info">
+            {%- if hotspot_product != blank -%}
+              <a
+                class="yv-hotspot__title"
+                href="{{ hotspot_product.url }}"
+              >
+                {{- hotspot_title | escape -}}
+              </a>
+            {%- else -%}
+              <span class="yv-hotspot__title">{{ hotspot_title | escape }}</span>
+            {%- endif -%}
+            <div class="yv-hotspot__price">
+              {%- if hotspot_product.price_varies -%}
+                {%- assign hotspot_min_price = hotspot_product.price_min | money -%}
+                <span class="price">{{ 'content.price_from' | t: price: hotspot_min_price }}</span>
+              {%- else -%}
+                {% render 'price', product_resource: hotspot_product %}
+              {%- endif -%}
+            </div>
+            {%- if quick_view_enabled -%}
+              {%- assign hotspot_view_label = 'yv.hotspot.view_product' | t -%}
+              {% render 'yv-quick-view-button',
+                product: hotspot_product,
+                label: hotspot_view_label,
+                class: 'yv-hotspot__action'
+              %}
+            {%- elsif hotspot_product != blank -%}
+              <a
+                class="yv-hotspot__action"
+                href="{{ hotspot_product.url }}"
+              >
+                {{- 'yv.hotspot.view_product' | t -}}
+              </a>
+            {%- endif -%}
+          </div>
+        </div>
+      {%- endif -%}
+    </dialog>
+  </yv-hotspot>
+{%- endif -%}

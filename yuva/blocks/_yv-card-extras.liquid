@@ -1,0 +1,163 @@
+{%- doc -%}
+  Product card extras (Theme settings > Product grid), in this order and only when enabled:
+  review stars (standard `reviews.rating` metafields), product labels (metafields named in
+  "Product label 1-4"), inventory line (in stock / low stock / out of stock) and the pickup line for
+  the location chosen in the store locator. A child of the static `_product-card` block; reads
+  `closest.product`. Renders nothing when no extra applies.
+{%- enddoc -%}
+
+{%- liquid
+  assign card_product = closest.product
+  assign card_variant = card_product.selected_or_first_available_variant
+
+  assign show_rating = false
+  if settings.yv_grid_reviews and card_product.metafields.reviews.rating.value != blank
+    assign rating_value = card_product.metafields.reviews.rating.value.rating | default: card_product.metafields.reviews.rating.value
+    assign rating_rounded = rating_value | plus: 0 | round
+    assign rating_count = card_product.metafields.reviews.rating_count.value | default: 0
+    if rating_rounded > 0
+      assign show_rating = true
+    endif
+  endif
+
+  capture labels_markup
+    for i in (1..4)
+      assign label_key = 'yv_product_label_' | append: i
+      assign label_path = settings[label_key] | strip
+      if label_path == blank or card_product == blank
+        continue
+      endif
+      assign label_parts = label_path | split: '.'
+      if label_parts.size != 2
+        continue
+      endif
+      assign label_namespace = label_parts[0] | strip
+      assign label_key_name = label_parts[1] | strip
+      assign label_field = card_product.metafields[label_namespace][label_key_name]
+      if label_field == blank
+        continue
+      endif
+      if label_field.list?
+        for label_item in label_field.value
+          if label_item != blank
+            assign label_text = label_item | append: '' | escape
+            echo '<li class="yv-card-label">' | append: label_text | append: '</li>'
+          endif
+        endfor
+      elsif label_field.value != blank
+        assign label_text = label_field.value | append: '' | escape
+        echo '<li class="yv-card-label">' | append: label_text | append: '</li>'
+      endif
+    endfor
+  endcapture
+  assign labels_markup = labels_markup | strip
+
+  assign show_inventory = false
+  if settings.yv_grid_inventory and card_variant.inventory_management == 'shopify'
+    assign show_inventory = true
+    assign stock_qty = card_variant.inventory_quantity | default: 0
+    assign stock_threshold = settings.yv_grid_inventory_threshold | default: 10
+    if stock_qty <= 0 and card_variant.available == false
+      assign stock_state = 'out'
+      assign stock_text = 'yv.product_card.out_of_stock' | t
+    elsif stock_qty <= 0
+      assign stock_state = 'in'
+      assign stock_text = 'yv.product_card.in_stock' | t
+    elsif stock_threshold > 0 and stock_qty < stock_threshold
+      assign stock_state = 'low'
+      assign stock_text = 'yv.product_card.low_stock' | t: count: stock_qty
+    else
+      assign stock_state = 'in'
+      assign stock_text = 'yv.product_card.in_stock' | t
+    endif
+  endif
+
+  assign show_pickup = false
+  if settings.yv_grid_pickup and card_variant != blank
+    assign show_pickup = true
+  endif
+-%}
+
+{%- if show_rating or labels_markup != blank or show_inventory or show_pickup -%}
+  <div
+    class="yv-card-extras"
+    {{ block.shopify_attributes }}
+  >
+    {%- if show_rating -%}
+      <div
+        class="yv-card-extras__rating"
+        role="img"
+        aria-label="{{ 'yv.product_card.rating' | t: rating: rating_rounded, count: rating_count }}"
+      >
+        <span
+          class="yv-card-extras__stars"
+          aria-hidden="true"
+          style="--yv-rating: {{ rating_rounded }};"
+        ></span>
+        {%- if rating_count > 0 -%}
+          <span
+            class="yv-card-extras__count"
+            aria-hidden="true"
+            >({{ rating_count }})</span
+          >
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    {%- if labels_markup != blank -%}
+      <ul class="yv-card-extras__labels">
+        {{- labels_markup -}}
+      </ul>
+    {%- endif -%}
+
+    {%- if show_inventory -%}
+      <p class="yv-card-extras__stock yv-card-extras__stock--{{ stock_state }}">
+        <span
+          class="yv-card-extras__dot"
+          aria-hidden="true"
+        ></span>
+        {{- stock_text -}}
+      </p>
+    {%- endif -%}
+
+    {%- if show_pickup -%}
+      <script
+        src="{{ 'yv-card.js' | asset_url }}"
+        type="module"
+        fetchpriority="low"
+      ></script>
+      <yv-card-pickup
+        class="yv-card-extras__pickup"
+        data-url="{{ card_product.url }}?variant={{ card_variant.id }}&section_id=yv-card-pickup"
+        data-label-available="{{ 'yv.product_card.pickup_available' | t: location: '[location]' | escape }}"
+        data-label-unavailable="{{ 'yv.product_card.pickup_unavailable' | t: location: '[location]' | escape }}"
+        hidden
+      >
+        <span
+          class="yv-card-extras__dot"
+          aria-hidden="true"
+        ></span>
+        <span ref="text"></span>
+      </yv-card-pickup>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "t:yv.names.card_extras",
+  "tag": null,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "t:yv.product_card.extras_info"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.card_extras",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

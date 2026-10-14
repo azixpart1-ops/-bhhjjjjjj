@@ -1,0 +1,130 @@
+{% doc %}
+  Yuva button block: a link button sized per device. Renders nothing unless both the
+  text and the link are filled in (Yuva rule). Shared by Image with text, Multi images
+  with text, Rich text and Map. Alignment follows the parent section's alignment setting.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign align = section.settings.text_alignment | default: section.settings.content_alignment | default: section.settings.alignment | default: 'left'
+  if align contains 'center'
+    assign justify = 'center'
+  elsif align contains 'right'
+    assign justify = 'flex-end'
+  else
+    assign justify = 'flex-start'
+  endif
+  assign variant = 'primary'
+  if block.settings.button_as_link
+    assign variant = 'link'
+  elsif block.settings.button_style != blank
+    assign variant = block.settings.button_style
+  endif
+-%}
+
+{%- if block.settings.text != blank and block.settings.link != blank -%}
+  <div
+    class="yv-button-block"
+    style="--yv-button-block-justify: {{ justify }};"
+    {{ block.shopify_attributes }}
+  >
+    {%- render 'yv-button',
+      label: block.settings.text,
+      link: block.settings.link,
+      variant: variant,
+      size_desktop: block.settings.size_desktop,
+      size_mobile: block.settings.size_mobile,
+      new_tab: block.settings.open_new_tab,
+      reveal: settings.yv_enable_animation
+    -%}
+  </div>
+{%- elsif request.design_mode -%}
+  <div
+    class="yv-button-block yv-button-block--empty"
+    {{ block.shopify_attributes }}
+  ></div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-button-block {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: var(--yv-button-block-justify, flex-start);
+    min-width: 0;
+    width: 100%;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.button_block",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "text",
+      "label": "t:yv.common.settings.button_label",
+      "default": "Read more"
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "t:yv.common.settings.button_link"
+    },
+    {
+      "type": "checkbox",
+      "id": "open_new_tab",
+      "label": "t:yv.common.settings.open_new_tab",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "button_style",
+      "label": "t:yv.common.settings.button_style",
+      "options": [
+        { "value": "primary", "label": "t:yv.common.options.primary" },
+        { "value": "secondary", "label": "t:yv.common.options.secondary" },
+        { "value": "outline", "label": "t:yv.common.options.outline" }
+      ],
+      "default": "primary"
+    },
+    {
+      "type": "checkbox",
+      "id": "button_as_link",
+      "label": "t:yv.common.settings.button_as_link",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "size_desktop",
+      "label": "t:yv.common.settings.button_size_desktop",
+      "options": [
+        { "value": "default", "label": "t:yv.common.options.default" },
+        { "value": "small", "label": "t:yv.common.options.small" },
+        { "value": "medium", "label": "t:yv.common.options.medium" },
+        { "value": "large", "label": "t:yv.common.options.large" }
+      ],
+      "default": "small"
+    },
+    {
+      "type": "select",
+      "id": "size_mobile",
+      "label": "t:yv.common.settings.button_size_mobile",
+      "options": [
+        { "value": "default", "label": "t:yv.common.options.default" },
+        { "value": "small", "label": "t:yv.common.options.small" },
+        { "value": "medium", "label": "t:yv.common.options.medium" },
+        { "value": "large", "label": "t:yv.common.options.large" }
+      ],
+      "default": "medium"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.button_block"
+    }
+  ]
+}
+{% endschema %}

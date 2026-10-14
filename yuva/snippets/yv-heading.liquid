@@ -1,0 +1,164 @@
+{%- doc -%}
+  Yuva highlight heading (docs part 1 §0.3, part 2 §0.4): optional eyebrow subheading, the heading
+  (bold words switch to the highlight font and take the highlight colour or gradient), optional
+  rotating words appended after the heading, and an optional rich-text description.
+  Renders nothing when text, rotating_text, subheading and description are all blank.
+
+  Visual size is a Horizon type preset class, independent of the tag:
+  small → h4, medium → h3, large → h2; 'h1'…'h6' and 'paragraph' are passed through.
+
+  @param {string} [text] - Heading HTML (an inline_richtext setting, output as is). Escape plain-text settings before passing them.
+  @param {string} [tag] - 'h1'…'h6' or 'p' (the shared heading_tag setting). Default: 'h2'
+  @param {string} [size] - 'small', 'medium', 'large', 'h1'…'h6', 'paragraph' or '' (no preset class). Default: 'medium'
+  @param {string} [highlight_font] - 'heading', 'body' or 'accent'. Default: 'accent'
+  @param {string} [highlight_color] - Colour or CSS gradient (color_background setting). Blank = heading colour.
+  @param {string} [rotating_text] - Comma-separated words that cycle after the heading (yv-rotating-text).
+  @param {number} [rotating_interval] - Milliseconds per word. Default: 2500
+  @param {string} [subheading] - Plain-text eyebrow line above the heading (escaped here).
+  @param {string} [description] - Rich-text HTML shown under the heading (output as is).
+  @param {string} [alignment] - 'left', 'center' or 'right'. Default: 'left'
+  @param {string} [class] - Extra classes on the wrapper.
+  @param {string} [title_class] - Extra classes on the heading element.
+  @param {string} [id] - id attribute for the heading element (for aria-labelledby).
+  @param {boolean} [reveal] - Add data-yv-reveal (fade up) to each part. Default: false
+
+  @example
+  {% render 'yv-heading',
+    text: section.settings.heading,
+    tag: section.settings.heading_tag,
+    size: section.settings.heading_size,
+    highlight_font: section.settings.highlight_font,
+    highlight_color: section.settings.highlight_color,
+    rotating_text: section.settings.rotating_text,
+    subheading: section.settings.subheading,
+    alignment: 'center',
+    reveal: true
+  %}
+{%- enddoc -%}
+
+{%- liquid
+  assign heading_html = text | default: ''
+  assign words_source = rotating_text | default: '' | strip
+  assign eyebrow = subheading | default: '' | strip
+  assign description_html = description | default: ''
+
+  assign has_content = true
+  if heading_html == blank and words_source == blank and eyebrow == blank and description_html == blank
+    assign has_content = false
+  endif
+
+  assign heading_tag = tag | default: 'h2' | downcase
+  assign allowed_tags = 'h1,h2,h3,h4,h5,h6,p' | split: ','
+  unless allowed_tags contains heading_tag
+    assign heading_tag = 'h2'
+  endunless
+
+  assign size_key = size | default: 'medium'
+  case size_key
+    when 'small'
+      assign size_class = 'h4'
+    when 'medium'
+      assign size_class = 'h3'
+    when 'large'
+      assign size_class = 'h2'
+    when 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'paragraph'
+      assign size_class = size_key
+    else
+      assign size_class = ''
+  endcase
+
+  assign hl_font = highlight_font | default: 'accent'
+  unless hl_font == 'heading' or hl_font == 'body' or hl_font == 'accent'
+    assign hl_font = 'accent'
+  endunless
+
+  assign hl_value = highlight_color | append: '' | strip
+  assign hl_mode = 'none'
+  if hl_value != blank
+    if hl_value contains 'gradient'
+      assign hl_mode = 'gradient'
+    else
+      assign hl_mode = 'solid'
+    endif
+  endif
+
+  assign align = alignment | default: 'left'
+  unless align == 'center' or align == 'right'
+    assign align = 'left'
+  endunless
+
+  assign words = ''
+  if words_source != blank
+    assign raw_words = words_source | split: ','
+    for word in raw_words
+      assign clean_word = word | strip
+      if clean_word != blank
+        assign words = words | append: clean_word | append: '||'
+      endif
+    endfor
+  endif
+  assign words = words | split: '||'
+
+  assign interval = rotating_interval | default: 2500
+  assign reveal_attr = ''
+  if reveal
+    assign reveal_attr = ' data-yv-reveal'
+  endif
+
+  assign wrapper_class = 'yv-heading yv-heading--' | append: align | append: ' yv-heading--hl-' | append: hl_mode
+  if hl_font == 'accent'
+    assign wrapper_class = wrapper_class | append: ' yv-heading--hl-accent'
+  endif
+  if class != blank
+    assign wrapper_class = wrapper_class | append: ' ' | append: class
+  endif
+-%}
+
+{%- if has_content -%}
+{%- if words.size > 1 -%}
+  <script
+    src="{{ 'yv-rotating-text.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}
+
+<div
+  class="{{ wrapper_class }}"
+  style="--yv-hl-family: var(--font-{{ hl_font }}--family); --yv-hl-style: var(--font-{{ hl_font }}--style);{% if hl_mode != 'none' %} --yv-hl-color: {{ hl_value | escape }};{% endif %}"
+>
+  {%- if eyebrow != blank -%}
+    <p class="yv-heading__eyebrow"{{ reveal_attr }}>{{ eyebrow | escape }}</p>
+  {%- endif -%}
+
+  {%- if heading_html != blank or words.size > 0 -%}
+    <{{ heading_tag }}
+      {% if id != blank %}
+        id="{{ id }}"
+      {% endif %}
+      class="yv-heading__title {{ size_class }}{% if title_class != blank %} {{ title_class }}{% endif %}"
+      {% if words.size > 0 %}
+        aria-label="{{ heading_html | strip_html | strip | escape }} {{ words.first | escape }}"
+      {% endif %}
+      {{- reveal_attr -}}
+    >
+      {{- heading_html -}}
+      {%- if words.size > 0 -%}
+        {%- if heading_html != blank %} {% endif -%}
+        <yv-rotating-text
+          aria-hidden="true"
+          data-interval="{{ interval }}"
+        >
+          {%- for word in words -%}
+            <span>{{ word | escape }}</span>
+          {%- endfor -%}
+        </yv-rotating-text>
+      {%- endif -%}
+    </{{ heading_tag }}>
+  {%- endif -%}
+
+  {%- if description_html != blank -%}
+    <div class="yv-heading__description rte"{{ reveal_attr }}>{{ description_html }}</div>
+  {%- endif -%}
+</div>
+{%- endif -%}

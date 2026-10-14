@@ -1,0 +1,44 @@
+{%- doc -%}
+  Outputs the class names for the shared Yuva section settings, each preceded by a space, for use
+  inside a class attribute:
+  - always ` yv-section` (Yuva heading colours and scaffolding);
+  - `section_visibility`: `small` → ` hidden--desktop` (mobile only), `large` → ` hidden--mobile` (desktop only);
+  - `border_top` → ` yv-border-top`, `border_bottom` → ` yv-border-bottom`, `border_style: dashed` → ` yv-border--dashed`.
+  With `visibility_only: true` only the visibility class is output (for the `.section-background` div).
+
+  @param {object} settings - The section (or block) settings object; reads section_visibility, border_top, border_bottom, border_style.
+  @param {boolean} [visibility_only] - Output only the visibility class. Default: false.
+
+  @example
+  <div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+  <div class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}" style="{% render 'yv-section-spacing-style', settings: section.settings %}">
+{%- enddoc -%}
+
+{%- liquid
+  assign only_visibility = visibility_only | default: false, allow_false: true
+
+  unless only_visibility
+    echo ' yv-section'
+  endunless
+
+  case settings.section_visibility
+    when 'small'
+      echo ' hidden--desktop'
+    when 'large'
+      echo ' hidden--mobile'
+  endcase
+
+  unless only_visibility
+    if settings.border_top
+      echo ' yv-border-top'
+    endif
+    if settings.border_bottom
+      echo ' yv-border-bottom'
+    endif
+    if settings.border_style == 'dashed'
+      if settings.border_top or settings.border_bottom
+        echo ' yv-border--dashed'
+      endif
+    endif
+  endunless
+-%}

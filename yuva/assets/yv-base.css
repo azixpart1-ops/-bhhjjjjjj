@@ -1,0 +1,1265 @@
+/*
+ * Yuva base layer on Horizon 4.3.0 (owner: foundation-core).
+ *
+ * Global Yuva look plus the shared utilities every yv- section uses. Theme-setting tokens are
+ * emitted by snippets/yv-theme-variables.liquid (rendered after Horizon's variables); this file
+ * only reads them, always with a Horizon or literal fallback. Horizon's own component rules are
+ * kept at equal or higher specificity than the overrides here, so Horizon components keep their
+ * specific sizing. Contract and examples: build/api/core.md.
+ *
+ *  1. Tokens and page frame        7. Layout utilities (positions, overlay, zoom, shadow, pattern)
+ *  2. Typography                   8. Side heading
+ *  3. Buttons                      9. Motion (scroll reveal)
+ *  4. Inputs                      10. Edge widgets
+ *  5. Section scaffolding         11. Small components (stars, social, newsletter, breadcrumbs, icons)
+ *  6. Headings                    12. Images
+ */
+
+/* 1. Tokens and page frame ------------------------------------------------------------------ */
+
+:root {
+  --yv-page-gutter: 20px;
+
+  /* Light text tints of the current text colour (resolved where they are used) */
+  --yv-text-light: color-mix(in srgb, currentColor 50%, transparent);
+  --yv-text-xlight: color-mix(in srgb, currentColor 30%, transparent);
+  --yv-text-xxlight: color-mix(in srgb, currentColor 10%, transparent);
+
+  /* Status and utility colours (tokens §3) */
+  --yv-success: #6cad61;
+  --yv-error: #ec7c7c;
+  --yv-grey: #cfcbcb;
+  --yv-grey-dark: #747474;
+  --yv-alt-bg: #f2f2f2;
+  --yv-social-bg: #e6e6e6;
+  --yv-highlight: linear-gradient(90deg, #a678c8 0%, #718cc7 48.08%, #639a47 100%);
+  --yv-stock-gradient: linear-gradient(340deg, #f7332b, #f1e157);
+
+  /* Containers (part 2 §0.2, tokens §8): content widths inside the section grid */
+  --yv-container-md: 1110px;
+  --yv-container-sm: 710px;
+
+  /* Buttons and inputs (tokens §4–5) */
+  --yv-button-height: 48px;
+  --yv-button-font-size: 14px;
+  --yv-button-line-height: 1.4286;
+  --yv-input-height: 49px;
+
+  /* Shadows (tokens §7) */
+  --yv-shadow-card: 0 2px 8px rgb(0 0 0 / 0.12);
+  --yv-shadow-control: 0 1px 2px rgb(0 0 0 / 0.2);
+  --yv-shadow-arrow: 0 1px 3px #d9d9d9;
+  --yv-shadow-dropdown: 0 1px 10px rgb(0 0 0 / 0.15);
+
+  /* Motion (tokens §9; docs part 4 Animation) */
+  --yv-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --yv-ease-out: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --yv-reveal-distance: 100px;
+  --yv-reveal-duration: 1000ms;
+
+  /* Layers: edge widgets sit above the header menus and below overlays and drawers */
+  --yv-layer-edge: calc(var(--layer-header-menu, 12) + 1);
+}
+
+@media screen and (min-width: 750px) {
+  :root {
+    --yv-page-gutter: 15px;
+  }
+}
+
+@media screen and (min-width: 990px) {
+  :root {
+    --yv-container-sm: 870px;
+  }
+}
+
+@media screen and (min-width: 1200px) {
+  :root {
+    --yv-container-sm: 970px;
+  }
+}
+
+/* Yuva page gutters: 20px on phones, 15px beside the fluid container on larger screens.
+   Higher specificity than base.css `.page-width-*` so the safe-area handling is kept. */
+body:is(.page-width-narrow, .page-width-normal, .page-width-wide) {
+  --page-margin: max(var(--yv-page-gutter), var(--safe-area-inset-left, 0px), var(--safe-area-inset-right, 0px));
+}
+
+/* Reserve the scrollbar so pages do not shift when content height changes (tokens §8). */
+html {
+  scrollbar-gutter: stable;
+}
+
+@media (min-width: 990px) {
+  html:has(.page-wrapper) {
+    scrollbar-gutter: auto;
+  }
+
+  .page-wrapper {
+    scrollbar-gutter: stable;
+  }
+}
+
+body {
+  letter-spacing: var(--letter-spacing--body-normal, 0);
+}
+
+/* 2. Typography --------------------------------------------------------------------------- */
+
+/* Headings inside Yuva sections take the colour set's heading colour. */
+.yv-section :is(h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6) {
+  color: var(--yv-heading-color, var(--color, var(--color-foreground)));
+}
+
+.yv-accent {
+  font-family: var(--font-accent--family);
+  font-style: var(--font-accent--style);
+  font-weight: var(--font-accent--weight);
+  letter-spacing: var(--yv-accent-letter-spacing, 0.025em);
+  line-height: var(--yv-accent-line-height, 1.6);
+}
+
+.yv-text-xs {
+  font-size: var(--yv-text-xs, 0.6rem);
+}
+
+.yv-text-sm {
+  font-size: var(--yv-text-sm, 0.72rem);
+}
+
+.yv-text-md {
+  font-size: var(--yv-text-md, 0.84rem);
+}
+
+.yv-text-lg {
+  font-size: var(--yv-text-lg, 0.96rem);
+}
+
+.yv-text-xl {
+  font-size: var(--yv-text-xl, 1.08rem);
+}
+
+.yv-text-2xl {
+  font-size: var(--yv-text-2xl, 1.2rem);
+}
+
+.yv-text-light {
+  color: var(--yv-text-light);
+}
+
+/* Accent-coloured links (breadcrumbs, policy links, rich text). */
+.yv-link,
+.rte a:where(:not(.button, .button-secondary, .yv-button)),
+.tax-note a {
+  color: var(--yv-theme-color, currentColor);
+  text-decoration-color: currentColor;
+}
+
+.yv-link {
+  text-decoration: none;
+}
+
+.yv-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* 3. Buttons ------------------------------------------------------------------------------ */
+
+/* Yuva button type: 14px, 48px tall single line (padding comes from yv-theme-variables).
+   Equal specificity to base.css `.button`, so component rules (quick add, cart…) still win. */
+.button:where(:not(.button-unstyled)),
+.button-secondary:where(:not(.button-unstyled)),
+.button-custom:where(:not(.button-unstyled)) {
+  font-family: var(--yv-button-font-family, var(--font-paragraph--family));
+  font-style: var(--yv-button-font-style, normal);
+  font-weight: var(--yv-button-font-weight, var(--font-paragraph--weight));
+  font-size: var(--yv-button-font-size);
+  line-height: var(--yv-button-line-height);
+  letter-spacing: normal;
+}
+
+/* yv-button: sizes per device. Default = 48px; small 40px/12px; medium 50px/14px; large 62px/18px. */
+.yv-button {
+  --yv-btn-height: var(--yv-button-height);
+  --yv-btn-font-size: var(--yv-button-font-size);
+  --yv-btn-px: 20px;
+
+  display: inline-grid;
+  align-content: center;
+  justify-content: center;
+  min-height: var(--yv-btn-height);
+  padding-block: 0;
+  padding-inline: var(--yv-btn-px);
+  font-size: var(--yv-btn-font-size);
+  text-align: center;
+  max-width: 100%;
+}
+
+.yv-button--full {
+  width: 100%;
+}
+
+@media screen and (max-width: 749px) {
+  .yv-button--m-small {
+    --yv-btn-height: 40px;
+    --yv-btn-font-size: 12px;
+    --yv-btn-px: 16px;
+  }
+
+  .yv-button--m-medium {
+    --yv-btn-height: 50px;
+    --yv-btn-font-size: 14px;
+    --yv-btn-px: 28px;
+  }
+
+  .yv-button--m-large {
+    --yv-btn-height: 56px;
+    --yv-btn-font-size: 14px;
+    --yv-btn-px: 32px;
+  }
+}
+
+@media screen and (min-width: 750px) {
+  .yv-button--d-small {
+    --yv-btn-height: 40px;
+    --yv-btn-font-size: 12px;
+    --yv-btn-px: 16px;
+  }
+
+  .yv-button--d-medium {
+    --yv-btn-height: 50px;
+    --yv-btn-font-size: 14px;
+    --yv-btn-px: 28px;
+  }
+
+  .yv-button--d-large {
+    --yv-btn-height: 62px;
+    --yv-btn-font-size: 16px;
+    --yv-btn-px: 40px;
+  }
+}
+
+@media screen and (min-width: 990px) {
+  .yv-button--d-large {
+    --yv-btn-font-size: 18px;
+  }
+}
+
+/* Outline variant: transparent pill in the current text colour. */
+.yv-button--outline {
+  --button-background-color: transparent;
+  --button-color: var(--color-foreground);
+  --button-border-color: var(--color-foreground);
+  --button-border-width: 1px;
+}
+
+.yv-button--outline:hover {
+  --button-background-color: var(--color-foreground);
+  --button-color: var(--color-background);
+  --button-border-color: var(--color-foreground);
+}
+
+/* Per-instance colours (yv-button bg/text/border params). */
+.yv-button--custom {
+  --button-background-color: var(--yv-btn-bg, var(--color-primary-button-background));
+  --button-color: var(--yv-btn-text, var(--color-primary-button-text));
+  --button-border-color: var(--yv-btn-border, var(--yv-btn-bg, var(--color-primary-button-border)));
+  --button-focus-outline-color: var(--yv-btn-bg, var(--color-primary-button-background));
+}
+
+.yv-button--custom:hover {
+  --button-background-color: var(--yv-btn-text, var(--color-primary-button-text));
+  --button-color: var(--yv-btn-bg, var(--color-primary-button-background));
+  --button-border-color: var(--yv-btn-border, var(--yv-btn-bg, var(--color-primary-button-border)));
+}
+
+/* Link variant (part 3 §0.5 item 1): underlined text, size changes only the font size. */
+.yv-button--link {
+  --yv-btn-font-size: 14px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  color: var(--yv-btn-text, currentColor);
+  font-family: var(--yv-button-font-family, inherit);
+  font-size: var(--yv-btn-font-size);
+  line-height: 1.4;
+  text-transform: var(--button-text-case-primary, none);
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  transition: text-decoration-thickness var(--animation-speed, 0.125s) ease;
+}
+
+.yv-button--link:hover {
+  text-decoration-thickness: 2px;
+}
+
+@media screen and (max-width: 749px) {
+  .yv-button--link.yv-button--m-small {
+    --yv-btn-font-size: 12px;
+  }
+
+  .yv-button--link.yv-button--m-large {
+    --yv-btn-font-size: 16px;
+  }
+}
+
+@media screen and (min-width: 750px) {
+  .yv-button--link.yv-button--d-small {
+    --yv-btn-font-size: 12px;
+  }
+
+  .yv-button--link.yv-button--d-large {
+    --yv-btn-font-size: 16px;
+  }
+}
+
+/* Animated hover fill (Theme settings > Buttons > Animation direction, body class yv-btn-anim-*).
+   The fill uses the button's text colour and the label turns into its background colour.
+   Rest colours of each variant, frozen so the hover state can invert them: */
+.button {
+  --yv-btn-fill: var(--color-primary-button-text);
+  --yv-btn-label: var(--yv-btn-primary-label-hover, var(--color-primary-button-background));
+  --yv-btn-rest-bg: var(--color-primary-button-background);
+  --yv-btn-rest-border: var(--color-primary-button-border);
+}
+
+.button-secondary {
+  --yv-btn-fill: var(--color-secondary-button-text);
+  --yv-btn-label: var(--yv-btn-secondary-label-hover, var(--color-secondary-button-background));
+  --yv-btn-rest-bg: var(--color-secondary-button-background);
+  --yv-btn-rest-border: var(--color-secondary-button-border);
+}
+
+.yv-button--outline {
+  --yv-btn-fill: var(--color-foreground);
+  --yv-btn-label: var(--color-background);
+  --yv-btn-rest-bg: transparent;
+  --yv-btn-rest-border: var(--color-foreground);
+}
+
+.yv-button--custom {
+  --yv-btn-fill: var(--yv-btn-text, var(--color-primary-button-text));
+  --yv-btn-label: var(--yv-btn-bg, var(--color-primary-button-background));
+  --yv-btn-rest-bg: var(--yv-btn-bg, var(--color-primary-button-background));
+  --yv-btn-rest-border: var(--yv-btn-border, var(--yv-btn-bg, var(--color-primary-button-border)));
+}
+
+/* Buttons that only look like icons or links in Horizon (header actions, close/remove buttons,
+   localization triggers, card quick add) are excluded from the fill. */
+@media (hover: hover) and (min-width: 1025px) {
+  :where(body[class*='yv-btn-anim-']:not(.yv-btn-anim-none))
+    :where(.button, .button-secondary):where(
+      :not(
+          .button-unstyled, .button--unstyled, .button-custom, .close-button, .header-actions__action,
+          .localization-selector, .menu-drawer__back-button, .predictive-search__search-button,
+          .predictive-search__close-modal-button, .quick-add__button, .cart-items__remove, .variant-item__remove
+        )
+    ) {
+    /* Zero specificity so any Horizon rule that positions a button keeps working. */
+    position: relative;
+    isolation: isolate;
+  }
+
+  body[class*='yv-btn-anim-']:not(.yv-btn-anim-none)
+    :is(.button, .button-secondary):not(
+      .button-unstyled, .button--unstyled, .button-custom, .close-button, .header-actions__action,
+      .localization-selector, .menu-drawer__back-button, .predictive-search__search-button,
+      .predictive-search__close-modal-button, .quick-add__button, .cart-items__remove, .variant-item__remove,
+      :disabled, [aria-disabled='true']
+    ) {
+    /* Colours swap instantly (also the reduced-motion behaviour). */
+    &:hover {
+      --button-color: var(--yv-btn-label);
+      --button-background-color: var(--yv-btn-fill);
+      --button-border-color: var(--yv-btn-rest-border);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      transition: color 0.5s var(--yv-ease), box-shadow 0.5s var(--yv-ease);
+
+      &:hover {
+        --button-background-color: var(--yv-btn-rest-bg);
+      }
+
+      /* ::before paints the fill, ::after redraws the border above it. Both stay inside the box. */
+      &::before,
+      &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        border-radius: inherit;
+        pointer-events: none;
+      }
+
+      /* The border overlay shows while hovered and until the fill has retracted (0.8s). */
+      &::after {
+        box-shadow: inset 0 0 0 var(--button-border-width, 1px) transparent;
+        transition: box-shadow 0s linear 0.8s;
+      }
+
+      &:hover::after {
+        box-shadow: inset 0 0 0 var(--button-border-width, 1px) var(--yv-btn-rest-border);
+        transition: none;
+      }
+
+      /* Criss cross: two 20px dots enter from both edges, meet in the middle, then grow (0.8s). */
+      &:is(.yv-btn-anim-criss_cross *)::before {
+        background-image: radial-gradient(closest-side, var(--yv-btn-fill) 97%, transparent 100%),
+          radial-gradient(closest-side, var(--yv-btn-fill) 97%, transparent 100%);
+        background-repeat: no-repeat;
+        background-size: 20px 20px, 20px 20px;
+        background-position: -20px 50%, calc(100% + 20px) 50%;
+        transition: background-size 0.4s ease, background-position 0.4s ease 0.4s;
+      }
+
+      &:is(.yv-btn-anim-criss_cross *):hover::before {
+        background-size: 140% 400%, 140% 400%;
+        background-position: 50% 50%, 50% 50%;
+        transition: background-position 0.4s ease, background-size 0.4s ease 0.4s;
+      }
+
+      /* Directional wipes. */
+      &:is(.yv-btn-anim-left_to_right *, .yv-btn-anim-right_to_left *)::before {
+        background-color: var(--yv-btn-fill);
+        transform: scaleX(0);
+        transition: transform 0.5s var(--yv-ease);
+      }
+
+      &:is(.yv-btn-anim-top_to_bottom *, .yv-btn-anim-bottom_to_top *)::before {
+        background-color: var(--yv-btn-fill);
+        transform: scaleY(0);
+        transition: transform 0.5s var(--yv-ease);
+      }
+
+      &:is(.yv-btn-anim-left_to_right *)::before {
+        transform-origin: left center;
+      }
+
+      &:is(.yv-btn-anim-right_to_left *)::before {
+        transform-origin: right center;
+      }
+
+      &:is(.yv-btn-anim-top_to_bottom *)::before {
+        transform-origin: center top;
+      }
+
+      &:is(.yv-btn-anim-bottom_to_top *)::before {
+        transform-origin: center bottom;
+      }
+
+      &:is(
+          .yv-btn-anim-left_to_right *,
+          .yv-btn-anim-right_to_left *,
+          .yv-btn-anim-top_to_bottom *,
+          .yv-btn-anim-bottom_to_top *
+        ):hover::before {
+        transform: none;
+      }
+    }
+  }
+}
+
+/* 4. Inputs ------------------------------------------------------------------------------- */
+
+input.field__input:not([type='checkbox'], [type='radio'], [type='range']),
+select.field__input,
+.yv-input:not(textarea) {
+  min-height: var(--yv-input-height);
+}
+
+textarea.field__input,
+textarea.yv-input {
+  min-height: var(--input-textarea-min-height, 58px);
+}
+
+.yv-input {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  padding: var(--input-padding-y, 12px) var(--input-padding-x, 15px);
+  border: 0;
+  border-radius: var(--style-border-radius-inputs);
+  box-shadow: var(--input-box-shadow);
+  background-color: var(--color-input-background);
+  color: var(--color-input-text);
+  font-family: var(--font-paragraph--family);
+  font-size: var(--font-paragraph--size);
+  line-height: var(--font-paragraph--line-height);
+  transition: box-shadow var(--animation-speed, 0.125s) ease;
+}
+
+.yv-input:focus {
+  outline: none;
+  box-shadow: var(--input-box-shadow-focus);
+}
+
+.yv-input:focus-visible {
+  outline: var(--focus-outline-width, 0.09375rem) solid currentColor;
+  outline-offset: var(--focus-outline-offset, 0.2em);
+}
+
+@media screen and (max-width: 1200px) {
+  .yv-input {
+    font-size: max(1rem, var(--font-paragraph--size));
+  }
+}
+
+/* 5. Section scaffolding ------------------------------------------------------------------ */
+
+/* Spacing from yv-section-spacing-style (--yv-pt-d/--yv-pb-d desktop, --yv-pt-m/--yv-pb-m mobile). */
+.yv-section-spacing {
+  padding-block-start: calc(var(--yv-pt-m, 0px) + var(--section-top-offset, 0px));
+  padding-block-end: var(--yv-pb-m, 0px);
+}
+
+@media screen and (min-width: 750px) {
+  .yv-section-spacing {
+    padding-block-start: calc(var(--yv-pt-d, 0px) + var(--section-top-offset, 0px));
+    padding-block-end: var(--yv-pb-d, 0px);
+  }
+}
+
+/* First section under a transparent header: offset like Horizon's .spacing-style, once. */
+main > .shopify-section:first-child .section.yv-section-spacing:not(.disable-section-top-offset) {
+  --section-top-offset: calc(var(--header-height, 0px) * var(--transparent-header-offset-boolean, 0));
+}
+
+main > .shopify-section:first-child .section.yv-section-spacing:not(.disable-section-top-offset) .spacing-style {
+  --section-top-offset: 0px;
+}
+
+/* Section borders from yv-section-classes. */
+.yv-border-top {
+  border-block-start: var(--yv-section-border-width, 1px) var(--yv-section-border-style, solid)
+    var(--yv-border-color, rgb(var(--color-foreground-rgb) / var(--opacity-10, 0.1)));
+}
+
+.yv-border-bottom {
+  border-block-end: var(--yv-section-border-width, 1px) var(--yv-section-border-style, solid)
+    var(--yv-border-color, rgb(var(--color-foreground-rgb) / var(--opacity-10, 0.1)));
+}
+
+.yv-border--dashed {
+  --yv-section-border-style: dashed;
+}
+
+/* Containers inside the .section grid: page (default column), md, sm, full bleed. */
+.yv-container {
+  width: 100%;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.yv-container--md {
+  max-width: var(--yv-container-md);
+}
+
+.yv-container--sm {
+  max-width: var(--yv-container-sm);
+}
+
+.section > .yv-container--full {
+  grid-column: 1 / -1;
+}
+
+/* Gradient colour set: painted on the element that carries .yv-set-bg (sections paint their
+   .section-background automatically, see yv-color-set). */
+.yv-set-bg {
+  background: var(--yv-set-background, var(--color-background));
+}
+
+/* Boxed card in the colour set's card colour. */
+.yv-card-box {
+  background-color: var(--yv-card-bg, var(--color-background));
+  border-radius: var(--yv-card-radius, 0);
+}
+
+/* 6. Headings ----------------------------------------------------------------------------- */
+
+.yv-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yv-heading-gap, 12px);
+  min-width: 0;
+  text-align: start;
+}
+
+.yv-heading > * {
+  margin-block: 0;
+  max-width: 100%;
+}
+
+.yv-heading--center {
+  text-align: center;
+  align-items: center;
+}
+
+.yv-heading--right {
+  text-align: end;
+  align-items: flex-end;
+}
+
+.yv-heading__eyebrow {
+  font-family: var(--font-body--family);
+  font-size: var(--yv-text-md, 0.84rem);
+  font-weight: var(--font-body--weight);
+  line-height: var(--line-height--body-normal, 1.4);
+  color: var(--yv-subheading-color, inherit);
+}
+
+.yv-heading__title {
+  overflow-wrap: break-word;
+}
+
+/* Bold words switch to the highlight font without getting heavier. */
+.yv-heading__title strong,
+.yv-heading__title b {
+  font-family: var(--yv-hl-family, inherit);
+  font-style: var(--yv-hl-style, inherit);
+  font-weight: inherit;
+}
+
+.yv-heading--hl-accent .yv-heading__title :is(strong, b) {
+  font-size: calc(1em * var(--yv-accent-scale, 1));
+  letter-spacing: var(--yv-accent-letter-spacing, normal);
+}
+
+.yv-heading--hl-solid .yv-heading__title :is(strong, b, yv-rotating-text) {
+  color: var(--yv-hl-color);
+}
+
+.yv-heading--hl-gradient .yv-heading__title :is(strong, b),
+.yv-heading--hl-gradient .yv-heading__title yv-rotating-text > span {
+  background-image: var(--yv-hl-color, var(--yv-highlight));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.yv-heading__description {
+  max-width: var(--yv-heading-description-width, none);
+}
+
+.yv-heading--center .yv-heading__description {
+  margin-inline: auto;
+}
+
+.yv-heading__description > :first-child {
+  margin-block-start: 0;
+}
+
+.yv-heading__description > :last-child {
+  margin-block-end: 0;
+}
+
+/* Rotating words: every word shares one grid cell, so the slot is as wide as the longest word.
+   Before assets/yv-rotating-text.js marks the element ready, only the first word shows. */
+yv-rotating-text {
+  display: inline-grid;
+  vertical-align: bottom;
+  text-align: start;
+}
+
+yv-rotating-text > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+yv-rotating-text:not([data-ready]) > span:not(:first-child) {
+  visibility: hidden;
+}
+
+/* 7. Layout utilities --------------------------------------------------------------------- */
+
+/* Nine-position content grid (part 3 §0.5 item 2): .yv-pos-d--{pos} ≥750px, .yv-pos-m--{pos} <750px. */
+:is(
+    .yv-pos-d--top_left, .yv-pos-d--top_center, .yv-pos-d--top_right,
+    .yv-pos-d--center_left, .yv-pos-d--center, .yv-pos-d--center_right,
+    .yv-pos-d--bottom_left, .yv-pos-d--bottom_center, .yv-pos-d--bottom_right,
+    .yv-pos-m--top_left, .yv-pos-m--top_center, .yv-pos-m--top_right,
+    .yv-pos-m--center_left, .yv-pos-m--center, .yv-pos-m--center_right,
+    .yv-pos-m--bottom_left, .yv-pos-m--bottom_center, .yv-pos-m--bottom_right
+  ) {
+  display: flex;
+  justify-content: var(--yv-pos-x, flex-start);
+  align-items: var(--yv-pos-y, flex-start);
+  text-align: var(--yv-pos-text, start);
+}
+
+@media screen and (max-width: 749px) {
+  :is(.yv-pos-m--top_left, .yv-pos-m--center_left, .yv-pos-m--bottom_left) {
+    --yv-pos-x: flex-start;
+    --yv-pos-text: start;
+  }
+
+  :is(.yv-pos-m--top_center, .yv-pos-m--center, .yv-pos-m--bottom_center) {
+    --yv-pos-x: center;
+    --yv-pos-text: center;
+  }
+
+  :is(.yv-pos-m--top_right, .yv-pos-m--center_right, .yv-pos-m--bottom_right) {
+    --yv-pos-x: flex-end;
+    --yv-pos-text: end;
+  }
+
+  :is(.yv-pos-m--top_left, .yv-pos-m--top_center, .yv-pos-m--top_right) {
+    --yv-pos-y: flex-start;
+  }
+
+  :is(.yv-pos-m--center_left, .yv-pos-m--center, .yv-pos-m--center_right) {
+    --yv-pos-y: center;
+  }
+
+  :is(.yv-pos-m--bottom_left, .yv-pos-m--bottom_center, .yv-pos-m--bottom_right) {
+    --yv-pos-y: flex-end;
+  }
+}
+
+@media screen and (min-width: 750px) {
+  :is(.yv-pos-d--top_left, .yv-pos-d--center_left, .yv-pos-d--bottom_left) {
+    --yv-pos-x: flex-start;
+    --yv-pos-text: start;
+  }
+
+  :is(.yv-pos-d--top_center, .yv-pos-d--center, .yv-pos-d--bottom_center) {
+    --yv-pos-x: center;
+    --yv-pos-text: center;
+  }
+
+  :is(.yv-pos-d--top_right, .yv-pos-d--center_right, .yv-pos-d--bottom_right) {
+    --yv-pos-x: flex-end;
+    --yv-pos-text: end;
+  }
+
+  :is(.yv-pos-d--top_left, .yv-pos-d--top_center, .yv-pos-d--top_right) {
+    --yv-pos-y: flex-start;
+  }
+
+  :is(.yv-pos-d--center_left, .yv-pos-d--center, .yv-pos-d--center_right) {
+    --yv-pos-y: center;
+  }
+
+  :is(.yv-pos-d--bottom_left, .yv-pos-d--bottom_center, .yv-pos-d--bottom_right) {
+    --yv-pos-y: flex-end;
+  }
+}
+
+/* Overlay layer above media, below content (part 3 §0.5 item 3). */
+.yv-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--yv-overlay-color, #000);
+  opacity: calc(var(--yv-overlay-opacity, 0) / 100);
+  border-radius: inherit;
+}
+
+/* Media box: Yuva image background behind every image, radius from the layout setting. */
+.yv-media {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--yv-image-bg, rgb(var(--color-foreground-rgb) / 0.05));
+  border-radius: var(--yv-media-radius, var(--yv-layout-radius, 0));
+}
+
+.yv-media > :is(img, video, svg, iframe) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: var(--yv-media-object-fit, cover);
+}
+
+/* Image hover zoom (part 3 §0.5 item 4). */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .yv-hover-zoom :is(img, video) {
+    transition: transform 700ms var(--yv-ease-out);
+  }
+
+  .yv-hover-zoom:hover :is(img, video) {
+    transform: scale(var(--yv-zoom-scale, 1.05));
+  }
+}
+
+/* Image shadow (snippets/yv-image-shadow): a solid block offset behind the image. */
+.yv-shadow {
+  --yv-shadow-x: 20px;
+  --yv-shadow-y: 20px;
+
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--yv-shadow-radius, var(--yv-layout-radius, 0));
+  margin-block-end: var(--yv-shadow-y);
+}
+
+.yv-shadow--right {
+  margin-inline-end: var(--yv-shadow-x);
+}
+
+.yv-shadow--left {
+  --yv-shadow-x: -20px;
+
+  margin-inline-start: 20px;
+}
+
+.yv-shadow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  translate: var(--yv-shadow-x) var(--yv-shadow-y);
+  background: var(--yv-shadow-color, #000);
+  border-radius: inherit;
+}
+
+[dir='rtl'] .yv-shadow::before {
+  translate: calc(var(--yv-shadow-x) * -1) var(--yv-shadow-y);
+}
+
+@media screen and (max-width: 749px) {
+  .yv-shadow {
+    --yv-shadow-x: 10px;
+    --yv-shadow-y: 10px;
+  }
+
+  .yv-shadow--left {
+    --yv-shadow-x: -10px;
+
+    margin-inline-start: 10px;
+  }
+}
+
+/* Decorative background pattern (snippets/yv-pattern). */
+.yv-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--yv-pattern-color, currentColor);
+  opacity: var(--yv-pattern-opacity, 0.08);
+}
+
+.yv-pattern svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Background video from a URL (snippets/yv-video-url). */
+.yv-video-url {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  container-type: size;
+  background-color: var(--yv-image-bg, #000);
+}
+
+.yv-video-url__media {
+  position: absolute;
+  inset: 0;
+}
+
+.yv-video-url :is(.yv-video-url__poster, video) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: var(--yv-video-fit, cover);
+}
+
+.yv-video-url__frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, calc(100cqh * 16 / 9));
+  height: max(100%, calc(100cqw * 9 / 16));
+  border: 0;
+  translate: -50% -50%;
+}
+
+.yv-video-url--contain .yv-video-url__frame {
+  width: 100%;
+  height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yv-video-url video,
+  .yv-video-url__frame {
+    display: none;
+  }
+}
+
+/* 8. Side heading (snippets/yv-side-heading) ---------------------------------------------- */
+
+.yv-side-heading {
+  position: absolute;
+  inset-block-start: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  inline-size: 36px;
+  padding-block: 12px;
+  background: var(--color-background);
+  border: 1px solid var(--yv-border-color, rgb(var(--color-foreground-rgb) / 0.1));
+  color: var(--yv-heading-color, var(--color-foreground));
+  font-family: var(--font-heading--family);
+  font-weight: var(--font-heading--weight);
+  font-size: 16px;
+  line-height: 1.15;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.yv-side-heading--left {
+  inset-inline-start: 0;
+}
+
+.yv-side-heading--right {
+  inset-inline-end: 0;
+}
+
+.yv-side-heading__letters {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.yv-side-heading--marquee {
+  inset-block: 0;
+  inline-size: 40px;
+  padding: 0;
+  overflow: hidden;
+  font-size: var(--font-h5--size, 20px);
+}
+
+.yv-side-heading__track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.yv-side-heading__track > span {
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+  padding-block: 0.5em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .yv-side-heading--marquee .yv-side-heading__track {
+    animation: yv-side-heading-scroll var(--yv-side-heading-speed, 8s) linear infinite;
+  }
+}
+
+@keyframes yv-side-heading-scroll {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+/* 9. Motion: scroll reveal (assets/yv-reveal.js, loaded only when Animation is on) -------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(html, body).yv-animate [data-yv-reveal] {
+    transition: opacity var(--yv-reveal-duration) ease var(--yv-reveal-delay, 0ms),
+      translate var(--yv-reveal-duration) ease var(--yv-reveal-delay, 0ms),
+      scale var(--yv-reveal-duration) ease var(--yv-reveal-delay, 0ms);
+  }
+
+  :is(html, body).yv-animate [data-yv-reveal='pending'] {
+    opacity: 0;
+    translate: 0 var(--yv-reveal-distance);
+  }
+
+  :is(html, body).yv-animate [data-yv-reveal='pending'][data-yv-reveal-effect='fade'] {
+    translate: none;
+  }
+
+  :is(html, body).yv-animate [data-yv-reveal='pending'][data-yv-reveal-effect='zoom-out'] {
+    translate: none;
+    scale: 1.2;
+  }
+}
+
+/* Never hide anything in the theme editor. */
+html.shopify-design-mode body [data-yv-reveal] {
+  opacity: 1;
+  translate: none;
+  scale: none;
+}
+
+/* 10. Edge widgets (part 3 §0.5 item 9) --------------------------------------------------- */
+
+.yv-edge-widget {
+  position: fixed;
+  z-index: var(--yv-layer-edge);
+}
+
+body:has(dialog[open]:modal) .yv-edge-widget,
+body:has(.page-wrapper--drawer-open) .yv-edge-widget {
+  visibility: hidden;
+}
+
+@media print {
+  .yv-edge-widget {
+    display: none;
+  }
+}
+
+/* 11. Small components -------------------------------------------------------------------- */
+
+/* Stars (snippets/yv-stars). */
+.yv-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--yv-star-gap, 2px);
+  color: var(--yv-star-color, currentColor);
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.yv-stars__star {
+  flex: none;
+  width: var(--yv-star-size, 14px);
+  height: var(--yv-star-size, 14px);
+}
+
+.yv-stars__star--empty {
+  opacity: 0.3;
+}
+
+/* Social icons (snippets/yv-social-icons). */
+.yv-social {
+  --yv-social-icon: 14px;
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--yv-social-gap, 8px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.yv-social--center {
+  justify-content: center;
+}
+
+.yv-social__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  text-decoration: none;
+  transition: opacity var(--animation-speed, 0.125s) ease, border-color var(--animation-speed, 0.125s) ease,
+    background-color var(--animation-speed, 0.125s) ease;
+}
+
+.yv-social__icon {
+  width: var(--yv-social-icon);
+  height: var(--yv-social-icon);
+  fill: currentColor;
+}
+
+.yv-social--plain {
+  --yv-social-gap: 16px;
+}
+
+.yv-social--plain .yv-social__link {
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.yv-social--plain .yv-social__link:hover {
+  opacity: 0.7;
+}
+
+.yv-social--circle .yv-social__link,
+.yv-social--filled .yv-social__link {
+  width: var(--yv-social-box, calc(var(--yv-social-icon) + 16px));
+  height: var(--yv-social-box, calc(var(--yv-social-icon) + 16px));
+  border-radius: 50%;
+}
+
+.yv-social--circle .yv-social__link {
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+}
+
+.yv-social--circle .yv-social__link:hover {
+  border-color: currentColor;
+}
+
+.yv-social--filled .yv-social__link {
+  --yv-social-box: calc(var(--yv-social-icon) + 20px);
+
+  background-color: var(--yv-social-bg);
+  color: var(--yv-social-color, #000);
+}
+
+.yv-social--filled .yv-social__link:hover {
+  opacity: 0.8;
+}
+
+.yv-social__notice {
+  font-size: var(--yv-text-sm, 0.75rem);
+  opacity: 0.7;
+}
+
+/* Newsletter form (snippets/yv-newsletter-form). */
+.yv-newsletter-form {
+  width: 100%;
+  container-type: inline-size;
+}
+
+.yv-newsletter-form__fields {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.yv-newsletter-form--stacked .yv-newsletter-form__fields {
+  flex-direction: column;
+}
+
+.yv-newsletter-form__input {
+  flex: 1 1 auto;
+  padding-inline: 20px;
+}
+
+.yv-newsletter-form__button {
+  --yv-btn-height: var(--yv-input-height);
+
+  flex: none;
+}
+
+.yv-newsletter-form--stacked .yv-newsletter-form__button {
+  width: 100%;
+}
+
+@container (max-width: 399px) {
+  .yv-newsletter-form--inline .yv-newsletter-form__fields {
+    flex-direction: column;
+  }
+
+  .yv-newsletter-form--inline .yv-newsletter-form__button {
+    width: 100%;
+  }
+}
+
+.yv-newsletter-form__message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block: 10px 0;
+  font-size: var(--yv-text-md, 0.84rem);
+}
+
+.yv-newsletter-form__message svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.yv-newsletter-form__message--error {
+  color: var(--color-error, #8b0000);
+}
+
+.yv-newsletter-form__message--success {
+  color: inherit;
+}
+
+/* Breadcrumbs (markup contract in api/core.md; snippet owned by the catalog builder). */
+.yv-breadcrumbs {
+  padding-block: 16px 0;
+  font-size: var(--font-paragraph--size);
+  line-height: var(--font-paragraph--line-height);
+}
+
+.yv-breadcrumbs__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.yv-breadcrumbs__item {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.yv-breadcrumbs__item + .yv-breadcrumbs__item::before {
+  content: '/';
+  margin-inline: 8px;
+  color: var(--color-foreground);
+}
+
+.yv-breadcrumbs__link {
+  color: var(--yv-theme-color, currentColor);
+  text-decoration: none;
+}
+
+.yv-breadcrumbs__link:hover {
+  text-decoration: underline;
+}
+
+.yv-breadcrumbs__current {
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Line icons (snippets/yv-icon). */
+.yv-icon {
+  display: inline-block;
+  flex: none;
+  width: var(--yv-icon-size, 24px);
+  height: var(--yv-icon-size, 24px);
+  vertical-align: middle;
+  stroke-width: var(--yv-icon-stroke, 1.5);
+}
+
+.yv-icon--filled {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* 12. Images ------------------------------------------------------------------------------ */
+
+/* Placeholders sit on the Yuva image background. */
+:is(.yv-media, .yv-placeholder) > svg,
+svg.yv-placeholder,
+svg.placeholder-svg {
+  background-color: var(--yv-image-bg);
+}
+
+/* Pass-through colours (Images > Enable on product images): white photo backgrounds blend in. */
+body.yv-pass-through :is(.card-gallery, .product-media, .product-media-container, .yv-media--product) {
+  background-color: var(--yv-image-bg);
+}
+
+body.yv-pass-through :is(.card-gallery, .product-media, .product-media-container, .yv-media--product) img {
+  mix-blend-mode: multiply;
+}
