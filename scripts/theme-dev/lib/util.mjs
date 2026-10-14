@@ -36,9 +36,39 @@ export function listFiles(dir, { recursive = false, ext = null } = {}) {
   return out.sort();
 }
 
-/** Shopify JSON templates may open with a single /* *\/ comment block. */
+/**
+ * Theme JSON is JSONC: Shopify writes a leading /* … *\/ banner into templates, groups and
+ * settings_data, and locale files (Horizon's en.default.json) carry // comments. Strip both,
+ * outside strings, keeping newlines so JSON.parse positions still match the file's lines.
+ */
 export function stripJsonComment(src) {
-  return String(src).replace(/^﻿?\s*\/\*[\s\S]*?\*\/\s*/, '');
+  const s = String(src).replace(/^\ufeff/, '');
+  if (!s.includes('/')) return s;
+  let out = ''; let i = 0; let from = 0;
+  const n = s.length;
+  while (i < n) {
+    const c = s.charCodeAt(i);
+    if (c === 34) { // "
+      i++;
+      while (i < n && s.charCodeAt(i) !== 34) i += s.charCodeAt(i) === 92 ? 2 : 1;
+      i++;
+    } else if (c === 47 && (s[i + 1] === '/' || s[i + 1] === '*')) {
+      const end = s[i + 1] === '/' ? (s.indexOf('\n', i) < 0 ? n : s.indexOf('\n', i)) : (s.indexOf('*/', i + 2) < 0 ? n : s.indexOf('*/', i + 2) + 2);
+      out += s.slice(from, i) + s.slice(i, end).replace(/[^\n]/g, ' ');
+      i = end; from = end;
+    } else i++;
+  }
+  return out + s.slice(from);
+}
+
+/**
+ * Shopify treats the bodies of {% schema %}, {% stylesheet %}, {% javascript %} and {% doc %}
+ * as raw text; liquidjs tokenizes them, so a schema string like "{{ a == \"b\" }}" (a
+ * visible_if) breaks the whole file. Blank those bodies (newlines kept) before parsing.
+ */
+export function blankRawBodies(src) {
+  return String(src).replace(/(\{%-?\s*(schema|stylesheet|javascript|doc)\s*-?%\})([\s\S]*?)(\{%-?\s*end\2\s*-?%\})/g,
+    (m, open, name, body, close) => open + body.replace(/[^\n]/g, ' ') + close);
 }
 
 export function parseJsonFile(file) {

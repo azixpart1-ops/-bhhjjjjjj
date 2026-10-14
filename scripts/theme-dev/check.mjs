@@ -24,6 +24,7 @@ import { loadFinderEngine } from './lib/finder-engine.mjs';
 import { runFinderMatrix, rawByHandle } from './lib/finder-matrix.mjs';
 import {
   DEFAULT_THEME_DIR, OUT_DIR, HARNESS_DIR, readText, exists, listFiles, stripJsonComment, deepMerge, getPath, parseArgs, relTheme, setThemeRootForRel,
+  blankRawBodies,
 } from './lib/util.mjs';
 
 const args = parseArgs(process.argv.slice(2));
@@ -293,7 +294,7 @@ function checkStatic(locale) {
   const engine = new ThemeRenderer({ themeDir: THEME, store: createStore({ empty: true }) }).engine;
   for (const f of files) {
     const src = readText(f) || '';
-    try { engine.parse(src, f); parsed++; } catch (e) {
+    try { engine.parse(blankRawBodies(src), f); parsed++; } catch (e) {
       let line = null; try { line = e.token ? e.token.getPosition()[0] : null; } catch { /* */ }
       add('liquid', 'error', `syntax: ${String(e.message).split(', line:')[0].replace(/, file:\S+$/, '')}`, { file: f, line });
     }
@@ -537,9 +538,19 @@ function renderSweep(mode) {
   for (const [type, info] of sectionInfo) {
     if (!info.schema || !Array.isArray(info.schema.presets)) continue;
     info.schema.presets.forEach((p, i) => {
-      const blocks = {}; const order = [];
-      const list = Array.isArray(p.blocks) ? p.blocks : Object.values(p.blocks || {});
-      list.forEach((b, j) => { const id = `${b.type}_${j}`; blocks[id] = { type: b.type, settings: b.settings || {} }; order.push(id); });
+      // Keep the preset's block tree: static blocks (static + id), nested theme blocks
+      // (blocks / block_order) and, for the object form, the ids it names.
+      let blocks = {}; let order = [];
+      if (Array.isArray(p.blocks)) {
+        p.blocks.forEach((b, j) => {
+          const id = b.static && b.id != null ? String(b.id) : `${b.type}_${j}`;
+          blocks[id] = { ...b, settings: b.settings || {} };
+          if (!b.static) order.push(id);
+        });
+      } else {
+        blocks = p.blocks || {};
+        order = Array.isArray(p.block_order) ? p.block_order : Object.keys(blocks).filter((k) => !(blocks[k] && blocks[k].static));
+      }
       const route = resolveRoute(store, '/', new URLSearchParams());
       const res = r.renderAdHocSection(`template--preset__${type}_${i}`, type, { settings: p.settings || {}, blocks, block_order: order }, route, { cart: empty });
       renderCount++;

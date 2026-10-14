@@ -13,7 +13,7 @@ import { escapeHtml, handleize, stripHtml } from './util.mjs';
 const { Drop } = liquidjs;
 
 /** Every filter name Shopify accepts (theme-liquid-docs filters.json, plus aliases). */
-export const SHOPIFY_FILTERS = new Set(['abs', 'append', 'article_img_url', 'asset_img_url', 'asset_url', 'at_least', 'at_most', 'avatar', 'base64_decode', 'base64_encode', 'base64_url_safe_decode', 'base64_url_safe_encode', 'blake3', 'brightness_difference', 'camelize', 'capitalize', 'ceil', 'collection_img_url', 'color_brightness', 'color_contrast', 'color_darken', 'color_desaturate', 'color_difference', 'color_extract', 'color_lighten', 'color_mix', 'color_modify', 'color_saturate', 'color_to_hex', 'color_to_hsl', 'color_to_oklch', 'color_to_rgb', 'compact', 'concat', 'currency_selector', 'customer_login_link', 'customer_logout_link', 'customer_register_link', 'date', 'default', 'default_errors', 'default_pagination', 'divided_by', 'downcase', 'escape', 'escape_once', 'external_video_tag', 'external_video_url', 'file_img_url', 'file_url', 'find', 'find_index', 'first', 'floor', 'format_code', 'font_face', 'font_modify', 'font_url', 'format_address', 'global_asset_url', 'handleize', 'handle', 'has', 'hex_to_rgba', 'highlight', 'highlight_active_tag', 'hmac_sha1', 'hmac_sha256', 'image_tag', 'image_url', 'img_tag', 'img_url', 'inline_asset_content', 'item_count_for_variant', 'join', 'json', 'last', 'line_items_for', 'link_to', 'link_to_add_tag', 'link_to_remove_tag', 'link_to_tag', 'link_to_type', 'link_to_vendor', 'login_button', 'lstrip', 'map', 'md5', 'media_tag', 'metafield_tag', 'metafield_text', 'minus', 'model_viewer_tag', 'modulo', 'money', 'money_amount', 'money_with_currency', 'money_without_currency', 'money_without_trailing_zeros', 'newline_to_br', 'payment_button', 'payment_terms', 'payment_type_img_url', 'payment_type_svg_tag', 'placeholder_svg_tag', 'pluralize', 'plus', 'preload_tag', 'prepend', 'product_img_url', 'reject', 'remove', 'remove_first', 'remove_last', 'replace', 'replace_first', 'replace_last', 'reverse', 'round', 'rstrip', 'script_tag', 'sha1', 'sha256', 'shopify_asset_url', 'size', 'slice', 'sort', 'sort_by', 'sort_natural', 'split', 'standard_event_data', 'strip', 'strip_html', 'strip_newlines', 'structured_data', 'stylesheet_tag', 'sum', 'time_tag', 'times', 'translate', 't', 'truncate', 'truncatewords', 'uniq', 'unit_price_with_measurement', 'upcase', 'url_decode', 'url_encode', 'url_escape', 'url_for_type', 'url_for_vendor', 'url_param_escape', 'video_tag', 'weight_with_unit', 'where', 'within']);
+export const SHOPIFY_FILTERS = new Set(['abs', 'append', 'applicable_disclosures', 'article_img_url', 'asset_img_url', 'asset_url', 'at_least', 'at_most', 'avatar', 'base64_decode', 'base64_encode', 'base64_url_safe_decode', 'base64_url_safe_encode', 'blake3', 'brightness_difference', 'camelize', 'capitalize', 'ceil', 'collection_img_url', 'color_brightness', 'color_contrast', 'color_darken', 'color_desaturate', 'color_difference', 'color_extract', 'color_lighten', 'color_mix', 'color_modify', 'color_saturate', 'color_to_hex', 'color_to_hsl', 'color_to_oklch', 'color_to_rgb', 'compact', 'concat', 'currency_selector', 'customer_login_link', 'customer_logout_link', 'customer_register_link', 'date', 'default', 'default_errors', 'default_pagination', 'divided_by', 'downcase', 'escape', 'escape_once', 'external_video_tag', 'external_video_url', 'file_img_url', 'file_url', 'find', 'find_index', 'first', 'floor', 'format_code', 'font_face', 'font_modify', 'font_url', 'format_address', 'global_asset_url', 'handleize', 'handle', 'has', 'hex_to_rgba', 'highlight', 'highlight_active_tag', 'hmac_sha1', 'hmac_sha256', 'image_tag', 'image_url', 'img_tag', 'img_url', 'inline_asset_content', 'item_count_for_variant', 'join', 'json', 'last', 'line_items_for', 'link_to', 'link_to_add_tag', 'link_to_remove_tag', 'link_to_tag', 'link_to_type', 'link_to_vendor', 'login_button', 'lstrip', 'map', 'md5', 'media_tag', 'metafield_tag', 'metafield_text', 'minus', 'model_viewer_tag', 'modulo', 'money', 'money_amount', 'money_with_currency', 'money_without_currency', 'money_without_trailing_zeros', 'newline_to_br', 'payment_button', 'payment_terms', 'payment_type_img_url', 'payment_type_svg_tag', 'placeholder_svg_tag', 'pluralize', 'plus', 'preload_tag', 'prepend', 'product_img_url', 'reject', 'remove', 'remove_first', 'remove_last', 'replace', 'replace_first', 'replace_last', 'reverse', 'round', 'rstrip', 'script_tag', 'sha1', 'sha256', 'shopify_asset_url', 'size', 'slice', 'sort', 'sort_by', 'sort_natural', 'split', 'standard_event_data', 'strip', 'strip_html', 'strip_newlines', 'structured_data', 'stylesheet_tag', 'sum', 'time_tag', 'times', 'translate', 't', 'truncate', 'truncatewords', 'uniq', 'unit_price_with_measurement', 'upcase', 'url_decode', 'url_encode', 'url_escape', 'url_for_type', 'url_for_vendor', 'url_param_escape', 'video_tag', 'weight_with_unit', 'where', 'within']);
 
 export const DEPRECATED_FILTERS = new Set(['hex_to_rgba', 'currency_selector', 'article_img_url', 'collection_img_url', 'img_tag', 'img_url', 'product_img_url']);
 
@@ -636,6 +636,14 @@ export function createShopifyFilters(env) {
     if (mf.type === 'rating') return str(mf.value && mf.value.rating);
     return stripHtml(str(mf.value));
   };
+  // Horizon 4.3: product.metafields.shopify.disclosure.value | applicable_disclosures keeps the
+  // disclosure metaobjects scoped to the buyer's jurisdiction, and all of them when that can't be
+  // determined. The harness has no buyer jurisdiction, so the list passes through.
+  F.applicable_disclosures = (v) => {
+    const x = v && typeof v === 'object' && 'value' in v && v.constructor && v.constructor.name === 'MetafieldDrop' ? v.value : v;
+    if (x == null || x === '') return [];
+    return Array.isArray(x) ? x : [x];
+  };
   F.structured_data = (obj) => {
     if (!obj) return '';
     let data;
@@ -644,7 +652,9 @@ export function createShopifyFilters(env) {
     } else if (obj.object_type === 'article' || obj.author) {
       data = { '@context': 'http://schema.org/', '@type': 'Article', headline: obj.title, author: obj.author, datePublished: obj.published_at };
     } else data = {};
-    return `<script type="application/ld+json">${safeJson(data)}</script>`;
+    // JSON only: the theme writes the <script type="application/ld+json"> around it
+    // (shopify.dev structured_data example; Horizon's product-information section does).
+    return safeJson(data);
   };
   F.standard_event_data = () => '{}';
   // Undocumented but real: Dawn's gift_card.liquid uses it (groups the code in fours).

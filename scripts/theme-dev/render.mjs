@@ -25,10 +25,10 @@ import { resolveRoute } from './lib/routes.mjs';
 import { cartDrop, cartJson, createCart } from './lib/cart.mjs';
 import {
   DEFAULT_THEME_DIR, Issues, readText, mtime, exists, listFiles, stripJsonComment, deepMerge, getPath,
-  escapeHtml, setThemeRootForRel, relTheme, parseArgs, formatIssue, stripHtml,
+  escapeHtml, setThemeRootForRel, relTheme, parseArgs, formatIssue, stripHtml, blankRawBodies,
 } from './lib/util.mjs';
 
-const { Liquid, Tag, Hash, Drop, TypeGuards, Tokenizer, evalToken, evalQuotedToken, toValue } = liquidjs;
+const { Liquid, Tag, Hash, Drop, TypeGuards, Tokenizer, Context, evalToken, evalQuotedToken, toValue } = liquidjs;
 
 // Ruby keeps literal floats as floats (7.0 | divided_by: 2 == 3.5). Box them so math filters know.
 if (!Tokenizer.prototype.__rfloatPatched) {
@@ -80,6 +80,29 @@ class VideoUrlDrop extends Drop {
 class RenderTimeout extends Error {}
 
 const SETTING_TYPES_NO_VALUE = new Set(['header', 'paragraph']);
+// Resource types a theme block can reach through `closest.<type>` (shopify.dev, dynamic sources).
+const CLOSEST_TYPES = ['product', 'collection', 'article', 'blog', 'page'];
+// Theme blocks nest at most 8 deep on Shopify; anything far deeper is a render loop.
+const MAX_BLOCK_DEPTH = 24;
+// Setting types whose dynamic source "{{ x }}" resolves to a value rather than rendered text.
+const DYNAMIC_VALUE_TYPES = new Set(['color', 'product', 'collection', 'page', 'blog', 'article', 'metaobject', 'image_picker', 'video', 'checkbox', 'number', 'range', 'product_list', 'collection_list', 'metaobject_list']);
+
+/** closest.* as children see it: `closest` overlaid with the resource settings in `settings`. */
+function overlayClosest(closest, defs, settings) {
+  const out = { ...(closest || {}) };
+  for (const d of defs || []) {
+    if (d && d.id && CLOSEST_TYPES.includes(d.type) && settings && settings[d.id] != null) out[d.type] = settings[d.id];
+  }
+  return out;
+}
+
+/** color_palette setting (Horizon 4.x): settings.color_palette.background etc., iterable as colours. */
+function makePalette(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) if (v) out[k] = v instanceof ColorDrop ? v : new ColorDrop(String(v));
+  Object.defineProperty(out, Symbol.iterator, { value: function* () { yield* Object.values(this); }, enumerable: false });
+  return out;
+}
 
 /** Text outside the tag markers of a schema-like block, used for raw-capture tags. */
 function captureRaw(tagToken, remainTokens, endName) {
@@ -165,6 +188,15 @@ export class ThemeRenderer {
     const builtins = engine.filters;
     const allowed = {};
     for (const n of KEEP_BUILTINS) if (builtins[n]) allowed[n] = builtins[n];
+    // liquidjs's default returns toValue(input), so a colour drop comes back as a bare hex
+    // string; Shopify's returns the input object (Horizon: `custom_button_background |
+    // default: settings.palette_primary_button_background` then reads .rgba).
+    if (builtins.default) {
+      allowed.default = function (v, ...rest) {
+        const r = builtins.default.call(this, v, ...rest);
+        return v instanceof Drop && r === toValue(v) ? v : r;
+      };
+    }
     Object.assign(allowed, createShopifyFilters(this.filterEnv()));
     const unknownCache = new Map();
     engine.filters = new Proxy(allowed, {
@@ -285,7 +317,13 @@ export class ThemeRenderer {
           try { yield liquidRender(R, templates, ctx, emitter, name); } finally { ctx.pop(); }
           return;
         }
-        const childCtx = ctx.spawn();
+        // Snippets can't see the caller's variables, but they do see the objects the caller's
+        // file was rendered with: `section` inside a section, `block` inside a theme block, and
+        // `closest` (shopify.dev render tag; Horizon's product-card and card-gallery snippets
+        // read block.settings and closest.product without being passed them).
+        const env = {};
+        for (const k of ['section', 'block', 'closest']) if (ctx.environments && Object.prototype.hasOwnProperty.call(ctx.environments, k)) env[k] = ctx.environments[k];
+        const childCtx = ctx.spawn(env);
         const scope = childCtx.bottom();
         Object.assign(scope, yield this.hash.render(ctx));
         if (this.with) scope[this.with.alias || name] = yield evalToken(this.with.value, ctx);
@@ -487,24 +525,54 @@ export class ThemeRenderer {
       }
     });
 
-    // {% content_for 'blocks' %} / {% content_for 'block', type: 'x', id: 'y' %} (theme blocks, basic)
+    // {% content_for 'blocks' [, closest.product: p] %} renders the dynamic child blocks of the
+    // section or theme block being rendered (not always section.blocks: that recursed forever
+    // on Horizon's nested `group` blocks). {% content_for 'block', type: 'x', id: 'y', k: v %}
+    // renders the static child block `y`, with its saved settings and k as a variable.
     engine.registerTag('content_for', class extends Tag {
       constructor(token, remainTokens, liquid) {
         super(token, remainTokens, liquid);
         const tk = this.tokenizer;
         this.kindToken = tk.readValue();
+        // Hash keys can be dotted (closest.product, closest.metaobject.<type>), which liquidjs's
+        // Hash can't read: it stops at the dot and silently drops the rest of the arguments.
+        this.args = [];
+        for (;;) {
+          tk.skipBlank();
+          if (tk.peek() === ',') { tk.advance(); tk.skipBlank(); }
+          if (tk.end()) break;
+          const begin = tk.p;
+          let name = '';
+          while (!tk.end() && /[\w.?-]/.test(tk.peek())) { name += tk.peek(); tk.advance(); }
+          tk.skipBlank();
+          if (!name || tk.peek() !== ':') { tk.p = begin; break; }
+          tk.advance();
+          const value = tk.readValue();
+          if (!value) throw new Error(`content_for: missing value for "${name}" in ${token.getText()}`);
+          this.args.push([name, value]);
+        }
         tk.skipBlank();
-        if (tk.peek() === ',') tk.advance();
-        this.hash = new Hash(tk, liquid.options.keyValueSeparator);
+        if (!tk.end()) throw new Error(`content_for: unexpected "${tk.input.slice(tk.p, tk.N).trim()}" in ${token.getText()}`);
       }
       *render(ctx, emitter) {
         const kind = String(toValue(yield evalToken(this.kindToken, ctx)));
-        const h = yield this.hash.render(ctx);
-        const section = yield ctx._get(['section']);
+        const vars = {}; const closest = {};
+        for (const [name, tok] of this.args) {
+          const v = yield evalToken(tok, ctx);
+          if (name.startsWith('closest.')) {
+            const p = name.split('.').slice(1);
+            if (p[0] === 'metaobject' && p[1]) closest.metaobject = { ...(closest.metaobject || {}), [p[1]]: v };
+            else if (p.length === 1 && CLOSEST_TYPES.includes(p[0])) closest[p[0]] = v;
+            else R.issue('error', 'liquid-syntax', `content_for: "${name}" is not a valid closest resource (${CLOSEST_TYPES.join(', ')}, metaobject.<type>)`);
+          } else vars[name] = v;
+        }
         if (kind === 'blocks') {
-          for (const b of (section && section.blocks) || []) emitter.write(R.renderThemeBlock(b, section));
+          for (const k of Object.keys(vars)) R.issue('error', 'liquid-syntax', `content_for 'blocks' takes only closest.* arguments (got "${k}")`);
+          emitter.write(R.renderChildBlocks(closest));
         } else if (kind === 'block') {
-          emitter.write(R.renderThemeBlock({ id: h.id || 'static', type: h.type, settings: {}, shopify_attributes: '' }, section));
+          const { type, id, ...rest } = vars;
+          if (!type || !id) { R.issue('error', 'liquid-syntax', `content_for 'block' needs type: and id: (got ${this.args.map((a) => a[0]).join(', ') || 'nothing'})`); return; }
+          emitter.write(R.renderStaticBlock(String(toValue(type)), String(toValue(id)), rest, closest));
         } else R.issue('error', 'liquid-syntax', `content_for: unknown kind "${kind}"`);
       }
     });
@@ -552,7 +620,7 @@ export class ThemeRenderer {
     const src = readText(abs);
     let entry;
     try {
-      entry = { mtime: m, templates: this.engine.parse(src, abs), src };
+      entry = { mtime: m, templates: this.engine.parse(blankRawBodies(src), abs), src };
     } catch (e) {
       const msg = cleanMsg(e.message || e);
       let line = null;
@@ -574,7 +642,16 @@ export class ThemeRenderer {
 
   /** Section file + parsed schema. */
   loadSection(type) {
-    const abs = path.join(this.themeDir, 'sections', `${type}.liquid`);
+    return this.loadSchemaFile(path.join(this.themeDir, 'sections', `${type}.liquid`));
+  }
+
+  /** Theme block file (blocks/<type>.liquid) + parsed schema. */
+  loadBlock(type) {
+    if (!/^[\w-]+$/.test(type)) return { exists: false, file: path.join(this.themeDir, 'blocks', `${type}.liquid`) };
+    return this.loadSchemaFile(path.join(this.themeDir, 'blocks', `${type}.liquid`));
+  }
+
+  loadSchemaFile(abs) {
     const e = this.parseFile(abs);
     if (e.missing) return { exists: false, file: abs };
     let cached = this.sectionCache.get(abs);
@@ -589,7 +666,7 @@ export class ThemeRenderer {
       this.sectionCache.set(abs, cached);
     }
     if (cached.schemaError && this.cur) this.issue('error', 'schema', cached.schemaError, { file: abs, line: null });
-    return { exists: true, file: abs, templates: e.templates, schema: cached.schema || {}, schemaError: cached.schemaError };
+    return { exists: true, file: abs, templates: e.templates, error: e.error, schema: cached.schema || {}, schemaError: cached.schemaError };
   }
 
   // --------------------------------------------------------------- locale
@@ -672,7 +749,7 @@ export class ThemeRenderer {
     if (!override || typeof override !== 'object' || !Object.keys(override).length) return base;
     const defs = new Map(this.settingsSchema().flatMap((g) => (Array.isArray(g.settings) ? g.settings : [])).filter((d) => d.id).map((d) => [d.id, d]));
     const out = { ...base };
-    for (const [k, v] of Object.entries(override)) out[k] = defs.has(k) ? this.resolveSetting(defs.get(k), v, true) : v;
+    for (const [k, v] of Object.entries(override)) out[k] = defs.has(k) ? this.resolveSettingDyn(defs.get(k), v, true, { settings: out }) : v;
     return out;
   }
 
@@ -682,11 +759,16 @@ export class ThemeRenderer {
     const defs = this.settingsSchema().flatMap((g) => (Array.isArray(g.settings) ? g.settings : []));
     const current = this.settingsData().current || {};
     const out = {};
+    const later = [];
     for (const d of defs) {
       if (!d.id || SETTING_TYPES_NO_VALUE.has(d.type)) continue;
       const has = Object.prototype.hasOwnProperty.call(current, d.id);
-      out[d.id] = this.resolveSetting(d, has ? current[d.id] : d.default, has || d.default !== undefined);
+      const raw = has ? current[d.id] : d.default;
+      // "{{ settings.color_palette.foreground }}" (Horizon 4.x colours) reads other settings: resolve after them.
+      if (typeof raw === 'string' && raw.includes('{{')) { later.push([d, raw]); out[d.id] = null; continue; }
+      out[d.id] = this.resolveSetting(d, raw, has || d.default !== undefined);
     }
+    for (const [d, raw] of later) out[d.id] = this.resolveSettingDyn(d, raw, true, { settings: out });
     for (const [k, v] of Object.entries(current)) {
       if (['sections', 'content_for_index', 'blocks'].includes(k) || k in out) continue;
       out[k] = v;
@@ -726,6 +808,7 @@ export class ThemeRenderer {
       case 'video_url': return raw ? new VideoUrlDrop(String(raw)) : null;
       case 'font_picker': return raw ? makeFont(String(raw)) || makeFont(def.default) : null;
       case 'color': return raw ? new ColorDrop(String(raw)) : null;
+      case 'color_palette': return makePalette({ ...(def.default || {}), ...(raw && typeof raw === 'object' ? raw : {}) });
       case 'metaobject': return null;
       case 'metaobject_list': return [];
       case 'liquid': return raw ? this.renderLiquidSetting(String(raw)) : null;
@@ -737,45 +820,139 @@ export class ThemeRenderer {
     try { return this.engine.parseAndRenderSync(src, {}, { globals: this.cur ? this.cur.globals : {} }); } catch (e) { this.issue('error', 'liquid-error', `liquid setting: ${e.message}`); return ''; }
   }
 
-  sectionSettings(schemaSettings, raw = {}) {
+  /** dyn = { closest, section } for dynamic sources ({{ closest.product.title }}) in values or defaults. */
+  sectionSettings(schemaSettings, raw = {}, dyn = null) {
     const out = {};
     for (const d of schemaSettings || []) {
       if (!d || !d.id || SETTING_TYPES_NO_VALUE.has(d.type)) continue;
       const has = raw && Object.prototype.hasOwnProperty.call(raw, d.id);
-      out[d.id] = this.resolveSetting(d, has ? raw[d.id] : d.default, has || d.default !== undefined);
+      out[d.id] = this.resolveSettingDyn(d, has ? raw[d.id] : d.default, has || d.default !== undefined, dyn);
     }
     for (const [k, v] of Object.entries(raw || {})) if (!(k in out)) out[k] = v;
     return out;
+  }
+
+  resolveSettingDyn(def, raw, hasValue, dyn) {
+    if (typeof raw === 'string' && raw.includes('{{') && def.type !== 'liquid') return this.resolveDynamic(def, raw, dyn || {});
+    return this.resolveSetting(def, raw, hasValue);
+  }
+
+  /**
+   * A setting value that is a dynamic source — "{{ closest.product.title }}" in a text setting,
+   * "{{ closest.product }}" in a product setting, "{{ settings.color_palette.foreground }}" in a
+   * colour setting — resolved the way Shopify does at render time. A value that is one {{ }}
+   * expression keeps its type (product, colour, image…); anything else renders as text.
+   */
+  resolveDynamic(def, raw, dyn) {
+    const base = (this.cur && this.cur.globals) || {};
+    const globals = dyn.settings ? { ...base, settings: dyn.settings } : base;
+    const scope = { closest: dyn.closest || this.templateClosest(), section: dyn.section || null };
+    const t = def.type;
+    const whole = raw.match(/^\s*\{\{\s*([^{}]+?)\s*\}\}\s*$/);
+    if (whole && DYNAMIC_VALUE_TYPES.has(t)) {
+      let v = null;
+      try { v = this.engine.evalValueSync(whole[1], new Context(scope, this.engine.options, { globals })); } catch (e) {
+        this.issue('error', 'liquid-error', `setting "${def.id}": dynamic source ${raw}: ${cleanMsg(e.message || e)}`);
+      }
+      const pv = toValue(v);
+      if (pv == null || pv === '') return t === 'checkbox' ? false : t === 'product_list' || t === 'collection_list' ? [] : null;
+      if (t === 'color') return v instanceof ColorDrop ? v : new ColorDrop(String(pv));
+      if (typeof pv !== 'object') return this.resolveSetting(def, pv, true); // a handle, number or flag
+      return v;
+    }
+    let text = raw;
+    try { text = this.engine.parseAndRenderSync(raw, scope, { globals }); } catch (e) {
+      this.issue('error', 'liquid-error', `setting "${def.id}": dynamic source ${raw}: ${cleanMsg(e.message || e)}`);
+    }
+    return this.resolveSetting(def, text, true);
   }
 
   /** Build the Liquid `section` object. data = {settings, blocks, block_order} (template/group/settings_data shape). */
   buildSection(id, type, data, { location, index } = {}) {
     const sec = this.loadSection(type);
     const schema = sec.schema || {};
-    const blockDefs = Array.isArray(schema.blocks) ? schema.blocks : [];
-    const blocks = [];
-    const order = Array.isArray(data.block_order) ? data.block_order : Object.keys(data.blocks || {});
-    for (const bid of order) {
-      const b = data.blocks && data.blocks[bid];
-      if (!b) { this.issue('error', 'template', `section "${id}" block_order references missing block "${bid}"`, { file: sec.file }); continue; }
-      if (b.disabled) continue;
-      if (String(b.type).startsWith('shopify://apps/')) {
-        if (!blockDefs.some((d) => d.type === '@app')) this.issue('error', 'template', `app block "${bid}" in section "${type}" but schema has no @app block`, { file: sec.file });
-        blocks.push({ id: bid, type: '@app', settings: b.settings || {}, shopify_attributes: '' });
-        continue;
-      }
-      const def = blockDefs.find((d) => d.type === b.type);
-      if (!def) { this.issue('error', 'template', `block type "${b.type}" not in sections/${type}.liquid schema`, { file: sec.file }); continue; }
-      blocks.push({ id: bid, type: b.type, settings: this.sectionSettings(def.settings, b.settings || {}), shopify_attributes: '' });
-    }
+    const closest = this.templateClosest();
+    const settings = this.sectionSettings(schema.settings, data.settings || {}, { closest });
+    const tree = this.buildChildBlocks(data, schema.blocks, {
+      file: sec.file, owner: `sections/${type}.liquid`, isSection: true, label: `section "${id}"`,
+      dyn: { closest: overlayClosest(closest, schema.settings, settings) },
+    });
     const section = {
       id,
-      settings: this.sectionSettings(schema.settings, data.settings || {}),
-      blocks,
+      settings,
+      blocks: tree.blocks,
       location: location || 'template',
     };
     if (index != null) { section.index = index; section.index0 = index - 1; }
+    Object.defineProperty(section, '_tree', { value: tree, enumerable: false });
     return { section, sec, schema };
+  }
+
+  /**
+   * The child blocks of a section or theme block, from template/group JSON (blocks as an
+   * id-keyed object plus block_order) or a schema preset/default (blocks as an array).
+   * Returns { blocks: dynamic blocks in order (section.blocks / block.blocks), statics: id → data }.
+   * Static blocks (`"static": true`) are left out of block_order and of section.blocks: they
+   * are rendered by {% content_for 'block', id: … %}.
+   */
+  buildChildBlocks(data, schemaBlocks, ctx) {
+    const defs = Array.isArray(schemaBlocks) ? schemaBlocks : [];
+    const raw = data && data.blocks;
+    const entries = [];
+    if (Array.isArray(raw)) raw.forEach((b, i) => { if (b) entries.push([b.id != null ? String(b.id) : `${ctx.label.replace(/\W+/g, '-')}-${i}`, b]); });
+    else if (raw && typeof raw === 'object') for (const [k, b] of Object.entries(raw)) entries.push([k, b]);
+    const map = new Map(entries);
+    const statics = new Map(entries.filter(([, b]) => b && b.static));
+    const order = Array.isArray(data && data.block_order) ? data.block_order : entries.filter(([, b]) => !(b && b.static)).map(([k]) => k);
+    const blocks = [];
+    for (const bid of order) {
+      const b = map.get(bid);
+      if (!b) { this.issue('error', 'template', `${ctx.label} block_order references missing block "${bid}"`, { file: ctx.file }); continue; }
+      if (b.disabled || b.static) continue;
+      const obj = this.buildBlock(bid, b, defs, ctx, { isStatic: false });
+      if (obj) blocks.push(obj);
+    }
+    return { blocks, statics, file: ctx.file, owner: ctx.owner };
+  }
+
+  /** One block object as Liquid sees it; theme blocks carry their parsed file and children (non-enumerable). */
+  buildBlock(bid, b, defs, ctx, { isStatic }) {
+    const type = String(b.type);
+    if (type.startsWith('shopify://apps/')) {
+      if (!defs.some((d) => d.type === '@app')) this.issue('error', 'template', `app block "${bid}" in ${ctx.owner} but its schema has no @app block`, { file: ctx.file });
+      return { id: bid, type: '@app', settings: b.settings || {}, shopify_attributes: '' };
+    }
+    // Section-local block: defined (with a name) in the section's own schema.
+    const local = ctx.isSection ? defs.find((d) => d.type === type && d.name) : null;
+    if (local) return { id: bid, type, settings: this.sectionSettings(local.settings, b.settings || {}, ctx.dyn), shopify_attributes: '' };
+    // Theme block: blocks/<type>.liquid. A parent accepts it if its schema names the type,
+    // or lists @theme and the block is public (no leading underscore). Static blocks can be any type.
+    const blk = this.loadBlock(type);
+    if (!blk.exists) {
+      if (isStatic) this.issue('warn', 'theme-block', `content_for 'block': blocks/${type}.liquid not found (static block "${bid}")`);
+      else if (defs.some((d) => d.type === type || d.type === '@theme')) this.issue('error', 'theme-block', `${ctx.label}: block "${bid}" has type "${type}" but blocks/${type}.liquid does not exist`, { file: ctx.file });
+      else this.issue('error', 'template', `block type "${type}" not in ${ctx.owner} schema`, { file: ctx.file });
+      return null;
+    }
+    if (!isStatic && !defs.some((d) => d.type === type) && !(defs.some((d) => d.type === '@theme') && !type.startsWith('_'))) {
+      this.issue('error', 'template', `block type "${type}" not accepted by ${ctx.owner} schema (blocks: ${defs.map((d) => d.type).join(', ') || 'none'})`, { file: ctx.file });
+      return null;
+    }
+    const schema = blk.schema || {};
+    const settings = this.sectionSettings(schema.settings, b.settings || {}, ctx.dyn);
+    const children = this.buildChildBlocks(b, schema.blocks, {
+      file: blk.file, owner: `blocks/${type}.liquid`, isSection: false, label: `block "${bid}" (${type})`,
+      dyn: ctx.dyn && { ...ctx.dyn, closest: overlayClosest(ctx.dyn.closest, schema.settings, settings) },
+    });
+    const obj = { id: bid, type, settings, shopify_attributes: '', blocks: children.blocks };
+    Object.defineProperty(obj, '_theme', { value: { raw: b, blk, schema, children }, enumerable: false });
+    return obj;
+  }
+
+  /** Resources a section sees as closest.*: the template's. */
+  templateClosest() {
+    const g = (this.cur && this.cur.globals) || {};
+    return { product: g.product || null, collection: g.collection || null, article: g.article || null, blog: g.blog || null, page: g.page || null, metaobject: {} };
   }
 
   renderSectionObject(section, sec, schema, { groupClass = '' } = {}) {
@@ -783,12 +960,16 @@ export class ThemeRenderer {
     let inner = '';
     if (sec.templates) {
       const prevLoc = this.cur.loc;
+      const closest = overlayClosest(this.templateClosest(), schema.settings, section.settings);
+      const frames = this.cur.frames || (this.cur.frames = []);
+      const depth = frames.length;
+      frames.push({ kind: 'section', section, tree: section._tree, closest });
       try {
-        inner = this.engine.renderSync(sec.templates, { section }, { globals: this.cur.globals });
+        inner = this.engine.renderSync(sec.templates, { section, closest }, { globals: this.cur.globals });
       } catch (e) {
         if (e instanceof RenderTimeout) throw e;
         inner = this.inlineError(String(e.message || e).split(', line:')[0]);
-      } finally { this.cur.loc = prevLoc; }
+      } finally { this.cur.loc = prevLoc; frames.length = depth; }
     } else {
       inner = `Liquid syntax error (sections/${path.basename(sec.file)}): see issues`;
     }
@@ -836,11 +1017,80 @@ export class ThemeRenderer {
     return out.join('\n');
   }
 
-  renderThemeBlock(block, section) {
-    const f = path.join(this.themeDir, 'blocks', `${block.type}.liquid`);
-    const e = this.parseFile(f);
-    if (e.missing || !e.templates) { this.issue('warn', 'theme-block', `content_for: blocks/${block.type}.liquid not found`); return ''; }
-    return this.engine.renderSync(e.templates, { block, section }, { globals: this.cur.globals });
+  /** The section or theme block whose Liquid is rendering now (null outside any section). */
+  currentFrame() {
+    const f = this.cur && this.cur.frames;
+    return f && f.length ? f[f.length - 1] : null;
+  }
+
+  /** {% content_for 'blocks' %}: the current parent's dynamic children, in block_order. */
+  renderChildBlocks(closestArgs) {
+    const frame = this.currentFrame();
+    if (!frame) {
+      this.issue('error', 'liquid-syntax', "content_for 'blocks' used outside a section or theme block");
+      return '';
+    }
+    const blocks = frame.kind === 'section' ? frame.tree.blocks : frame.node.children.blocks;
+    let out = '';
+    for (const b of blocks) {
+      if (!b._theme) {
+        // Section-local or app block: content_for only renders theme blocks.
+        if (b.type === '@app') out += `<div id="shopify-block-${escapeHtml(b.id)}" class="shopify-app-block" data-theme-dev-app-block="@app"></div>`;
+        else this.issue('error', 'theme-block', `content_for 'blocks': "${b.type}" is a section block (defined in the section schema), not a theme block in blocks/`);
+        continue;
+      }
+      out += this.renderThemeBlock(b, frame, { closest: closestArgs });
+    }
+    return out;
+  }
+
+  /** {% content_for 'block', type:, id: %}: a static child of the current parent. */
+  renderStaticBlock(type, id, vars, closestArgs) {
+    const frame = this.currentFrame();
+    if (!frame) {
+      this.issue('error', 'liquid-syntax', `content_for 'block' (${type} "${id}") used outside a section or theme block`);
+      return '';
+    }
+    const tree = frame.kind === 'section' ? frame.tree : frame.node.children;
+    let data = tree.statics.get(id);
+    if (data && String(data.type) !== type) {
+      this.issue('error', 'template', `static block "${id}" is saved as type "${data.type}" but {% content_for 'block' %} renders type "${type}"`, { file: tree.file });
+      data = null;
+    }
+    if (!data) data = { type, settings: {} }; // never saved: Shopify renders it with its schema defaults
+    if (data.disabled) return '';
+    const obj = this.buildBlock(id, { ...data, type }, [], { file: tree.file, owner: tree.owner, isSection: false, label: `static block "${id}"`, dyn: { closest: frame.closest } }, { isStatic: true });
+    if (!obj) return '';
+    return this.renderThemeBlock(obj, frame, { closest: closestArgs, vars });
+  }
+
+  /** Render a theme block (blocks/<type>.liquid) as a child of `parent` (a frame). */
+  renderThemeBlock(block, parent, { closest: closestArgs = {}, vars = {} } = {}) {
+    const node = block._theme;
+    const frames = this.cur.frames || (this.cur.frames = []);
+    if (frames.length > MAX_BLOCK_DEPTH || frames.some((f) => f.node && f.node.raw === node.raw)) {
+      this.issue('error', 'theme-block', `theme block "${block.id}" (${block.type}) renders itself or nests deeper than ${MAX_BLOCK_DEPTH} levels — render loop`);
+      return '';
+    }
+    const { blk, schema } = node;
+    if (!blk.templates) return blk.error ? '' : this.inlineError(`blocks/${block.type}.liquid could not be parsed`);
+    // closest.* for this block: the parent's (template → section settings → ancestor block
+    // settings), overridden by closest.* passed to content_for.
+    const parentClosest = parent.kind === 'section' ? parent.closest : overlayClosest(parent.closest, parent.node.schema.settings, parent.block.settings);
+    const closest = { ...parentClosest, ...closestArgs, metaobject: { ...(parentClosest.metaobject || {}), ...(closestArgs.metaobject || {}) } };
+    const sec = parent.section;
+    // Settings are resolved per render: dynamic sources such as {{ closest.product.title }} differ per product card.
+    const live = { ...block, settings: this.sectionSettings(schema.settings, node.raw.settings || {}, { closest, section: sec }) };
+    Object.defineProperty(live, '_theme', { value: node, enumerable: false });
+    const depth = frames.length;
+    frames.push({ kind: 'block', node, block: live, section: sec, closest });
+    const prevLoc = this.cur.loc;
+    try {
+      return this.engine.renderSync(blk.templates, { ...vars, block: live, section: sec, closest }, { globals: this.cur.globals });
+    } catch (e) {
+      if (e instanceof RenderTimeout) throw e;
+      return this.inlineError(String(e.message || e).split(', line:')[0]);
+    } finally { frames.length = depth; this.cur.loc = prevLoc; }
   }
 
   // ------------------------------------------------------------- forms

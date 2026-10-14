@@ -47,7 +47,8 @@ const page = (url, cart) => { const u = new URL(url, 'http://x'); return r.rende
 
 test('render is isolated; include shares scope; globals visible in snippets', () => {
   const { html } = page('/');
-  assert.match(html, /R\[\|p\|true\|\]/, 'render: no parent vars, no section, but settings visible');
+  // shopify.dev render tag: "a snippet … inside a section can access the section object".
+  assert.match(html, /R\[\|p\|true\|template--24601__main\]/, 'render: no parent vars, but the section and settings are visible');
   assert.match(html, /Is3yes/, 'include: sees and leaks parent scope');
 });
 
