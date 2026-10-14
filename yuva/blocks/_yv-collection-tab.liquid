@@ -1,0 +1,121 @@
+{%- doc -%}
+  One tab of sections/yv-collection-tabs.liquid: the tab button (role="tab") that switches the
+  section's product panel for this block's collection. The section renders the panels and the
+  product cards (with its static `_product-card`), so every tab shares one card design.
+
+  A tab whose collection is set but has no products is skipped on the storefront (it stays
+  visible in the theme editor). A tab without a collection shows placeholder products.
+  The tab label is the Tab heading, else the collection title. With the section's
+  "Show tab images" on, the tab shows a circular image: the custom image, else the collection
+  image, else the first product image, else a placeholder.
+{%- enddoc -%}
+
+{%- liquid
+  assign tab_collection = block.settings.collection
+  assign tab_visible = true
+  if tab_collection != blank and tab_collection.products_count == 0
+    unless request.design_mode
+      assign tab_visible = false
+    endunless
+  endif
+
+  # Position among the visible tabs (panels are rendered in the same order by the section).
+  assign block_index = section.blocks | find_index: 'id', block.id
+  assign tab_index = 0
+  if block_index > 0
+    for child in section.blocks limit: block_index
+      assign child_collection = child.settings.collection
+      if child_collection == blank or child_collection.products_count > 0 or request.design_mode
+        assign tab_index = tab_index | plus: 1
+      endif
+    endfor
+  endif
+
+  assign tab_label = block.settings.tab_heading | strip
+  if tab_label == blank
+    if tab_collection != blank
+      assign tab_label = tab_collection.title
+    else
+      assign tab_label = 'placeholders.collection_title' | t
+    endif
+  endif
+
+  assign tab_image = block.settings.image
+  if tab_image == blank and tab_collection != blank
+    assign tab_image = tab_collection.featured_image
+    if tab_image == blank
+      assign tab_image = tab_collection.products.first.featured_media.preview_image
+    endif
+  endif
+  assign placeholder_index = block_index | modulo: 6 | plus: 1
+  assign placeholder_name = 'collection-' | append: placeholder_index
+-%}
+
+{%- if tab_visible -%}
+  <button
+    type="button"
+    class="yv-tabs__tab yv-collection-tabs__tab"
+    role="tab"
+    id="YvTab-{{ block.id }}"
+    aria-controls="YvPanel-{{ block.id }}"
+    aria-selected="{% if tab_index == 0 %}true{% else %}false{% endif %}"
+    tabindex="{% if tab_index == 0 %}0{% else %}-1{% endif %}"
+    ref="tabs[]"
+    on:click="yv-tabs/select/{{ tab_index }}"
+    {{ block.shopify_attributes }}
+  >
+    {%- if section.settings.show_tab_images -%}
+      <span
+        class="yv-tabs__media yv-collection-tabs__tab-media"
+        aria-hidden="true"
+      >
+        {%- if tab_image != blank -%}
+          {{
+            tab_image
+            | image_url: width: 180
+            | image_tag:
+              widths: '90, 120, 180',
+              sizes: '(min-width: 990px) 75px, (min-width: 750px) 60px, 40px',
+              loading: 'lazy',
+              alt: ''
+          }}
+        {%- else -%}
+          {{ placeholder_name | placeholder_svg_tag: 'yv-placeholder' }}
+        {%- endif -%}
+      </span>
+    {%- endif -%}
+    <span class="yv-tabs__label yv-collection-tabs__tab-label">{{ tab_label | escape }}</span>
+  </button>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "t:yv.names.collection_tab",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "tab_heading",
+      "label": "t:yv.collection_tabs.settings.tab_heading",
+      "info": "t:yv.collection_tabs.settings.tab_heading_info"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "t:yv.common.settings.collection",
+      "info": "t:yv.collection_tabs.settings.collection_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.collection_tabs.settings.tab_image",
+      "info": "t:yv.collection_tabs.settings.tab_image_info"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.collection_tab"
+    }
+  ]
+}
+{% endschema %}

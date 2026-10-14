@@ -1,0 +1,435 @@
+{%- doc -%}
+  One colour of the Color based collections section: the collection's image card (image, overlay,
+  title and description) and its product rows (yv-product-list-card, first 6 available products).
+  The section draws the colour bar for this block from section.blocks and switches the active
+  panel (assets/yv-color-collections.js). The first renderable block starts active.
+
+  A block without a collection renders a placeholder card and three placeholder rows in the theme
+  editor and nothing on the storefront.
+{%- enddoc -%}
+
+{%- liquid
+  assign cc_collection = block.settings.collection
+  assign render_panel = true
+  if cc_collection == blank and request.design_mode == false
+    assign render_panel = false
+  endif
+
+  # The first block that renders is the active one (blocks without a collection are skipped live).
+  assign first_id = ''
+  for child in section.blocks
+    if child.settings.collection != blank or request.design_mode
+      assign first_id = child.id
+      break
+    endif
+  endfor
+  assign is_first = false
+  if first_id == block.id
+    assign is_first = true
+  endif
+
+  assign cc_title = block.settings.custom_title | default: cc_collection.title
+  if cc_title == blank and request.design_mode
+    assign cc_title = 'placeholders.collection_title' | t
+  endif
+  assign cc_description = block.settings.custom_description | default: ''
+  if cc_description == blank and cc_collection.description != blank
+    assign cc_description = cc_collection.description | strip_html | truncatewords: 30
+  endif
+
+  assign cc_image = block.settings.custom_image | default: cc_collection.featured_image
+
+  assign image_loading = 'lazy'
+  assign image_priority = 'auto'
+  if is_first and section.index <= 2
+    assign image_loading = 'eager'
+    assign image_priority = 'high'
+  endif
+
+  assign heading_tag = section.settings.heading_tag | default: 'h3'
+  case section.settings.heading_size
+    when 'small'
+      assign heading_class = 'h4'
+    when 'medium'
+      assign heading_class = 'h3'
+    when 'large'
+      assign heading_class = 'h2'
+    else
+      assign heading_class = 'h1'
+  endcase
+
+  assign overlay_opacity = block.settings.overlay_opacity | default: 0
+-%}
+
+{%- if render_panel -%}
+  <div
+    class="yv-color-collection{% if is_first %} is-active{% endif %}"
+    id="YvColorPanel-{{ block.id }}"
+    data-block-id="{{ block.id }}"
+    ref="panels[]"
+    style="--yv-cc-content: {{ block.settings.color_content }};"
+    {{ block.shopify_attributes }}
+  >
+    <div
+      class="yv-color-collection__stage"
+      data-yv-reveal
+    >
+      <div class="yv-color-collection__slide">
+        {%- if block.settings.link_image and cc_collection != blank -%}
+          <a
+            class="yv-color-collection__link"
+            href="{{ cc_collection.url }}"
+            aria-label="{{ cc_title | escape }}"
+          ></a>
+        {%- endif -%}
+        <div class="yv-color-collection__media">
+          {%- if cc_image != blank -%}
+            {{
+              cc_image
+              | image_url: width: 1600
+              | image_tag:
+                widths: '400, 600, 800, 1000, 1200, 1600',
+                sizes: '(min-width: 750px) 50vw, 100vw',
+                loading: image_loading,
+                fetchpriority: image_priority,
+                class: 'yv-color-collection__image'
+              | default: ''
+            }}
+          {%- else -%}
+            {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-color-collection__image yv-placeholder' }}
+          {%- endif -%}
+        </div>
+        {%- if overlay_opacity > 0 -%}
+          <div
+            class="yv-overlay"
+            style="--yv-overlay-color: {{ block.settings.color_overlay }}; --yv-overlay-opacity: {{ overlay_opacity }};"
+          ></div>
+        {%- endif -%}
+        {%- liquid
+          assign show_title = false
+          if block.settings.show_title and cc_title != blank
+            assign show_title = true
+          endif
+          assign show_description = false
+          if block.settings.show_description and cc_description != blank
+            assign show_description = true
+          endif
+        -%}
+        {%- if show_title or show_description -%}
+          <div class="yv-color-collection__content">
+            <div class="yv-color-collection__text">
+              {%- if show_title -%}
+                <{{ heading_tag }} class="yv-color-collection__title {{ heading_class }}">
+                  {{- cc_title | escape -}}
+                </{{ heading_tag }}>
+              {%- endif -%}
+              {%- if show_description -%}
+                <p class="yv-color-collection__description">{{ cc_description | escape | newline_to_br }}</p>
+              {%- endif -%}
+            </div>
+          </div>
+        {%- endif -%}
+      </div>
+    </div>
+
+    <div class="yv-color-collection__list">
+      {%- if cc_collection != blank -%}
+        {%- assign shown = 0 -%}
+        <ul
+          class="yv-color-collection__rows"
+          role="list"
+          aria-label="{{ cc_title | escape }}"
+        >
+          {%- for product in cc_collection.products -%}
+            {%- if product.available == false -%}
+              {%- continue -%}
+            {%- endif -%}
+            <li
+              class="yv-color-collection__row"
+              data-yv-reveal
+              style="--yv-reveal-delay: {{ shown | times: 75 }}ms;"
+            >
+              {% render 'yv-product-list-card', product: product, section_id: section.id %}
+            </li>
+            {%- assign shown = shown | plus: 1 -%}
+            {%- if shown >= 6 -%}
+              {%- break -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+        {%- if shown == 0 -%}
+          <p class="yv-color-collection__empty">{{ 'yv.color_collections.empty' | t }}</p>
+        {%- endif -%}
+      {%- else -%}
+        <ul
+          class="yv-color-collection__rows"
+          role="list"
+        >
+          {%- for i in (1..3) -%}
+            <li class="yv-color-collection__row">
+              {% render 'yv-product-list-card', product: null %}
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </div>
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-color-collection {
+    display: none;
+  }
+
+  .yv-color-collection.is-active,
+  .yv-color-collection.is-previous {
+    display: grid;
+  }
+
+  .yv-color-collection__stage {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    height: var(--yv-cc-height-mobile, 350px);
+    border-radius: var(--yv-cc-radius-mobile, 20px);
+    background: var(--yv-image-bg, #f3efec);
+    isolation: isolate;
+  }
+
+  .yv-color-collection.is-active .yv-color-collection__stage {
+    z-index: 2;
+  }
+
+  .yv-color-collection.is-previous .yv-color-collection__list {
+    display: none;
+  }
+
+  .yv-color-collection__slide {
+    position: absolute;
+    inset: 0;
+    transform-origin: center;
+  }
+
+  .yv-color-collection__media,
+  .yv-color-collection__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .yv-color-collection__image {
+    object-fit: cover;
+  }
+
+  .yv-color-collection__link {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+  }
+
+  .yv-color-collection__link:focus-visible {
+    outline: 2px solid var(--yv-cc-content, #fff);
+    outline-offset: -6px;
+    border-radius: inherit;
+  }
+
+  .yv-color-collection__content {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 20px 20px 30px;
+    text-align: center;
+    color: var(--yv-cc-content, #fff);
+    pointer-events: none;
+  }
+
+  .yv-color-collection__text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    max-width: 100%;
+  }
+
+  .yv-color-collections .yv-color-collection__content .yv-color-collection__title {
+    margin: 0;
+    color: var(--yv-cc-content, #fff);
+    overflow-wrap: break-word;
+  }
+
+  .yv-color-collection__description {
+    margin: 0;
+    font-size: var(--yv-text-md, 13.44px);
+    line-height: 1.4;
+  }
+
+  .yv-color-collection__list {
+    min-width: 0;
+    margin-block-start: 20px;
+  }
+
+  .yv-color-collection__rows {
+    display: grid;
+    gap: 15px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .yv-color-collection__row {
+    min-width: 0;
+  }
+
+  .yv-color-collection__empty {
+    margin: 0;
+    padding: 20px;
+    text-align: center;
+    color: var(--yv-text-light, rgb(var(--color-foreground-rgb) / 0.5));
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-color-collection__stage {
+      height: var(--yv-cc-height, 750px);
+      border-radius: var(--yv-cc-radius, 25px);
+    }
+
+    .yv-color-collection__content {
+      padding: 20px 20px 40px;
+    }
+
+    .yv-color-collection__text {
+      max-width: 70%;
+    }
+
+    .yv-color-collection__list {
+      margin-block-start: 0;
+      padding-inline-start: 40px;
+    }
+
+    .yv-color-collection__rows {
+      max-width: 85%;
+    }
+  }
+
+  @media screen and (min-width: 1200px) {
+    .yv-color-collection__list {
+      padding-inline-start: 70px;
+    }
+  }
+
+  @media screen and (min-width: 1441px) {
+    .yv-color-collection__text {
+      max-width: 50%;
+    }
+
+    .yv-color-collection__rows {
+      max-width: 80%;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-color-collection.is-entering .yv-color-collection__slide {
+      animation: yv-color-collection-sweep 0.8s ease both;
+    }
+  }
+
+  @keyframes yv-color-collection-sweep {
+    from {
+      transform: translateX(-130%) scale(1.5);
+    }
+
+    to {
+      transform: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:names.collection",
+  "tag": null,
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "t:settings.collection",
+      "info": "t:yv.color_collections.settings.collection_info"
+    },
+    {
+      "type": "color",
+      "id": "swatch_color",
+      "label": "t:yv.color_collections.settings.swatch_color",
+      "info": "t:yv.color_collections.settings.swatch_color_info",
+      "default": "#C8B6A6"
+    },
+    {
+      "type": "image_picker",
+      "id": "custom_image",
+      "label": "t:yv.color_collections.settings.custom_image"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_title",
+      "label": "t:yv.color_collections.settings.show_title",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "label": "t:yv.color_collections.settings.show_description",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "link_image",
+      "label": "t:yv.color_collections.settings.link_image",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.color_collections.content.custom_content"
+    },
+    {
+      "type": "text",
+      "id": "custom_title",
+      "label": "t:settings.title"
+    },
+    {
+      "type": "textarea",
+      "id": "custom_description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_content",
+      "label": "t:yv.color_collections.settings.color_content",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_overlay",
+      "label": "t:settings.overlay",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 20
+    }
+  ]
+}
+{% endschema %}

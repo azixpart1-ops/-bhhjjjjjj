@@ -1,0 +1,708 @@
+{% comment %}
+  Section contract: yv-collage
+  A mosaic of image or video tiles at merchant-chosen widths (25–100% of a row), each with overlay
+  text (heading, subheading, button or text link) placed on a 3×3 grid separately for desktop and
+  mobile. Rows stretch to their tallest tile; on mobile the tiles become a horizontal swipe strip
+  (80% wide, the next tile peeking in). Tiles are private `_yv-collage-item` blocks.
+  Often the home-page hero: the section opts out of Horizon's transparent-header top offset
+  (`disable-section-top-offset`) so the tiles run under a transparent header, as on the Yuva demo.
+  Shared settings: color set, visibility, spacing.
+  @example
+  Theme editor > Add section > Banners > "Collage"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign radius_desktop = 0
+  assign radius_mobile = 0
+  if section.settings.image_layout == 'rounded'
+    assign radius_desktop = section.settings.radius_desktop
+    assign radius_mobile = section.settings.radius_mobile
+  endif
+
+  assign gap_desktop = 0
+  assign gap_mobile = 0
+  if section.settings.show_spacing
+    assign gap_desktop = section.settings.gap_desktop
+    assign gap_mobile = section.settings.gap_mobile
+  endif
+
+  assign section_width = 'section--page-width'
+  if section.settings.full_width
+    assign section_width = 'section--full-width'
+  endif
+
+  assign has_video = false
+  for child in section.blocks
+    if child.settings.video != blank
+      assign has_video = true
+      break
+    endif
+  endfor
+
+  assign collage_classes = 'yv-collage'
+  if section.settings.full_width
+    assign collage_classes = collage_classes | append: ' yv-collage--full'
+  endif
+  if section.settings.image_hover_animation
+    assign collage_classes = collage_classes | append: ' yv-collage--zoom'
+  endif
+  if section.settings.hover_effect
+    assign collage_classes = collage_classes | append: ' yv-collage--frame'
+  endif
+-%}
+
+{%- if has_video -%}
+  <script
+    src="{{ 'yv-autoplay-video.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section {{ section_width }} yv-section-spacing disable-section-top-offset color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-collage"
+>
+  <div
+    class="{{ collage_classes }}"
+    style="--yv-collage-gap: {{ gap_desktop }}px; --yv-collage-gap-mobile: {{ gap_mobile }}px; --yv-collage-radius: {{ radius_desktop }}px; --yv-collage-radius-mobile: {{ radius_mobile }}px;"
+  >
+    {%- content_for 'blocks' -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-collage {
+    --yv-collage-gutter: 0px;
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--yv-collage-gap);
+    min-width: 0;
+  }
+
+  .yv-collage:empty {
+    display: none;
+  }
+
+  /* Full width keeps the image gap as the outer gutter (Yuva "space around"). */
+  .yv-collage--full {
+    --yv-collage-gutter: var(--yv-collage-gap);
+
+    padding-inline: var(--yv-collage-gutter);
+  }
+
+  @media screen and (max-width: 749px) {
+    /* Mobile: one horizontal swipe strip; every tile is 80% wide so the next one peeks in. */
+    .yv-collage {
+      --yv-collage-gutter: var(--yv-collage-gap-mobile);
+
+      flex-wrap: nowrap;
+      gap: var(--yv-collage-gap-mobile);
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      scroll-padding-inline: var(--yv-collage-gutter);
+      scrollbar-width: none;
+      padding-inline: var(--yv-collage-gutter);
+    }
+
+    .yv-collage::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* A page-width collage bleeds to the screen edges so the strip can be swiped edge to edge. */
+    .section--page-width > .yv-collage {
+      --yv-collage-gutter: var(--page-margin);
+
+      grid-column: 1 / -1;
+    }
+
+    .yv-collage > :only-child {
+      flex-basis: 100%;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.collage",
+  "tag": "section",
+  "class": "yv-collage-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 12,
+  "blocks": [
+    {
+      "type": "_yv-collage-item"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "image_layout",
+      "label": "t:yv.collage.settings.image_layout",
+      "options": [
+        {
+          "value": "sharp",
+          "label": "t:yv.collage.options.sharp"
+        },
+        {
+          "value": "rounded",
+          "label": "t:yv.collage.options.rounded"
+        }
+      ],
+      "default": "rounded"
+    },
+    {
+      "type": "checkbox",
+      "id": "image_hover_animation",
+      "label": "t:yv.collage.settings.image_hover_animation",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "hover_effect",
+      "label": "t:yv.collage.settings.hover_effect",
+      "info": "t:yv.collage.settings.hover_effect_info",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "radius_desktop",
+      "label": "t:yv.collage.settings.radius_desktop",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 10,
+      "visible_if": "{{ section.settings.image_layout == 'rounded' }}"
+    },
+    {
+      "type": "range",
+      "id": "radius_mobile",
+      "label": "t:yv.collage.settings.radius_mobile",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 10,
+      "visible_if": "{{ section.settings.image_layout == 'rounded' }}"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium",
+      "info": "t:yv.collage.settings.heading_size_info"
+    },
+    {
+      "type": "select",
+      "id": "button_size",
+      "label": "t:yv.collage.settings.button_size",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default",
+      "info": "t:yv.collage.settings.button_size_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_spacing",
+      "label": "t:yv.collage.settings.show_spacing",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "gap_desktop",
+      "label": "t:yv.collage.settings.gap_desktop",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 6,
+      "visible_if": "{{ section.settings.show_spacing }}"
+    },
+    {
+      "type": "range",
+      "id": "gap_mobile",
+      "label": "t:yv.collage.settings.gap_mobile",
+      "min": 0,
+      "max": 30,
+      "step": 2,
+      "unit": "px",
+      "default": 4,
+      "visible_if": "{{ section.settings.show_spacing }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.collage.presets.hero",
+      "category": "t:yv.categories.banners",
+      "settings": {
+        "full_width": true,
+        "image_layout": "rounded",
+        "image_hover_animation": true,
+        "hover_effect": false,
+        "radius_desktop": 10,
+        "radius_mobile": 10,
+        "show_spacing": true,
+        "gap_desktop": 6,
+        "gap_mobile": 4,
+        "spacing_top_desktop": 0,
+        "spacing_bottom_desktop": 0,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 0
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "50",
+            "heading": "Live Smarter, Connected Every Day",
+            "heading_shadow": true,
+            "subheading": "Discover smart technology designed to enhance everyday life.",
+            "link": "shopify://collections/all",
+            "heading_size_desktop": "large",
+            "content_width_desktop": "small",
+            "heading_size_mobile": "large",
+            "content_width_mobile": "large",
+            "overlay_opacity": 5,
+            "position_desktop": "bottom_left",
+            "position_mobile": "bottom_left",
+            "color_overlay": "#000000",
+            "color_text": "#f1f1f1",
+            "color_heading_shadow": "#00000026"
+          }
+        },
+        "tile_2": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "50",
+            "heading": "Immerse in Better Sound Quality",
+            "heading_shadow": true,
+            "subheading": "Experience richer sound and exceptional clarity.",
+            "link": "shopify://collections/all",
+            "heading_size_desktop": "large",
+            "content_width_desktop": "small",
+            "heading_size_mobile": "large",
+            "content_width_mobile": "large",
+            "overlay_opacity": 5,
+            "position_desktop": "bottom_left",
+            "position_mobile": "bottom_left",
+            "color_overlay": "#000000",
+            "color_text": "#f1f1f1",
+            "color_heading_shadow": "#0000001c"
+          }
+        },
+        "tile_3": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "25",
+            "heading": "Earbuds",
+            "subheading": "Earbuds for a Smarter Connected",
+            "link": "shopify://collections/all",
+            "button_text": "Shop Now",
+            "button_as_link": true,
+            "heading_size_desktop": "small",
+            "content_width_desktop": "medium",
+            "heading_size_mobile": "small",
+            "content_width_mobile": "medium",
+            "overlay_opacity": 10,
+            "position_desktop": "bottom_left",
+            "position_mobile": "bottom_left",
+            "color_overlay": "#332f1a",
+            "color_text": "#ffffff"
+          }
+        },
+        "tile_4": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "25",
+            "heading": "Innovation",
+            "subheading": "Comfort Meets Advanced Innovation",
+            "link": "shopify://collections/all",
+            "button_text": "Shop Now",
+            "button_as_link": true,
+            "heading_size_desktop": "small",
+            "content_width_desktop": "medium",
+            "heading_size_mobile": "small",
+            "content_width_mobile": "medium",
+            "overlay_opacity": 5,
+            "position_desktop": "bottom_left",
+            "position_mobile": "bottom_left",
+            "color_overlay": "#6d5328",
+            "color_text": "#ffffff"
+          }
+        },
+        "tile_5": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "25",
+            "heading": "Speaker",
+            "subheading": "Music Systems for Modern Living",
+            "link": "shopify://collections/all",
+            "button_text": "Shop Now",
+            "button_as_link": true,
+            "heading_size_desktop": "small",
+            "content_width_desktop": "medium",
+            "heading_size_mobile": "small",
+            "content_width_mobile": "medium",
+            "overlay_opacity": 0,
+            "position_desktop": "bottom_left",
+            "position_mobile": "bottom_left",
+            "color_overlay": "#6d5328",
+            "color_text": "#ffffff"
+          }
+        },
+        "tile_6": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "25",
+            "heading": "Technology",
+            "subheading": "Lives Through Smart Technology",
+            "link": "shopify://collections/all",
+            "button_text": "Shop Now",
+            "button_as_link": true,
+            "heading_size_desktop": "small",
+            "content_width_desktop": "medium",
+            "heading_size_mobile": "small",
+            "content_width_mobile": "medium",
+            "overlay_opacity": 20,
+            "position_desktop": "bottom_left",
+            "position_mobile": "bottom_left",
+            "color_overlay": "#000000",
+            "color_text": "#ffffff"
+          }
+        }
+      },
+      "block_order": ["tile_1", "tile_2", "tile_3", "tile_4", "tile_5", "tile_6"]
+    },
+    {
+      "name": "t:yv.collage.presets.six_tiles",
+      "category": "t:yv.categories.banners",
+      "settings": {
+        "full_width": false,
+        "image_layout": "rounded",
+        "image_hover_animation": true,
+        "radius_desktop": 6,
+        "radius_mobile": 7,
+        "show_spacing": true,
+        "gap_desktop": 8,
+        "gap_mobile": 10,
+        "spacing_top_desktop": 60,
+        "spacing_bottom_desktop": 60,
+        "spacing_top_mobile": 20,
+        "spacing_bottom_mobile": 20
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "50",
+            "heading": "Smooth, Soft, & Stunning Skin",
+            "heading_tag": "h2",
+            "heading_size_desktop": "large",
+            "heading_size_mobile": "large",
+            "content_width_desktop": "medium",
+            "content_width_mobile": "large",
+            "overlay_opacity": 20,
+            "position_desktop": "top_left",
+            "position_mobile": "center",
+            "color_overlay": "#5b2709",
+            "color_text": "#ffffff"
+          }
+        },
+        "tile_2": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "25",
+            "heading": "Nourish Your Skin",
+            "heading_size_desktop": "large",
+            "heading_size_mobile": "large",
+            "content_width_desktop": "medium",
+            "content_width_mobile": "large",
+            "overlay_opacity": 0,
+            "position_desktop": "top_left",
+            "position_mobile": "center",
+            "color_overlay": "#ffffff",
+            "color_text": "#ffffff"
+          }
+        },
+        "tile_3": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "25",
+            "heading": "The Skin Saver Sale",
+            "heading_size_desktop": "large",
+            "heading_size_mobile": "large",
+            "content_width_desktop": "medium",
+            "content_width_mobile": "large",
+            "overlay_opacity": 25,
+            "position_desktop": "top_left",
+            "position_mobile": "center",
+            "color_overlay": "#000000",
+            "color_text": "#ffffff"
+          }
+        },
+        "tile_4": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "25",
+            "heading": "Glow Up Sale",
+            "heading_size_desktop": "large",
+            "heading_size_mobile": "large",
+            "content_width_desktop": "medium",
+            "content_width_mobile": "large",
+            "overlay_opacity": 10,
+            "position_desktop": "bottom_center",
+            "position_mobile": "center",
+            "color_overlay": "#000000",
+            "color_text": "#ffffff"
+          }
+        },
+        "tile_5": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "25",
+            "heading": "Your Daily Dose",
+            "heading_size_desktop": "large",
+            "heading_size_mobile": "large",
+            "content_width_desktop": "medium",
+            "content_width_mobile": "large",
+            "overlay_opacity": 10,
+            "position_desktop": "bottom_center",
+            "position_mobile": "center",
+            "color_overlay": "#000000",
+            "color_text": "#ffffff"
+          }
+        },
+        "tile_6": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "50",
+            "heading": "Treat Your Skin Like Royalty",
+            "heading_size_desktop": "large",
+            "heading_size_mobile": "large",
+            "content_width_desktop": "medium",
+            "content_width_mobile": "large",
+            "overlay_opacity": 0,
+            "position_desktop": "center_left",
+            "position_mobile": "center",
+            "color_overlay": "#000000",
+            "color_text": "#ffffff"
+          }
+        }
+      },
+      "block_order": ["tile_1", "tile_2", "tile_3", "tile_4", "tile_5", "tile_6"]
+    },
+    {
+      "name": "t:yv.collage.presets.three_tiles",
+      "category": "t:yv.categories.banners",
+      "settings": {
+        "full_width": true,
+        "image_layout": "sharp",
+        "image_hover_animation": true,
+        "hover_effect": true,
+        "show_spacing": true,
+        "gap_desktop": 20,
+        "gap_mobile": 4,
+        "spacing_top_desktop": 0,
+        "spacing_bottom_desktop": 0,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 0
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "33",
+            "heading": "Experience Motiorise Now",
+            "heading_size_desktop": "large",
+            "heading_size_mobile": "large",
+            "content_width_desktop": "medium",
+            "content_width_mobile": "large",
+            "overlay_opacity": 10,
+            "position_desktop": "bottom_center",
+            "position_mobile": "center",
+            "color_overlay": "#000000",
+            "color_text": "#ffffff"
+          }
+        },
+        "tile_2": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "33",
+            "heading": "Beyond Cleanse, Nourish",
+            "heading_size_desktop": "large",
+            "heading_size_mobile": "large",
+            "content_width_desktop": "medium",
+            "content_width_mobile": "large",
+            "overlay_opacity": 10,
+            "position_desktop": "bottom_center",
+            "position_mobile": "center",
+            "color_overlay": "#000000",
+            "color_text": "#ffffff"
+          }
+        },
+        "tile_3": {
+          "type": "_yv-collage-item",
+          "settings": {
+            "width": "33",
+            "heading": "Say Goodbye to Dry Skin",
+            "heading_size_desktop": "large",
+            "heading_size_mobile": "large",
+            "content_width_desktop": "medium",
+            "content_width_mobile": "large",
+            "overlay_opacity": 20,
+            "position_desktop": "bottom_center",
+            "position_mobile": "center",
+            "color_overlay": "#000000",
+            "color_text": "#ffffff"
+          }
+        }
+      },
+      "block_order": ["tile_1", "tile_2", "tile_3"]
+    }
+  ]
+}
+{% endschema %}

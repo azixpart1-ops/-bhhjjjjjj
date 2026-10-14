@@ -1,0 +1,445 @@
+{% comment %}
+  Section contract: yv-split-banner
+  A row of 2–4 image panels (private blocks `_yv-split-banner-panel`) that share the width equally.
+  On desktop (990px+, hover devices) the hovered or focused panel widens to flex 1.5 over 0.8s and, when
+  text animation is on, its description slides up under the heading (0.4s). Below 990px the panels
+  become a horizontal scroll-snap row (75% wide on phones, 50% on tablets) with the description
+  always visible. Heading tag, size and highlight are shared by every panel and set here.
+  Shared settings: colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Banners > "Split banner"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign width_class = 'section--page-width'
+  if section.settings.full_width
+    assign width_class = 'section--full-width disable-section-top-offset'
+  endif
+
+  assign row_class = 'yv-split-banner__row'
+  if section.settings.text_animation
+    assign row_class = row_class | append: ' yv-split-banner__row--reveal'
+  endif
+  if section.settings.hover_expand
+    assign row_class = row_class | append: ' yv-split-banner__row--expand'
+  endif
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section {{ width_class }} yv-section-spacing yv-split-banner color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% unless section.settings.full_width %} yv-split-banner--boxed{% endunless %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-split-height: {{ section.settings.height_desktop }}px; --yv-split-height-mobile: {{ section.settings.height_mobile }}px;"
+  data-testid="yv-split-banner"
+>
+  <div
+    class="{{ row_class }}"
+    style="--yv-split-count: {{ section.blocks.size | at_least: 1 }};"
+  >
+    {%- content_for 'blocks' -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-split-banner__row {
+    display: flex;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .yv-split-banner__row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .yv-split-banner__row:empty {
+    display: none;
+  }
+
+  .yv-split-banner--boxed .yv-split-banner__row {
+    border-radius: var(--yv-layout-radius, 0);
+  }
+
+  /* Phones: 75% wide panels that snap to the centre, so the next one peeks. */
+  .yv-split-banner__row > * {
+    flex: 0 0 75%;
+    min-width: 0;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+  }
+
+  .yv-split-banner__row > :only-child {
+    flex-basis: 100%;
+  }
+
+  @media screen and (min-width: 750px) and (max-width: 989px) {
+    .yv-split-banner__row > * {
+      flex-basis: 50%;
+    }
+  }
+
+  /* Desktop: equal panels in one row; the hovered one grows. */
+  @media screen and (min-width: 990px) {
+    .yv-split-banner__row {
+      overflow: hidden;
+      scroll-snap-type: none;
+    }
+
+    .yv-split-banner__row > * {
+      flex: 1 1 0;
+    }
+  }
+
+  @media screen and (min-width: 990px) and (prefers-reduced-motion: no-preference) {
+    .yv-split-banner__row > * {
+      transition: flex-grow 0.8s ease;
+    }
+  }
+
+  @media screen and (min-width: 990px) and (hover: hover) {
+    .yv-split-banner__row--expand > :is(:hover, :focus-within) {
+      flex-grow: 1.5;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.split_banner",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-split-banner-panel"
+    }
+  ],
+  "max_blocks": 4,
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.layout"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "height_desktop",
+      "label": "t:yv.common.settings.desktop_height",
+      "min": 300,
+      "max": 1000,
+      "step": 10,
+      "unit": "px",
+      "default": 750
+    },
+    {
+      "type": "range",
+      "id": "height_mobile",
+      "label": "t:yv.common.settings.mobile_height",
+      "min": 200,
+      "max": 900,
+      "step": 10,
+      "unit": "px",
+      "default": 450
+    },
+    {
+      "type": "checkbox",
+      "id": "hover_expand",
+      "label": "t:yv.split_banner.settings.hover_expand",
+      "info": "t:yv.split_banner.settings.hover_expand_info",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "text_animation",
+      "label": "t:yv.split_banner.settings.text_animation",
+      "info": "t:yv.split_banner.settings.text_animation_info",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h3",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "secondary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.split_banner",
+      "category": "t:yv.categories.banners",
+      "blocks": {
+        "panel_1": {
+          "type": "_yv-split-banner-panel",
+          "settings": {
+            "heading": "Discover Speakers",
+            "description": "Exceptional sound quality designed to deliver clarity, depth.",
+            "link": "shopify://collections/all"
+          }
+        },
+        "panel_2": {
+          "type": "_yv-split-banner-panel",
+          "settings": {
+            "heading": "Perfect Sound",
+            "description": "Premium sound quality crafted to deliver clarity, depth, and balance.",
+            "link": "shopify://collections/all"
+          }
+        },
+        "panel_3": {
+          "type": "_yv-split-banner-panel",
+          "settings": {
+            "heading": "Immersive Audio",
+            "description": "Experience rich, detailed sound that brings every moment closer to life.",
+            "link": "shopify://collections/all"
+          }
+        },
+        "panel_4": {
+          "type": "_yv-split-banner-panel",
+          "settings": {
+            "heading": "Fitness Watches",
+            "description": "Track your fitness, stay active, and reach goals smarter.",
+            "link": "shopify://collections/all"
+          }
+        }
+      },
+      "block_order": ["panel_1", "panel_2", "panel_3", "panel_4"]
+    },
+    {
+      "name": "t:yv.names.split_banner_centered",
+      "category": "t:yv.categories.banners",
+      "settings": {
+        "height_desktop": 850,
+        "height_mobile": 650,
+        "heading_size": "large",
+        "heading_tag": "h2",
+        "color_set": "primary",
+        "spacing_bottom_mobile": 0
+      },
+      "blocks": {
+        "panel_1": {
+          "type": "_yv-split-banner-panel",
+          "settings": {
+            "heading": "Cozy Sleep",
+            "description": "Restful nights in a warm, cozy bed designed for comfort and deep sleep.",
+            "link": "shopify://collections/all",
+            "text_alignment": "center",
+            "text_color": "#FFFFFF",
+            "overlay_opacity": 0
+          }
+        },
+        "panel_2": {
+          "type": "_yv-split-banner-panel",
+          "settings": {
+            "heading": "Daily Essentials",
+            "description": "Nutritious, tasty favourites that support a happy, active lifestyle.",
+            "link": "shopify://collections/all",
+            "text_alignment": "center",
+            "text_color": "#FFFFFF",
+            "overlay_opacity": 0
+          }
+        },
+        "panel_3": {
+          "type": "_yv-split-banner-panel",
+          "settings": {
+            "heading": "Accessories",
+            "description": "Quality essentials that make everyday life fun and easy.",
+            "link": "shopify://collections/all",
+            "text_alignment": "center",
+            "text_color": "#FFFFFF",
+            "overlay_opacity": 0
+          }
+        }
+      },
+      "block_order": ["panel_1", "panel_2", "panel_3"]
+    }
+  ]
+}
+{% endschema %}

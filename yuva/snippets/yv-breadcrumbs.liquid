@@ -1,0 +1,143 @@
+{%- doc -%}
+  Yuva breadcrumb trail ("Home / Collection / Product") for the current template, plus a matching
+  BreadcrumbList JSON-LD (skipped when Theme settings > SEO > Disable microdata schema is on).
+
+  Renders nothing when Theme settings > Breadcrumbs > Enable breadcrumbs is off, or on templates that
+  never show a trail (index, cart, 404, password, gift card, customer pages).
+
+  Trails:
+  - product: Home / [collection, when the URL has one] / Product title
+  - collection: Home / Collections / Collection title [/ Tag]
+  - list-collections: Home / Collections
+  - blog: Home / Blog title [/ Tag]
+  - article: Home / Blog title / Article title
+  - page: Home / Page title
+  - search: Home / Search results
+
+  Markup contract (styles in assets/yv-base.css): nav.yv-breadcrumbs > ol.yv-breadcrumbs__list >
+  li.yv-breadcrumbs__item > a.yv-breadcrumbs__link | span.yv-breadcrumbs__current[aria-current="page"].
+
+  @param {string} [class] - Extra classes on the nav element.
+  @param {boolean} [force] - Render a sample trail on unsupported templates (theme editor preview of the section). Default: false
+
+  @example
+  {% render 'yv-breadcrumbs' %}
+{%- enddoc -%}
+
+{%- liquid
+  assign show_trail = settings.yv_breadcrumbs | default: false
+  if settings.yv_breadcrumbs == nil
+    assign show_trail = true
+  endif
+
+  assign home_label = 'yv.breadcrumbs.home' | t
+  assign collections_label = 'yv.breadcrumbs.collections' | t
+  assign search_label = 'yv.breadcrumbs.search' | t
+
+  # Each crumb is "url|||title"; the last crumb has no url and is the current page.
+  assign sep = '@@yv@@'
+  assign crumbs = routes.root_url | append: '|||' | append: home_label
+
+  case template.name
+    when 'product'
+      if collection != blank and collection.handle != blank
+        assign crumbs = crumbs | append: sep | append: collection.url | append: '|||' | append: collection.title
+      endif
+      assign crumbs = crumbs | append: sep | append: '|||' | append: product.title
+    when 'collection'
+      assign crumbs = crumbs | append: sep | append: routes.collections_url | append: '|||' | append: collections_label
+      if current_tags != blank
+        assign crumbs = crumbs | append: sep | append: collection.url | append: '|||' | append: collection.title
+        assign tag_title = current_tags | join: ', '
+        assign crumbs = crumbs | append: sep | append: '|||' | append: tag_title
+      else
+        assign crumbs = crumbs | append: sep | append: '|||' | append: collection.title
+      endif
+    when 'list-collections'
+      assign crumbs = crumbs | append: sep | append: '|||' | append: collections_label
+    when 'blog'
+      if current_tags != blank
+        assign crumbs = crumbs | append: sep | append: blog.url | append: '|||' | append: blog.title
+        assign tag_title = current_tags | join: ', '
+        assign crumbs = crumbs | append: sep | append: '|||' | append: tag_title
+      else
+        assign crumbs = crumbs | append: sep | append: '|||' | append: blog.title
+      endif
+    when 'article'
+      assign crumbs = crumbs | append: sep | append: blog.url | append: '|||' | append: blog.title
+      assign crumbs = crumbs | append: sep | append: '|||' | append: article.title
+    when 'page'
+      assign crumbs = crumbs | append: sep | append: '|||' | append: page.title
+    when 'search'
+      assign crumbs = crumbs | append: sep | append: '|||' | append: search_label
+    else
+      if force
+        assign crumbs = crumbs | append: sep | append: '|||' | append: page_title
+      else
+        assign show_trail = false
+      endif
+  endcase
+
+  assign crumb_list = crumbs | split: sep
+  assign nav_class = 'yv-breadcrumbs'
+  if class != blank
+    assign nav_class = nav_class | append: ' ' | append: class
+  endif
+-%}
+
+{%- if show_trail and crumb_list.size > 1 -%}
+  <nav
+    class="{{ nav_class }}"
+    aria-label="{{ 'yv.breadcrumbs.label' | t }}"
+  >
+    <ol class="yv-breadcrumbs__list">
+      {%- for crumb in crumb_list -%}
+        {%- assign crumb_url = crumb | split: '|||' | first -%}
+        {%- assign crumb_title = crumb | split: '|||' | last -%}
+        <li class="yv-breadcrumbs__item">
+          {%- if forloop.last or crumb_url == blank -%}
+            <span
+              class="yv-breadcrumbs__current"
+              {% if forloop.last %}
+                aria-current="page"
+              {% endif %}
+            >
+              {{- crumb_title | strip_html | escape -}}
+            </span>
+          {%- else -%}
+            <a
+              class="yv-breadcrumbs__link"
+              href="{{ crumb_url }}"
+            >
+              {{- crumb_title | strip_html | escape -}}
+            </a>
+          {%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ol>
+  </nav>
+
+  {%- unless settings.yv_disable_microdata -%}
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {%- for crumb in crumb_list -%}
+            {%- assign crumb_url = crumb | split: '|||' | first -%}
+            {%- assign crumb_title = crumb | split: '|||' | last | strip_html -%}
+            {%- if crumb_url == blank -%}
+              {%- assign crumb_url = request.path -%}
+            {%- endif -%}
+            {
+              "@type": "ListItem",
+              "position": {{ forloop.index }},
+              "name": {{ crumb_title | json }},
+              "item": {{ request.origin | append: crumb_url | json }}
+            }{% unless forloop.last %},{% endunless %}
+          {%- endfor -%}
+        ]
+      }
+    </script>
+  {%- endunless -%}
+{%- endif -%}

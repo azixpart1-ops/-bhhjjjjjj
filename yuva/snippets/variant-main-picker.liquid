@@ -9,6 +9,46 @@
 
 {% assign block_settings = block.settings %}
 
+{%- comment -%}
+  yv: Theme settings > Product drive the option style (Dropdown / Swatch), which options hold colours
+  and sizes (Color options name / Size options name) and the option titles ("Select color : Beige").
+  The block's own variant_style / show_swatches stay as fallbacks when the theme setting is blank.
+  Size options get the size chart link (block setting size_chart_page, or the product metafield
+  yuva_theme.size_chart).
+{%- endcomment -%}
+{%- liquid
+  assign yv_variant_style = block_settings.variant_style
+  assign yv_show_swatches = block_settings.show_swatches
+  if settings.yv_option_style == 'dropdown'
+    assign yv_variant_style = 'dropdowns'
+    assign yv_show_swatches = false
+  elsif settings.yv_option_style == 'swatch'
+    assign yv_variant_style = 'buttons'
+    assign yv_show_swatches = true
+  endif
+  assign yv_color_names = settings.yv_color_option_names | default: 'Color, Colour' | downcase | split: ','
+  assign yv_size_names = settings.yv_size_option_names | default: 'Size' | downcase | split: ','
+  assign yv_size_chart = block_settings.size_chart_page
+  if yv_size_chart == blank
+    assign yv_size_chart = product_resource.metafields.yuva_theme.size_chart.value
+  endif
+  assign yv_size_chart_index = -1
+  if yv_size_chart != blank
+    for yv_option in product_resource.options_with_values
+      assign yv_option_key = yv_option.name | downcase | strip
+      for yv_name in yv_size_names
+        assign yv_name_key = yv_name | strip
+        if yv_name_key == yv_option_key and yv_size_chart_index == -1
+          assign yv_size_chart_index = forloop.parentloop.index0
+        endif
+      endfor
+    endfor
+    if yv_size_chart_index == -1
+      assign yv_size_chart_index = product_resource.options_with_values.size | minus: 1
+    endif
+  endif
+-%}
+
 {% liquid
   # Custom styling applies to:
   #   - dropdowns + buttons when variant_style_class == 'custom' (unselected colors)
@@ -18,7 +58,7 @@
   if block_settings.variant_style_class == 'custom'
     assign has_custom_variant_buttons = true
   endif
-  if block_settings.variant_style == 'buttons' and block_settings.selected_variant_style_class == 'custom'
+  if yv_variant_style == 'buttons' and block_settings.selected_variant_style_class == 'custom'
     assign has_custom_variant_buttons = true
   endif
   assign fieldset_index = 0
@@ -56,10 +96,21 @@
       {%- for product_option in product_resource.options_with_values -%}
         {%- liquid
           assign swatch_count = product_option.values | map: 'swatch' | compact | size
-          assign variant_style = block_settings.variant_style
+          assign variant_style = yv_variant_style
 
-          if swatch_count > 0 and block_settings.show_swatches
-            if block_settings.variant_style == 'dropdown'
+          # yv: colour options (Theme settings > Product > Color options name) render as swatches too.
+          assign yv_option_key = product_option.name | downcase | strip
+          assign yv_is_color = false
+          for yv_name in yv_color_names
+            assign yv_name_key = yv_name | strip
+            if yv_name_key == yv_option_key
+              assign yv_is_color = true
+            endif
+          endfor
+          assign yv_option_title = 'yv.product.select_option' | t: option: yv_option_key
+
+          if yv_show_swatches and swatch_count > 0 or yv_show_swatches and yv_is_color
+            if yv_variant_style == 'dropdown'
               assign variant_style = 'swatch_dropdown'
             else
               assign variant_style = 'swatch'
@@ -86,19 +137,24 @@
               {{- product_option.selected_value -}}
             </span>
           </div>
-        {%- elsif variant_style == 'swatch' or block_settings.variant_style == 'buttons' -%}
+        {%- elsif variant_style == 'swatch' or yv_variant_style == 'buttons' -%}
           <fieldset
             class="variant-option variant-option--buttons{% if variant_style == 'swatch' %} variant-option--swatches{% else %} variant-option--{{ settings.variant_button_width }}{% endif %}"
             data-fieldset-index="{{ fieldset_index }}"
             ref="fieldsets[]"
             {{ option_id_attribute }}
           >
-            <legend>
-              {{ product_option.name | escape -}}
+            {%- comment -%} yv: "Select <option>" title; colour options add " : <selected value>". {%- endcomment -%}
+            <legend class="yv-option-title">
+              <span class="yv-option-title__name">{{ yv_option_title | escape }}</span>
               {%- if variant_style == 'swatch' -%}
+                <span class="yv-option-title__sep" aria-hidden="true"> : </span>
                 <span class="variant-option__swatch-value">{{ product_option.selected_value }}</span>
               {%- endif %}
             </legend>
+            {%- if forloop.index0 == yv_size_chart_index -%}
+              {% render 'yv-size-chart', page: yv_size_chart, id: block.id %}
+            {%- endif -%}
             {%- for product_option_value in product_option.values -%}
               {% if product_option_value.size > longest_value and option_id_attribute %}
                 {% assign longest_value = product_option_value.size %}
@@ -143,11 +199,34 @@
                     endif
                   %}
 
-                  {% render 'swatch',
-                    swatch: product_option_value.swatch,
-                    variant_image: featured_media,
-                    mode: 'unscaled'
-                  %}
+                  {%- comment -%}
+                    yv: colour options without a native swatch fall back to the value as a CSS colour name
+                    plus an optional <value>.png theme asset (Yuva KB "How to set up the swatches").
+                  {%- endcomment -%}
+                  {%- liquid
+                    assign yv_fallback_swatch = false
+                    if product_option_value.swatch == blank and yv_is_color
+                      unless settings.show_variant_image and featured_media
+                        assign yv_fallback_swatch = true
+                      endunless
+                    endif
+                  -%}
+                  {%- if yv_fallback_swatch -%}
+                    {%- liquid
+                      assign yv_color_name = product_option_value.name | downcase | remove: ' ' | remove: '-'
+                      assign yv_color_file = product_option_value.name | handleize | append: '.png'
+                    -%}
+                    <span
+                      class="swatch swatch--unscaled yv-swatch-fallback"
+                      style="background-color: {{ yv_color_name | escape }}; background-image: url({{ yv_color_file | asset_url }});"
+                    ></span>
+                  {%- else -%}
+                    {% render 'swatch',
+                      swatch: product_option_value.swatch,
+                      variant_image: featured_media,
+                      mode: 'unscaled'
+                    %}
+                  {%- endif -%}
                 {% else %}
                   {% if product_option_value.available == true %}
                     <span
@@ -174,7 +253,7 @@
             {% endif %}
           </fieldset>
           {%- assign fieldset_index = fieldset_index | plus: 1 -%}
-        {%- elsif block_settings.variant_style == 'dropdowns' -%}
+        {%- elsif yv_variant_style == 'dropdowns' -%}
           {%
             # There is an opportunity to build a custom select component that will allow us to style the select element further (animation for dropdown, swatches shown in the dropdown options, etc)
             # It's too bad as it mean rebuilding baked in behaviours but I think we've already done that for the locale selectors
@@ -190,7 +269,16 @@
           %}
 
           <div class="variant-option variant-option--dropdowns">
-            <label for="Option-{{ block.id }}-{{ forloop.index0 }}">{{ product_option.name | escape }}</label>
+            {%- comment -%} yv: "Select <option>" title {%- endcomment -%}
+            <label
+              class="yv-option-title"
+              for="Option-{{ block.id }}-{{ forloop.index0 }}"
+            >
+              {{- yv_option_title | escape -}}
+            </label>
+            {%- if forloop.index0 == yv_size_chart_index -%}
+              {% render 'yv-size-chart', page: yv_size_chart, id: block.id %}
+            {%- endif -%}
             <div
               class="variant-option__select-wrapper"
               style="
@@ -246,3 +334,5 @@
 
 {% render 'swatch-styles' %}
 {% render 'variant-picker-styles' %}
+{%- comment -%} yv: Yuva option look (pills, swatch rings, titles); linked here so quick view gets it too. {%- endcomment -%}
+{{ 'yv-product.css' | asset_url | stylesheet_tag }}
