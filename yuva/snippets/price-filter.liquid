@@ -5,6 +5,7 @@
   @param {string} filter_style - The filter style, can be 'horizontal' or 'vertical'.
   @param {boolean} [should_render_clear] - Whether to render the clear button.
   @param {string} [id_prefix] - Unique prefix to avoid duplicate IDs when rendered multiple times.
+  @param {boolean} [show_slider] - yv: Show Yuva's price slider above the inputs (default true).
 
   @example
   {% render 'price-filter', filter: filter, filter_style: 'vertical', id_prefix: 'dialog' %}
@@ -80,6 +81,40 @@
         data-currency="{{ localization.country.currency.iso_code }}"
         on:change="/updatePriceFilterAndResults"
       >
+        {%- comment -%}
+          yv: Yuva's dual-thumb price slider above the From / To inputs (assets/yv-price-range.js).
+          The thumbs carry Liquid money values; the script writes the matching amounts into the inputs.
+        {%- endcomment -%}
+        {%- if show_slider != false and filter.range_max > 0 -%}
+          {%- assign yv_range_max = filter.range_max | divided_by: 100.0 | ceil | times: 100 -%}
+          <script
+            src="{{ 'yv-price-range.js' | asset_url }}"
+            type="module"
+            fetchpriority="low"
+          ></script>
+          <yv-price-range class="yv-price-range" data-range-max="{{ filter.range_max }}">
+            <input
+              class="yv-price-range__input"
+              type="range"
+              min="0"
+              max="{{ yv_range_max }}"
+              step="100"
+              value="{{ filter.min_value.value | default: 0 }}"
+              aria-label="{{ 'accessibility.price_filter_low' | t }}"
+              autocomplete="off"
+            >
+            <input
+              class="yv-price-range__input"
+              type="range"
+              min="0"
+              max="{{ yv_range_max }}"
+              step="100"
+              value="{{ filter.max_value.value | default: filter.range_max }}"
+              aria-label="{{ 'accessibility.price_filter_high' | t }}"
+              autocomplete="off"
+            >
+          </yv-price-range>
+        {%- endif -%}
         <div class="facets__inputs-wrapper facets__inputs-wrapper--row">
           <div
             class="price-facet__inputs-wrapper"
@@ -240,5 +275,95 @@
     color: var(--facets-input-label-color);
     padding: var(--input-padding-y) var(--input-padding-x);
     transform: none;
+  }
+
+  /* yv: Yuva price slider: 3px track, black fill between 15px white thumbs with a 3px black ring */
+  .yv-price-range {
+    --yv-range-thumb: 15px;
+
+    position: relative;
+    display: block;
+    height: var(--yv-range-thumb);
+    margin: 4px calc(var(--yv-range-thumb) / 2) 18px;
+  }
+
+  .yv-price-range::before,
+  .yv-price-range::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 50%;
+    height: 3px;
+    border-radius: 3px;
+    transform: translateY(-50%);
+  }
+
+  .yv-price-range::before {
+    inset-inline: 0;
+    background: rgb(var(--color-foreground-rgb) / 0.15);
+  }
+
+  .yv-price-range::after {
+    inset-inline-start: var(--yv-range-from, 0%);
+    inset-inline-end: calc(100% - var(--yv-range-to, 100%));
+    background: var(--color-foreground);
+  }
+
+  .yv-price-range .yv-price-range__input {
+    position: absolute;
+    inset: 0 calc(var(--yv-range-thumb) / -2);
+    z-index: 1;
+    width: calc(100% + var(--yv-range-thumb));
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    appearance: none;
+    pointer-events: none;
+  }
+
+  .yv-price-range__input::-webkit-slider-runnable-track {
+    background: none;
+  }
+
+  .yv-price-range__input::-moz-range-track {
+    background: none;
+  }
+
+  .yv-price-range__input::-webkit-slider-thumb {
+    width: var(--yv-range-thumb);
+    height: var(--yv-range-thumb);
+    border: 3px solid var(--color-foreground);
+    border-radius: 50%;
+    background: var(--color-background);
+    cursor: grab;
+    appearance: none;
+    pointer-events: auto;
+  }
+
+  .yv-price-range__input::-moz-range-thumb {
+    box-sizing: border-box;
+    width: var(--yv-range-thumb);
+    height: var(--yv-range-thumb);
+    border: 3px solid var(--color-foreground);
+    border-radius: 50%;
+    background: var(--color-background);
+    cursor: grab;
+    pointer-events: auto;
+  }
+
+  .yv-price-range__input:focus-visible {
+    outline: none;
+  }
+
+  .yv-price-range__input:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--color-foreground);
+    outline-offset: 2px;
+  }
+
+  .yv-price-range__input:focus-visible::-moz-range-thumb {
+    outline: 2px solid var(--color-foreground);
+    outline-offset: 2px;
   }
 {% endstylesheet %}

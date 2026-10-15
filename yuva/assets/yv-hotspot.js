@@ -106,8 +106,11 @@ export class YvHotspot extends Component {
     }
   }
 
-  /** Opens the popover (or the bottom sheet on mobile). */
-  open() {
+  /**
+   * Opens the popover (or the bottom sheet on mobile).
+   * @param {{ hover?: boolean }} [options] - hover: opened by the pointer, so focus stays where it was.
+   */
+  open(options) {
     this.#clearTimers();
     if (this.isOpen) return;
     this.#pinned = false;
@@ -122,7 +125,16 @@ export class YvHotspot extends Component {
     if (modal) {
       popover.showModal();
     } else {
+      const previousFocus = document.activeElement;
       popover.show();
+      // dialog.show() moves focus into the card; a hover open must not steal focus.
+      if (options?.hover && popover.contains(document.activeElement)) {
+        if (previousFocus instanceof HTMLElement && previousFocus !== document.body) {
+          previousFocus.focus({ preventScroll: true });
+        } else if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      }
       this.#place();
     }
 
@@ -223,7 +235,7 @@ export class YvHotspot extends Component {
     this.#cancelClose();
     if (this.isOpen) return;
     window.clearTimeout(this.#openTimer);
-    this.#openTimer = window.setTimeout(() => this.open(), OPEN_DELAY);
+    this.#openTimer = window.setTimeout(() => this.open({ hover: true }), OPEN_DELAY);
   };
 
   /** @param {PointerEvent} event */
