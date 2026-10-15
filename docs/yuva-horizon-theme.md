@@ -226,4 +226,49 @@ These keep Horizon's own sections (so variant handling, filters, the cart and se
 
 ## Known differences from Yuva
 
-<!-- differences -->
+Everything in Yuva's documentation and on the Yuva demo is built. These are the places where the
+theme behaves differently from the demo, and why.
+
+**Content you add yourself**
+
+- **No demo photos or products.** Image settings start empty and show Shopify's placeholders.
+  Sections that list products use the "all" collection or show placeholder cards until you pick
+  a collection. Hotspots without a product show a placeholder card on desktop only.
+- **Social links are blank.** The top bar, the menu drawer and the footer's newsletter column show
+  their social icons once you fill in Theme settings > Social media. (Pre-filling them would link
+  your store to someone else's accounts.)
+- **Footer "Most Purchase" column** uses the `footer` menu, so it repeats the Collections links
+  until you choose a menu of best-selling products for it.
+- **Mega menus** only take over a top-level menu item once the mega menu block has content
+  (collections, images or products). Until then the item works as a normal link.
+
+**Built differently from Yuva**
+
+- **Product page.** It keeps Horizon's product section, so variant handling, media, pickup
+  availability and the cart behave exactly as in Horizon. The Yuva blocks and look are added on
+  top. The sticky add-to-cart bar shows the chosen variant's name rather than Yuva's per-option
+  pills, and the "Product meta" tab joins the product tabs with JavaScript (without JavaScript it
+  stays an accordion row).
+- **Section library** is split over two pages (`section-library` and `section-library-2`), because
+  Shopify renders at most 25 sections per template. The header and footer group sections and the
+  site-wide pieces (store locator, side drawer, newsletter popup, mobile dock) are not in it; you
+  edit those from any page.
+- **Tablet header (750–989px)** uses Horizon's drawer layout: one row with the menu button, the
+  logo in the centre and the icons on the right, as Yuva does.
+- **Video banner headings** use rich text (so highlight words work). Shopify's inline rich text has
+  no manual line breaks, so long headings wrap on their own. The offer banner heading uses
+  no-break spaces to keep Yuva's two-line split.
+- **Google Maps.** With an API key, the Map section and the store locator use Google's classic map
+  marker (Google has deprecated it in favour of "advanced markers", which need a Map ID, but it
+  still works). Without a key, the Map section shows a basic embedded map.
+- **Small measured differences.** The image overlay preset is 80% (Yuva measures 82%; Shopify's
+  setting moves in steps of 5). The scroll-to-top button gets its white disc only over the dark
+  footer.
+
+**Checked locally, not on a live store**
+
+The theme was checked in a local mock of Shopify's storefront (`scripts/theme-dev`), with
+Shopify's theme-check, in a real browser at 390, 750, 800, 990, 1200 and 1440px wide. That mock
+has limits: it serves no web fonts, it cannot reach Google Maps, and it draws Horizon's
+placeholder product cards blank. Preview the theme on your store before publishing it: open the
+theme editor on the home page, a product, a collection, the cart and each page template.
