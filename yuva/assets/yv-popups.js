@@ -15,6 +15,30 @@ import { debounce, isTouchDevice } from '@theme/utilities';
 const isDesignMode = () => Boolean(window.Shopify?.designMode);
 
 /**
+ * Returns the focused element worth giving focus back to after a dialog closes.
+ * @returns {HTMLElement | null}
+ */
+function currentFocus() {
+  const active = document.activeElement;
+  return active instanceof HTMLElement && active !== document.body ? active : null;
+}
+
+/**
+ * Edge widgets are hidden while a modal is open, so the browser cannot always restore focus to
+ * the element that opened it. Put it back once the dialog has closed.
+ * @param {HTMLElement | null} opener
+ * @param {Element} dialog - The closed dialog (focus may still sit on one of its descendants).
+ */
+function restoreFocus(opener, dialog) {
+  requestAnimationFrame(() => {
+    if (!opener?.isConnected) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && !dialog.contains(active)) return;
+    opener.focus({ preventScroll: true });
+  });
+}
+
+/**
  * Calls `onSelect` / `onDeselect` for theme editor selections inside the given section.
  * @param {HTMLElement} element - Element carrying `data-section-id`.
  * @param {AbortSignal} signal
@@ -217,7 +241,7 @@ function writeCookie(name, days) {
  * (on:click="#id/open"), no cookie. Both reopen after Shopify reloads the page following a
  * sign-up to show the success or error message (`location.hash` is the form id).
  *
- * @typedef {{ dialog: HTMLDialogElement, closeButton?: HTMLButtonElement }} NewsletterRefs
+ * @typedef {{ dialog: HTMLDialogElement }} NewsletterRefs
  * @extends {DialogComponent}
  */
 class YvNewsletterPopupComponent extends DialogComponent {
@@ -228,6 +252,9 @@ class YvNewsletterPopupComponent extends DialogComponent {
   #controller;
 
   #userInitiated = false;
+
+  /** @type {HTMLElement | null} */
+  #opener = null;
 
   connectedCallback() {
     super.connectedCallback();
@@ -240,7 +267,11 @@ class YvNewsletterPopupComponent extends DialogComponent {
     listenToEditor(
       this,
       signal,
-      () => this.open(),
+      () => {
+        // With the newsletter icon on, selecting the section previews the icon popup only.
+        if (this.isAuto && this.#hasIconPopup) return;
+        this.open();
+      },
       () => this.closeDialog()
     );
 
@@ -292,12 +323,22 @@ class YvNewsletterPopupComponent extends DialogComponent {
     return this.dataset.mode === 'auto';
   }
 
+  get #hasIconPopup() {
+    const selector = `yv-newsletter-popup-component[data-mode="manual"][data-section-id="${CSS.escape(this.dataset.sectionId ?? '')}"]`;
+    return Boolean(document.querySelector(selector));
+  }
+
   get delay() {
     return Math.max(0, Number(this.dataset.delay) || 0);
   }
 
   get days() {
     return Math.max(1, Number(this.dataset.days) || 1);
+  }
+
+  showDialog() {
+    this.#opener = currentFocus();
+    super.showDialog();
   }
 
   /** Opened by the visitor (newsletter icon). */
@@ -308,11 +349,12 @@ class YvNewsletterPopupComponent extends DialogComponent {
   }
 
   #handleOpen = () => {
-    const { dialog, closeButton } = /** @type {NewsletterRefs} */ (/** @type {unknown} */ (this.refs));
+    const { dialog } = /** @type {NewsletterRefs} */ (/** @type {unknown} */ (this.refs));
     const input = dialog.querySelector('input[type="email"]');
     const focusInput = this.#userInitiated || !isTouchDevice();
-    const target = focusInput && input instanceof HTMLInputElement ? input : closeButton;
-    target?.focus({ preventScroll: true });
+    // On touch devices an automatic popup must not pop the keyboard up: focus the dialog itself.
+    const target = focusInput && input instanceof HTMLInputElement ? input : dialog;
+    target.focus({ preventScroll: true });
     this.toggleAttribute('data-open', true);
   };
 
@@ -320,6 +362,7 @@ class YvNewsletterPopupComponent extends DialogComponent {
     this.#userInitiated = false;
     this.toggleAttribute('data-open', false);
     if (this.isAuto && !isDesignMode()) writeCookie(NEWSLETTER_COOKIE, this.days);
+    restoreFocus(this.#opener, this.refs.dialog);
   };
 }
 
@@ -341,6 +384,14 @@ if (!customElements.get('yv-newsletter-popup-component')) {
 class YvSideDrawerComponent extends DialogComponent {
   /** @type {AbortController | undefined} */
   #controller;
+
+  /** @type {HTMLElement | null} */
+  #opener = null;
+
+  showDialog() {
+    this.#opener = currentFocus();
+    super.showDialog();
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -390,6 +441,7 @@ class YvSideDrawerComponent extends DialogComponent {
     for (const video of this.querySelectorAll('video')) {
       if (video instanceof HTMLVideoElement) video.pause();
     }
+    restoreFocus(this.#opener ?? tab ?? null, this.refs.dialog);
   };
 }
 

@@ -1,0 +1,474 @@
+{% comment %}
+  Section contract: yv-mobile-dock
+  Yuva's mobile dock, a STATIC section rendered by layout/theme.liquid after the footer group
+  (outside .page-wrapper). Below 750px it shows a floating frosted pill with up to five round
+  buttons: Home, Menu (opens Horizon's header menu drawer), Search (opens Horizon's search modal),
+  Account and Cart (opens the cart drawer, or links to the cart page when the cart drawer is off).
+  The current page's item is a filled circle, and a pulsing dot (Theme settings > Colors > Cart
+  indicator) marks a cart with items.
+  "While scrolling down" (the Yuva behaviour) slides the dock in while the shopper scrolls down, as
+  the sticky header slides away, and away again on scroll up or once the footer is reached;
+  "Always" keeps it on screen and pads the page bottom so nothing hides behind it. The dock steps
+  aside while the menu drawer, a dialog or a drawer is open and while Horizon's sticky add-to-cart
+  bar is pinned to the bottom of the screen.
+  Behaviour: assets/yv-mobile-dock.js (<yv-mobile-dock-component>).
+  @example
+  {% section 'yv-mobile-dock' %}
+{% endcomment %}
+
+{%- liquid
+  assign dock = section.settings
+  assign show_account = false
+  if dock.show_account and shop.customer_accounts_enabled
+    assign show_account = true
+  endif
+
+  assign item_count = 0
+  if dock.show_home
+    assign item_count = item_count | plus: 1
+  endif
+  if dock.show_menu
+    assign item_count = item_count | plus: 1
+  endif
+  if dock.show_search
+    assign item_count = item_count | plus: 1
+  endif
+  if show_account
+    assign item_count = item_count | plus: 1
+  endif
+  if dock.show_cart
+    assign item_count = item_count | plus: 1
+  endif
+
+  assign active_item = ''
+  case template.name
+    when 'index'
+      assign active_item = 'home'
+    when 'search'
+      assign active_item = 'search'
+    when 'cart'
+      assign active_item = 'cart'
+  endcase
+  if template.directory == 'customers'
+    assign active_item = 'account'
+  endif
+
+  assign cart_opens_drawer = false
+  if settings.cart_type == 'drawer' and template.name != 'cart'
+    assign cart_opens_drawer = true
+  endif
+
+  assign dock_style = '--yv-dock-count: ' | append: item_count | append: ';'
+  if dock.background_color != blank
+    assign dock_style = dock_style | append: ' --yv-dock-bg: ' | append: dock.background_color | append: ';'
+  endif
+  if dock.icon_color != blank
+    assign dock_style = dock_style | append: ' --yv-dock-icon: ' | append: dock.icon_color | append: ';'
+  endif
+  if dock.border_color != blank
+    assign dock_style = dock_style | append: ' --yv-dock-border: ' | append: dock.border_color | append: ';'
+  endif
+  if dock.active_background != blank
+    assign dock_style = dock_style | append: ' --yv-dock-active-bg: ' | append: dock.active_background | append: ';'
+  endif
+  if dock.active_icon_color != blank
+    assign dock_style = dock_style | append: ' --yv-dock-active-icon: ' | append: dock.active_icon_color | append: ';'
+  endif
+-%}
+
+{%- if dock.enable and item_count > 0 and template.name != 'password' -%}
+  <script
+    src="{{ 'yv-mobile-dock.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+
+  <yv-mobile-dock-component
+    class="yv-mobile-dock yv-edge-widget"
+    data-mode="{{ dock.behavior }}"
+    data-section-id="{{ section.id }}"
+    style="{{ dock_style }}"
+  >
+    <nav
+      class="yv-mobile-dock__bar{% if dock.enable_blur %} yv-mobile-dock__bar--blur{% endif %}"
+      aria-label="{{ 'yv.mobile_dock.label' | t }}"
+    >
+      {%- if dock.show_home -%}
+        <a
+          href="{{ routes.root_url }}"
+          class="yv-mobile-dock__item{% if active_item == 'home' %} yv-mobile-dock__item--active{% endif %}"
+          aria-label="{{ 'yv.mobile_dock.home' | t }}"
+          {% if active_item == 'home' %}
+            aria-current="page"
+          {% endif %}
+        >
+          {%- render 'yv-icon', name: 'home', size: 25 -%}
+        </a>
+      {%- endif -%}
+
+      {%- if dock.show_menu -%}
+        <button
+          type="button"
+          class="yv-mobile-dock__item"
+          ref="menuButton"
+          aria-label="{{ 'accessibility.menu' | t }}"
+          aria-controls="Details-menu-drawer-container"
+          aria-expanded="false"
+          on:click="/openMenu"
+        >
+          <svg
+            class="yv-mobile-dock__menu-icon"
+            width="25"
+            height="25"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <circle cx="7" cy="7" r="2.75"/>
+            <circle cx="17" cy="7" r="2.75"/>
+            <circle cx="7" cy="17" r="2.75"/>
+            <circle cx="17" cy="17" r="2.75"/>
+          </svg>
+        </button>
+      {%- endif -%}
+
+      {%- if dock.show_search -%}
+        <button
+          type="button"
+          class="yv-mobile-dock__item{% if active_item == 'search' %} yv-mobile-dock__item--active{% endif %}"
+          aria-label="{{ 'content.search' | t }}"
+          aria-haspopup="dialog"
+          on:click="#search-modal/showDialog"
+        >
+          {%- render 'yv-icon', name: 'search', size: 25 -%}
+        </button>
+      {%- endif -%}
+
+      {%- if show_account -%}
+        <a
+          href="{{ routes.account_url }}"
+          class="yv-mobile-dock__item{% if active_item == 'account' %} yv-mobile-dock__item--active{% endif %}"
+          aria-label="{{ 'accessibility.account' | t }}"
+          {% if active_item == 'account' %}
+            aria-current="page"
+          {% endif %}
+        >
+          {%- render 'yv-icon', name: 'user', size: 25 -%}
+        </a>
+      {%- endif -%}
+
+      {%- if dock.show_cart -%}
+        {%- capture cart_inner -%}
+          {%- render 'yv-icon', name: 'bag', size: 25 -%}
+          <span
+            class="yv-mobile-dock__dot"
+            ref="cartDot"
+            {% if cart.item_count == 0 %}
+              hidden
+            {% endif %}
+          ></span>
+          <span class="visually-hidden">
+            {{- 'accessibility.cart_count' | t }}:
+            <span ref="cartCount">{{ cart.item_count }}</span>
+          </span>
+        {%- endcapture -%}
+        {%- if cart_opens_drawer -%}
+          <button
+            type="button"
+            class="yv-mobile-dock__item yv-mobile-dock__item--cart"
+            aria-label="{{ 'accessibility.cart' | t }}"
+            aria-controls="cart-drawer"
+            aria-haspopup="dialog"
+            on:click="#cart-drawer/open"
+          >
+            {{- cart_inner -}}
+          </button>
+        {%- else -%}
+          <a
+            href="{{ routes.cart_url }}"
+            class="yv-mobile-dock__item yv-mobile-dock__item--cart{% if active_item == 'cart' %} yv-mobile-dock__item--active{% endif %}"
+            aria-label="{{ 'accessibility.cart' | t }}"
+            {% if active_item == 'cart' %}
+              aria-current="page"
+            {% endif %}
+          >
+            {{- cart_inner -}}
+          </a>
+        {%- endif -%}
+      {%- endif -%}
+    </nav>
+  </yv-mobile-dock-component>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-mobile-dock {
+    display: none;
+  }
+
+  @media (max-width: 749px) {
+    .yv-mobile-dock {
+      --yv-dock-gap: 15px;
+
+      display: block;
+      position: fixed;
+      inset-inline: 0;
+      inset-block-end: calc(max(var(--yv-dock-gap), var(--safe-area-inset-bottom, 0px)) + var(--yv-privacy-banner-height, 0px));
+      width: 95%;
+      max-width: calc(var(--yv-dock-count, 5) * 71px);
+      margin-inline: auto;
+      translate: 0 130%;
+      pointer-events: none;
+    }
+
+    .yv-mobile-dock[data-visible] {
+      translate: 0 0;
+      pointer-events: auto;
+    }
+
+    body:has(details.menu-drawer-container[open]) .yv-mobile-dock {
+      translate: 0 130%;
+      pointer-events: none;
+    }
+
+    /* The menu drawer is positioned inside the header. The dock shows while the sticky header is
+       slid away (or faded out), so bring the header back at once while the dock has its drawer open. */
+    body:has(.yv-mobile-dock) #header-component[data-sticky-state='idle']:has(details.menu-drawer-container[open]) {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    body:has(.yv-mobile-dock[data-mode='always']) {
+      padding-block-end: calc(72px + 2 * var(--yv-dock-gap, 15px));
+    }
+  }
+
+  @media (max-width: 749px) and (prefers-reduced-motion: no-preference) {
+    .yv-mobile-dock {
+      transition: translate 0.4s ease, inset-block-end 0.3s ease;
+    }
+  }
+
+  .yv-mobile-dock__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 10px;
+    border: 1px solid var(--yv-dock-border, #ffffff);
+    border-radius: 50px;
+    background: var(--yv-dock-bg, rgb(255 255 255 / 0.75));
+    box-shadow: 0 0 24px rgb(52 70 110 / 0.35);
+  }
+
+  .yv-mobile-dock__bar--blur {
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+
+  .yv-mobile-dock__item {
+    position: relative;
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--yv-dock-icon, #000000);
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .yv-mobile-dock__item svg {
+    width: 25px;
+    height: 25px;
+  }
+
+  .yv-mobile-dock__item--active {
+    background: var(--yv-dock-active-bg, #000000);
+    color: var(--yv-dock-active-icon, #ffffff);
+  }
+
+  .yv-mobile-dock__item--active svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .yv-mobile-dock__item:focus-visible {
+    outline: 2px solid var(--yv-dock-icon, #000000);
+    outline-offset: 2px;
+  }
+
+  .yv-mobile-dock__item[hidden] {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-mobile-dock__item {
+      transition: scale 0.2s ease;
+    }
+
+    .yv-mobile-dock__item:active {
+      scale: 0.92;
+    }
+  }
+
+  .yv-mobile-dock__dot {
+    position: absolute;
+    inset-block-start: 9px;
+    inset-inline-end: 9px;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    background: var(--yv-cart-dot, #efb34c);
+  }
+
+  .yv-mobile-dock__dot[hidden] {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-mobile-dock__dot {
+      animation: yv-mobile-dock-pulse 1.6s ease-out infinite;
+    }
+  }
+
+  @keyframes yv-mobile-dock-pulse {
+    0% {
+      box-shadow: 0 0 0 0 var(--yv-cart-dot-light, rgb(239 179 76 / 0.3));
+    }
+
+    70% {
+      box-shadow: 0 0 0 8px transparent;
+    }
+
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+
+  @media print {
+    .yv-mobile-dock {
+      display: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.mobile_dock",
+  "tag": "div",
+  "class": "yv-mobile-dock-section",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enable",
+      "label": "t:yv.mobile_dock.settings.enable",
+      "info": "t:yv.mobile_dock.settings.enable_info",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "behavior",
+      "label": "t:yv.mobile_dock.settings.behavior",
+      "options": [
+        {
+          "value": "scroll",
+          "label": "t:yv.mobile_dock.options.scroll"
+        },
+        {
+          "value": "always",
+          "label": "t:yv.mobile_dock.options.always"
+        }
+      ],
+      "default": "scroll",
+      "info": "t:yv.mobile_dock.settings.behavior_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.mobile_dock.content.items"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_home",
+      "label": "t:yv.mobile_dock.settings.show_home",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_menu",
+      "label": "t:yv.mobile_dock.settings.show_menu",
+      "info": "t:yv.mobile_dock.settings.show_menu_info",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_search",
+      "label": "t:yv.mobile_dock.settings.show_search",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_account",
+      "label": "t:yv.mobile_dock.settings.show_account",
+      "info": "t:yv.mobile_dock.settings.show_account_info",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_cart",
+      "label": "t:yv.mobile_dock.settings.show_cart",
+      "info": "t:yv.mobile_dock.settings.show_cart_info",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#FFFFFFBF"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_blur",
+      "label": "t:yv.mobile_dock.settings.enable_blur",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "t:yv.mobile_dock.settings.icon_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "t:yv.mobile_dock.settings.border_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "active_background",
+      "label": "t:yv.mobile_dock.settings.active_background",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "active_icon_color",
+      "label": "t:yv.mobile_dock.settings.active_icon_color",
+      "default": "#FFFFFF"
+    }
+  ]
+}
+{% endschema %}

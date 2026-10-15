@@ -1,5 +1,4 @@
 import { Component } from '@theme/component';
-import { prefersReducedMotion } from '@theme/utilities';
 
 /**
  * Yuva behaviours on top of Horizon's header (`#header-component`, header.js, header-menu.js,
@@ -31,7 +30,6 @@ class YvHeaderComponent extends Component {
   #cartObserver;
 
   /** @type {number | undefined} */
-  #promptTimer;
 
   /** @type {'menu' | 'catalog' | undefined} View requested for the next drawer opening. */
   #requestedTab;
@@ -52,7 +50,6 @@ class YvHeaderComponent extends Component {
     header.addEventListener('click', this.#onDrawerTabClick, { signal });
 
     this.#setupStickyCart(header);
-    this.#setupSearchPrompts();
 
     if (window.Shopify?.designMode) {
       document.addEventListener('shopify:block:select', this.#onBlockSelect, { signal });
@@ -65,7 +62,6 @@ class YvHeaderComponent extends Component {
     this.#abort?.abort();
     this.#stateObserver?.disconnect();
     this.#cartObserver?.disconnect();
-    if (this.#promptTimer) window.clearInterval(this.#promptTimer);
   }
 
   /** @returns {HTMLElement | null} */
@@ -261,32 +257,7 @@ class YvHeaderComponent extends Component {
     );
   }
 
-  /* ------------------------------------------------------------ search prompts */
-
-  #setupSearchPrompts() {
-    const input = document.querySelector('#search-modal input[type="search"]');
-    if (!(input instanceof HTMLInputElement)) return;
-
-    let prompts = [];
-    try {
-      const config = JSON.parse(document.getElementById('yv-theme-config')?.textContent || '{}');
-      prompts = Array.isArray(config?.search?.prompts) ? config.search.prompts.filter(Boolean) : [];
-    } catch (error) {
-      prompts = [];
-    }
-    if (!prompts.length) return;
-
-    const original = input.placeholder;
-    let index = 0;
-    input.placeholder = prompts[0];
-    if (prompts.length < 2 || prefersReducedMotion()) return;
-
-    this.#promptTimer = window.setInterval(() => {
-      if (document.activeElement === input && input.value) return;
-      index = (index + 1) % prompts.length;
-      input.placeholder = prompts[index] || original;
-    }, 3000);
-  }
+  /* Search prompts: rotated by assets/yv-theme.js (Theme settings > Search). */
 
   /* ------------------------------------------------------------ theme editor */
 
