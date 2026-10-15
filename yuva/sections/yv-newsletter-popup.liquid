@@ -138,9 +138,13 @@
     assign email_placeholder = 'yv.common.newsletter.email_label' | t
     assign position_x = section.settings.position_x | default: 'left'
     assign position_y = section.settings.position_y | default: 15
+    assign bubble_class = ''
+    if position_y >= 75
+      assign bubble_class = ' yv-newsletter-popup--bubble-below'
+    endif
   -%}
   <yv-newsletter-popup-component
-    class="yv-newsletter-popup yv-newsletter-popup--manual yv-newsletter-popup--{{ position_x }}"
+    class="yv-newsletter-popup yv-newsletter-popup--manual yv-newsletter-popup--{{ position_x }}{{ bubble_class }}"
     data-mode="manual"
     data-form-id="{{ manual_form_id }}"
     data-section-id="{{ section.id }}"
@@ -351,10 +355,11 @@
     background-color: color-mix(in srgb, var(--yv-nl-heading, #000000) 8%, var(--yv-nl-bg, #ffffff));
   }
 
-  /* 1. Automatic popup: 740px card in the bottom-right corner (image left, content right). */
+  /* 1. Automatic popup: 740px card in the bottom-right corner (image left, content right);
+     480px with the content centred when there is no image (docs part 4). */
   .yv-newsletter-popup__dialog--auto {
     inset: auto 20px 20px auto;
-    width: min(420px, calc(100vw - 40px));
+    width: min(480px, calc(100vw - 40px));
     border-radius: var(--yv-card-radius, 20px);
   }
 
@@ -388,6 +393,9 @@
 
   .yv-newsletter-popup__dialog--auto .yv-newsletter-popup__content > * {
     width: 100%;
+  }
+
+  .yv-newsletter-popup__dialog--media .yv-newsletter-popup__content > * {
     max-width: 290px;
   }
 
@@ -397,23 +405,33 @@
   }
 
   /* 2. Icon popup: floating round icon with a hover label, compact centred card. */
+  .yv-newsletter-popup--manual {
+    --yv-nl-size: 60px;
+    --yv-nl-edge: 20px;
+  }
+
+  /* Bottom offset in % of the screen height, clamped so the icon never leaves the screen. */
   .yv-newsletter-popup__dock {
-    inset-block-end: calc(var(--yv-nl-y, 15) * 1%);
+    inset-block-end: clamp(
+      var(--yv-nl-edge),
+      calc(var(--yv-nl-y, 15) * 1%),
+      calc(100% - var(--yv-nl-size) - var(--yv-nl-edge))
+    );
   }
 
   .yv-newsletter-popup--left .yv-newsletter-popup__dock {
-    inset-inline-start: 20px;
+    inset-inline-start: var(--yv-nl-edge);
   }
 
   .yv-newsletter-popup--right .yv-newsletter-popup__dock {
-    inset-inline-end: 20px;
+    inset-inline-end: var(--yv-nl-edge);
   }
 
   .yv-newsletter-popup__trigger {
     display: grid;
     place-items: center;
-    width: 60px;
-    height: 60px;
+    width: var(--yv-nl-size);
+    height: var(--yv-nl-size);
     padding: 0;
     overflow: hidden;
     border: 0;
@@ -422,11 +440,16 @@
     color: var(--color-primary-button-text, #ffffff);
     box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
     cursor: pointer;
-    transition: transform 0.2s ease;
   }
 
-  .yv-newsletter-popup__trigger:hover {
-    transform: scale(1.05);
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-newsletter-popup__trigger {
+      transition: transform 0.2s ease;
+    }
+
+    .yv-newsletter-popup__trigger:hover {
+      transform: scale(1.05);
+    }
   }
 
   .yv-newsletter-popup__icon-image {
@@ -482,6 +505,17 @@
 
   .yv-newsletter-popup--right .yv-newsletter-popup__bubble::after {
     inset-inline-end: 24px;
+  }
+
+  /* Icon near the top of the screen: the label opens below it. */
+  .yv-newsletter-popup--bubble-below .yv-newsletter-popup__bubble {
+    inset-block: calc(100% + 10px) auto;
+  }
+
+  .yv-newsletter-popup--bubble-below .yv-newsletter-popup__bubble::after {
+    inset-block: auto 100%;
+    border-block-start-color: transparent;
+    border-block-end-color: var(--yv-primary-bg, #ffffff);
   }
 
   @media (hover: hover) {
@@ -562,17 +596,9 @@
       max-width: none;
     }
 
-    .yv-newsletter-popup--left .yv-newsletter-popup__dock {
-      inset-inline-start: 15px;
-    }
-
-    .yv-newsletter-popup--right .yv-newsletter-popup__dock {
-      inset-inline-end: 15px;
-    }
-
-    .yv-newsletter-popup__trigger {
-      width: 50px;
-      height: 50px;
+    .yv-newsletter-popup--manual {
+      --yv-nl-size: 50px;
+      --yv-nl-edge: 15px;
     }
   }
 {% endstylesheet %}

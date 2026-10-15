@@ -155,6 +155,9 @@ class YvSidebarOfferComponent extends Component {
       this.#restoreFocus = false;
       this.#place();
       this.#updateNavigation();
+      // The stamp fades out (visibility: hidden) while the panel is open, which would drop keyboard
+      // focus to <body>: when the visitor opened it from the stamp, move focus into the panel.
+      if (document.activeElement === this.refs.trigger) this.#focusPanel();
       return;
     }
 
@@ -180,6 +183,13 @@ class YvSidebarOfferComponent extends Component {
   #handleResize = debounce(() => {
     if (this.isOpen) this.#place();
   }, 100);
+
+  /** Focuses the first control of the open panel (its close button), or the panel itself. */
+  #focusPanel() {
+    const { panel } = this.refs;
+    const target = panel.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    (target instanceof HTMLElement ? target : panel).focus({ preventScroll: true });
+  }
 
   /** Keeps the panel beside the stamp but inside the viewport (bottom offset in % of the viewport). */
   #place() {
@@ -211,6 +221,17 @@ if (!customElements.get('yv-sidebar-offer-component')) {
 /* ------------------------------------------------------------------------------------------ */
 
 const NEWSLETTER_COOKIE = 'yv_newsletter_closed';
+
+/**
+ * True while something the automatic popup must never cover is on screen: the age gate until the
+ * visitor approves it (the element is removed then, or never rendered once `yv_age_verified` is
+ * set), another modal dialog (quick view, search, cart drawer…) or Horizon's menu drawer.
+ * @param {Element} self - The popup component (its own dialog never blocks it).
+ */
+function isScreenBusy(self) {
+  if (document.querySelector('yv-age-gate, details.menu-drawer-container[open], .page-wrapper--drawer-open')) return true;
+  return [...document.querySelectorAll('dialog[open]')].some((dialog) => dialog.matches(':modal') && !self.contains(dialog));
+}
 
 /** @param {string} name */
 function readCookie(name) {
@@ -303,14 +324,27 @@ class YvNewsletterPopupComponent extends DialogComponent {
 
     if (readCookie(NEWSLETTER_COOKIE)) return;
 
+    this.#scheduleAuto(this.delay * 1000);
+  }
+
+  /**
+   * Opens the automatic popup after `ms`. It never stacks on the age gate or another modal: while
+   * one is open it checks again every second, and once it has closed it waits two more seconds.
+   * A declined age gate stays on the page, so the popup then never opens.
+   * @param {number} ms
+   * @param {boolean} [waited] - The previous check found the screen busy.
+   */
+  #scheduleAuto(ms, waited = false) {
+    window.clearTimeout(this.#timer);
     this.#timer = window.setTimeout(() => {
-      // Never stack on top of another modal (age gate, quick view, search…).
-      if (document.querySelector('dialog[open]:modal')) {
-        this.#timer = window.setTimeout(() => this.showDialog(), 5000);
-        return;
+      if (isScreenBusy(this)) {
+        this.#scheduleAuto(1000, true);
+      } else if (waited) {
+        this.#scheduleAuto(2000);
+      } else {
+        this.showDialog();
       }
-      this.showDialog();
-    }, this.delay * 1000);
+    }, ms);
   }
 
   disconnectedCallback() {

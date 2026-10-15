@@ -69,23 +69,25 @@
       data-pin-url="{{ pin_url }}"
     {% endif %}
   >
-    <button
-      type="button"
-      class="yv-store-locator__toggle yv-edge-widget"
-      aria-haspopup="dialog"
-      aria-controls="{{ dialog_id }}"
-      on:click="/open"
-    >
-      <span class="yv-store-locator__icon">
-        {%- render 'yv-icon', name: 'map-pin', size: 16 -%}
-        <span
-          class="yv-store-locator__dot"
-          ref="dot"
-          hidden
-        ></span>
-      </span>
-      <span class="yv-store-locator__label">{{ button_label | escape }}</span>
-    </button>
+    <div class="yv-store-locator__dock yv-edge-widget">
+      <button
+        type="button"
+        class="yv-store-locator__toggle"
+        aria-haspopup="dialog"
+        aria-controls="{{ dialog_id }}"
+        on:click="/open"
+      >
+        <span class="yv-store-locator__icon">
+          {%- render 'yv-icon', name: 'map-pin', size: 16 -%}
+          <span
+            class="yv-store-locator__dot"
+            ref="dot"
+            hidden
+          ></span>
+        </span>
+        <span class="yv-store-locator__label">{{ button_label | escape }}</span>
+      </button>
+    </div>
 
     <dialog
       id="{{ dialog_id }}"
@@ -158,19 +160,38 @@
 {%- endif -%}
 
 {% stylesheet %}
-  /* Floating edge tab (docs part 3 §0.5 item 9). */
-  .yv-store-locator__toggle {
-    position: fixed;
-    inset-block-end: var(--yv-store-locator-y, 30%);
-    inset-inline-end: 0;
+  /* Floating edge tab (docs part 3 §0.5 item 9). The dock is a full-height strip on the screen
+     edge that lets clicks through; its spacer (the bottom offset, % of the screen height) shrinks
+     before the tab, whatever its label length, can leave the top of the screen. */
+  .yv-store-locator__dock {
+    inset-block: 0;
+    inset-inline: auto 0;
     display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: none;
+  }
+
+  .yv-store-locator__dock::after {
+    content: '';
+    flex: 0 1 var(--yv-store-locator-y, 20%);
+  }
+
+  .yv-store-locator--left .yv-store-locator__dock {
+    inset-inline: 0 auto;
+  }
+
+  .yv-store-locator__toggle {
+    display: flex;
+    flex: none;
     flex-direction: column;
     align-items: center;
     gap: 10px;
     width: 44px;
     padding: 14px 0;
     border: 0;
-    border-radius: 8px 0 0 8px;
+    border-start-start-radius: 8px;
+    border-end-start-radius: 8px;
     background-color: var(--yv-store-locator-bg, #000);
     color: var(--yv-store-locator-text, #fff);
     font-family: var(--font-body--family);
@@ -180,13 +201,13 @@
     text-transform: uppercase;
     cursor: pointer;
     box-shadow: 0 2px 10px rgb(0 0 0 / 0.15);
-    transition: padding 0.3s var(--yv-ease, ease);
+    pointer-events: auto;
   }
 
   .yv-store-locator--left .yv-store-locator__toggle {
-    inset-inline-start: 0;
-    inset-inline-end: auto;
-    border-radius: 0 8px 8px 0;
+    border-radius: 0;
+    border-start-end-radius: 8px;
+    border-end-end-radius: 8px;
   }
 
   .yv-store-locator__toggle:focus-visible {
@@ -197,6 +218,12 @@
   @media (hover: hover) {
     .yv-store-locator__toggle:hover {
       padding-block: 18px;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-store-locator__toggle {
+      transition: padding 0.3s var(--yv-ease, ease);
     }
   }
 
@@ -508,7 +535,7 @@
       "max": 100,
       "step": 1,
       "unit": "%",
-      "default": 30
+      "default": 20
     },
     {
       "type": "header",
