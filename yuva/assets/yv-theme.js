@@ -8,7 +8,8 @@ import { prefersReducedMotion } from '@theme/utilities';
  * - Add to cart alerts (Theme settings > Product): a short synthesised sound and a haptic pulse
  *   after every successful add to cart (Horizon's `shopify:cart:lines-update` with action "add").
  * - Search prompts (Theme settings > Search): types the prompts, one character at a time, into the
- *   placeholder of every search field (`input[type="search"][name="q"]`).
+ *   placeholder of every search field (`input[type="search"][name="q"]`) and into the header's
+ *   searchbar button (`[data-yv-search-prompt]`, "Full width header with searchbar").
  *
  * The other global behaviours live with their markup: the browser tab cart count in
  * assets/yv-cart.js (it loads with the cart drawer), scroll to top and stickers in
@@ -173,6 +174,8 @@ const HOLD_MS = 2000;
 const HOLD_TICK_MS = 250;
 const PAUSE_MS = 400;
 const SEARCH_INPUTS = 'input[type="search"][name="q"]';
+/** Text stand-ins for a placeholder, e.g. the header searchbar that opens the search modal. */
+const SEARCH_PROMPT_TARGETS = '[data-yv-search-prompt]';
 
 /**
  * Types each prompt into the search placeholders (60ms per character), holds it for 2s, deletes it
@@ -186,6 +189,9 @@ class SearchPrompts {
 
   /** @type {Set<HTMLInputElement>} */
   #inputs = new Set();
+
+  /** @type {Set<HTMLElement>} */
+  #targets = new Set();
 
   #index = 0;
   #length = 0;
@@ -220,6 +226,9 @@ class SearchPrompts {
   #collect() {
     document.querySelectorAll(SEARCH_INPUTS).forEach((input) => {
       if (input instanceof HTMLInputElement) this.#inputs.add(input);
+    });
+    document.querySelectorAll(SEARCH_PROMPT_TARGETS).forEach((target) => {
+      if (target instanceof HTMLElement) this.#targets.add(target);
     });
     if (prefersReducedMotion()) this.#paint(this.#prompts[0] ?? '');
   }
@@ -279,6 +288,13 @@ class SearchPrompts {
       }
       if (input.value) continue;
       if (input.placeholder !== text) input.placeholder = text;
+    }
+    for (const target of this.#targets) {
+      if (!target.isConnected) {
+        this.#targets.delete(target);
+        continue;
+      }
+      if (target.textContent !== text) target.textContent = text;
     }
   }
 }

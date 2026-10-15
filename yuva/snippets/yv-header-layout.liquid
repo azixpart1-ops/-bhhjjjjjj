@@ -2,12 +2,14 @@
   Yuva layout decisions for Horizon's header (sections/header.liquid), kept out of the section so
   its own logic stays as Horizon wrote it.
 
-  - part 'layout': prints `overrides|menu_row|search_row|localization_row|category_row|search_style`.
+  - part 'layout': prints
+    `overrides|menu_row|search_row|localization_row|category_row|search_style|utility_primary_row|utility_secondary_row`.
     `overrides` is the comma-separated 'item:column:row' list header-row applies on top of the
     position settings (column 'none' hides the item). "Custom" keeps every Horizon position setting;
     the four Yuva navigation types place the logo, menu, search and category button themselves
     ("Logo center, hamburger menu" keeps the inline menu in the top row, hidden by CSS: the
-    hamburger drawer replaces it on every screen size).
+    hamburger drawer replaces it on every screen size). Both one-row types keep the link rows
+    (browse / quick links) out of the header rows; the menu drawer lists them.
     The rows are the effective rows of those items ('none' when hidden). `search_style` is 'bar' for
     "Full width header with searchbar", otherwise the given style.
   - part 'classes': prints `classes|icon stroke`: the Yuva modifier classes of #header-component
@@ -34,8 +36,10 @@
       case nav
         when 'logo_left_menu_center'
           assign overrides = 'logo:left:top,category:left:top,menu:center:top,search:right:top,localization:right:top'
+          assign overrides = overrides | append: ',utility_primary:none:top,utility_secondary:none:top'
         when 'logo_center_hamburger'
           assign overrides = 'logo:center:top,menu:left:top,search:right:top,localization:right:top,category:none:top'
+          assign overrides = overrides | append: ',utility_primary:none:top,utility_secondary:none:top'
         when 'full_width_menu'
           if s.logo_alignment == 'center'
             assign overrides = 'logo:center:top,search:left:top,localization:right:top'
@@ -61,6 +65,8 @@
       assign search_row = s.search_row
       assign localization_row = s.localization_row
       assign category_row = 'none'
+      assign utility_primary_row = s.utility_primary_row | default: 'top'
+      assign utility_secondary_row = s.utility_secondary_row | default: 'top'
       assign override_list = overrides | split: ','
       for override in override_list
         assign parts = override | split: ':'
@@ -77,6 +83,10 @@
             assign localization_row = row
           when 'category'
             assign category_row = row
+          when 'utility_primary'
+            assign utility_primary_row = row
+          when 'utility_secondary'
+            assign utility_secondary_row = row
         endcase
       endfor
 
@@ -85,7 +95,7 @@
         assign effective_search_style = 'bar'
       endif
 
-      echo overrides | append: '|' | append: menu_row | append: '|' | append: search_row | append: '|' | append: localization_row | append: '|' | append: category_row | append: '|' | append: effective_search_style
+      echo overrides | append: '|' | append: menu_row | append: '|' | append: search_row | append: '|' | append: localization_row | append: '|' | append: category_row | append: '|' | append: effective_search_style | append: '|' | append: utility_primary_row | append: '|' | append: utility_secondary_row
     -%}
 
   {%- when 'classes' -%}
@@ -103,13 +113,14 @@
       if s.color_text_hover != blank
         assign classes = classes | append: ' yv-header--hover-color'
       endif
+      # Yuva's header icons are 1.2px line icons ("Normal").
       case s.icons_weight
         when 'thin'
           assign stroke = '1px'
         when 'bold'
           assign stroke = '2px'
         else
-          assign stroke = '1.5px'
+          assign stroke = '1.2px'
       endcase
       echo classes | append: '|' | append: stroke
     -%}

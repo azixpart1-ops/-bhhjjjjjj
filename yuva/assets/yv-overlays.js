@@ -341,7 +341,8 @@ class YvPrivacyBanner extends Component {
 /**
  * Floating back-to-top button (Theme settings > Scroll to top). Visible past 400px of scroll, on
  * whichever element scrolls the page (`.page-wrapper` from 990px, the document below). It rises
- * above Horizon's sticky add-to-cart bar while that bar is pinned to the bottom of the screen.
+ * above Horizon's sticky add-to-cart bar while that bar is pinned to the bottom of the screen, and
+ * sets `data-over-footer` while it overlaps the footer.
  *
  * @extends {Component}
  */
@@ -412,7 +413,20 @@ class YvScrollTopComponent extends Component {
   };
 
   #update() {
-    this.toggleAttribute('data-visible', getScrollTop() > 400);
+    const visible = getScrollTop() > 400;
+    this.toggleAttribute('data-visible', visible);
+    this.toggleAttribute('data-over-footer', visible && this.#overFooter());
+  }
+
+  /**
+   * Whether the button sits over the footer, where a transparent ring and arrow can disappear on a
+   * dark background (the stylesheet then adds a frosted disc in the page colour).
+   * @returns {boolean}
+   */
+  #overFooter() {
+    const footer = document.querySelector('.page-wrapper > footer') ?? document.querySelector('footer');
+    if (!footer) return false;
+    return footer.getBoundingClientRect().top < this.getBoundingClientRect().bottom;
   }
 
   /** Observes Horizon's sticky add-to-cart bar (product pages). */

@@ -253,7 +253,7 @@ if (!customElements.get('yv-short-videos-component')) {
  * re-rendered on variant change, which starts it on the variant's media (data-index).
  * Image slides open Horizon's <zoom-dialog> through their declarative on:click.
  *
- * @typedef {{ slides: HTMLElement[], thumbs?: HTMLElement[], dots?: HTMLElement[] }} FeaturedMediaRefs
+ * @typedef {{ slides: HTMLElement[], thumbs?: HTMLElement[], dots?: HTMLElement[], zoomDialog?: HTMLElement }} FeaturedMediaRefs
  * @extends {Component<FeaturedMediaRefs>}
  */
 class YvFeaturedMediaComponent extends Component {
@@ -305,6 +305,26 @@ class YvFeaturedMediaComponent extends Component {
     this.select(this.#index - 1);
   }
 
+  /**
+   * Opens Horizon's zoom dialog on this media item and marks its thumbnail there.
+   * @param {number | string} index
+   * @param {Event} event
+   */
+  async zoom(index, event) {
+    const dialog = /** @type {any} */ (this.refs.zoomDialog);
+    if (!dialog || typeof dialog.open !== 'function') return;
+    const i = Number(index) || 0;
+    await dialog.open(i, event);
+    dialog.selectThumbnail?.(i, { behavior: 'instant' });
+  }
+
+  /** @param {number | string} index */
+  preloadZoom(index) {
+    const dialog = /** @type {any} */ (this.refs.zoomDialog);
+    const media = dialog?.refs?.media?.[Number(index) || 0];
+    if (media) dialog.loadHighResolutionImage?.(media);
+  }
+
   /** @param {KeyboardEvent} event */
   #onKeydown = (event) => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
@@ -318,6 +338,106 @@ class YvFeaturedMediaComponent extends Component {
 
 if (!customElements.get('yv-featured-media-component')) {
   customElements.define('yv-featured-media-component', YvFeaturedMediaComponent);
+}
+
+/* ------------------------------------------------------------------ product tabs: absorb "Specifications" */
+
+/**
+ * Host of a Tabs-style `yv-product-tabs` block. Every `yv-product-meta` block with "Show as
+ * tab/accordion" on, in the same details column, becomes a tab right after Description (docs part 4
+ * Content area: 1 Description, 2 product meta items, 3–5 custom tabs). The meta block keeps rendering
+ * itself as an accordion item (the no-JS and Accordion-style look); once absorbed it is hidden and
+ * its rows are cloned into the new panel, including its <yv-variant-sync>, so SKU and availability
+ * still follow the variant.
+ */
+class YvProductTabsComponent extends Component {
+  connectedCallback() {
+    super.connectedCallback();
+    this.#absorb();
+    // Late siblings (morph inserting nodes one by one) are picked up on the next microtask.
+    queueMicrotask(() => this.#absorb());
+  }
+
+  #absorb() {
+    if (!this.isConnected) return;
+    const tabs = /** @type {any} */ (this.querySelector('yv-tabs'));
+    const list = this.querySelector('[role="tablist"]');
+    if (!tabs || !list) return;
+
+    const scope = this.closest('.group-block-content, .product-details, .shopify-section') || document;
+    const metas = /** @type {HTMLElement[]} */ ([...scope.querySelectorAll('[data-yv-meta-tab]')]).filter(
+      (meta) => !meta.closest('yv-product-tabs-component') && !meta.dataset.yvAbsorbedBy
+    );
+    if (!metas.length) return;
+
+    const tabButtons = /** @type {HTMLElement[]} */ ([...list.querySelectorAll(':scope > [role="tab"]')]);
+    const panels = /** @type {HTMLElement[]} */ ([...tabs.querySelectorAll(':scope > [role="tabpanel"]')]);
+    const hasDescription = this.dataset.hasDescription === 'true';
+    // Insert after Description (or first when there is none), keeping earlier absorbed metas first.
+    let afterTab = hasDescription ? tabButtons[0] : null;
+    let afterPanel = hasDescription ? panels[0] : null;
+    const absorbed = tabButtons.filter((tab) => tab.dataset.yvMetaTab);
+    if (absorbed.length) {
+      afterTab = absorbed[absorbed.length - 1] || afterTab;
+      afterPanel = panels.find((panel) => panel.id === afterTab?.getAttribute('aria-controls')) || afterPanel;
+    }
+
+    const hostId = this.dataset.blockId || 'tabs';
+    for (const meta of metas) {
+      const metaId = meta.dataset.yvMetaTab || String(Math.random()).slice(2);
+      const title = meta.querySelector('.yv-accordion__title')?.textContent?.trim() || '';
+      const content = meta.querySelector('.yv-accordion__content');
+      if (!title || !content) continue;
+
+      const tabId = `YvProductTab-${hostId}-meta-${metaId}`;
+      const panelId = `YvProductPanel-${hostId}-meta-${metaId}`;
+
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'yv-product-tabs__tab';
+      tab.id = tabId;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-controls', panelId);
+      tab.setAttribute('aria-selected', 'false');
+      tab.tabIndex = -1;
+      tab.setAttribute('ref', 'tabs[]');
+      tab.dataset.yvMetaTab = metaId;
+      tab.textContent = title;
+
+      const panel = document.createElement('div');
+      panel.className = 'yv-product-tabs__panel yv-meta yv-meta--panel';
+      panel.id = panelId;
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-labelledby', tabId);
+      panel.tabIndex = 0;
+      panel.setAttribute('ref', 'panels[]');
+      panel.hidden = true;
+      for (const child of content.children) panel.append(child.cloneNode(true));
+
+      if (afterTab) afterTab.after(tab);
+      else list.prepend(tab);
+      if (afterPanel) afterPanel.after(panel);
+      else if (panels[0]) panels[0].before(panel);
+      else tabs.append(panel);
+      afterTab = tab;
+      afterPanel = panel;
+
+      meta.dataset.yvAbsorbedBy = hostId;
+      meta.classList.add('yv-meta--absorbed');
+    }
+
+    // Declarative handlers carry the tab index: renumber them in DOM order.
+    list.querySelectorAll(':scope > [role="tab"]').forEach((tab, index) => {
+      tab.setAttribute('on:click', `yv-tabs/select/${index}`);
+    });
+    // Let an upgraded <yv-tabs> pick up the new refs and re-apply the selection (a not yet upgraded
+    // one reads them when it connects).
+    if (typeof tabs.updatedCallback === 'function') tabs.updatedCallback();
+  }
+}
+
+if (!customElements.get('yv-product-tabs-component')) {
+  customElements.define('yv-product-tabs-component', YvProductTabsComponent);
 }
 
 /* ------------------------------------------------------------------ recently viewed */

@@ -1,6 +1,7 @@
 import { Component } from '@theme/component';
 import { CartLinesUpdateEvent, CartErrorEvent, StandardEvents } from '@shopify/events';
 import { DrawerCloseEvent, DrawerOpenEvent } from '@theme/theme-drawer';
+import { trapFocus } from '@theme/focus';
 import { fetchConfig, prefersReducedMotion, lockScroll, unlockScroll } from '@theme/utilities';
 import { formatMoney } from '@theme/money-formatting';
 
@@ -429,8 +430,27 @@ class YvCartUpsellsComponent extends Component {
     const hasItems = list.children.length > 0;
     this.hidden = !hasItems;
     if (!hasItems) this.close();
+    else if (this.classList.contains('is-open')) this.#refreshFocusTrap();
     this.#observer?.takeRecords();
     this.#rendering = false;
+  }
+
+  /**
+   * The drawer (non-modal at 990px and up) builds its focus trap when it opens, before the rows are
+   * fetched, so the panel's buttons were not part of the Tab cycle. Rebuild the trap on the open
+   * drawer dialog so they are. A modal drawer (native trap) needs nothing.
+   * @returns {boolean} Whether the trap was rebuilt.
+   */
+  #refreshFocusTrap() {
+    const dialog = this.closest('dialog');
+    if (!(dialog instanceof HTMLDialogElement) || !dialog.open || dialog.matches(':modal')) return false;
+    const active = document.activeElement;
+    trapFocus(dialog);
+    // trapFocus() focuses the dialog itself; keep focus where it was.
+    if (active instanceof HTMLElement && active !== document.body && dialog.contains(active)) {
+      active.focus({ preventScroll: true });
+    }
+    return true;
   }
 
   toggle = () => {
@@ -443,13 +463,22 @@ class YvCartUpsellsComponent extends Component {
     this.classList.add('is-open');
     this.refs.tab?.setAttribute('aria-expanded', 'true');
     this.refs.panel?.removeAttribute('inert');
+    this.#refreshFocusTrap();
+    // Move into the panel so keyboard users land on its products.
+    const first = /** @type {HTMLElement | null} */ (
+      this.refs.panel?.querySelector('a[href], button:enabled, input:enabled, [tabindex]:not([tabindex^="-"])') ?? null
+    );
+    first?.focus({ preventScroll: true });
   }
 
   close() {
     if (!this.#isDrawer) return;
+    const hadFocus = Boolean(this.refs.panel?.contains(document.activeElement));
     this.classList.remove('is-open');
     this.refs.tab?.setAttribute('aria-expanded', 'false');
     this.refs.panel?.setAttribute('inert', '');
+    // Focus inside the now-inert panel would be lost: hand it back to the tab.
+    if (hadFocus) this.refs.tab?.focus({ preventScroll: true });
   }
 
   /** @param {MouseEvent} event */

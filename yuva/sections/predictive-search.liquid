@@ -75,35 +75,57 @@
             -%}
           {% endif %}
 
-          {% if predictive_search.resources.collections.size > 0 and settings.yv_search_collections != false %}
-            {% assign resource_title = 'content.search_results_resource_collections' | t %}
-
-            {% render 'predictive-search-resource-carousel',
-              title: resource_title,
-              resource_type: 'collection',
-              resources: predictive_search.resources.collections
-            %}
-          {% endif %}
-
-          {% if predictive_search.resources.pages.size > 0 and settings.yv_search_pages != false %}
-            {% assign resource_title = 'content.search_results_resource_pages' | t %}
-
-            {% render 'predictive-search-resource-carousel',
-              title: resource_title,
-              resource_type: 'page',
-              resources: predictive_search.resources.pages
-            %}
-          {% endif %}
-
-          {% if predictive_search.resources.articles.size > 0 and settings.yv_search_articles != false %}
-            {% assign resource_title = 'content.search_results_resource_articles' | t %}
-
-            {% render 'predictive-search-resource-carousel',
-              title: resource_title,
-              resource_type: 'article',
-              resources: predictive_search.resources.articles
-            %}
-          {% endif %}
+          {%- comment -%}
+            yv: collections, pages and articles as Yuva link lists under the same tab-style titles
+            as "Products" (Theme settings > Search toggles each type).
+          {%- endcomment -%}
+          {%- assign yv_link_types = 'collection,page,article' | split: ',' -%}
+          {%- for yv_type in yv_link_types -%}
+            {%- liquid
+              case yv_type
+                when 'collection'
+                  assign yv_resources = predictive_search.resources.collections
+                  assign yv_enabled = settings.yv_search_collections
+                  assign yv_title = 'content.search_results_resource_collections' | t
+                when 'page'
+                  assign yv_resources = predictive_search.resources.pages
+                  assign yv_enabled = settings.yv_search_pages
+                  assign yv_title = 'content.search_results_resource_pages' | t
+                else
+                  assign yv_resources = predictive_search.resources.articles
+                  assign yv_enabled = settings.yv_search_articles
+                  assign yv_title = 'content.search_results_resource_articles' | t
+              endcase
+            -%}
+            {%- if yv_resources.size > 0 and yv_enabled != false -%}
+              <div class="yv-search-links">
+                <h4
+                  id="predictive-search-{{ yv_type }}"
+                  class="predictive-search-results__title"
+                >
+                  <span class="yv-search-links__tab">{{ yv_title }}</span>
+                </h4>
+                <ul
+                  class="predictive-search-results__list yv-search-links__list list-unstyled"
+                  aria-labelledby="predictive-search-{{ yv_type }}"
+                >
+                  {%- for resource in yv_resources -%}
+                    <li
+                      class="yv-search-links__item"
+                      ref="resultsItems[]"
+                    >
+                      <a
+                        href="{{ resource.url }}"
+                        class="yv-search-links__link"
+                      >
+                        {{- resource.title | escape -}}
+                      </a>
+                    </li>
+                  {%- endfor -%}
+                </ul>
+              </div>
+            {%- endif -%}
+          {%- endfor -%}
         {%- elsif predictive_search.resources.queries.size == 0 -%}
           <p class="predictive-search-results__no-results">
             {{ 'content.search_results_no_results' | t: terms: predictive_search.terms }}
@@ -153,6 +175,76 @@
     </div>
   </div>
 {%- endif -%}
+
+{% stylesheet %}
+  /* yv: collections, pages and articles in the Yuva search modal (snippets/search-modal.liquid):
+     plain link lists under the same tab-style title as "Products". */
+  .search-modal--yv .yv-search-links > .predictive-search-results__title {
+    display: flex;
+    margin-block: 40px 20px;
+    padding-block-end: 0;
+    border-block-end: 1px solid rgb(0 0 0 / 0.1);
+    font-family: var(--font-body--family);
+    font-weight: 400;
+    font-size: 15.36px;
+    letter-spacing: normal;
+  }
+
+  .search-modal--yv .yv-search-links > .predictive-search-results__title::after {
+    content: none;
+  }
+
+  .yv-search-links__tab {
+    display: inline-block;
+    padding-block: 16px;
+    margin-block-end: -1px;
+    border-block-end: 3px solid var(--color-foreground);
+  }
+
+  .yv-search-links__list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px 30px;
+    margin: 0;
+    padding: 0;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-search-links__list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .yv-search-links__item {
+    min-width: 0;
+    border-radius: 4px;
+  }
+
+  .yv-search-links__link {
+    display: block;
+    padding-block: 6px;
+    overflow: hidden;
+    color: var(--color-foreground);
+    font-size: 13.44px;
+    line-height: 1.5;
+    text-decoration: none;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    transition: color 0.2s ease;
+  }
+
+  .yv-search-links__link:hover,
+  .yv-search-links__item[aria-selected='true'] .yv-search-links__link {
+    color: #7e7e7e;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .yv-search-links__item.keyboard-focus {
+    outline: 2px solid var(--color-foreground);
+    outline-offset: 2px;
+  }
+{% endstylesheet %}
 
 {% schema %}
 {
