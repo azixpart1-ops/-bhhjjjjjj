@@ -1,0 +1,115 @@
+{%- doc -%}
+  One collection of the collections list page (sections/main-collection-list.liquid) when its
+  "Show collections" setting is "Selected": the blocks are listed in editor order, without sorting
+  or pagination. In "All" mode the section ignores these blocks.
+
+  The tile uses Horizon's collection-card markup, so the page's Yuva tile look applies (content
+  overlay or title below, from the section's "Card style"). Image priority: the block image, then
+  the collection image, then the first product's image, then a placeholder.
+
+  The section reads this block's output from its `content_for 'blocks'` capture: the tile sits
+  between `<!--yv-list-item-->` markers so the section can move it into the grid and keep any other
+  blocks (text, buttons) above the grid.
+{%- enddoc -%}
+
+{%- liquid
+  assign collection = block.settings.collection
+  assign tile_image = block.settings.image
+  if tile_image == blank and collection != blank
+    assign tile_image = collection.featured_image
+    if tile_image == blank
+      assign tile_image = collection.products.first.featured_image
+    endif
+  endif
+
+  if collection != blank
+    assign tile_title = collection.title
+  else
+    assign tile_title = 'placeholders.collection_title' | t
+  endif
+
+  assign on_image = true
+  if section.settings.card_style == 'below'
+    assign on_image = false
+  endif
+
+  assign columns = section.settings.columns | default: 4
+  assign tile_width = 100 | divided_by: columns | append: 'vw'
+  assign tile_sizes = '(min-width: 990px) ' | append: tile_width | append: ', (min-width: 750px) 33vw, 100vw'
+
+  assign block_index = section.blocks | find_index: 'id', block.id
+  assign placeholder_index = block_index | default: 0 | modulo: 6 | plus: 1
+  assign placeholder_name = 'collection-' | append: placeholder_index
+-%}
+
+<!--yv-list-item-->
+<div
+  class="collection-card border-style yv-list-collection{% if on_image %} collection-card--image-bg{% endif %}"
+  data-block-id="{{ block.id }}"
+  {% if collection == blank %}
+    data-placeholder="true"
+  {% endif %}
+  style="--ratio: 1230 / 987; --horizontal-alignment: center; --vertical-alignment: flex-end; --gap: 8px;"
+  {{ block.shopify_attributes }}
+>
+  <a
+    class="collection-card__link"
+    {% if collection != blank %}
+      href="{{ collection.url }}"
+    {% endif %}
+  >
+    <span class="visually-hidden">{{ tile_title | escape }}</span>
+  </a>
+  <div class="collection-card__inner">
+    <div class="resource-image collection-card__image">
+      {%- if tile_image != blank -%}
+        {{
+          tile_image
+          | image_url: width: 1600
+          | image_tag:
+            widths: '352, 600, 832, 1200, 1600',
+            sizes: tile_sizes,
+            loading: 'lazy',
+            alt: '',
+            class: 'resource-image__image'
+        }}
+      {%- else -%}
+        <div class="resource-image__image">
+          {{ placeholder_name | placeholder_svg_tag }}
+        </div>
+      {%- endif -%}
+    </div>
+    <div class="collection-card__content layout-panel-flex--column">
+      <div class="text-block h6">
+        <p>{{ tile_title | escape }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+<!--/yv-list-item-->
+
+{% schema %}
+{
+  "name": "t:yv.names.list_collection",
+  "tag": null,
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "t:yv.collection_list.settings.select_collection",
+      "info": "t:yv.collection_list.settings.select_collection_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.collection_list.settings.select_image",
+      "info": "t:yv.collection_list.settings.select_image_info"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.list_collection"
+    }
+  ]
+}
+{% endschema %}

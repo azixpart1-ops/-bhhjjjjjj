@@ -1,11 +1,13 @@
 {% comment %}
   Section contract: yv-promotional-banner
   Yuva "Promotional banner": an optional deal bar (heading, short description and a small button in a
-  rounded box of the section's background colour) above a row of animated statistic counters
-  (private blocks `_yv-counter`, counting up once when they scroll into view). Counters share the width
-  equally, divided by hairlines (stacked with horizontal hairlines on phones). The optional hand-drawn
-  "Icon over section" draws itself the first time the section is in view.
-  Colours are the section's own (text, background, button), not a colour set.
+  row) above a row of animated statistic counters (private blocks `_yv-counter`, counting up once when
+  they scroll into view). Counters share the width equally, divided by hairlines (stacked with
+  horizontal hairlines on phones). The optional hand-drawn "Icon over section" draws itself the first
+  time the section is in view.
+  Colours are the section's own (text, background, button), not a colour set. "Background" paints the
+  banner box: the rounded page-width box holding the deal bar and counters, or the whole section when
+  full width. With neither a deal bar nor counters the section renders nothing (an editor hint only).
   Shared settings: visibility, spacing, icon over section.
   @example
   Theme editor > Add section > Promotional > "Promotional banner"
@@ -24,6 +26,11 @@
 
   assign counter_count = section.blocks.size | at_least: 1 | at_most: 4
 
+  assign is_empty = false
+  if has_bar == false and section.blocks.size == 0
+    assign is_empty = true
+  endif
+
   case section.settings.number_size
     when 'small'
       assign number_size = 60
@@ -39,8 +46,11 @@
   endif
 -%}
 
-{%- comment -%} The section sits on the page background; the deal bar takes the section's background colour. {%- endcomment -%}
-<div class="section-background{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+{%- if is_empty and request.design_mode == false -%}
+  {%- comment -%} Nothing to show: no deal bar and no counters (no empty spacing on the storefront). {%- endcomment -%}
+{%- else -%}
+{%- comment -%} Full width: the section takes the background colour; boxed: the rounded banner box does. {%- endcomment -%}
+<div class="section-background{% if section.settings.full_width %} color-custom-{{ section.id }}{% endif %}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
 <div
   class="section section--page-width yv-section-spacing yv-promotional-banner color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
   style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-promotional-banner-radius: {% if section.settings.full_width %}0{% else %}{{ section.settings.border_radius }}{% endif %}px; --yv-promotional-banner-number-size: {{ number_size }}px;"
@@ -73,6 +83,10 @@
       </div>
     {%- endif -%}
 
+    {%- if is_empty -%}
+      <p class="yv-promotional-banner__empty">{{ 'yv.promotional_banner.editor_empty' | t }}</p>
+    {%- endif -%}
+
     {%- if section.blocks.size > 0 -%}
       <script
         src="{{ 'yv-counter.js' | asset_url }}"
@@ -90,6 +104,7 @@
     {%- endif -%}
   </div>
 </div>
+{%- endif -%}
 
 {% stylesheet %}
   .yv-promotional-banner {
@@ -98,8 +113,23 @@
     color: var(--color-foreground);
   }
 
+  /* The banner box: the section's background colour with the radius (0 when full width). */
+  .yv-promotional-banner__inner {
+    background-color: var(--color-background);
+    border-radius: var(--yv-promotional-banner-radius, 10px);
+  }
+
   .yv-promotional-banner__inner--full .yv-promotional-banner__counters {
     padding-inline: var(--page-margin, 20px);
+  }
+
+  .yv-promotional-banner__empty {
+    margin: 0;
+    padding: 40px 20px;
+    border: 1px dashed currentColor;
+    border-radius: var(--yv-promotional-banner-radius, 10px);
+    text-align: center;
+    opacity: 0.6;
   }
 
   .yv-promotional-banner__bar {
@@ -112,8 +142,6 @@
     gap: 6px 20px;
     padding: 16px 24px;
     text-align: center;
-    background-color: var(--color-background);
-    border-radius: var(--yv-promotional-banner-radius, 10px);
   }
 
   .yv-promotional-banner__heading,
@@ -229,13 +257,13 @@
     {
       "type": "text",
       "id": "button_text",
-      "label": "t:yv.common.settings.button_text",
+      "label": "t:yv.common.settings.text",
       "info": "t:yv.common.settings.button_info"
     },
     {
       "type": "url",
       "id": "button_link",
-      "label": "t:yv.common.settings.button_link"
+      "label": "t:yv.common.settings.link"
     },
     {
       "type": "header",
@@ -251,24 +279,29 @@
       "type": "color",
       "id": "color_background",
       "label": "t:yv.common.settings.background_color",
+      "info": "t:yv.promotional_banner.settings.color_background_info",
       "default": "#FFFFFF"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
     },
     {
       "type": "color",
       "id": "color_button_text",
-      "label": "t:yv.common.settings.button_text_color",
+      "label": "t:yv.common.settings.text_color",
       "default": "#FFFFFF"
     },
     {
       "type": "color",
       "id": "color_button_bg",
-      "label": "t:yv.common.settings.button_background",
+      "label": "t:yv.common.settings.background_color",
       "default": "#000000"
     },
     {
       "type": "color",
       "id": "color_button_border",
-      "label": "t:yv.common.settings.button_border",
+      "label": "t:settings.border",
       "default": "#000000"
     },
     {

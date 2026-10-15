@@ -12,12 +12,15 @@
   page with pagination, All / Selected collections and six sort orders (docs part 4).
   Shopify caps how many collections a template can read outside pagination; sorts other than A-Z
   read that list first, then paginate only to get the page offset.
+  "Selected" lists the Collection blocks (blocks/_yv-list-collection.liquid) in editor order,
+  without sorting or pagination. Those blocks print their tile between <!--yv-list-item--> markers;
+  the capture below moves the tiles into the grid and keeps the other blocks above it.
 {%- endcomment -%}
 {{ 'yv-collection.css' | asset_url | stylesheet_tag }}
 {%- liquid
   assign yv_per_page = section.settings.per_page | default: 16
   assign yv_selected = false
-  if section.settings.show_collections == 'selected' and section.settings.collection_list != blank
+  if section.settings.show_collections == 'selected'
     assign yv_selected = true
   endif
 
@@ -62,8 +65,35 @@
     {% render 'gap-style', value: section.settings.gap %}
   "
 >
-  <div class="section-resource-list__content">
+  {%- capture yv_blocks_html -%}
     {%- content_for 'blocks' -%}
+  {%- endcapture -%}
+  {%- liquid
+    # yv: split the Collection block tiles (between markers) from the other blocks.
+    assign yv_header_html = yv_blocks_html
+    assign yv_block_items = ''
+    assign yv_block_count = 0
+    if yv_blocks_html contains '<!--yv-list-item-->'
+      assign yv_header_html = ''
+      assign yv_chunks = yv_blocks_html | split: '<!--yv-list-item-->'
+      for yv_chunk in yv_chunks
+        if yv_chunk contains '<!--/yv-list-item-->'
+          assign yv_pair = yv_chunk | split: '<!--/yv-list-item-->'
+          if yv_block_count > 0
+            assign yv_block_items = yv_block_items | append: '<!--@list/split-->'
+          endif
+          assign yv_block_items = yv_block_items | append: '<div class="resource-list__item">' | append: yv_pair[0] | append: '</div>'
+          assign yv_block_count = yv_block_count | plus: 1
+          assign yv_header_html = yv_header_html | append: yv_pair[1]
+        else
+          assign yv_header_html = yv_header_html | append: yv_chunk
+        endif
+      endfor
+    endif
+  -%}
+
+  <div class="section-resource-list__content">
+    {{- yv_header_html -}}
   </div>
 
   {% if section_collections == null %}
@@ -78,9 +108,8 @@
   {% paginate collections by yv_per_page %}
     {% liquid
       if yv_selected
-        assign section_collections = section.settings.collection_list
         assign yv_offset = 0
-        assign yv_limit = 50
+        assign yv_limit = 0
       elsif collections.size > 0
         assign section_collections = yv_sorted
         assign yv_offset = paginate.current_offset
@@ -97,6 +126,7 @@
     %}
 
     {% capture list_items %}
+      {% unless yv_selected %}
       {% for collection in section_collections offset: yv_offset limit: yv_limit %}
         {% assign yv_count = yv_count | plus: 1 %}
         <div class="resource-list__item">
@@ -106,9 +136,15 @@
           <!--@list/split-->
         {% endunless %}
       {% endfor %}
+      {% endunless %}
     {% endcapture %}
 
     {% liquid
+      if yv_selected
+        assign list_items = yv_block_items
+        assign yv_count = yv_block_count
+      endif
+
       # Create an array from the list items to be used for different layout types
       assign list_items_array = list_items | strip | split: '<!--@list/split-->'
     %}
@@ -167,6 +203,9 @@
     },
     {
       "type": "_divider"
+    },
+    {
+      "type": "_yv-list-collection"
     }
   ],
   "disabled_on": {
@@ -204,9 +243,10 @@
       "default": 16
     },
     {
-      "type": "select",
+      "type": "radio",
       "id": "show_collections",
       "label": "t:yv.collection_list.settings.show_collections",
+      "info": "t:yv.collection_list.settings.show_collections_info",
       "options": [
         {
           "value": "all",
@@ -218,13 +258,6 @@
         }
       ],
       "default": "all"
-    },
-    {
-      "type": "collection_list",
-      "id": "collection_list",
-      "label": "t:yv.collection_list.settings.collections",
-      "info": "t:yv.collection_list.settings.collections_info",
-      "limit": 50
     },
     {
       "type": "select",
