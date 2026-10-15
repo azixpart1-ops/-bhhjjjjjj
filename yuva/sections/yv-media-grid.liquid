@@ -105,6 +105,38 @@
       data-yv-hotspot-container
     >
       {%- content_for 'blocks' -%}
+      {%- if section.blocks.size == 0 and request.design_mode -%}
+        {%- liquid
+          comment
+            Theme editor, no tiles yet: a three-tile bento placeholder on the current grid.
+          endcomment
+          assign wide_span = columns | divided_by: 2 | at_least: 1
+          assign narrow_span = columns | minus: wide_span
+          if narrow_span < 1
+            assign narrow_span = columns
+          endif
+        -%}
+        {%- for i in (1..3) -%}
+          {%- liquid
+            if i == 1
+              assign tile_cols = wide_span
+              assign tile_rows = 3
+            else
+              assign tile_cols = narrow_span
+              assign tile_rows = 3 | minus: i | plus: 1 | at_least: 1
+            endif
+            assign placeholder_index = i | modulo: 2 | plus: 1
+          -%}
+          <div
+            class="yv-media-grid-tile"
+            style="--yv-mg-col: {{ tile_cols }}; --yv-mg-row-span: {{ tile_rows }}; --yv-mg-col-m: {{ columns_mobile }}; --yv-mg-row-span-m: 1;"
+          >
+            <div class="yv-media-grid-tile__media">
+              {{- 'lifestyle-' | append: placeholder_index | placeholder_svg_tag: 'yv-placeholder' -}}
+            </div>
+          </div>
+        {%- endfor -%}
+      {%- endif -%}
     </div>
   </div>
 </div>

@@ -40,7 +40,8 @@
       assign timer_alpha = section.settings.timer_background_opacity
       capture timer_style
         echo '--yv-countdown-digit-color: ' | append: section.settings.timer_text_color | append: '; '
-        echo '--yv-countdown-label-color: ' | append: section.settings.timer_text_color | append: '; '
+        assign timer_label_color = section.settings.timer_label_color | default: section.settings.timer_text_color
+        echo '--yv-countdown-label-color: ' | append: timer_label_color | append: '; '
         echo '--yv-countdown-box-bg: color-mix(in srgb, ' | append: timer_bg | append: ' ' | append: timer_alpha | append: '%, transparent);'
       endcapture
       render 'yv-countdown-timer', end_date: section.settings.end_date, variant: 'glass', on_expire: on_expire, expired_message: section.settings.expired_text, class: 'yv-offer-banner__timer', style: timer_style
@@ -67,6 +68,9 @@
   endif
 
   assign card_class = 'yv-offer-banner__card'
+  if section.settings.image == blank
+    assign card_class = card_class | append: ' yv-offer-banner__card--placeholder'
+  endif
   if section.settings.full_width
     assign card_class = card_class | append: ' yv-offer-banner__card--full yv-container--full'
   endif
@@ -183,6 +187,16 @@
 
   .yv-offer-banner__card--full {
     border-radius: 0;
+  }
+
+  /* No image yet: a dark placeholder so the card still reads as Yuva's warm charcoal under the overlay. */
+  .yv-offer-banner__card--placeholder {
+    background-color: #2a2928;
+  }
+
+  .yv-offer-banner__card--placeholder .yv-offer-banner__image--desktop {
+    color: rgb(255 255 255 / 0.25);
+    background-color: transparent;
   }
 
   .yv-offer-banner__media {
@@ -685,6 +699,12 @@
       "id": "timer_text_color",
       "label": "t:yv.offer_banner.settings.timer_text",
       "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "timer_label_color",
+      "label": "t:yv.offer_banner.settings.timer_label",
+      "info": "t:yv.offer_banner.settings.timer_label_info"
     },
     {
       "type": "color",

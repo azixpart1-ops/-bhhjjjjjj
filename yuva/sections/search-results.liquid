@@ -15,7 +15,8 @@
 {%- comment -%}
   yv: b-catalog — Yuva search results: the collection toolbar/sidebar look (assets/yv-collection.css),
   pagination type, products per page 8–25, default desktop columns, and article/page results for the
-  Articles / Pages tabs of the Yuva search header (?type=article|page).
+  Articles / Pages tabs of the Yuva search header (?type=article|page). A product search with no
+  matches keeps the toolbar and shows the "No results found." box instead of the empty-state grid.
 {%- endcomment -%}
 {{ 'yv-collection.css' | asset_url | stylesheet_tag }}
 {%- liquid
@@ -26,6 +27,12 @@
   assign yv_type = 'product'
   if search.types.size == 1
     assign yv_type = search.types.first
+  endif
+  # Yuva: a search with no product matches keeps the toolbar ("0 Products", columns, Sort by) and
+  # shows only the "No results found." box, without Horizon's empty-state product grid.
+  assign yv_no_results = false
+  if search.performed and search.results_count == 0 and yv_type == 'product'
+    assign yv_no_results = true
   endif
   assign yv_row_gap_mobile = section.settings.columns_gap_vertical | times: 0.75 | round | at_most: 30
   assign yv_col_gap_mobile = section.settings.columns_gap_horizontal | at_most: 14
@@ -95,7 +102,7 @@
             {% render 'pagination-controls', paginate: paginate %}
           </div>
         {% endif %}
-      {% elsif search.results_count > 0 %}
+      {% elsif search.results_count > 0 or yv_no_results %}
         {% content_for 'block', type: 'filters', id: 'filters', results: search, results_size: search.results_count %}
         {% assign products = search.results | where: 'object_type', 'product' %}
       {% else %}
@@ -105,7 +112,13 @@
         {% assign products = collection.products %}
       {% endif %}
 
-      {% unless yv_type == 'article' or yv_type == 'page' %}
+      {% if yv_no_results %}
+        <div class="yv-search-empty yv-search-empty--results">
+          <p class="yv-search-empty__title h5">{{ 'yv.search_page.no_results' | t }}</p>
+        </div>
+      {% endif %}
+
+      {% unless yv_type == 'article' or yv_type == 'page' or yv_no_results %}
       {% capture children %}
         {% for product in products %}
           <li

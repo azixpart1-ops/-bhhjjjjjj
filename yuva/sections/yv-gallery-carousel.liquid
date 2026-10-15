@@ -58,6 +58,20 @@
 
   assign item_count = section.blocks.size
 
+  # Theme editor, no items yet: placeholder boxes in the chosen style, so the section never shows
+  # as an empty band.
+  if item_count == 0 and request.design_mode
+    capture items
+      for i in (1..6)
+        assign placeholder_name = 'collection-' | append: i
+        echo '<div class="yv-gallery-item"><span class="yv-gallery-item__link"><span class="yv-gallery-item__box">'
+        echo placeholder_name | placeholder_svg_tag: 'yv-gallery-item__image yv-placeholder'
+        echo '</span></span></div>'
+      endfor
+    endcapture
+    assign item_count = 6
+  endif
+
   # Auto slide: enough copies of the items to cover a 2560px screen, then the same set again
   # (the second half) so a -50% translation loops seamlessly. 2.25s per item ≈ Yuva's 27s for 12 icons.
   if gallery_style == 'auto_slide' and item_count > 0
@@ -456,8 +470,10 @@
     background-color: var(--yv-image-bg);
   }
 
+  /* Percentage padding follows the box width, so the vertical inset is taken from the box height
+     instead: wide, short boxes keep most of their height for the image. */
   .yv-gallery-carousel--image-bg .yv-gallery-item__box--contain {
-    padding: 12%;
+    padding: calc(var(--yv-gallery-box-height) * 0.12) 12%;
   }
 
   .yv-gallery-item__image {

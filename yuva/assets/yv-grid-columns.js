@@ -137,11 +137,14 @@ class YvFilterToggleComponent extends Component {
   #handleKeydown = (event) => {
     if (event.key !== 'Escape' || this.refs.button?.getAttribute('aria-expanded') !== 'true') return;
 
-    const pane = this.refs.button.getAttribute('aria-controls');
+    const { button } = this.refs;
+    const pane = button.getAttribute('aria-controls');
     const target = pane ? document.getElementById(pane) : null;
-    if (target && event.target instanceof Node && target.contains(event.target)) {
+    if (!(event.target instanceof Node)) return;
+    // Escape closes the open drawer from inside it or from the "Filter" toggle itself.
+    if (event.target === button || button.contains(event.target) || target?.contains(event.target)) {
       this.#setOpen(false);
-      this.refs.button.focus();
+      button.focus();
     }
   };
 }

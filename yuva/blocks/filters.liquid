@@ -90,6 +90,13 @@
   endif
   assign yv_columns = section.settings.columns_desktop | default: 4
   assign yv_box = block_settings.filter_box_style | default: 'border'
+  # yv: nothing to filter (no products and no active filters, e.g. a search with no matches): the
+  # toolbar keeps the count, columns and "Sort by"; the pane and the "Filter" control are hidden.
+  assign yv_nothing_to_filter = false
+  if yv_mode and products_count == 0 and total_active_values == 0
+    assign yv_nothing_to_filter = true
+    assign should_show_pane = false
+  endif
 -%}
 
 {%- liquid
@@ -117,6 +124,26 @@
   text_color: block_settings.text_color,
   section_id: block.id
 %}
+
+{%- comment -%} yv: Yuva funnel line icon for the "Filter" controls (13px, drawn on a 24px grid) {%- endcomment -%}
+{%- capture yv_funnel_icon -%}
+  <svg
+    class="yv-funnel-icon"
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    width="13"
+    height="13"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path d="M3.5 4.5h17l-6.5 7.75v6.25l-4 2v-8.25Z"/>
+  </svg>
+{%- endcapture -%}
 
 {%- comment -%} yv: Yuva "Filter menu" (link list shown above the filter groups) {%- endcomment -%}
 {%- capture yv_filter_menu -%}
@@ -156,7 +183,7 @@
       style="{% render 'spacing-style', settings: block_settings %}{% if block_settings.text_label_case == 'uppercase' %} --facet-label-transform: uppercase;{% endif %}"
     >
       {%- comment -%} yv: Yuva "Filter" toggle (Drawer layout) or "Filter" label (Sidebar layout) {%- endcomment -%}
-      {% if block_settings.enable_filtering %}
+      {% if block_settings.enable_filtering and yv_nothing_to_filter == false %}
         {% if yv_drawer %}
           <yv-filter-toggle-component class="yv-filter-toggle">
             <button
@@ -172,7 +199,7 @@
                 class="svg-wrapper yv-filter-toggle__icon"
                 aria-hidden="true"
               >
-                {{- 'icon-filter.svg' | inline_asset_content -}}
+                {{- yv_funnel_icon -}}
               </span>
               <span>{{- 'blocks.filter' | t -}}</span>
             </button>
@@ -183,7 +210,7 @@
               class="svg-wrapper yv-filter-toggle__icon"
               aria-hidden="true"
             >
-              {{- 'icon-filter.svg' | inline_asset_content -}}
+              {{- yv_funnel_icon -}}
             </span>
             <span>{{- 'blocks.filter' | t -}}</span>
           </h4>
@@ -436,7 +463,7 @@
       {{ facets_margin_style }}
     "
   >
-    {% if block_settings.enable_filtering %}
+    {% if block_settings.enable_filtering and yv_nothing_to_filter == false %}
       <div class="facets-toggle__wrapper">
         <button
           class="button facets-toggle__button button-unstyled button-unstyled--with-icon"
@@ -445,7 +472,11 @@
           aria-haspopup="dialog"
         >
           <span class="svg-wrapper">
-            {{ 'icon-filter.svg' | inline_asset_content }}
+            {%- if yv_mode -%}
+              {{- yv_funnel_icon -}}
+            {%- else -%}
+              {{ 'icon-filter.svg' | inline_asset_content }}
+            {%- endif -%}
           </span>
 
           {{ 'actions.show_filters' | t }}

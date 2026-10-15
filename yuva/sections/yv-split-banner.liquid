@@ -1,10 +1,10 @@
 {% comment %}
   Section contract: yv-split-banner
   A row of 2–4 image panels (private blocks `_yv-split-banner-panel`) that share the width equally.
-  On desktop (990px+, hover devices) the hovered or focused panel widens to flex 1.5 over 0.8s and, when
-  text animation is on, its description slides up under the heading (0.4s). Below 990px the panels
-  become a horizontal scroll-snap row (75% wide on phones, 50% on tablets) with the description
-  always visible. Heading tag, size and highlight are shared by every panel and set here.
+  On desktop (1025px+, hover devices) the hovered or focused panel widens to flex 1.5 over 0.8s and,
+  when text animation is on, its description slides up under the heading (0.4s). Up to 1024px (phones
+  and tablets, as in Yuva) the panels become a horizontal scroll-snap row of 75% wide panels with the
+  description always visible. Heading tag, size and highlight are shared by every panel and set here.
   Shared settings: colour set, visibility, spacing.
   @example
   Theme editor > Add section > Banners > "Split banner"
@@ -27,6 +27,8 @@
   endif
 -%}
 
+{%- comment -%} Without panels the section renders nothing on the storefront (an editor hint only). {%- endcomment -%}
+{%- if section.blocks.size > 0 or request.design_mode -%}
 <div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
 <div
   class="section {{ width_class }} yv-section-spacing yv-split-banner color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% unless section.settings.full_width %} yv-split-banner--boxed{% endunless %}"
@@ -39,9 +41,23 @@
   >
     {%- content_for 'blocks' -%}
   </div>
+  {%- if section.blocks.size == 0 -%}
+    <p class="yv-split-banner__empty">{{ 'yv.split_banner.editor_empty' | t }}</p>
+  {%- endif -%}
 </div>
+{%- endif -%}
 
 {% stylesheet %}
+  /* Theme editor only: the section has no panels yet. */
+  .yv-split-banner__empty {
+    margin: 0;
+    padding: 60px 20px;
+    border: 1px dashed currentColor;
+    border-radius: var(--yv-layout-radius, 10px);
+    text-align: center;
+    opacity: 0.6;
+  }
+
   .yv-split-banner__row {
     display: flex;
     min-width: 0;
@@ -65,9 +81,9 @@
     border-radius: var(--yv-layout-radius, 0);
   }
 
-  /* Phones: 75% wide panels that snap to the centre, so the next one peeks. flex-grow stays 1 at
-     every width (the row overflows below 990px, so it has no effect there) so that crossing a
-     breakpoint never animates the hover transition below. */
+  /* Phones and tablets (up to 1024px): 75% wide panels that snap to the centre, so the next one
+     peeks. flex-grow stays 1 at every width (the row overflows below 1025px, so it has no effect
+     there) so that crossing a breakpoint never animates the hover transition below. */
   .yv-split-banner__row > * {
     flex: 1 0 75%;
     min-width: 0;
@@ -79,14 +95,8 @@
     flex-basis: 100%;
   }
 
-  @media screen and (min-width: 750px) and (max-width: 989px) {
-    .yv-split-banner__row > * {
-      flex-basis: 50%;
-    }
-  }
-
   /* Desktop: equal panels in one row; the hovered one grows. */
-  @media screen and (min-width: 990px) {
+  @media screen and (min-width: 1025px) {
     .yv-split-banner__row {
       overflow: hidden;
       scroll-snap-type: none;
@@ -97,13 +107,13 @@
     }
   }
 
-  @media screen and (min-width: 990px) and (prefers-reduced-motion: no-preference) {
+  @media screen and (min-width: 1025px) and (prefers-reduced-motion: no-preference) {
     .yv-split-banner__row > * {
       transition: flex-grow 0.8s ease;
     }
   }
 
-  @media screen and (min-width: 990px) and (hover: hover) {
+  @media screen and (min-width: 1025px) and (hover: hover) {
     .yv-split-banner__row--expand > :is(:hover, :focus-within) {
       flex-grow: 1.5;
     }
