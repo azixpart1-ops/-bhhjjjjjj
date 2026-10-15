@@ -137,10 +137,42 @@
   endif
 
   assign reveal_delay = block_index | times: 75 | at_most: 900
+
+  # First-row tiles (the ones a transparent header can cover): sum the widths of the tiles before
+  # this one, at desktop widths and at tablet widths (750–989px, where quarter tiles become halves).
+  assign row_used = 0
+  assign row_used_tablet = 0
+  for sibling in section.blocks
+    if sibling.id == block.id
+      break
+    endif
+    case sibling.settings.width
+      when '25'
+        assign row_used = row_used | plus: 25
+        assign row_used_tablet = row_used_tablet | plus: 50
+      when '33'
+        assign row_used = row_used | plus: 33.3333
+        assign row_used_tablet = row_used_tablet | plus: 33.3333
+      when '66'
+        assign row_used = row_used | plus: 66.6667
+        assign row_used_tablet = row_used_tablet | plus: 66.6667
+      else
+        assign sibling_width = sibling.settings.width | default: '50' | plus: 0
+        assign row_used = row_used | plus: sibling_width
+        assign row_used_tablet = row_used_tablet | plus: sibling_width
+    endcase
+  endfor
+  assign row_classes = ''
+  if row_used < 99.9
+    assign row_classes = row_classes | append: ' yv-collage-item--row1'
+  endif
+  if row_used_tablet < 99.9
+    assign row_classes = row_classes | append: ' yv-collage-item--row1-tablet'
+  endif
 -%}
 
 <{{ tile_tag }}
-  class="yv-collage-item yv-hover-zoom{% if heading_text == blank and block.settings.subheading == blank and button_text == blank %} yv-collage-item--no-content{% endif %}"
+  class="yv-collage-item yv-collage-item--w{{ width }} yv-hover-zoom{{ row_classes }}{% if heading_text == blank and block.settings.subheading == blank and button_text == blank %} yv-collage-item--no-content{% endif %}"
   {% if tile_is_link %}
     href="{{ link }}"
     {% if heading_text != blank %}
@@ -268,22 +300,36 @@
 {% stylesheet %}
   .yv-collage-item {
     position: relative;
-    display: block;
+    display: grid;
+    grid-template: 'stack' auto / minmax(0, 1fr);
     flex: 0 0 calc(var(--yv-collage-w) * 1% - var(--yv-collage-gap) * (1 - var(--yv-collage-w) / 100));
     min-width: 0;
     overflow: hidden;
     isolation: isolate;
+    container: yv-collage-tile / inline-size;
     border-radius: var(--yv-collage-radius, 0);
     background-color: var(--yv-image-bg);
     color: var(--yv-collage-text, #fff);
     text-decoration: none;
   }
 
-  /* The ratio spacer gives the tile its natural height; flex rows stretch it to the tallest tile. */
+  /* The ratio spacer gives the tile its natural height. The overlay text shares its grid cell, so a
+     tile whose text is taller grows instead of clipping it; flex rows stretch every tile to the tallest. */
   .yv-collage-item::before {
     content: '';
-    display: block;
+    grid-area: stack;
     padding-block-start: calc(100% / var(--yv-collage-ratio, 1.6));
+  }
+
+  /* Tablet (750–989px): quarter tiles become halves, and a tile left alone on a row fills it. */
+  @media screen and (min-width: 750px) and (max-width: 989px) {
+    .yv-collage-item {
+      flex-grow: 1;
+    }
+
+    .yv-collage-item--w25 {
+      flex-basis: calc(50% - var(--yv-collage-gap) / 2);
+    }
   }
 
   .yv-collage-item__media {
@@ -385,35 +431,60 @@
 
   /* Overlay content: placed by the nine-position utility, 30px from the edges plus 20px inner padding. */
   .yv-collage-item__content-wrap {
-    position: absolute;
-    inset: 0;
+    --yv-collage-pad-y: 30px;
+    --yv-collage-pad-x: 15px;
+
+    position: relative;
     z-index: 3;
-    padding: 30px 15px;
+    grid-area: stack;
+    min-width: 0;
+    padding: calc(var(--yv-collage-pad-y) + var(--yv-collage-top-offset, 0px)) var(--yv-collage-pad-x) var(--yv-collage-pad-y);
     pointer-events: none;
   }
 
-  /* Top-placed text clears a transparent header when the collage is the first section. */
-  @media screen and (min-width: 750px) {
-    .yv-collage-item__content-wrap:is(.yv-pos-d--top_left, .yv-pos-d--top_center, .yv-pos-d--top_right) {
-      padding-block-start: calc(30px + var(--yv-collage-header-offset, 0px));
+  /* First-row tiles of a first-section collage keep their text below a transparent header
+     (--yv-collage-header-offset is set by the section); a tile grows rather than letting it slide under. */
+  @media screen and (min-width: 990px) {
+    .yv-collage-item--row1 {
+      --yv-collage-top-offset: var(--yv-collage-header-offset, 0px);
+    }
+  }
+
+  @media screen and (min-width: 750px) and (max-width: 989px) {
+    .yv-collage-item--row1-tablet {
+      --yv-collage-top-offset: var(--yv-collage-header-offset, 0px);
     }
   }
 
   .yv-collage-item__content {
+    --yv-collage-content-pad: 20px;
+
     display: flex;
     flex-direction: column;
     align-items: var(--yv-pos-x, flex-start);
-    max-width: var(--yv-collage-content-d, 60%);
-    max-height: 80%;
-    padding-inline: 20px;
-    overflow: auto;
-    scrollbar-width: none;
+    min-width: 0;
+    max-width: max(var(--yv-collage-content-d, 60%), min(100%, 210px));
+    padding-inline: var(--yv-collage-content-pad);
     color: var(--yv-collage-text, #fff);
     pointer-events: auto;
   }
 
-  .yv-collage-item__content::-webkit-scrollbar {
-    display: none;
+  .yv-collage-item__content > * {
+    max-width: 100%;
+  }
+
+  /* Narrow desktop tiles (quarter tiles below ~1200px): tighter padding so the text keeps its width. */
+  @media screen and (min-width: 750px) {
+    @container yv-collage-tile (max-width: 299px) {
+      .yv-collage-item__content-wrap {
+        --yv-collage-pad-y: 20px;
+        --yv-collage-pad-x: 10px;
+      }
+
+      .yv-collage-item__content {
+        --yv-collage-content-pad: 10px;
+      }
+    }
   }
 
   /* Three classes: beats the colour-set heading rule (.yv-section :is(h1…h6, .h1…)). */
@@ -422,7 +493,8 @@
     font-family: var(--font-heading--family);
     font-style: var(--font-heading--style);
     font-weight: var(--font-heading--weight);
-    font-size: var(--yv-collage-heading-d);
+    /* The chosen size, scaled down on narrow tiles (10% of the tile width, never under 16px). */
+    font-size: clamp(min(16px, var(--yv-collage-heading-d)), 10cqi, var(--yv-collage-heading-d));
     line-height: var(--font-h3--line-height);
     letter-spacing: var(--font-h3--letter-spacing);
     text-transform: var(--font-h3--case);
@@ -490,17 +562,20 @@
       inset: 10px;
     }
 
-    .yv-collage-item__content-wrap {
-      padding: 17px;
+    /* Mobile: one strip, so every tile sits under a transparent header. */
+    .yv-collage-item {
+      --yv-collage-top-offset: var(--yv-collage-header-offset, 0px);
     }
 
-    .yv-collage-item__content-wrap:is(.yv-pos-m--top_left, .yv-pos-m--top_center, .yv-pos-m--top_right) {
-      padding-block-start: calc(17px + var(--yv-collage-header-offset, 0px));
+    .yv-collage-item__content-wrap {
+      --yv-collage-pad-y: 17px;
+      --yv-collage-pad-x: 17px;
     }
 
     .yv-collage-item__content {
+      --yv-collage-content-pad: 0px;
+
       max-width: var(--yv-collage-content-m, 100%);
-      padding-inline: 0;
     }
 
     .yv-collage-item .yv-collage-item__content .yv-collage-item__heading {

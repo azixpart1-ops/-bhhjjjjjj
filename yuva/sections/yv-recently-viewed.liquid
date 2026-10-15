@@ -3,9 +3,13 @@
   "Recently viewed products" (docs part 4): the products this visitor viewed most recently, as Yuva
   product cards in a carousel (5 per view at 990px+, 3 on tablets, a swipe row with a peek on phones).
   Product pages remember each view (assets/yv-product.js, localStorage "yvRecentlyViewed", newest
-  first, 12 max); the current product is left out. Each card is rendered by the helper section
-  yv-recently-viewed-item on that product's URL, so the section works on every template. Hidden while
-  nothing was viewed; the theme editor shows placeholder cards from the static card tree.
+  first, 12 max); the current product is left out. On a product page each card is this section
+  re-rendered on that product's URL (Section Rendering API with this section's id), which outputs the
+  product's card from THIS section's saved static card tree (<template data-yv-rv-self>), so card
+  settings changed here apply on the storefront too. Where that is impossible (the product uses
+  another template, or the section sits on a non-product template) the card comes from the helper
+  section yv-recently-viewed-item (default card settings). Hidden while nothing was viewed; the theme
+  editor shows placeholder cards from the static card tree.
   Shared settings: highlight heading, colour set, visibility, spacing.
 {% endcomment %}
 
@@ -34,6 +38,8 @@
   class="section section--page-width yv-section-spacing yv-recently-viewed color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
   style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-grid-radius: {{ section.settings.grid_radius_desktop }}px; --yv-grid-radius-mobile: {{ section.settings.grid_radius_mobile }}px;"
   data-item-section="yv-recently-viewed-item"
+  data-section-id="{{ section.id }}"
+  data-self-render="{% if request.page_type == 'product' %}true{% else %}false{% endif %}"
   data-current-product="{{ current_id }}"
   data-limit="10"
   {% if request.design_mode %}
@@ -64,6 +70,19 @@
         {%- endfor -%}
       {%- endif -%}
     {%- endcapture -%}
+
+    {%- if request.page_type == 'product' and product != blank -%}
+      {%- comment -%}
+        This product's card from the section's own card tree. Unused on the page itself (inert
+        template); yv-product.js reads it from this section rendered on other products' URLs.
+      {%- endcomment -%}
+      <template
+        data-yv-rv-self
+        data-product-id="{{ product.id }}"
+      >
+        {% content_for 'block', type: '_product-card', id: 'static-product-card', closest.product: product %}
+      </template>
+    {%- endif -%}
 
     {% render 'yv-carousel',
       id: carousel_id,

@@ -56,7 +56,20 @@
 
   <div class="yv-compare__cell yv-compare__description">
     {%- if bs.show_description and item.description != blank -%}
-      <p>{{ item.description | strip_html | truncatewords: 25 }}</p>
+      {%- liquid
+        # Ellipsis only when the text was cut, without doubling a sentence's own full stop.
+        assign desc_text = item.description | strip_html | strip
+        assign desc_short = desc_text | truncatewords: 25, ''
+        if desc_short.size < desc_text.size
+          assign last_char = desc_short | slice: -1
+          if last_char == '.' or last_char == ',' or last_char == ';' or last_char == ':'
+            assign keep = desc_short.size | minus: 1
+            assign desc_short = desc_short | slice: 0, keep
+          endif
+          assign desc_short = desc_short | append: '…'
+        endif
+      -%}
+      <p>{{ desc_short }}</p>
     {%- endif -%}
   </div>
 

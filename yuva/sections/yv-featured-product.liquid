@@ -43,7 +43,10 @@
     {% render 'yv-draw-icon', icon_settings: section.settings %}
     <h2 class="visually-hidden">{{ 'accessibility.featured_product' | t }}</h2>
     <div
-      class="yv-featured-product yv-featured-product--{{ layout }} yv-featured-product--media-{{ media_position }}"
+      class="yv-featured-product yv-featured-product--{{ layout }} yv-featured-product--media-{{ media_position }}{% if request.design_mode %} yv-featured-product--design{% endif %}"
+      {% if request.design_mode %}
+        style="--yv-fp-once-notice: '{{ 'yv.product.once_only' | t | remove: "'" | escape }}';"
+      {% endif %}
       {% unless product_resource == blank %}
         view-event-payload="{{ product_resource | standard_event_data: 'view' | escape }}"
       {% endunless %}
@@ -84,16 +87,55 @@
     display: none;
   }
 
-  /* Once-only blocks: render the first of each kind (docs: "can be added only once"). */
+  /* Once-only blocks (every block except Text, Custom liquid and apps): render the first of each kind
+     (docs: "can be added only once"). Liquid cannot skip one dynamic block, so later duplicates are
+     hidden; in the theme editor they show the notice "This block can be added only once" instead.
+     !important beats the inline display of product-sku-component. */
   .yv-featured-product__blocks > .yv-product-title ~ .yv-product-title,
+  .yv-featured-product__blocks > .rating-wrapper ~ .rating-wrapper,
+  .yv-featured-product__blocks > product-sku-component ~ product-sku-component,
   .yv-featured-product__blocks > product-price ~ product-price,
   .yv-featured-product__blocks > variant-picker ~ variant-picker,
   .yv-featured-product__blocks > .yv-quantity ~ .yv-quantity,
   .yv-featured-product__blocks > .buy-buttons-block ~ .buy-buttons-block,
   .yv-featured-product__blocks > .yv-share ~ .yv-share,
   .yv-featured-product__blocks > .yv-short-videos ~ .yv-short-videos,
-  .yv-featured-product__blocks > .yv-product-countdown ~ .yv-product-countdown {
-    display: none;
+  .yv-featured-product__blocks > .yv-product-countdown ~ .yv-product-countdown,
+  .yv-featured-product__blocks > .yv-inventory ~ .yv-inventory {
+    display: none !important;
+  }
+
+  .yv-featured-product--design .yv-featured-product__blocks > .yv-product-title ~ .yv-product-title,
+  .yv-featured-product--design .yv-featured-product__blocks > .rating-wrapper ~ .rating-wrapper,
+  .yv-featured-product--design .yv-featured-product__blocks > product-sku-component ~ product-sku-component,
+  .yv-featured-product--design .yv-featured-product__blocks > product-price ~ product-price,
+  .yv-featured-product--design .yv-featured-product__blocks > variant-picker ~ variant-picker,
+  .yv-featured-product--design .yv-featured-product__blocks > .yv-quantity ~ .yv-quantity,
+  .yv-featured-product--design .yv-featured-product__blocks > .buy-buttons-block ~ .buy-buttons-block,
+  .yv-featured-product--design .yv-featured-product__blocks > .yv-share ~ .yv-share,
+  .yv-featured-product--design .yv-featured-product__blocks > .yv-short-videos ~ .yv-short-videos,
+  .yv-featured-product--design .yv-featured-product__blocks > .yv-product-countdown ~ .yv-product-countdown,
+  .yv-featured-product--design .yv-featured-product__blocks > .yv-inventory ~ .yv-inventory {
+    display: block !important;
+    margin: 0;
+    padding: 8px 12px;
+    border: 1px dashed currentcolor;
+    border-radius: 4px;
+    font-family: var(--font-body--family);
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 1.4;
+    letter-spacing: normal;
+    text-transform: none;
+    opacity: 0.6;
+
+    & > * {
+      display: none !important;
+    }
+
+    &::before {
+      content: var(--yv-fp-once-notice);
+    }
   }
 
   .yv-featured-product .yv-product-title {
@@ -260,6 +302,45 @@
 
   .yv-fp-media .yv-side-heading--right {
     inset-inline-end: -42px;
+  }
+
+  /* Marquee strip (demo): a 42px white column with the frame's hairline shadow, the name in regular
+     18px mixed case reading top to bottom. */
+  .yv-fp-media .yv-side-heading--marquee {
+    inline-size: 42px;
+    border: 0;
+    background: var(--color-background);
+    box-shadow: 0 0 2px rgb(0 0 0 / 0.15);
+    color: var(--color-foreground);
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style, normal);
+    font-weight: 400;
+    font-size: 18px;
+    text-transform: none;
+  }
+
+  .yv-fp-media .yv-side-heading--marquee .yv-side-heading__track > span {
+    padding-block: 10px;
+  }
+
+  /* Framed layout with room beside the 1000px container: the strip sits outside the frame (glued to
+     its edge) and the frame keeps the full column width. Narrower screens keep it inside the column. */
+  @media screen and (min-width: 1100px) {
+    .yv-featured-product--boxed .yv-fp-media--has-side.yv-fp-media--left .yv-fp-media__frame {
+      margin-inline-start: 0;
+    }
+
+    .yv-featured-product--boxed .yv-fp-media--has-side.yv-fp-media--right .yv-fp-media__frame {
+      margin-inline-end: 0;
+    }
+
+    .yv-featured-product--boxed .yv-fp-media .yv-side-heading--left {
+      inset-inline-start: -41px;
+    }
+
+    .yv-featured-product--boxed .yv-fp-media .yv-side-heading--right {
+      inset-inline-end: -41px;
+    }
   }
 
   .yv-fp-media__stage {
@@ -486,6 +567,11 @@
 
     .yv-fp-media .yv-side-heading--right {
       inset-inline-end: -30px;
+    }
+
+    .yv-fp-media .yv-side-heading--marquee {
+      inline-size: 30px;
+      font-size: 15px;
     }
   }
 {% endstylesheet %}

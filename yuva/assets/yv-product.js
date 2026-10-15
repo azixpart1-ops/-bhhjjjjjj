@@ -476,9 +476,10 @@ for (const script of document.querySelectorAll('script[data-yv-recently-viewed]'
 }
 
 /**
- * Renders the visitor's recently viewed products. Each product's card is rendered by the helper
- * section `yv-recently-viewed-item` on that product's URL (Section Rendering API, by file name),
- * so it works on every template. The element (the section's container) stays hidden while nothing
+ * Renders the visitor's recently viewed products. On a product page each card is this section
+ * rendered on that product's URL (Section Rendering API with the section's id), which carries the
+ * product's card built from the section's saved card tree; otherwise (another template) the helper
+ * section `yv-recently-viewed-item` renders it by file name with default card settings. The element (the section's container) stays hidden while nothing
  * else was viewed; in the theme editor the placeholder cards stay until real cards arrive.
  */
 class YvRecentlyViewedComponent extends Component {
@@ -499,14 +500,33 @@ class YvRecentlyViewedComponent extends Component {
     if (!items.length) return;
 
     const root = (window.Shopify?.routes?.root || '/').replace(/\/?$/, '/');
+    const selfRender = this.dataset.selfRender === 'true' && Boolean(this.dataset.sectionId);
+    /**
+     * @param {string} handle
+     * @param {string} sectionId
+     */
+    const fetchDoc = async (handle, sectionId) => {
+      const url = `${root}products/${encodeURIComponent(handle)}?section_id=${encodeURIComponent(sectionId)}`;
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      return new DOMParser().parseFromString(await response.text(), 'text/html');
+    };
     const results = await Promise.all(
       items.map(async (item) => {
         try {
-          const url = `${root}products/${encodeURIComponent(item.handle)}?section_id=${this.dataset.itemSection}`;
-          const response = await fetch(url);
-          if (!response.ok) return null;
-          const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
-          return doc.querySelector('[data-yv-rv-item]');
+          // 1. This section on the product's URL: the card from this section's saved card tree.
+          if (selfRender) {
+            const doc = await fetchDoc(item.handle, /** @type {string} */ (this.dataset.sectionId));
+            const template = doc?.querySelector(`template[data-yv-rv-self][data-product-id="${CSS.escape(item.id)}"]`);
+            if (template instanceof HTMLTemplateElement && template.content.childElementCount) {
+              const card = document.createElement('div');
+              card.append(template.content.cloneNode(true));
+              return card;
+            }
+          }
+          // 2. The helper section (default card settings): other templates.
+          const doc = await fetchDoc(item.handle, /** @type {string} */ (this.dataset.itemSection));
+          return doc?.querySelector('[data-yv-rv-item]') ?? null;
         } catch (error) {
           warn(error);
           return null;
