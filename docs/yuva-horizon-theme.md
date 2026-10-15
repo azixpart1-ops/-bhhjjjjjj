@@ -129,7 +129,7 @@ no Yuva demo images are included (image settings start empty and show placeholde
 | **Media grid**<br>`sections/yv-media-grid.liquid` | Media grid, Media grid with cards | Media, Text, Media with text |
 | **Spotlight**<br>`sections/yv-spotlight.liquid` | Spotlight | Hotspot |
 | **Tabbed collage**<br>`sections/yv-tabbed-collage.liquid` | Tabbed collage, Tabbed collage: hover, Tabbed collage: accordion | Media, Product |
-| **Video banner**<br>`sections/yv-video-banner.liquid` | Video banner, Boxed video banner, Video with play button | – |
+| **Video banner**<br>`sections/yv-video-banner.liquid` | Video banner, Boxed video banner, Video with play button, Sticky video banner | – |
 
 ### Other
 
@@ -218,7 +218,9 @@ These keep Horizon's own sections (so variant handling, filters, the cart and se
   collection page, cart, search, blog and article keep Horizon's sections and gain Yuva blocks
   and styling, so Horizon's variant handling, filters and cart logic are unchanged.
 - **Translations.** Every Yuva label is a `t:yv.…` key. The keys live in a `yv` subtree of each
-  locale file, so Horizon's own keys and comments are untouched.
+  locale file, so Horizon's own keys and comments are untouched. Shopify allows 3,400 translations
+  per locale file; the editor (`*.schema.json`) files hold about 3,100, so keep new setting labels
+  lean or reuse existing keys.
 - **Local preview and checks.** `scripts/theme-dev` renders the theme as a mock storefront:
   `node scripts/theme-dev/server.mjs --theme yuva` (then open http://127.0.0.1:9292), and
   `node scripts/theme-dev/render.mjs <path> --theme yuva` prints render errors for one URL.
