@@ -23,32 +23,56 @@
 {%- endunless -%}
 
 {%- if section.settings.mobile_dividers != blank and section.settings.mobile_dividers != 'none' -%}
+  {%- comment -%}
+    yv: each divider is an absolutely positioned ::before in the gap ABOVE a block, so it never takes part
+    in the block's own flex/grid layout. The block gets the extra top margin that makes room for it.
+    Medium/large bands bleed to the viewport edges; the section clips them horizontally (overflow-x: clip
+    keeps sticky positioning and doesn't clip the fixed sticky bar or top-layer dialogs).
+    Selector: a real block (not link/script/style) preceded by another real block after
+    .view-product-title, so the first block never gets one (the gallery divider sits above it).
+  {%- endcomment -%}
+  {%- liquid
+    case section.settings.mobile_dividers
+      when 'small'
+        assign yv_divider_size = '1px'
+        assign yv_divider_color = 'var(--yv-border-color, rgb(0 0 0 / 0.1))'
+        assign yv_divider_bleed = '0px'
+      when 'medium'
+        assign yv_divider_size = '4px'
+        assign yv_divider_color = 'var(--yv-text-xxlight, rgb(0 0 0 / 0.1))'
+        assign yv_divider_bleed = '-100vw'
+      else
+        assign yv_divider_size = '8px'
+        assign yv_divider_color = 'var(--yv-text-xxlight, rgb(0 0 0 / 0.1))'
+        assign yv_divider_bleed = '-100vw'
+    endcase
+  -%}
   {% style %}
     @media screen and (max-width: 749px) {
-      #shopify-section-{{ section.id }} .product-details > .group-block > .group-block-content > :not(.view-product-title, .view-product-title + *)::before,
-      #shopify-section-{{ section.id }} .product-information__media::after {
-        content: '';
-        display: block;
-        {%- case section.settings.mobile_dividers -%}
-          {%- when 'small' -%}
-            height: 1px;
-            margin-block-end: var(--yv-pdp-block-gap, 20px);
-            background: var(--yv-border-color, rgb(0 0 0 / 0.1));
-          {%- when 'medium' -%}
-            height: 4px;
-            margin-inline: calc(var(--page-margin, 20px) * -1);
-            margin-block-end: var(--yv-pdp-block-gap, 20px);
-            background: rgb(var(--color-foreground-rgb) / 0.1);
-          {%- else -%}
-            height: 8px;
-            margin-inline: calc(var(--page-margin, 20px) * -1);
-            margin-block-end: var(--yv-pdp-block-gap, 20px);
-            background: rgb(var(--color-foreground-rgb) / 0.1);
-        {%- endcase -%}
+      #shopify-section-{{ section.id }} {
+        --yv-pdp-divider: {{ yv_divider_size }};
+        overflow-x: clip;
       }
 
-      #shopify-section-{{ section.id }} .product-information__media::after {
-        margin-block: 20px 0;
+      #shopify-section-{{ section.id }} .product-information__media + .product-details,
+      #shopify-section-{{ section.id }} .product-details > .group-block > .group-block-content > .view-product-title ~ :not(link, script, style, template) ~ :not(link, script, style, template) {
+        position: relative;
+        margin-block-start: calc(var(--yv-pdp-divider) + var(--yv-pdp-block-gap, 20px));
+      }
+
+      #shopify-section-{{ section.id }} .product-information__media + .product-details::before,
+      #shopify-section-{{ section.id }} .product-details > .group-block > .group-block-content > .view-product-title ~ :not(link, script, style, template) ~ :not(link, script, style, template)::before {
+        content: '';
+        position: absolute;
+        inset-block-start: calc(-1 * (var(--yv-pdp-divider) + var(--yv-pdp-block-gap, 20px)));
+        inset-inline: {{ yv_divider_bleed }};
+        block-size: var(--yv-pdp-divider);
+        background: {{ yv_divider_color }};
+        pointer-events: none;
+      }
+
+      #shopify-section-{{ section.id }} .product-information__media + .product-details::before {
+        inset-block-start: calc(-1 * var(--yv-pdp-divider));
       }
     }
   {% endstyle %}

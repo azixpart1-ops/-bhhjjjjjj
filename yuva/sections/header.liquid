@@ -410,6 +410,12 @@
   }
 </script>
 
+{%- comment -%}
+  yv: Yuva header styles. Linked before the header markup so the header never paints without them
+  (a stylesheet in the body holds back rendering of the content after it, not before it).
+{%- endcomment -%}
+{{ 'yv-header.css' | asset_url | stylesheet_tag }}
+
 <header-component
   id="header-component"
   class="{{ class }}"
@@ -627,6 +633,27 @@
   {%- endif -%}
 </header-component>
 
+{%- comment -%}
+  yv: from 750px to 989px every navigation type uses Horizon's drawer layout (Yuva's tablet header:
+  hamburger, logo, icons in one row). Set before the first paint and kept while Horizon's menu-style
+  switch (layout/theme.liquid, header-menu.js) runs; assets/yv-header.js re-attaches it after the
+  theme editor re-renders the header.
+{%- endcomment -%}
+<script>
+  (function () {
+    var header = document.getElementById('header-component');
+    if (!header) return;
+    var band = window.matchMedia('(min-width: 750px) and (max-width: 989px)');
+    var apply = function () {
+      if (band.matches && header.dataset.menuStyle !== 'drawer') header.dataset.menuStyle = 'drawer';
+    };
+    new MutationObserver(apply).observe(header, { attributes: true, attributeFilter: ['data-menu-style'] });
+    band.addEventListener('change', apply);
+    header.yvTabletLayout = true;
+    apply();
+  })();
+</script>
+
 {%- comment -%} yv: Yuva header behaviours (assets/yv-header.js). {%- endcomment -%}
 <yv-header-component class="yv-header-controller"></yv-header-component>
 
@@ -667,8 +694,6 @@
     {%- endif -%}
   </div>
 {%- endif -%}
-
-{{ 'yv-header.css' | asset_url | stylesheet_tag }}
 
 <script
   src="{{ 'header.js' | asset_url }}"

@@ -113,6 +113,9 @@
       {% for link in block_settings.menu.links %}
         {%- liquid
           # yv: Yuva mega menu and badge blocks of the header, matched by the item's title.
+          # On the storefront a mega block only takes over its item once it has content (collections,
+          # images or products); until then the item stays a normal link or dropdown. The theme
+          # editor always matches it so the merchant can see and fill the panel.
           assign yv_link_key = link.title | strip | downcase
           assign yv_mega_block = null
           for yv_block in section.blocks
@@ -120,7 +123,32 @@
               continue
             endunless
             assign yv_block_key = yv_block.settings.menu_label | strip | downcase
-            if yv_block_key != blank and yv_block_key == yv_link_key
+            if yv_block_key == blank or yv_block_key != yv_link_key
+              continue
+            endif
+            assign yv_bs = yv_block.settings
+            assign yv_has_content = request.design_mode
+            case yv_block.type
+              when '_yv-mega-menu-products-gallery'
+                if yv_bs.collection_1 != blank or yv_bs.collection_2 != blank or yv_bs.image_1 != blank or yv_bs.image_2 != blank
+                  assign yv_has_content = true
+                endif
+              when '_yv-mega-menu-submenu-products'
+                if yv_bs.products != blank
+                  assign yv_has_content = true
+                elsif yv_bs.show_submenu and link.links != blank
+                  assign yv_has_content = true
+                endif
+              else
+                for yv_n in (1..12)
+                  assign yv_collection_key = 'collection_' | append: yv_n
+                  if yv_bs[yv_collection_key] != blank
+                    assign yv_has_content = true
+                    break
+                  endif
+                endfor
+            endcase
+            if yv_has_content
               assign yv_mega_block = yv_block
               break
             endif
@@ -171,7 +199,15 @@
                 class="yv-menu-caret"
                 aria-hidden="true"
               >
-                {%- render 'yv-icon', name: 'chevron-down', size: 10, stroke: 2 -%}
+                <svg
+                  width="10"
+                  height="6"
+                  viewBox="0 0 10 6"
+                  fill="none"
+                  focusable="false"
+                >
+                  <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
               </span>
             {%- endif -%}
           </a>

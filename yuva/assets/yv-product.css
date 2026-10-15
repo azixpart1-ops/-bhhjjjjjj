@@ -129,6 +129,12 @@
   margin-block-start: -5px;
 }
 
+/* A text block fed by an empty metafield (e.g. the subtitle) renders <p></p>: drop it so it adds no gap or divider. */
+.product-information .product-details .text-block:has(> p:only-child:empty),
+.yv-featured-product .product-details .text-block:has(> p:only-child:empty) {
+  display: none;
+}
+
 /* ------------------------------------------------------------------ price */
 
 :is(.product-information, .yv-featured-product, quick-add-dialog) product-price {
@@ -903,8 +909,8 @@ product-form-component[data-yv-terms-pending] .accelerated-checkout-block::after
 .yv-sticky-atc .sticky-add-to-cart__bar {
   inset-inline: 0;
   left: 0; /* stylelint-disable-line csstools/use-logical -- resets Horizon's physical centring */
-  width: 100%;
-  max-width: none;
+  width: auto;
+  max-width: 100%;
   border-radius: 0;
   padding: 16px max(var(--page-margin, 20px), calc((100vw - var(--yv-sticky-width, 1270px)) / 2));
   gap: 15px;
@@ -925,11 +931,26 @@ product-form-component[data-yv-terms-pending] .accelerated-checkout-block::after
   bottom: 0;
 }
 
+/* Top bar: at the viewport top, and below the header only while the sticky header is on screen
+   ("always", or "on scroll up" while it is shown). A hidden scroll-up header leaves no gap. */
 .yv-sticky-atc--top .sticky-add-to-cart__bar {
-  top: var(--header-height, 0px);
+  top: 0;
   bottom: auto;
   box-shadow: 0 2px 12px rgb(0 0 0 / 0.08);
   transform: translateY(calc(-100% - var(--header-height, 0px) - 10px));
+}
+
+body:has(#header-component:is([sticky='always'], [sticky='scroll-up'][data-sticky-state='active']))
+  .yv-sticky-atc--top
+  .sticky-add-to-cart__bar {
+  top: var(--header-height, 0px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .yv-sticky-atc--top .sticky-add-to-cart__bar {
+    transition-property: transform, opacity, display, top;
+    transition-duration: 0.3s, 0.3s, 0.3s, 0.4s;
+  }
 }
 
 @starting-style {

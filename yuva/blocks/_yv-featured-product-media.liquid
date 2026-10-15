@@ -5,6 +5,8 @@
   Starts on the selected variant's media; the whole section re-renders on variant change.
   Heights: 600/700/800 (desktop) and 400/500/600 (mobile) fix the media box (contain), Auto follows
   the first media item's ratio.
+  Zoom: clicking an image slide opens Horizon's <zoom-dialog> (assets/zoom-dialog.js, drag-zoom-wrapper.js)
+  at that index, with a zoom-in cursor. Phones (<750px) get a row of dots under the frame.
 {%- enddoc -%}
 
 {%- liquid
@@ -29,6 +31,15 @@
   if ss.image_position == 'right'
     assign edge = 'right'
   endif
+
+  assign zoom_id = 'yv-fp-zoom-' | append: section.id
+  assign has_image = false
+  for media in product_resource.media
+    if media.media_type == 'image'
+      assign has_image = true
+      break
+    endif
+  endfor
 -%}
 
 <script
@@ -36,6 +47,18 @@
   type="module"
   fetchpriority="low"
 ></script>
+{%- if has_image -%}
+  <script
+    src="{{ 'zoom-dialog.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  <script
+    src="{{ 'drag-zoom-wrapper.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}
 
 <yv-featured-media-component
   class="yv-fp-media yv-fp-media--{{ edge }}{% if ss.side_heading != blank %} yv-fp-media--has-side{% if ss.side_heading_marquee %} yv-fp-media--side-marquee{% endif %}{% endif %}"
@@ -78,6 +101,14 @@
                 assign loading = 'eager'
               endif
             -%}
+            {%- if media.media_type == 'image' -%}
+              <button
+                type="button"
+                class="yv-fp-media__zoom"
+                on:click="#{{ zoom_id }}/open/{{ forloop.index0 }}"
+                aria-label="{{ 'actions.zoom_media' | t: index: forloop.index }}"
+              ></button>
+            {%- endif -%}
             {% render 'product-media',
               media: media,
               sizes: '(min-width: 990px) 485px, (min-width: 750px) 45vw, 100vw',
@@ -139,6 +170,108 @@
       </div>
     {%- endif -%}
   </div>
+
+  {%- if media_count > 1 -%}
+    <div
+      class="yv-fp-media__dots"
+      role="group"
+      aria-label="{{ 'yv.carousel.choose_slide' | t }}"
+    >
+      {%- for media in product_resource.media -%}
+        <button
+          type="button"
+          class="yv-fp-media__dot{% if forloop.index0 == start_index %} is-active{% endif %}"
+          ref="dots[]"
+          on:click="/select/{{ forloop.index0 }}"
+          aria-label="{{ 'yv.carousel.go_to_slide' | t: index: forloop.index }}"
+          {% if forloop.index0 == start_index %}
+            aria-current="true"
+          {% endif %}
+        ></button>
+      {%- endfor -%}
+    </div>
+  {%- endif -%}
+
+  {%- if has_image -%}
+    {%- comment -%} Horizon's zoom view (markup from snippets/product-media-gallery-content.liquid). {%- endcomment -%}
+    <zoom-dialog
+      ref="zoomDialog"
+      id="{{ zoom_id }}"
+    >
+      <dialog
+        class="dialog-zoomed-gallery__dialog"
+        ref="dialog"
+        on:keydown="/handleKeyDown"
+        scroll-lock
+      >
+        <button
+          type="button"
+          class="button button-unstyled close-button dialog-zoomed-gallery__close-button"
+          aria-label="{{ 'actions.close' | t }}"
+          on:click="/close"
+        >
+          <span class="visually-hidden">{{ 'actions.close' | t }}</span>
+          {{ 'icon-close.svg' | inline_asset_content }}
+        </button>
+        <div class="dialog-thumbnails-list-container">
+          <scroll-hint
+            class="dialog-thumbnails-list list-unstyled"
+            ref="thumbnails"
+          >
+            {%- if media_count > 1 -%}
+              {%- for media in product_resource.media -%}
+                {%- assign thumb_ratio = media.preview_image.aspect_ratio | default: 1.0 -%}
+                <button
+                  type="button"
+                  class="button button-unstyled dialog-thumbnails-list__thumbnail"
+                  aria-label="{{ 'accessibility.scroll_to' | t: title: media.alt | default: media.media_type }}"
+                  on:click="/handleThumbnailClick/{{ forloop.index0 }}"
+                  on:pointerenter="/handleThumbnailPointerEnter/{{ forloop.index0 }}"
+                  style="--aspect-ratio: {{ thumb_ratio }}; --gallery-aspect-ratio: {{ thumb_ratio }};"
+                  {% if forloop.first %}
+                    aria-selected="true"
+                  {% endif %}
+                >
+                  {{
+                    media.preview_image
+                    | image_url: width: 480
+                    | image_tag: loading: 'lazy', sizes: '(min-width: 750px) 160px, 110px', widths: '240, 352', alt: media.alt
+                  }}
+                </button>
+              {%- endfor -%}
+            {%- endif -%}
+          </scroll-hint>
+        </div>
+        <ul class="dialog-zoomed-gallery list-unstyled">
+          {%- for media in product_resource.media -%}
+            <li
+              id="yv-fp-zoom-{{ section.id }}-{{ media.id }}"
+              class="product-media-container product-media-container--{{ media.media_type }}{% if media.media_type == 'image' %} product-media-container--zoomable{% endif %}"
+              style="--media-preview-ratio: {{ media.preview_image.aspect_ratio | default: 1.0 }};"
+              ref="media[]"
+              {% if media.media_type == 'image' %}
+                on:click="/close"
+              {% endif %}
+            >
+              {%- if media.media_type == 'image' -%}
+                <drag-zoom-wrapper class="product-media__drag-zoom-wrapper">
+                  {%- render 'product-media',
+                    media: media,
+                    sizes: '100vw',
+                    loading: 'lazy',
+                    is_main_product_media: false,
+                    image_ref: 'image'
+                  -%}
+                </drag-zoom-wrapper>
+              {%- else -%}
+                {%- render 'product-media', media: media, sizes: '100vw', loading: 'lazy', is_main_product_media: false -%}
+              {%- endif -%}
+            </li>
+          {%- endfor -%}
+        </ul>
+      </dialog>
+    </zoom-dialog>
+  {%- endif -%}
 </yv-featured-media-component>
 
 {% schema %}

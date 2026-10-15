@@ -154,6 +154,8 @@ class YvMobileDockComponent extends Component {
       this.#editorSelected || (!this.#barPinned && (always || (this.#scrollingDown && !this.#footerInView)));
 
     if (this.hasAttribute('data-visible') !== visible) this.toggleAttribute('data-visible', visible);
+    // Slid off-screen, its buttons leave the tab order and the accessibility tree.
+    if (this.inert === visible) this.inert = !visible;
 
     // Height plus the bottom gap (the cookie banner's height is added by the widgets themselves).
     const offset = visible && MOBILE_QUERY.matches ? `${Math.round(this.offsetHeight + DOCK_GAP)}px` : '0px';

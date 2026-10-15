@@ -249,10 +249,11 @@ if (!customElements.get('yv-short-videos-component')) {
 
 /**
  * Fade slider of the featured product section: slides share one grid cell and cross-fade;
- * thumbnails and arrows select; ←/→ move while focus is inside. The section is re-rendered on
- * variant change, which starts it on the variant's media (data-index).
+ * thumbnails, dots (phones) and arrows select; ←/→ move while focus is inside. The section is
+ * re-rendered on variant change, which starts it on the variant's media (data-index).
+ * Image slides open Horizon's <zoom-dialog> through their declarative on:click.
  *
- * @typedef {{ slides: HTMLElement[], thumbs?: HTMLElement[] }} FeaturedMediaRefs
+ * @typedef {{ slides: HTMLElement[], thumbs?: HTMLElement[], dots?: HTMLElement[] }} FeaturedMediaRefs
  * @extends {Component<FeaturedMediaRefs>}
  */
 class YvFeaturedMediaComponent extends Component {
@@ -288,10 +289,11 @@ class YvFeaturedMediaComponent extends Component {
       else slide.setAttribute('aria-hidden', 'true');
       if (!active) slide.querySelectorAll('video').forEach((video) => video.pause());
     });
-    (this.refs.thumbs || []).forEach((thumb, i) => {
-      thumb.classList.toggle('is-active', i === next);
-      if (i === next) thumb.setAttribute('aria-current', 'true');
-      else thumb.removeAttribute('aria-current');
+    [...(this.refs.thumbs || []), ...(this.refs.dots || [])].forEach((control) => {
+      const i = [...control.parentElement.children].indexOf(control);
+      control.classList.toggle('is-active', i === next);
+      if (i === next) control.setAttribute('aria-current', 'true');
+      else control.removeAttribute('aria-current');
     });
   }
 

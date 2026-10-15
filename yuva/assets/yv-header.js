@@ -1,5 +1,8 @@
 import { Component } from '@theme/component';
 
+/** Tablet band: the inline menu only shows from 990px. */
+const TABLET_QUERY = '(min-width: 750px) and (max-width: 989px)';
+
 /**
  * Yuva behaviours on top of Horizon's header (`#header-component`, header.js, header-menu.js,
  * header-drawer.js). Rendered once by sections/header.liquid as `<yv-header-component>` next to the
@@ -8,14 +11,15 @@ import { Component } from '@theme/component';
  * - Sticky "On scroll up": records the previous sticky state (`data-yv-sticky-from`) so the header
  *   slides away only when it was showing.
  * - "Open by: Click" menus (`header-menu[data-yv-open-by="click"]`): the top-level link toggles its
- *   submenu instead of navigating; a click outside closes it.
+ *   submenu instead of navigating. A click outside an open panel closes it; on the page (or its
+ *   dimmed overlay) that click does nothing else.
+ * - Tablet (750–989px): keeps Horizon's drawer layout for every navigation type.
  * - Page overlay under open panels starts at the header's bottom edge (`--yv-overlay-top`).
  * - Menu drawer: "Menu / View catalog" switch, opening below the announcement bar
  *   (`--yv-drawer-offset`), and the desktop category button that opens the drawer on its catalog tab.
  * - Category dropdown: one open at a time, closes on outside click and Escape.
  * - Floating cart (`[data-yv-sticky-cart]`) once a non-sticky header leaves the viewport.
  * - Theme editor: selecting a mega menu or badge block opens / highlights its menu item.
- * - Search prompts (Theme settings > Search): rotates the search input placeholder.
  *
  * @extends {Component}
  */
@@ -29,8 +33,6 @@ class YvHeaderComponent extends Component {
   /** @type {IntersectionObserver | undefined} */
   #cartObserver;
 
-  /** @type {number | undefined} */
-
   /** @type {'menu' | 'catalog' | undefined} View requested for the next drawer opening. */
   #requestedTab;
 
@@ -43,6 +45,7 @@ class YvHeaderComponent extends Component {
     if (!header) return;
 
     this.#watchStickyState(header);
+    this.#keepTabletLayout(header);
 
     document.addEventListener('click', this.#onDocumentClick, { signal, capture: true });
     document.addEventListener('keydown', this.#onKeydown, { signal });
@@ -72,6 +75,29 @@ class YvHeaderComponent extends Component {
   /** @returns {HTMLElement | null} */
   get headerMenu() {
     return /** @type {HTMLElement | null} */ (this.header?.querySelector('header-menu') ?? null);
+  }
+
+  /* ------------------------------------------------------------ tablet layout */
+
+  /**
+   * From 750px to 989px every navigation type uses Horizon's drawer layout (Yuva's tablet header).
+   * The header section sets this up with an inline script before the first paint; this re-attaches
+   * it to a header the theme editor has re-rendered.
+   * @param {HTMLElement} header
+   */
+  #keepTabletLayout(header) {
+    const element = /** @type {HTMLElement & { yvTabletLayout?: boolean }} */ (header);
+    if (element.yvTabletLayout) return;
+    element.yvTabletLayout = true;
+
+    const band = window.matchMedia(TABLET_QUERY);
+    const apply = () => {
+      if (band.matches && header.dataset.menuStyle !== 'drawer') header.dataset.menuStyle = 'drawer';
+    };
+    const observer = new MutationObserver(apply);
+    observer.observe(header, { attributes: true, attributeFilter: ['data-menu-style'] });
+    band.addEventListener('change', apply);
+    apply();
   }
 
   /* ------------------------------------------------------------ sticky state */
@@ -125,26 +151,34 @@ class YvHeaderComponent extends Component {
     }
 
     const menu = this.headerMenu;
-    if (!menu || menu.dataset.yvOpenBy !== 'click') return;
+    if (!menu) return;
 
-    const link = target.closest('.menu-list__link');
-    const listItem = link?.closest('.menu-list__list-item');
-    if (link && listItem && menu.contains(link) && !listItem.matches('[slot="overflow"], [slot="more"]')) {
-      const disclosure = listItem.querySelector('.menu-list__disclosure');
-      if (disclosure instanceof HTMLElement) {
-        event.preventDefault();
-        event.stopPropagation();
-        disclosure.click();
-        return;
+    if (menu.dataset.yvOpenBy === 'click') {
+      const link = target.closest('.menu-list__link');
+      const listItem = link?.closest('.menu-list__list-item');
+      if (link && listItem && menu.contains(link) && !listItem.matches('[slot="overflow"], [slot="more"]')) {
+        const disclosure = listItem.querySelector('.menu-list__disclosure');
+        if (disclosure instanceof HTMLElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          disclosure.click();
+          return;
+        }
       }
     }
 
-    // A click outside the open item closes it.
+    // A click outside the open item closes it. Outside the header (the dimmed page, or the page
+    // itself when the overlay is off) the click only closes the panel, as in Yuva: it never
+    // follows a link or triggers a control underneath.
     const open = menu.querySelector('.menu-list__list-item:not([slot]) .menu-list__disclosure[aria-expanded="true"]');
-    if (open instanceof HTMLElement) {
-      const openItem = open.closest('.menu-list__list-item');
-      if (openItem && !openItem.contains(target)) open.click();
+    if (!(open instanceof HTMLElement)) return;
+    const openItem = open.closest('.menu-list__list-item');
+    if (!openItem || openItem.contains(target)) return;
+    if (!this.header?.contains(target)) {
+      event.preventDefault();
+      event.stopPropagation();
     }
+    open.click();
   };
 
   /** @param {KeyboardEvent} event */
@@ -256,8 +290,6 @@ class YvHeaderComponent extends Component {
       { signal }
     );
   }
-
-  /* Search prompts: rotated by assets/yv-theme.js (Theme settings > Search). */
 
   /* ------------------------------------------------------------ theme editor */
 

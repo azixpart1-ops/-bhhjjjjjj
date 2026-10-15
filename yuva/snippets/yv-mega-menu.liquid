@@ -223,6 +223,19 @@
         {%- endfor -%}
       </div>
 
+      {%- liquid
+        # Storefront: only tiles with an image or text; placeholder tiles are an editor aid.
+        assign tile_count = 0
+        for n in (1..2)
+          assign image_key = 'image_' | append: n
+          assign heading_key = 'heading_' | append: n
+          assign subheading_key = 'subheading_' | append: n
+          if bs[image_key] != blank or bs[heading_key] != blank or bs[subheading_key] != blank or request.design_mode
+            assign tile_count = tile_count | plus: 1
+          endif
+        endfor
+      -%}
+      {%- if tile_count > 0 -%}
       <div class="yv-mega__tiles">
         {%- for n in (1..2) -%}
           {%- liquid
@@ -238,6 +251,9 @@
             if tile_link != blank
               assign tile_tag = 'a'
             endif
+            if tile_image == blank and tile_heading == blank and tile_subheading == blank and request.design_mode == false
+              continue
+            endif
           -%}
           <{{ tile_tag }}
             class="yv-mega-tile{% if tile_heading != blank or tile_subheading != blank %} yv-mega-tile--text{% endif %}"
@@ -252,7 +268,7 @@
                   | image_url: width: 820
                   | image_tag: loading: 'lazy', widths: '300, 410, 600, 820', sizes: '(min-width: 990px) 22vw, 45vw', alt: tile_image.alt
                 }}
-              {%- elsif tile_image == blank -%}
+              {%- elsif tile_image == blank and request.design_mode -%}
                 {{ 'collection-apparel-' | append: n | placeholder_svg_tag: 'yv-placeholder' }}
               {%- endif -%}
             </span>
@@ -269,6 +285,7 @@
           </{{ tile_tag }}>
         {%- endfor -%}
       </div>
+      {%- endif -%}
     </div>
 
   {%- when '_yv-mega-menu-product-list' -%}
