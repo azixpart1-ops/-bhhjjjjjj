@@ -1,0 +1,523 @@
+{% comment %}
+  Section contract: yv-featured-posts
+  Yuva "Featured posts": up to three hand-picked articles (private `_yv-featured-post` blocks)
+  under a highlight heading with an optional "View all" text link at the right end of the row.
+  Two looks:
+  - below the image (default): Yuva blog cards with a date pill on the image, title, two-line
+    excerpt and an outlined "Read more" pill; optional card background;
+  - overlay: the cards sit flush as one rounded strip, text over a dark scrim, and the
+    "Read more" button slides up on hover (always visible on touch screens).
+  Columns follow the number of posts from 750px; phones get a swipe row with the next card
+  peeking. Image ratio: Theme settings > Images > Post (Auto = the first post's image ratio).
+  Shared settings: highlight heading, colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Storytelling > "Featured posts"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign overlay = section.settings.content_overlay
+  assign post_count = section.blocks.size
+  if post_count < 1
+    assign post_count = 1
+  endif
+
+  assign first_ratio = null
+  for block in section.blocks
+    if block.settings.article.image != blank
+      assign first_ratio = block.settings.article.image.aspect_ratio
+      break
+    endif
+  endfor
+
+  case settings.yv_post_image_ratio
+    when 'landscape'
+      assign post_ratio = '4 / 3'
+    when 'portrait'
+      assign post_ratio = '3 / 4'
+    when 'square'
+      assign post_ratio = '1 / 1'
+    else
+      assign post_ratio = first_ratio | default: 1.706
+  endcase
+  if overlay
+    assign post_ratio = first_ratio | default: 0.93
+  endif
+
+  assign text_alignment = section.settings.text_alignment | default: 'left'
+  case text_alignment
+    when 'center'
+      assign card_align = 'center'
+      assign card_justify = 'center'
+    when 'right'
+      assign card_align = 'end'
+      assign card_justify = 'flex-end'
+    else
+      assign card_align = 'start'
+      assign card_justify = 'flex-start'
+  endcase
+
+  assign has_link = false
+  if section.settings.button_text != blank and section.settings.button_link != blank
+    assign has_link = true
+  endif
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-featured-posts"
+>
+  <div class="yv-container yv-container--page yv-featured-posts{% if overlay %} yv-featured-posts--overlay{% endif %}">
+    {%- if section.settings.heading != blank or section.settings.rotating_text != blank or has_link -%}
+      <div class="yv-featured-posts__header">
+        {% render 'yv-heading',
+          text: section.settings.heading,
+          tag: section.settings.heading_tag,
+          size: 'large',
+          highlight_font: section.settings.highlight_font,
+          highlight_color: section.settings.highlight_color,
+          rotating_text: section.settings.rotating_text,
+          alignment: 'left',
+          class: 'yv-featured-posts__heading',
+          reveal: true
+        %}
+        {%- if has_link -%}
+          <a
+            class="yv-featured-posts__view-all"
+            href="{{ section.settings.button_link }}"
+          >
+            {{- section.settings.button_text | escape -}}
+          </a>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    {%- if section.blocks.size > 0 -%}
+      <div
+        class="yv-featured-posts__grid"
+        style="--yv-fp-columns: {{ post_count }}; --yv-fp-ratio: {{ post_ratio }}; --yv-fp-align: {{ card_align }}; --yv-fp-justify: {{ card_justify }};"
+      >
+        {%- content_for 'blocks' -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-featured-posts__header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-block-end: 25px;
+    text-align: center;
+  }
+
+  .yv-featured-posts__heading {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .yv-featured-posts__header .yv-heading {
+    text-align: center;
+  }
+
+  .yv-featured-posts__view-all {
+    flex: none;
+    color: inherit;
+    font-size: var(--yv-text-lg, 15.36px);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    transition: color 0.3s ease;
+  }
+
+  .yv-featured-posts__view-all:hover {
+    color: var(--yv-theme-color, currentColor);
+  }
+
+  .yv-featured-posts__grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 83%;
+    gap: 20px;
+    margin-inline: calc(-1 * var(--yv-page-gutter, 20px));
+    padding-inline: var(--yv-page-gutter, 20px);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--yv-page-gutter, 20px);
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .yv-featured-posts__grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .yv-featured-posts__grid > * {
+    scroll-snap-align: start;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-featured-posts__header {
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 30px;
+      margin-block-end: 15px;
+      text-align: start;
+    }
+
+    .yv-featured-posts__header .yv-heading {
+      text-align: start;
+    }
+
+    .yv-featured-posts__grid {
+      grid-auto-flow: row;
+      grid-template-columns: repeat(var(--yv-fp-columns, 3), minmax(0, 1fr));
+      grid-auto-columns: auto;
+      gap: 30px;
+      margin-inline: 0;
+      padding-inline: 0;
+      overflow: visible;
+      scroll-snap-type: none;
+    }
+
+    .yv-featured-posts--overlay .yv-featured-posts__header {
+      margin-block-end: 25px;
+    }
+
+    .yv-featured-posts--overlay .yv-featured-posts__grid {
+      gap: 0;
+      overflow: hidden;
+      border-radius: var(--yv-layout-radius, 10px);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.featured_posts",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 3,
+  "blocks": [
+    {
+      "type": "_yv-featured-post"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "content_overlay",
+      "label": "t:yv.featured_posts.settings.content_overlay",
+      "info": "t:yv.featured_posts.settings.content_overlay_info",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_date",
+      "label": "t:yv.featured_posts.settings.show_date",
+      "default": true
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "Featured posts"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "info": "t:yv.common.settings.highlight_color_info",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.text",
+      "info": "t:yv.featured_posts.settings.button_info",
+      "default": "View all"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.link"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.featured_posts.content.card"
+    },
+    {
+      "type": "checkbox",
+      "id": "card_background",
+      "label": "t:yv.featured_posts.settings.card_background",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:yv.common.settings.text_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "card_heading_size",
+      "label": "t:yv.featured_posts.settings.card_heading_size",
+      "options": [
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        }
+      ],
+      "default": "h6"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 68
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.featured_posts",
+      "category": "t:yv.categories.storytelling",
+      "settings": {
+        "heading": "Latest Tips and Stories",
+        "button_text": "View all",
+        "button_link": "shopify://blogs/news",
+        "color_set": "secondary"
+      },
+      "blocks": {
+        "post_1": {
+          "type": "_yv-featured-post"
+        },
+        "post_2": {
+          "type": "_yv-featured-post"
+        },
+        "post_3": {
+          "type": "_yv-featured-post"
+        }
+      },
+      "block_order": ["post_1", "post_2", "post_3"]
+    },
+    {
+      "name": "t:yv.featured_posts.presets.overlay",
+      "category": "t:yv.categories.storytelling",
+      "settings": {
+        "heading": "",
+        "button_text": "",
+        "content_overlay": true,
+        "spacing_top_desktop": 0,
+        "spacing_bottom_desktop": 40,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 20
+      },
+      "blocks": {
+        "post_1": {
+          "type": "_yv-featured-post"
+        },
+        "post_2": {
+          "type": "_yv-featured-post"
+        },
+        "post_3": {
+          "type": "_yv-featured-post"
+        }
+      },
+      "block_order": ["post_1", "post_2", "post_3"]
+    }
+  ]
+}
+{% endschema %}

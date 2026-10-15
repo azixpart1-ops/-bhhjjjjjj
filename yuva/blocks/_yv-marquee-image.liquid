@@ -1,0 +1,243 @@
+{% doc %}
+  Scrolling text > Image: one marquee item showing an uploaded image or logo, or one of the
+  original line-art doodle icons (dot ring, waves, rings, sparkle…) drawn in the text colour.
+  Separate desktop and mobile widths; optional link. A blank image with no icon shows a
+  placeholder (logo tickers before logos are uploaded).
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign image = block.settings.image
+  assign icon = block.settings.icon | default: 'none'
+  assign link = block.settings.link
+  assign label = image.alt | default: ''
+  if label == blank
+    assign label = 'yv.scrolling_text.link_label' | t
+  endif
+  assign image_sizes = '(min-width: 750px) ' | append: block.settings.width_desktop | append: 'px, ' | append: block.settings.width_mobile | append: 'px'
+-%}
+
+<div
+  class="yv-marquee-image{% if image == blank and icon != 'none' %} yv-marquee-image--icon{% endif %}"
+  style="--yv-marquee-image-width-d: {{ block.settings.width_desktop }}px; --yv-marquee-image-width-m: {{ block.settings.width_mobile }}px;{% if block.settings.color != blank %} --yv-marquee-image-color: {{ block.settings.color }};{% endif %}"
+  {{ block.shopify_attributes }}
+>
+  {%- if link != blank -%}
+    <a
+      class="yv-marquee-image__link"
+      href="{{ link }}"
+      aria-label="{{ label | escape }}"
+    >
+  {%- endif -%}
+
+  {%- if image != blank -%}
+    {{
+      image
+      | image_url: width: 600
+      | image_tag:
+        widths: '120, 200, 300, 400, 600',
+        sizes: image_sizes,
+        loading: 'lazy',
+        class: 'yv-marquee-image__img'
+    }}
+  {%- elsif icon != 'none' -%}
+    {%- case icon -%}
+      {%- when 'dots_ring' -%}
+        <svg class="yv-marquee-image__icon yv-marquee-image__icon--filled" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="5" r="1.9"/><circle cx="30.5" cy="6.1" r="1.9"/><circle cx="36.2" cy="9.4" r="1.9"/><circle cx="40.5" cy="14.5" r="1.9"/><circle cx="42.7" cy="20.7" r="1.9"/><circle cx="42.7" cy="27.3" r="1.9"/><circle cx="40.5" cy="33.5" r="1.9"/><circle cx="36.2" cy="38.6" r="1.9"/><circle cx="30.5" cy="41.9" r="1.9"/><circle cx="24" cy="43" r="1.9"/><circle cx="17.5" cy="41.9" r="1.9"/><circle cx="11.8" cy="38.6" r="1.9"/><circle cx="7.5" cy="33.5" r="1.9"/><circle cx="5.3" cy="27.3" r="1.9"/><circle cx="5.3" cy="20.7" r="1.9"/><circle cx="7.5" cy="14.5" r="1.9"/><circle cx="11.8" cy="9.4" r="1.9"/><circle cx="17.5" cy="6.1" r="1.9"/><circle cx="24" cy="12.5" r="1.7"/><circle cx="30.2" cy="14.3" r="1.7"/><circle cx="34.5" cy="19.2" r="1.7"/><circle cx="35.4" cy="25.6" r="1.7"/><circle cx="32.7" cy="31.5" r="1.7"/><circle cx="27.2" cy="35" r="1.7"/><circle cx="20.8" cy="35" r="1.7"/><circle cx="15.3" cy="31.5" r="1.7"/><circle cx="12.6" cy="25.6" r="1.7"/><circle cx="13.5" cy="19.2" r="1.7"/><circle cx="17.8" cy="14.3" r="1.7"/><circle cx="24" cy="19.5" r="1.5"/><circle cx="28.3" cy="22.6" r="1.5"/><circle cx="26.6" cy="27.6" r="1.5"/><circle cx="21.4" cy="27.6" r="1.5"/><circle cx="19.7" cy="22.6" r="1.5"/></svg>
+      {%- when 'waves' -%}
+        <svg class="yv-marquee-image__icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M9 4c4 3.3 4 6.7 0 10s-4 6.7 0 10 4 6.7 0 10-4 6.7 0 10M19 4c4 3.3 4 6.7 0 10s-4 6.7 0 10 4 6.7 0 10-4 6.7 0 10M29 4c4 3.3 4 6.7 0 10s-4 6.7 0 10 4 6.7 0 10-4 6.7 0 10M39 4c4 3.3 4 6.7 0 10s-4 6.7 0 10 4 6.7 0 10-4 6.7 0 10"/></svg>
+      {%- when 'rings' -%}
+        <svg class="yv-marquee-image__icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><ellipse cx="18" cy="24" rx="10.5" ry="19"/><ellipse cx="30" cy="24" rx="10.5" ry="19"/></svg>
+      {%- when 'sparkle' -%}
+        <svg class="yv-marquee-image__icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M24 4c1.6 10.6 9.4 18.4 20 20-10.6 1.6-18.4 9.4-20 20-1.6-10.6-9.4-18.4-20-20 10.6-1.6 18.4-9.4 20-20z"/></svg>
+      {%- when 'sunburst' -%}
+        <svg class="yv-marquee-image__icon yv-marquee-image__icon--filled" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="5"/>
+          {%- for step in (0..7) -%}
+            <ellipse cx="24" cy="10.5" rx="3.6" ry="8.6" transform="rotate({{ step | times: 45 }} 24 24)"/>
+          {%- endfor -%}
+        </svg>
+      {%- when 'star' -%}
+        <svg class="yv-marquee-image__icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M24 5 29 18.1 43 18.8 32.1 27.6 35.8 41.2 24 33.5 12.2 41.2 15.9 27.6 5 18.8 19 18.1z"/></svg>
+      {%- when 'asterisk' -%}
+        <svg class="yv-marquee-image__icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M24 4v40M6.7 14l34.6 20M6.7 34l34.6-20"/></svg>
+      {%- when 'flower' -%}
+        <svg class="yv-marquee-image__icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="13" r="7.5"/><circle cx="33.5" cy="18.5" r="7.5"/><circle cx="33.5" cy="29.5" r="7.5"/><circle cx="24" cy="35" r="7.5"/><circle cx="14.5" cy="29.5" r="7.5"/><circle cx="14.5" cy="18.5" r="7.5"/><circle cx="24" cy="24" r="4"/></svg>
+      {%- when 'heart' -%}
+        <svg class="yv-marquee-image__icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M24 41S8 31.4 8 19.7C8 13.4 12.4 9 17.6 9c3 0 5.3 1.5 6.4 3.8C25.1 10.5 27.4 9 30.4 9 35.6 9 40 13.4 40 19.7 40 31.4 24 41 24 41z"/></svg>
+      {%- when 'smile' -%}
+        <svg class="yv-marquee-image__icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="19"/><path d="M15.5 28c2 3.6 5 5.5 8.5 5.5s6.5-1.9 8.5-5.5M18 19v2M30 19v2"/></svg>
+    {%- endcase -%}
+  {%- else -%}
+    <span class="yv-marquee-image__placeholder">
+      <svg viewBox="0 0 160 64" aria-hidden="true" focusable="false"><circle cx="44" cy="32" r="13"/><rect x="66" y="22" width="56" height="8" rx="4"/><rect x="66" y="35" width="36" height="6" rx="3"/></svg>
+    </span>
+  {%- endif -%}
+
+  {%- if link != blank -%}
+    </a>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .yv-marquee-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--yv-marquee-image-color, currentColor);
+  }
+
+  .yv-marquee-image__link {
+    display: flex;
+    color: inherit;
+  }
+
+  .yv-marquee-image__img,
+  .yv-marquee-image__icon,
+  .yv-marquee-image__placeholder {
+    display: block;
+    width: var(--yv-marquee-image-width-m, 30px);
+    max-width: none;
+    height: auto;
+  }
+
+  .yv-marquee-image__img {
+    object-fit: contain;
+  }
+
+  .yv-marquee-image__icon {
+    aspect-ratio: 1;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .yv-marquee-image__icon--filled {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .yv-marquee-image__placeholder {
+    aspect-ratio: 5 / 2;
+    overflow: hidden;
+    border-radius: var(--yv-radius-sm, 6px);
+    background-color: var(--yv-image-bg, rgb(var(--color-foreground-rgb) / 0.06));
+  }
+
+  .yv-marquee-image__placeholder svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+    opacity: 0.18;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-marquee-image__img,
+    .yv-marquee-image__icon,
+    .yv-marquee-image__placeholder {
+      width: var(--yv-marquee-image-width-d, 50px);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.marquee_image",
+  "tag": null,
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image",
+      "info": "t:yv.scrolling_text.settings.image_info"
+    },
+    {
+      "type": "select",
+      "id": "icon",
+      "label": "t:yv.scrolling_text.settings.icon",
+      "info": "t:yv.scrolling_text.settings.icon_info",
+      "options": [
+        {
+          "value": "none",
+          "label": "t:yv.common.options.none"
+        },
+        {
+          "value": "dots_ring",
+          "label": "t:yv.scrolling_text.options.dots_ring"
+        },
+        {
+          "value": "waves",
+          "label": "t:yv.scrolling_text.options.waves"
+        },
+        {
+          "value": "rings",
+          "label": "t:yv.scrolling_text.options.rings"
+        },
+        {
+          "value": "sparkle",
+          "label": "t:yv.scrolling_text.options.sparkle"
+        },
+        {
+          "value": "sunburst",
+          "label": "t:yv.scrolling_text.options.sunburst"
+        },
+        {
+          "value": "star",
+          "label": "t:yv.scrolling_text.options.star"
+        },
+        {
+          "value": "asterisk",
+          "label": "t:yv.scrolling_text.options.asterisk"
+        },
+        {
+          "value": "flower",
+          "label": "t:yv.scrolling_text.options.flower"
+        },
+        {
+          "value": "heart",
+          "label": "t:yv.scrolling_text.options.heart"
+        },
+        {
+          "value": "smile",
+          "label": "t:yv.scrolling_text.options.smile"
+        }
+      ],
+      "default": "dots_ring"
+    },
+    {
+      "type": "range",
+      "id": "width_desktop",
+      "label": "t:yv.scrolling_text.settings.width_desktop",
+      "min": 10,
+      "max": 300,
+      "step": 2,
+      "unit": "px",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "width_mobile",
+      "label": "t:yv.scrolling_text.settings.width_mobile",
+      "min": 10,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "color",
+      "id": "color",
+      "label": "t:yv.scrolling_text.settings.icon_color"
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "t:yv.common.settings.link"
+    }
+  ]
+}
+{% endschema %}

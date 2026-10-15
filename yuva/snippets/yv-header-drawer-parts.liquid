@@ -1,0 +1,94 @@
+{%- doc -%}
+  Yuva additions to Horizon's menu drawer (snippets/header-drawer.liquid), kept here so the drawer
+  snippet only gains render calls: the "Menu / View catalog" switch, the catalog panel, the quick
+  links listed after the menu, the "My Account" link and the social icons at the bottom.
+  Only the mobile drawer (`drawer_type: 'mobile-drawer'`) gets them.
+
+  @param {string} part - 'show_tabs' (prints "true" when the switch shows), 'tabs', 'catalog_panel', 'links', 'account' or 'social'.
+  @param {string} [drawer_type] - The drawer type of header-drawer ('mobile-drawer').
+  @param {object} [block_settings] - Settings of the header menu block (_header-menu).
+  @param {string} [show_tabs] - "true" when the switch shows (output of part 'show_tabs').
+  @param {string} [catalog] - Catalog markup for the second view (category menu or browse links).
+  @param {string} [catalog_label] - Label of the second view's button.
+  @param {string} [links] - Quick links markup listed after the menu.
+
+  @example
+  {% render 'yv-header-drawer-parts', part: 'tabs', show_tabs: yv_show_tabs, catalog_label: yv_catalog_label %}
+{%- enddoc -%}
+
+{%- liquid
+  assign is_mobile_drawer = false
+  if drawer_type == 'mobile-drawer'
+    assign is_mobile_drawer = true
+  endif
+-%}
+
+{%- case part -%}
+  {%- when 'show_tabs' -%}
+    {%- if is_mobile_drawer and block_settings.drawer_catalog_tab and catalog != blank -%}true{%- endif -%}
+
+  {%- when 'tabs' -%}
+    {%- if show_tabs == 'true' -%}
+      <div
+        class="yv-drawer-tabs"
+        role="group"
+        aria-label="{{ 'accessibility.header_navigation_label' | t }}"
+      >
+        <button
+          type="button"
+          class="yv-drawer-tabs__tab"
+          aria-controls="YvDrawerPanel-menu"
+          aria-pressed="true"
+          data-yv-drawer-tab="menu"
+        >
+          {{- 'yv.header.menu' | t -}}
+        </button>
+        <button
+          type="button"
+          class="yv-drawer-tabs__tab"
+          aria-controls="YvDrawerPanel-catalog"
+          aria-pressed="false"
+          data-yv-drawer-tab="catalog"
+        >
+          {{- catalog_label | escape -}}
+        </button>
+      </div>
+    {%- endif -%}
+
+  {%- when 'catalog_panel' -%}
+    {%- if show_tabs == 'true' -%}
+      <nav
+        class="yv-drawer-catalog-panel"
+        id="YvDrawerPanel-catalog"
+        aria-label="{{ catalog_label | escape }}"
+        hidden
+      >
+        {{ catalog }}
+      </nav>
+    {%- endif -%}
+
+  {%- when 'links' -%}
+    {%- assign links = links | strip -%}
+    {%- if is_mobile_drawer and links != blank -%}
+      <div class="yv-drawer-links menu-drawer__animated-element">
+        {{ links }}
+      </div>
+    {%- endif -%}
+
+  {%- when 'account' -%}
+    {%- if is_mobile_drawer and block_settings.drawer_show_account and shop.customer_accounts_enabled -%}
+      <a
+        href="{{ routes.account_url }}"
+        class="yv-drawer-account"
+      >
+        {{- 'yv.header.my_account' | t -}}
+      </a>
+    {%- endif -%}
+
+  {%- when 'social' -%}
+    {%- if is_mobile_drawer and block_settings.drawer_show_social -%}
+      <div class="yv-drawer-social">
+        {% render 'yv-social-icons', style: 'plain', size: 16 %}
+      </div>
+    {%- endif -%}
+{%- endcase -%}

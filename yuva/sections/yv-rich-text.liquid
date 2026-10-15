@@ -1,0 +1,335 @@
+{% comment %}
+  Section contract: yv-rich-text
+  Yuva "Rich text": a column of text blocks in a small (sm, 1000px), medium (md, 1140px) or
+  page-wide container, aligned left, centre or right. Text blocks (`_yv-rich-text`) carry a
+  highlight heading (bold words switch to the highlight font and colour, optional rotating
+  gradient words) and a description; Page blocks (`_yv-rich-text-page`) show a Shopify page;
+  Button blocks (`_yv-button`) add a call to action. In the Yuva preset each rich text titles
+  the section below it (top spacing only).
+  Shared settings: color set, visibility, spacing.
+  @example
+  Theme editor > Add section > Text > "Rich text"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  case section.settings.content_width
+    when 'medium'
+      assign container = 'md'
+    when 'large'
+      assign container = 'page'
+    else
+      assign container = 'sm'
+  endcase
+
+  assign align = section.settings.text_alignment | default: 'center'
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-rich-text color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-rich-text"
+>
+  <div class="yv-container yv-container--{{ container }} yv-rich-text__inner yv-rich-text__inner--{{ align }}">
+    {%- content_for 'blocks' -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-rich-text__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+    text-align: start;
+  }
+
+  .yv-rich-text__inner--center {
+    align-items: center;
+    text-align: center;
+  }
+
+  .yv-rich-text__inner--right {
+    align-items: flex-end;
+    text-align: end;
+  }
+
+  .yv-rich-text__inner > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .yv-rich-text__inner:empty {
+    display: none;
+  }
+
+  /* Yuva insets the rich text container a little more than the page gutter on phones (96% width). */
+  @media screen and (max-width: 749px) {
+    .yv-rich-text__inner {
+      padding-inline: 2%;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.rich_text",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 6,
+  "blocks": [
+    {
+      "type": "_yv-rich-text"
+    },
+    {
+      "type": "_yv-rich-text-page"
+    },
+    {
+      "type": "_yv-button"
+    }
+  ],
+  "settings": [
+    {
+      "type": "select",
+      "id": "content_width",
+      "label": "t:yv.rich_text.settings.content_width",
+      "info": "t:yv.rich_text.settings.content_width_info",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "small"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:yv.common.settings.text_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.rich_text",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "content_width": "small",
+        "text_alignment": "center",
+        "spacing_top_desktop": 48,
+        "spacing_bottom_desktop": 32,
+        "spacing_top_mobile": 40,
+        "spacing_bottom_mobile": 32
+      },
+      "blocks": {
+        "text": {
+          "type": "_yv-rich-text",
+          "settings": {
+            "heading": "Innovative Gadgets",
+            "heading_size": "h1",
+            "heading_tag": "h2",
+            "highlight_color": "linear-gradient(90deg, rgba(181, 15, 12, 1) 0%, rgba(152, 94, 88, 1) 48%, rgba(99, 154, 71, 1) 100%)",
+            "rotating_text": "for Home, for Office",
+            "rotating_new_line": true,
+            "description": "<p>From everyday convenience to improved productivity, explore<br>technology built for modern living and working.</p>"
+          }
+        }
+      },
+      "block_order": ["text"]
+    },
+    {
+      "name": "t:yv.names.rich_text_rotating",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "content_width": "large",
+        "text_alignment": "left",
+        "color_set": "secondary",
+        "spacing_top_desktop": 44,
+        "spacing_bottom_desktop": 16,
+        "spacing_top_mobile": 20,
+        "spacing_bottom_mobile": 16
+      },
+      "blocks": {
+        "text": {
+          "type": "_yv-rich-text",
+          "settings": {
+            "heading": "Digital Essentials for",
+            "heading_size": "h1",
+            "heading_tag": "h2",
+            "highlight_color": "linear-gradient(90deg, rgba(181, 15, 12, 1) 0%, rgba(152, 94, 88, 1) 48%, rgba(99, 154, 71, 1) 100%)",
+            "rotating_text": "Modern Living, Everyday Living, Connected Living",
+            "description": ""
+          }
+        }
+      },
+      "block_order": ["text"]
+    },
+    {
+      "name": "t:yv.names.rich_text_statement",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "content_width": "small",
+        "text_alignment": "center",
+        "spacing_top_desktop": 48,
+        "spacing_bottom_desktop": 16,
+        "spacing_top_mobile": 32,
+        "spacing_bottom_mobile": 32
+      },
+      "blocks": {
+        "text": {
+          "type": "_yv-rich-text",
+          "settings": {
+            "heading": "Experience Smarter Living With Reliable Electronics and Innovative Gadgets That Combine Modern Design and Powerful Performance for Every Lifestyle.",
+            "heading_size": "h1",
+            "heading_tag": "h2",
+            "rotating_text": "",
+            "description": ""
+          }
+        }
+      },
+      "block_order": ["text"]
+    },
+    {
+      "name": "t:yv.names.rich_text_page",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "content_width": "small",
+        "text_alignment": "left"
+      },
+      "blocks": {
+        "page": {
+          "type": "_yv-rich-text-page",
+          "settings": {
+            "heading_size": "h2"
+          }
+        }
+      },
+      "block_order": ["page"]
+    }
+  ]
+}
+{% endschema %}

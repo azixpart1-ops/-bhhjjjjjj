@@ -1,0 +1,250 @@
+{%- doc -%}
+  One box of the Image gallery (sections/yv-image-gallery.liquid): an image (Horizon placeholder when
+  blank) with a heading and a subheading over its bottom edge, on a soft bottom gradient. The whole
+  box is one link when a link is set; the image zooms slowly on hover and the linked subheading's
+  underline thickens. Ratio, text position, heading size, gradient strength and the dotted outline
+  come from the section.
+{%- enddoc -%}
+
+{%- liquid
+  assign link = block.settings.link
+  assign heading = block.settings.heading
+  assign subheading = block.settings.subheading
+  assign text_position = section.settings.text_position | default: 'bottom_left'
+  assign heading_size = section.settings.box_heading_size | default: 'h5'
+
+  assign card_tag = 'div'
+  if link != blank
+    assign card_tag = 'a'
+  endif
+
+  assign position = 1
+  for item in section.blocks
+    if item.id == block.id
+      assign position = forloop.index
+      break
+    endif
+  endfor
+  assign placeholder_index = position | minus: 1 | modulo: 6 | plus: 1
+  assign placeholder_name = 'collection-' | append: placeholder_index
+  assign reveal_delay = position | minus: 1 | times: 100
+
+  assign image_loading = 'lazy'
+  if settings.yv_enable_lazyload == false
+    assign image_loading = 'eager'
+  endif
+-%}
+
+<div
+  class="yv-gallery-image"
+  style="--yv-gallery-image-heading: {{ block.settings.color_heading }}; --yv-gallery-image-subheading: {{ block.settings.color_subheading }}; --yv-gallery-image-gradient: {{ section.settings.gradient_opacity | divided_by: 100.0 }}; --yv-reveal-delay: {{ reveal_delay }}ms;"
+  data-yv-reveal
+  {{ block.shopify_attributes }}
+>
+  <{{ card_tag }}
+    class="yv-gallery-image__card"
+    {% if link != blank %}
+      href="{{ link }}"
+    {% endif %}
+  >
+    <span class="yv-gallery-image__media">
+      {%- if block.settings.image != blank -%}
+        {%- liquid
+          assign focal = block.settings.image.presentation.focal_point | default: 'center'
+          assign focal_style = 'object-position: ' | append: focal | append: ';'
+        -%}
+        {{
+          block.settings.image
+          | image_url: width: 1200
+          | image_tag:
+            widths: '300, 400, 500, 600, 800, 1000, 1200',
+            sizes: '(min-width: 990px) 33vw, (min-width: 750px) 50vw, 80vw',
+            loading: image_loading,
+            style: focal_style
+        }}
+      {%- else -%}
+        {{ placeholder_name | placeholder_svg_tag: 'yv-placeholder' }}
+      {%- endif -%}
+    </span>
+    {%- if heading != blank or subheading != blank -%}
+      <span class="yv-gallery-image__content yv-gallery-image__content--{{ text_position }}">
+        {%- if heading != blank -%}
+          <span class="yv-gallery-image__heading {{ heading_size }}">{{ heading | escape }}</span>
+        {%- endif -%}
+        {%- if subheading != blank -%}
+          <span class="yv-gallery-image__subheading">{{ subheading | escape }}</span>
+        {%- endif -%}
+      </span>
+    {%- endif -%}
+  </{{ card_tag }}>
+</div>
+
+{% stylesheet %}
+  .yv-gallery-image {
+    min-width: 0;
+  }
+
+  .yv-gallery-image__card {
+    position: relative;
+    display: block;
+    aspect-ratio: var(--yv-image-gallery-ratio, 484 / 284);
+    color: inherit;
+    text-decoration: none;
+    border-radius: var(--yv-layout-radius, 10px);
+  }
+
+  .yv-gallery-image__media {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background-color: var(--yv-image-bg);
+    border-radius: inherit;
+  }
+
+  .yv-gallery-image__media > :is(img, svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* A soft bottom gradient keeps the white text readable on light photos. */
+  .yv-gallery-image__media::after {
+    content: '';
+    position: absolute;
+    inset: 40% 0 0;
+    background: linear-gradient(to top, rgb(0 0 0 / var(--yv-gallery-image-gradient, 0.35)), rgb(0 0 0 / 0));
+    pointer-events: none;
+  }
+
+  .yv-gallery-image__content {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 24px;
+  }
+
+  .yv-gallery-image__content--bottom_center {
+    align-items: center;
+    inset-inline: 20%;
+    padding: 20px 0 30px;
+    text-align: center;
+  }
+
+  .yv-gallery-image .yv-gallery-image__heading {
+    margin: 0;
+    color: var(--yv-gallery-image-heading, #fff);
+    overflow-wrap: anywhere;
+  }
+
+  .yv-gallery-image__subheading {
+    font-size: var(--yv-text-md, 0.84rem);
+    line-height: 1.4;
+    color: var(--yv-gallery-image-subheading, #fff);
+  }
+
+  a.yv-gallery-image__card .yv-gallery-image__subheading {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+  }
+
+  a.yv-gallery-image__card:hover .yv-gallery-image__subheading {
+    text-decoration-thickness: 2px;
+  }
+
+  .yv-gallery-image__card:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-image-gallery--outline .yv-gallery-image__card {
+      outline: 1px dotted rgb(var(--color-foreground-rgb) / 0.4);
+      outline-offset: 8px;
+    }
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-gallery-image__content {
+      padding: 20px;
+    }
+
+    .yv-gallery-image__content--bottom_center {
+      inset-inline: 12.5%;
+      padding: 15px 0 17px;
+    }
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .yv-gallery-image__media > img {
+      transition: transform 1s ease;
+    }
+
+    .yv-gallery-image__card:hover .yv-gallery-image__media > img {
+      transform: scale(1.1);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.gallery_image",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.image_gallery.settings.max_30",
+      "default": "Men collection"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading",
+      "info": "t:yv.image_gallery.settings.max_30"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.image_gallery.settings.image",
+      "info": "t:yv.image_gallery.settings.image_info"
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "t:yv.common.settings.link"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_heading",
+      "label": "t:yv.common.settings.heading_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_subheading",
+      "label": "t:yv.common.settings.subheading",
+      "default": "#FFFFFF"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.gallery_image",
+      "settings": {
+        "subheading": "Shop now"
+      }
+    }
+  ]
+}
+{% endschema %}

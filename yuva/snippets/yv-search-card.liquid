@@ -1,0 +1,103 @@
+{%- doc -%}
+  Yuva product card for predictive search results: square image (second image on hover), vendor,
+  title, price ("From" when variants differ) and colour dots. Follows Theme settings > Product grid
+  (vendor, price) and Product (colour option names).
+
+  @param {product} product - The product to show.
+
+  @example
+  {% render 'yv-search-card', product: product %}
+{%- enddoc -%}
+
+{%- liquid
+  assign second_image = product.media[1]
+  assign color_names = settings.yv_color_option_names | default: 'Color, Colour' | downcase | split: ','
+  assign color_option = null
+  for option in product.options_with_values
+    assign option_key = option.name | downcase | strip
+    for color_name in color_names
+      assign color_key = color_name | strip
+      if option_key == color_key
+        assign color_option = option
+        break
+      endif
+    endfor
+    if color_option
+      break
+    endif
+  endfor
+  assign image_alt = product.featured_media.alt | default: product.title
+-%}
+
+<a
+  href="{{ product.url }}"
+  class="yv-search-card"
+>
+  <span class="yv-search-card__media{% if second_image %} yv-search-card__media--hover{% endif %}">
+    {%- if product.featured_media -%}
+      {{
+        product.featured_media
+        | image_url: width: 500
+        | image_tag:
+          loading: 'lazy',
+          widths: '200, 300, 400, 500',
+          sizes: '(min-width: 990px) 200px, (min-width: 750px) 25vw, 33vw',
+          alt: image_alt,
+          class: 'yv-search-card__image'
+      }}
+      {%- if second_image -%}
+        {{
+          second_image
+          | image_url: width: 500
+          | image_tag:
+            loading: 'lazy',
+            widths: '200, 300, 400, 500',
+            sizes: '(min-width: 990px) 200px, (min-width: 750px) 25vw, 33vw',
+            alt: '',
+            class: 'yv-search-card__image yv-search-card__image--second'
+        }}
+      {%- endif -%}
+    {%- else -%}
+      {{ 'product-apparel-1' | placeholder_svg_tag: 'yv-placeholder yv-search-card__image' }}
+    {%- endif -%}
+  </span>
+  {%- if settings.yv_grid_vendor and product.vendor != blank -%}
+    <span class="yv-search-card__vendor">{{ product.vendor | escape }}</span>
+  {%- endif -%}
+  <span class="yv-search-card__title">{{ product.title | escape }}</span>
+  {%- if settings.yv_grid_price != false -%}
+    <div class="yv-search-card__price">
+      {%- render 'price', product_resource: product, show_from: true -%}
+    </div>
+  {%- endif -%}
+  {%- if color_option and color_option.values.size > 1 -%}
+    <span
+      class="yv-search-card__swatches"
+      aria-label="{{ color_option.name | escape }}: {{ color_option.values | join: ', ' | escape }}"
+    >
+      {%- for value in color_option.values limit: 5 -%}
+        {%- liquid
+          assign dot_style = ''
+          if value.swatch.image
+            assign dot_url = value.swatch.image | image_url: width: 40
+            assign dot_style = 'background-image: url(' | append: dot_url | append: ');'
+          elsif value.swatch.color
+            assign dot_style = 'background-color: ' | append: value.swatch.color | append: ';'
+          else
+            assign dot_color = value | downcase | remove: ' '
+            assign dot_style = 'background-color: ' | append: dot_color | append: ';'
+          endif
+        -%}
+        <span
+          class="yv-search-card__swatch"
+          aria-hidden="true"
+        >
+          <span
+            class="yv-search-card__dot"
+            style="{{ dot_style }}"
+          ></span>
+        </span>
+      {%- endfor -%}
+    </span>
+  {%- endif -%}
+</a>

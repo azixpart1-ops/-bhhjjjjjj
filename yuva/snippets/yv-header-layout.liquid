@@ -1,0 +1,134 @@
+{%- doc -%}
+  Yuva layout decisions for Horizon's header (sections/header.liquid), kept out of the section so
+  its own logic stays as Horizon wrote it.
+
+  - part 'layout': prints `overrides|menu_row|search_row|localization_row|category_row|search_style`.
+    `overrides` is the comma-separated 'item:column:row' list header-row applies on top of the
+    position settings (column 'none' hides the item). "Custom" keeps every Horizon position setting;
+    the four Yuva navigation types place the logo, menu, search and category button themselves
+    ("Logo center, hamburger menu" keeps the inline menu in the top row, hidden by CSS: the
+    hamburger drawer replaces it on every screen size).
+    The rows are the effective rows of those items ('none' when hidden). `search_style` is 'bar' for
+    "Full width header with searchbar", otherwise the given style.
+  - part 'classes': prints `classes|icon stroke`: the Yuva modifier classes of #header-component
+    (each preceded by a space) and the header icon stroke width from "Icons weight".
+  - part 'trust_badge': the trust badge image (linked when a link is set), or nothing.
+
+  @param {object} section - The header section.
+  @param {string} part - 'layout', 'classes' or 'trust_badge'.
+  @param {string} [search_style] - Horizon's search style for part 'layout' ('modal' or 'none').
+
+  @example
+  {% render 'yv-header-layout', section: section, part: 'layout', search_style: search_style %}
+{%- enddoc -%}
+
+{%- liquid
+  assign s = section.settings
+  assign nav = s.navigation_type | default: 'custom'
+-%}
+
+{%- case part -%}
+  {%- when 'layout' -%}
+    {%- liquid
+      assign menu_alignment = s.menu_alignment | default: 'left'
+      case nav
+        when 'logo_left_menu_center'
+          assign overrides = 'logo:left:top,category:left:top,menu:center:top,search:right:top,localization:right:top'
+        when 'logo_center_hamburger'
+          assign overrides = 'logo:center:top,menu:left:top,search:right:top,localization:right:top,category:none:top'
+        when 'full_width_menu'
+          if s.logo_alignment == 'center'
+            assign overrides = 'logo:center:top,search:left:top,localization:right:top'
+          else
+            assign overrides = 'logo:left:top,search:right:top,localization:right:top'
+          endif
+          assign overrides = overrides | append: ',category:left:bottom,menu:' | append: menu_alignment | append: ':bottom'
+        when 'full_width_searchbar'
+          assign overrides = 'logo:left:top,search:center:top,localization:right:top,category:left:bottom,menu:' | append: menu_alignment | append: ':bottom'
+        else
+          assign overrides = 'category:' | append: s.menu_position | append: ':' | append: s.menu_row
+      endcase
+
+      if s.show_category == false or s.category_menu == blank
+        assign overrides = overrides | append: ',category:none:top'
+      endif
+      assign overrides = overrides | append: ',trust_badge:right:top'
+      if s.localization_drawer_only
+        assign overrides = overrides | append: ',localization:none:top'
+      endif
+
+      assign menu_row = s.menu_row
+      assign search_row = s.search_row
+      assign localization_row = s.localization_row
+      assign category_row = 'none'
+      assign override_list = overrides | split: ','
+      for override in override_list
+        assign parts = override | split: ':'
+        assign row = parts[2]
+        if parts[1] == 'none'
+          assign row = 'none'
+        endif
+        case parts[0]
+          when 'menu'
+            assign menu_row = row
+          when 'search'
+            assign search_row = row
+          when 'localization'
+            assign localization_row = row
+          when 'category'
+            assign category_row = row
+        endcase
+      endfor
+
+      assign effective_search_style = search_style | default: 'none'
+      if nav == 'full_width_searchbar' and s.show_search
+        assign effective_search_style = 'bar'
+      endif
+
+      echo overrides | append: '|' | append: menu_row | append: '|' | append: search_row | append: '|' | append: localization_row | append: '|' | append: category_row | append: '|' | append: effective_search_style
+    -%}
+
+  {%- when 'classes' -%}
+    {%- liquid
+      assign classes = ' yv-header--nav-' | append: nav
+      if nav == 'logo_center_hamburger'
+        assign classes = classes | append: ' yv-header--hamburger'
+      endif
+      if s.blur_background
+        assign classes = classes | append: ' yv-header--blur'
+      endif
+      if s.background_image != blank
+        assign classes = classes | append: ' yv-header--photo'
+      endif
+      if s.color_text_hover != blank
+        assign classes = classes | append: ' yv-header--hover-color'
+      endif
+      case s.icons_weight
+        when 'thin'
+          assign stroke = '1px'
+        when 'bold'
+          assign stroke = '2px'
+        else
+          assign stroke = '1.5px'
+      endcase
+      echo classes | append: '|' | append: stroke
+    -%}
+
+  {%- when 'trust_badge' -%}
+    {%- if s.trust_badge_image != blank -%}
+      {%- liquid
+        assign trust_alt = s.trust_badge_image.alt | default: shop.name
+        assign trust_image = s.trust_badge_image | image_url: width: 240 | image_tag: loading: 'lazy', alt: trust_alt, class: 'yv-header-trust__image', sizes: '120px', widths: '120, 240'
+      -%}
+      {%- if s.trust_badge_link != blank -%}
+        <a
+          class="yv-header-trust"
+          href="{{ s.trust_badge_link }}"
+        >
+          {{- trust_image -}}
+        </a>
+      {%- else -%}
+        <span class="yv-header-trust">{{ trust_image }}</span>
+      {%- endif -%}
+    {%- endif -%}
+{%- endcase -%}

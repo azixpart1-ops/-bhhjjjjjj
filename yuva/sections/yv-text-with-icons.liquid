@@ -1,0 +1,703 @@
+{% comment %}
+  Section contract: yv-text-with-icons
+  Yuva "Text with icons" (services strip): up to 4 columns (`_yv-text-with-icon`), each an icon
+  (line icon or uploaded image) with a short heading and sub text. Icon on top or to the left,
+  optionally in a round background; columns optionally in cards (background, border, radius per
+  device) that lift on hover. 4 / 2 / 1-or-2 columns on large / tablet / phone.
+  Card text switches to white automatically on a dark column background.
+  Shared settings: section border, color set, visibility, spacing.
+  @example
+  Theme editor > Add section > Text > "Text with icons"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign container = 'page'
+  if section.settings.small_container
+    assign container = 'sm'
+  endif
+
+  assign count = section.blocks.size | at_least: 1 | at_most: 4
+  assign tablet_count = count | at_most: 2
+
+  assign has_card = false
+  if section.settings.column_background or section.settings.column_border
+    assign has_card = true
+  endif
+
+  assign card_text = ''
+  if section.settings.column_background
+    assign card_brightness = section.settings.color_column_bg | color_brightness
+    if card_brightness < 128
+      assign card_text = '#FFFFFF'
+    endif
+  endif
+
+  case section.settings.icon_size
+    when 'small'
+      assign icon_d = 20
+      assign icon_m = 18
+    when 'large'
+      assign icon_d = 40
+      assign icon_m = 26
+    else
+      assign icon_d = 26
+      assign icon_m = 24
+  endcase
+
+  capture grid_class
+    echo 'yv-text-with-icons__grid'
+    echo ' yv-text-with-icons--icon-' | append: section.settings.icon_position
+    echo ' yv-text-with-icons--align-' | append: section.settings.text_alignment
+    if has_card
+      echo ' yv-text-with-icons--card'
+    endif
+    if section.settings.column_background
+      echo ' yv-text-with-icons--card-bg'
+    endif
+    if section.settings.column_border
+      echo ' yv-text-with-icons--card-border'
+    endif
+    if section.settings.icon_background
+      echo ' yv-text-with-icons--icon-bg'
+    endif
+  endcapture
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-text-with-icons color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-text-with-icons"
+>
+  <div class="yv-container yv-container--{{ container }}">
+    <div
+      class="{{ grid_class }}"
+      style="
+        --yv-twi-columns: {{ count }};
+        --yv-twi-columns-tablet: {{ tablet_count }};
+        --yv-twi-columns-mobile: {{ section.settings.columns_mobile }};
+        --yv-twi-gap-icon-d: {{ section.settings.icon_gap_desktop }}px;
+        --yv-twi-gap-icon-m: {{ section.settings.icon_gap_mobile }}px;
+        --yv-twi-radius-d: {{ section.settings.column_radius_desktop }}px;
+        --yv-twi-radius-m: {{ section.settings.column_radius_mobile }}px;
+        --yv-twi-card-bg: {{ section.settings.color_column_bg }};
+        --yv-twi-card-border: {{ section.settings.color_column_border }};
+        --yv-twi-card-border-style: {{ section.settings.column_border_style }};
+        --yv-twi-icon-color: {{ section.settings.color_icon }};
+        --yv-twi-icon-bg: {{ section.settings.color_icon_bg }};
+        --yv-twi-icon-d: {{ icon_d }}px;
+        --yv-twi-icon-m: {{ icon_m }}px;
+        {%- if card_text != blank %} --yv-twi-card-text: {{ card_text }};{% endif %}
+      "
+    >
+      {%- content_for 'blocks' -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-text-with-icons__grid {
+    --yv-twi-gap-icon: var(--yv-twi-gap-icon-m, 16px);
+    --yv-twi-radius: var(--yv-twi-radius-m, 10px);
+    --yv-twi-icon: var(--yv-twi-icon-m, 24px);
+    --yv-twi-icon-box: calc(var(--yv-twi-icon) + 20px);
+
+    display: grid;
+    grid-template-columns: repeat(var(--yv-twi-columns-mobile, 1), minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .yv-text-with-icons__grid:empty {
+    display: none;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-text-with-icons__grid {
+      --yv-twi-gap-icon: var(--yv-twi-gap-icon-d, 16px);
+      --yv-twi-radius: var(--yv-twi-radius-d, 10px);
+      --yv-twi-icon: var(--yv-twi-icon-d, 26px);
+      --yv-twi-icon-box: calc(var(--yv-twi-icon) + 26px);
+
+      grid-template-columns: repeat(var(--yv-twi-columns-tablet, 2), minmax(0, 1fr));
+      gap: 20px;
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-text-with-icons__grid {
+      grid-template-columns: repeat(var(--yv-twi-columns, 4), minmax(0, 1fr));
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.text_with_icons",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header"]
+  },
+  "max_blocks": 4,
+  "blocks": [
+    {
+      "type": "_yv-text-with-icon"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "small_container",
+      "label": "t:yv.common.settings.small_container",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.text_with_icons.content.column"
+    },
+    {
+      "type": "checkbox",
+      "id": "column_background",
+      "label": "t:yv.text_with_icons.settings.show_background",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "columns_mobile",
+      "label": "t:yv.text_with_icons.settings.columns_mobile",
+      "options": [
+        {
+          "value": "1",
+          "label": "t:yv.text_with_icons.options.one"
+        },
+        {
+          "value": "2",
+          "label": "t:yv.text_with_icons.options.two"
+        }
+      ],
+      "default": "1"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:yv.common.settings.text_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.text_with_icons.content.icon_gap"
+    },
+    {
+      "type": "range",
+      "id": "icon_gap_desktop",
+      "label": "t:yv.common.content.desktop",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "icon_gap_mobile",
+      "label": "t:yv.common.content.mobile",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "header",
+      "content": "t:yv.text_with_icons.content.border"
+    },
+    {
+      "type": "checkbox",
+      "id": "column_border",
+      "label": "t:yv.text_with_icons.settings.column_border",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "column_border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        },
+        {
+          "value": "dotted",
+          "label": "t:yv.common.options.dotted"
+        },
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.column_border }}"
+    },
+    {
+      "type": "range",
+      "id": "column_radius_desktop",
+      "label": "t:yv.text_with_icons.settings.column_radius_desktop",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "column_radius_mobile",
+      "label": "t:yv.text_with_icons.settings.column_radius_mobile",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "header",
+      "content": "t:yv.text_with_icons.content.icon"
+    },
+    {
+      "type": "checkbox",
+      "id": "icon_background",
+      "label": "t:yv.text_with_icons.settings.show_background",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "icon_position",
+      "label": "t:yv.text_with_icons.settings.icon_position",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "top",
+          "label": "t:yv.common.options.top"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "icon_size",
+      "label": "t:yv.text_with_icons.settings.icon_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "color",
+      "id": "color_column_bg",
+      "label": "t:yv.text_with_icons.settings.color_column_bg",
+      "default": "#EDEDED"
+    },
+    {
+      "type": "color",
+      "id": "color_icon",
+      "label": "t:yv.text_with_icons.settings.color_icon",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_icon_bg",
+      "label": "t:yv.text_with_icons.settings.color_icon_bg",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_column_border",
+      "label": "t:yv.text_with_icons.settings.color_column_border",
+      "default": "#DADADA"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 12
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.text_with_icons",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "column_background": false,
+        "icon_background": false,
+        "icon_position": "top",
+        "icon_size": "large",
+        "text_alignment": "center",
+        "icon_gap_desktop": 15,
+        "icon_gap_mobile": 15,
+        "color_set": "secondary",
+        "spacing_top_desktop": 32,
+        "spacing_bottom_desktop": 32,
+        "spacing_top_mobile": 32,
+        "spacing_bottom_mobile": 32
+      },
+      "blocks": {
+        "column_1": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "shield_check",
+            "heading": "Fast & secure Delivery",
+            "heading_size": "medium",
+            "text": "Tracked and insured on every order."
+          }
+        },
+        "column_2": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "smile",
+            "heading": "Cruelty free",
+            "heading_size": "medium",
+            "text": "Never tested on animals."
+          }
+        },
+        "column_3": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "globe",
+            "heading": "Vegan Friendly Formula",
+            "heading_size": "medium",
+            "text": "Made with plant-based ingredients."
+          }
+        },
+        "column_4": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "truck",
+            "heading": "Free Delivery",
+            "heading_size": "medium",
+            "text": "On every order over $50."
+          }
+        }
+      },
+      "block_order": ["column_1", "column_2", "column_3", "column_4"]
+    },
+    {
+      "name": "t:yv.names.services_bordered",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "column_background": true,
+        "column_border": true,
+        "column_border_style": "solid",
+        "icon_background": true,
+        "icon_position": "top",
+        "text_alignment": "center",
+        "icon_gap_desktop": 15,
+        "icon_gap_mobile": 15,
+        "color_column_bg": "#FFFFFF",
+        "color_column_border": "#DADADA",
+        "color_icon_bg": "#F5F5F5",
+        "spacing_top_desktop": 24,
+        "spacing_bottom_desktop": 48,
+        "spacing_top_mobile": 8,
+        "spacing_bottom_mobile": 28
+      },
+      "blocks": {
+        "column_1": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "truck",
+            "heading": "Fast & Free Shipping",
+            "heading_size": "large",
+            "text": "We believe in getting your products to you as quickly as possible, with no extra cost."
+          }
+        },
+        "column_2": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "shield_check",
+            "heading": "100% Secure Checkout",
+            "heading_size": "large",
+            "text": "Your payment is secure with advanced encryption and trusted payment methods."
+          }
+        },
+        "column_3": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "smile",
+            "heading": "Easy 30-days Returns",
+            "heading_size": "large",
+            "text": "Return any item within 30 days—fast, easy & hassle-free. Your satisfaction matters."
+          }
+        },
+        "column_4": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "headset",
+            "heading": "Our Premium Support",
+            "heading_size": "large",
+            "text": "Get expert help anytime with premium support—fast, reliable, and always ready."
+          }
+        }
+      },
+      "block_order": ["column_1", "column_2", "column_3", "column_4"]
+    },
+    {
+      "name": "t:yv.names.services_grey",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "column_background": true,
+        "icon_background": true,
+        "icon_position": "left",
+        "text_alignment": "left",
+        "icon_gap_desktop": 18,
+        "icon_gap_mobile": 18
+      },
+      "blocks": {
+        "column_1": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "truck",
+            "heading": "Fast & Free Shipping",
+            "text": "We believe in getting your products to you as quickly as possible, with no extra cost."
+          }
+        },
+        "column_2": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "shield_check",
+            "heading": "100% Secure Checkout",
+            "text": "Shop confidently—your data is safe with 100% Secure Checkout and strong encryption."
+          }
+        },
+        "column_3": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "heart",
+            "heading": "Easy 30-days Returns",
+            "text": "Love every purchase—or we'll make it right if you're not fully satisfied."
+          }
+        },
+        "column_4": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "headset",
+            "heading": "Our Premium Support",
+            "text": "We want you to love every purchase—if not satisfied, we'll make it right for you."
+          }
+        }
+      },
+      "block_order": ["column_1", "column_2", "column_3", "column_4"]
+    },
+    {
+      "name": "t:yv.names.services_dark",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "column_background": true,
+        "column_border": true,
+        "column_border_style": "solid",
+        "icon_background": true,
+        "icon_position": "top",
+        "text_alignment": "center",
+        "columns_mobile": "2",
+        "icon_gap_desktop": 15,
+        "icon_gap_mobile": 15,
+        "color_column_bg": "#2A2A2A",
+        "color_column_border": "#3D3D3D",
+        "color_icon": "#151515",
+        "color_icon_bg": "#FFFFFF",
+        "spacing_top_desktop": 60,
+        "spacing_bottom_desktop": 20,
+        "spacing_top_mobile": 32,
+        "spacing_bottom_mobile": 0
+      },
+      "blocks": {
+        "column_1": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "gift",
+            "heading": "Lowest Price Guarantee",
+            "text": ""
+          }
+        },
+        "column_2": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "headset",
+            "heading": "24x7 Support Available",
+            "text": ""
+          }
+        },
+        "column_3": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "heart",
+            "heading": "Free Shipping & Returns",
+            "text": ""
+          }
+        },
+        "column_4": {
+          "type": "_yv-text-with-icon",
+          "settings": {
+            "icon": "smile",
+            "heading": "Longest Warranties Offer",
+            "text": ""
+          }
+        }
+      },
+      "block_order": ["column_1", "column_2", "column_3", "column_4"]
+    }
+  ]
+}
+{% endschema %}

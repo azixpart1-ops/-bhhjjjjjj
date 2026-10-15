@@ -1,0 +1,1083 @@
+{% comment %}
+  Section contract: yv-media-grid
+  Yuva "Immersive media grid": a bento grid of tiles. Each tile is a private block that sets its own
+  column and row span, separately for desktop and mobile:
+  - `_yv-media-grid-media`: an image or video tile with optional shoppable hotspots
+    (`_yv-media-grid-hotspot`, shared `yv-hotspot` component);
+  - `_yv-media-grid-text`: a dark text tile (heading and description over a colour or image);
+  - `_yv-media-grid-content`: a bordered card with media beside, above or below a heading and text.
+  The grid has N equal columns and auto rows with a minimum height, so tiles with text grow their
+  row while photos fill whatever box they get. Popovers of hotspots may overlap neighbouring tiles
+  (the tile with an open hotspot is raised above the others).
+  Optional highlight heading with description, either stacked above the grid or split (heading left,
+  description right). Shared settings: section border, heading, colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Media > "Media grid"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign container = section.settings.container | default: 'page'
+  assign heading_layout = section.settings.heading_layout | default: 'stacked'
+  assign text_alignment = section.settings.text_alignment | default: 'center'
+  if heading_layout == 'split'
+    assign heading_alignment = 'left'
+  else
+    assign heading_alignment = text_alignment
+  endif
+
+  assign has_header = false
+  if section.settings.heading != blank or section.settings.subheading != blank or section.settings.rotating_text != blank or section.settings.description != blank
+    assign has_header = true
+  endif
+
+  assign columns = section.settings.columns_desktop | default: 6
+  assign columns_mobile = section.settings.columns_mobile | default: 2
+
+  assign needs_autoplay = false
+  for tile in section.blocks
+    if tile.settings.video != blank and tile.settings.video_autoplay
+      assign needs_autoplay = true
+      break
+    endif
+  endfor
+-%}
+
+{%- if needs_autoplay -%}
+  <script
+    src="{{ 'yv-autoplay-video.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-media-grid{% if section.settings.image_zoom %} yv-media-grid--zoom{% endif %} color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-mg-cols: {{ columns }}; --yv-mg-cols-m: {{ columns_mobile }}; --yv-mg-row: {{ section.settings.row_height_desktop }}px; --yv-mg-row-m: {{ section.settings.row_height_mobile }}px; --yv-mg-gap: {{ section.settings.grid_gap_desktop }}px; --yv-mg-gap-m: {{ section.settings.grid_gap_mobile }}px; --yv-mg-radius: {{ section.settings.grid_radius_desktop }}px; --yv-mg-radius-m: {{ section.settings.grid_radius_mobile }}px; --yv-hotspot-color: {{ section.settings.hotspot_color }}; --yv-hotspot-pulse: {{ section.settings.hotspot_color }};"
+  data-testid="yv-media-grid"
+>
+  <div class="yv-container yv-container--{{ container }} yv-media-grid__inner">
+    {%- if has_header -%}
+      <div class="yv-media-grid__header yv-media-grid__header--{{ heading_layout }}">
+        {%- if heading_layout == 'split' -%}
+          {% render 'yv-heading',
+            text: section.settings.heading,
+            tag: section.settings.heading_tag,
+            size: section.settings.heading_size,
+            highlight_font: section.settings.highlight_font,
+            highlight_color: section.settings.highlight_color,
+            rotating_text: section.settings.rotating_text,
+            subheading: section.settings.subheading,
+            alignment: 'left',
+            class: 'yv-media-grid__heading',
+            reveal: true
+          %}
+          {%- if section.settings.description != blank -%}
+            <div
+              class="yv-media-grid__description rte"
+              data-yv-reveal
+            >
+              {{ section.settings.description }}
+            </div>
+          {%- endif -%}
+        {%- else -%}
+          {% render 'yv-heading',
+            text: section.settings.heading,
+            tag: section.settings.heading_tag,
+            size: section.settings.heading_size,
+            highlight_font: section.settings.highlight_font,
+            highlight_color: section.settings.highlight_color,
+            rotating_text: section.settings.rotating_text,
+            subheading: section.settings.subheading,
+            description: section.settings.description,
+            alignment: heading_alignment,
+            class: 'yv-media-grid__heading',
+            reveal: true
+          %}
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    <div
+      class="yv-media-grid__grid"
+      data-yv-hotspot-container
+    >
+      {%- content_for 'blocks' -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-media-grid__inner {
+    min-width: 0;
+  }
+
+  /* Header: stacked (heading over description) or split (heading left, description right). */
+  .yv-media-grid__header {
+    margin-block-end: 30px;
+  }
+
+  .yv-media-grid__header--stacked .yv-heading {
+    --yv-heading-gap: 15px;
+    --yv-heading-description-width: 640px;
+  }
+
+  .yv-media-grid__header--stacked .yv-heading__description {
+    font-size: var(--yv-text-lg, 0.96rem);
+    line-height: 1.4;
+  }
+
+  .yv-media-grid__header--split {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .yv-media-grid__description {
+    min-width: 0;
+    font-size: var(--yv-text-base, 0.84rem);
+    line-height: 1.6;
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-media-grid__header--split {
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 60px;
+      margin-block-end: 30px;
+    }
+
+    .yv-media-grid__header--split .yv-media-grid__heading {
+      flex: 0 1 44%;
+      min-width: 0;
+    }
+
+    .yv-media-grid__header--split .yv-media-grid__description {
+      flex: 0 1 48%;
+      text-align: end;
+    }
+  }
+
+  /* The grid: N equal columns, auto rows with a minimum height. */
+  .yv-media-grid__grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--yv-mg-cols-m, 2), minmax(0, 1fr));
+    grid-auto-rows: minmax(var(--yv-mg-row-m, 160px), auto);
+    gap: var(--yv-mg-gap-m, 6px);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-media-grid__grid {
+      grid-template-columns: repeat(var(--yv-mg-cols, 6), minmax(0, 1fr));
+      grid-auto-rows: minmax(var(--yv-mg-row, 100px), auto);
+      gap: var(--yv-mg-gap, 14px);
+    }
+  }
+
+  /* Tiles (shared by the three tile blocks). */
+  .yv-media-grid-tile {
+    --yv-mg-tile-radius: var(--yv-mg-radius-m, 10px);
+    --yv-mg-pad: 15px;
+
+    position: relative;
+    grid-column: span var(--yv-mg-col-m, 1);
+    grid-row: span var(--yv-mg-row-span-m, 1);
+    min-width: 0;
+    min-height: 0;
+    border-radius: var(--yv-mg-tile-radius);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-media-grid-tile {
+      --yv-mg-tile-radius: var(--yv-mg-radius, 10px);
+      --yv-mg-pad: 20px;
+
+      grid-column: span var(--yv-mg-col, 1);
+      grid-row: span var(--yv-mg-row-span, 1);
+    }
+  }
+
+  @media screen and (min-width: 1200px) {
+    .yv-media-grid-tile {
+      --yv-mg-pad: 25px;
+    }
+  }
+
+  /* Tablets: narrow tiles get tighter padding and smaller tile headings so words never split. */
+  @media screen and (min-width: 750px) and (max-width: 989px) {
+    .yv-media-grid-tile {
+      --yv-mg-pad: 12px;
+    }
+
+    .yv-media-grid-tile :is(.yv-media-grid-text__heading, .yv-media-grid-content__heading) {
+      font-size: min(1.25rem, var(--font-h5--size, 20px));
+    }
+
+    .yv-media-grid-tile :is(.yv-media-grid-text__description, .yv-media-grid-content__description) {
+      font-size: var(--yv-text-sm, 0.72rem);
+    }
+  }
+
+  /* A tile whose hotspot is open (or hovered/focused) rises above its neighbours. */
+  .yv-media-grid-tile:is(:hover, :focus-within),
+  .yv-media-grid-tile:has(yv-hotspot[open]) {
+    z-index: 3;
+  }
+
+  .yv-media-grid-tile__media {
+    position: absolute;
+    inset: 0;
+    display: block;
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    background-color: var(--yv-image-bg);
+    border-radius: inherit;
+  }
+
+  .yv-media-grid-tile__media :is(img, svg, video, picture) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-media-grid-tile__media:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  .yv-media-grid__video,
+  .yv-media-grid__video video {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .yv-media-grid__video video {
+    object-fit: cover;
+  }
+
+  .yv-media-grid__player {
+    position: absolute;
+    inset: 0;
+  }
+
+  .yv-media-grid__player img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Yuva's round glass play button over the poster. */
+  .yv-media-grid-tile deferred-media .deferred-media__poster-icon {
+    width: 64px;
+    height: 64px;
+    color: #fff;
+    background: rgb(255 255 255 / 0.18);
+    border: 1px solid rgb(255 255 255 / 0.7);
+    backdrop-filter: blur(4px);
+  }
+
+  .yv-media-grid-tile deferred-media .deferred-media__poster-icon svg {
+    width: 28px;
+    height: 28px;
+    filter: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-media-grid-tile deferred-media .deferred-media__poster-icon {
+      animation: yv-media-grid-play 2s ease-out infinite;
+    }
+  }
+
+  @keyframes yv-media-grid-play {
+    0% {
+      box-shadow: 0 0 0 0 rgb(255 255 255 / 0.4);
+    }
+
+    70% {
+      box-shadow: 0 0 0 16px rgb(255 255 255 / 0);
+    }
+
+    100% {
+      box-shadow: 0 0 0 0 rgb(255 255 255 / 0);
+    }
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .yv-media-grid--zoom .yv-media-grid-tile__media :is(img, video) {
+      transition: transform 1s ease;
+    }
+
+    .yv-media-grid--zoom .yv-media-grid-tile:hover .yv-media-grid-tile__media :is(img, video) {
+      transform: scale(1.1);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.media_grid",
+  "class": "yv-media-grid-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-media-grid-media"
+    },
+    {
+      "type": "_yv-media-grid-text"
+    },
+    {
+      "type": "_yv-media-grid-content"
+    }
+  ],
+  "max_blocks": 24,
+  "settings": [
+    {
+      "type": "select",
+      "id": "container",
+      "label": "t:yv.common.settings.container",
+      "options": [
+        {
+          "value": "page",
+          "label": "t:yv.common.options.page"
+        },
+        {
+          "value": "md",
+          "label": "t:yv.common.options.container_md"
+        },
+        {
+          "value": "sm",
+          "label": "t:yv.common.options.container_sm"
+        },
+        {
+          "value": "full",
+          "label": "t:yv.common.options.full_width"
+        }
+      ],
+      "default": "page"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "select",
+      "id": "heading_layout",
+      "label": "t:yv.media_grid.settings.heading_layout",
+      "options": [
+        {
+          "value": "stacked",
+          "label": "t:yv.media_grid.options.stacked"
+        },
+        {
+          "value": "split",
+          "label": "t:yv.media_grid.options.split"
+        }
+      ],
+      "default": "stacked"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:yv.common.settings.text_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "center",
+      "visible_if": "{{ section.settings.heading_layout == 'stacked' }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.media_grid.content.grid"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "t:yv.media_grid.settings.columns_desktop",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 6
+    },
+    {
+      "type": "range",
+      "id": "row_height_desktop",
+      "label": "t:yv.media_grid.settings.row_height_desktop",
+      "info": "t:yv.media_grid.settings.row_height_info",
+      "min": 50,
+      "max": 500,
+      "step": 10,
+      "unit": "px",
+      "default": 150
+    },
+    {
+      "type": "range",
+      "id": "grid_gap_desktop",
+      "label": "t:yv.common.settings.grid_gap_desktop",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "grid_radius_desktop",
+      "label": "t:yv.common.settings.grid_radius_desktop",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "columns_mobile",
+      "label": "t:yv.media_grid.settings.columns_mobile",
+      "min": 1,
+      "max": 2,
+      "step": 1,
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "row_height_mobile",
+      "label": "t:yv.media_grid.settings.row_height_mobile",
+      "min": 50,
+      "max": 500,
+      "step": 10,
+      "unit": "px",
+      "default": 160
+    },
+    {
+      "type": "range",
+      "id": "grid_gap_mobile",
+      "label": "t:yv.common.settings.grid_gap_mobile",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 6
+    },
+    {
+      "type": "range",
+      "id": "grid_radius_mobile",
+      "label": "t:yv.common.settings.grid_radius_mobile",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "checkbox",
+      "id": "image_zoom",
+      "label": "t:yv.common.settings.image_zoom",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.media_grid.content.hotspots"
+    },
+    {
+      "type": "color",
+      "id": "hotspot_color",
+      "label": "t:yv.media_grid.settings.hotspot_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.media_grid",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "heading": "Innovative Gadgets <strong>for Home</strong>",
+        "heading_tag": "h2",
+        "heading_size": "large",
+        "highlight_font": "heading",
+        "highlight_color": "linear-gradient(90deg, #B50F0C 0%, #985E58 48.08%, #639A47 100%)",
+        "description": "<p>From everyday convenience to improved productivity, explore technology built for modern living and working.</p>",
+        "heading_layout": "stacked",
+        "text_alignment": "center",
+        "columns_desktop": 6,
+        "row_height_desktop": 100,
+        "grid_gap_desktop": 14,
+        "grid_radius_desktop": 10,
+        "columns_mobile": 2,
+        "row_height_mobile": 160,
+        "grid_gap_mobile": 6,
+        "grid_radius_mobile": 10,
+        "hotspot_color": "#FFFFFF",
+        "color_set": "primary",
+        "spacing_top_desktop": 52,
+        "spacing_bottom_desktop": 16,
+        "spacing_top_mobile": 40,
+        "spacing_bottom_mobile": 16
+      },
+      "blocks": {
+        "tile_camera": {
+          "type": "_yv-media-grid-media",
+          "settings": {
+            "column_span": 1,
+            "row_span": 2,
+            "column_span_mobile": 1,
+            "row_span_mobile": 1
+          },
+          "blocks": {
+            "spot_camera": {
+              "type": "_yv-media-grid-hotspot",
+              "settings": {
+                "pos_x": 39,
+                "pos_y": 33,
+                "pos_x_mobile": 31,
+                "pos_y_mobile": 35
+              }
+            }
+          },
+          "block_order": ["spot_camera"]
+        },
+        "tile_security": {
+          "type": "_yv-media-grid-media",
+          "settings": {
+            "column_span": 1,
+            "row_span": 3,
+            "column_span_mobile": 1,
+            "row_span_mobile": 1
+          },
+          "blocks": {
+            "spot_security": {
+              "type": "_yv-media-grid-hotspot",
+              "settings": {
+                "pos_x": 40,
+                "pos_y": 59,
+                "pos_x_mobile": 31,
+                "pos_y_mobile": 42
+              }
+            }
+          },
+          "block_order": ["spot_security"]
+        },
+        "tile_display": {
+          "type": "_yv-media-grid-media",
+          "settings": {
+            "column_span": 2,
+            "row_span": 2,
+            "column_span_mobile": 2,
+            "row_span_mobile": 2
+          },
+          "blocks": {
+            "spot_watch": {
+              "type": "_yv-media-grid-hotspot",
+              "settings": {
+                "pos_x": 42,
+                "pos_y": 85,
+                "pos_x_mobile": 41,
+                "pos_y_mobile": 85
+              }
+            },
+            "spot_speaker": {
+              "type": "_yv-media-grid-hotspot",
+              "settings": {
+                "card_side": "left",
+                "pos_x": 67,
+                "pos_y": 54,
+                "pos_x_mobile": 75,
+                "pos_y_mobile": 48
+              }
+            }
+          },
+          "block_order": ["spot_watch", "spot_speaker"]
+        },
+        "text_purifiers": {
+          "type": "_yv-media-grid-text",
+          "settings": {
+            "heading": "Air Purifiers",
+            "description": "<p>Modern air purifiers for cleaner, fresher spaces every day with effortless smart performance.</p>",
+            "column_span": 1,
+            "row_span": 1,
+            "column_span_mobile": 1,
+            "row_span_mobile": 1
+          }
+        },
+        "tile_purifier": {
+          "type": "_yv-media-grid-media",
+          "settings": {
+            "column_span": 1,
+            "row_span": 2,
+            "column_span_mobile": 1,
+            "row_span_mobile": 1
+          },
+          "blocks": {
+            "spot_purifier": {
+              "type": "_yv-media-grid-hotspot",
+              "settings": {
+                "pos_x": 50,
+                "pos_y": 54,
+                "pos_x_mobile": 33,
+                "pos_y_mobile": 57
+              }
+            }
+          },
+          "block_order": ["spot_purifier"]
+        },
+        "tile_headphones": {
+          "type": "_yv-media-grid-media",
+          "settings": {
+            "column_span": 1,
+            "row_span": 3,
+            "column_span_mobile": 1,
+            "row_span_mobile": 1
+          },
+          "blocks": {
+            "spot_headphones": {
+              "type": "_yv-media-grid-hotspot",
+              "settings": {
+                "pos_x": 42,
+                "pos_y": 29,
+                "pos_x_mobile": 39,
+                "pos_y_mobile": 54
+              }
+            }
+          },
+          "block_order": ["spot_headphones"]
+        },
+        "tile_vacuum": {
+          "type": "_yv-media-grid-media",
+          "settings": {
+            "column_span": 1,
+            "row_span": 2,
+            "column_span_mobile": 1,
+            "row_span_mobile": 1
+          },
+          "blocks": {
+            "spot_vacuum": {
+              "type": "_yv-media-grid-hotspot",
+              "settings": {
+                "pos_x": 19,
+                "pos_y": 39,
+                "pos_x_mobile": 10,
+                "pos_y_mobile": 62
+              }
+            }
+          },
+          "block_order": ["spot_vacuum"]
+        },
+        "tile_espresso": {
+          "type": "_yv-media-grid-media",
+          "settings": {
+            "column_span": 2,
+            "row_span": 2,
+            "column_span_mobile": 1,
+            "row_span_mobile": 1
+          },
+          "blocks": {
+            "spot_espresso": {
+              "type": "_yv-media-grid-hotspot",
+              "settings": {
+                "pos_x": 47,
+                "pos_y": 32,
+                "pos_x_mobile": 49,
+                "pos_y_mobile": 38
+              }
+            }
+          },
+          "block_order": ["spot_espresso"]
+        },
+        "tile_speaker": {
+          "type": "_yv-media-grid-media",
+          "settings": {
+            "column_span": 1,
+            "row_span": 2,
+            "column_span_mobile": 1,
+            "row_span_mobile": 1
+          },
+          "blocks": {
+            "spot_cube": {
+              "type": "_yv-media-grid-hotspot",
+              "settings": {
+                "card_side": "left",
+                "pos_x": 81,
+                "pos_y": 40,
+                "pos_x_mobile": 62,
+                "pos_y_mobile": 73
+              }
+            }
+          },
+          "block_order": ["spot_cube"]
+        },
+        "text_coffee": {
+          "type": "_yv-media-grid-text",
+          "settings": {
+            "heading": "Coffee Machine",
+            "description": "<p>Crafted for rich espresso and effortless brewing, bringing café-quality moments home.</p>",
+            "column_span": 1,
+            "row_span": 1,
+            "column_span_mobile": 2,
+            "row_span_mobile": 2
+          }
+        }
+      },
+      "block_order": [
+        "tile_camera",
+        "tile_security",
+        "tile_display",
+        "text_purifiers",
+        "tile_purifier",
+        "tile_headphones",
+        "tile_vacuum",
+        "tile_espresso",
+        "tile_speaker",
+        "text_coffee"
+      ]
+    },
+    {
+      "name": "t:yv.names.media_grid_stories",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "heading": "Trendy Summer Outfits Designed for Comfort",
+        "heading_tag": "h2",
+        "heading_size": "large",
+        "highlight_font": "heading",
+        "description": "<p>Stay cool and stylish this summer with our <strong>Trendy Summer Outfits</strong> collection. Designed for ultimate comfort and effortless fashion, our selection features breathable fabrics, lightweight designs, and vibrant colors.</p>",
+        "heading_layout": "split",
+        "columns_desktop": 3,
+        "row_height_desktop": 250,
+        "grid_gap_desktop": 14,
+        "grid_radius_desktop": 10,
+        "columns_mobile": 1,
+        "row_height_mobile": 130,
+        "grid_gap_mobile": 6,
+        "grid_radius_mobile": 10,
+        "color_set": "primary",
+        "spacing_top_desktop": 60,
+        "spacing_bottom_desktop": 60,
+        "spacing_top_mobile": 16,
+        "spacing_bottom_mobile": 16
+      },
+      "blocks": {
+        "card_accessories": {
+          "type": "_yv-media-grid-content",
+          "settings": {
+            "layout": "media_left",
+            "heading": "Must-Have Accessories to Complete Your Look",
+            "column_span": 1,
+            "row_span": 1,
+            "column_span_mobile": 1,
+            "row_span_mobile": 1
+          }
+        },
+        "card_gym": {
+          "type": "_yv-media-grid-content",
+          "settings": {
+            "layout": "text_top",
+            "heading": "Sporty & Stylish Gym Wear",
+            "description": "<p>Stay comfortable and stylish with our premium gym wear, designed for maximum performance.</p>",
+            "column_span": 1,
+            "row_span": 2,
+            "column_span_mobile": 1,
+            "row_span_mobile": 3
+          }
+        },
+        "text_cotton": {
+          "type": "_yv-media-grid-text",
+          "settings": {
+            "heading": "Cotton Wear for All-Day",
+            "heading_size": "h3",
+            "description": "<p>Softness and lasting comfort with our premium cotton wear, perfect for all-day ease and style.</p>",
+            "content_position": "bottom",
+            "background_color": "#2B2B2B",
+            "text_color": "#FFFFFF",
+            "overlay_opacity": 15,
+            "column_span": 1,
+            "row_span": 3,
+            "column_span_mobile": 1,
+            "row_span_mobile": 3
+          }
+        },
+        "text_classic": {
+          "type": "_yv-media-grid-text",
+          "settings": {
+            "heading": "Classic & Modern Men's Fashion",
+            "heading_size": "h3",
+            "description": "<p>Explore classic and modern men's fashion perfect for every season, every day and style.</p>",
+            "content_position": "top",
+            "background_color": "#2B2B2B",
+            "text_color": "#FFFFFF",
+            "overlay_opacity": 15,
+            "column_span": 1,
+            "row_span": 2,
+            "column_span_mobile": 1,
+            "row_span_mobile": 3
+          }
+        },
+        "media_winter": {
+          "type": "_yv-media-grid-media",
+          "settings": {
+            "column_span": 1,
+            "row_span": 1,
+            "column_span_mobile": 1,
+            "row_span_mobile": 2
+          }
+        }
+      },
+      "block_order": ["card_accessories", "card_gym", "text_cotton", "text_classic", "media_winter"]
+    }
+  ]
+}
+{% endschema %}

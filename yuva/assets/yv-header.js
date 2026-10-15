@@ -11,7 +11,7 @@ import { prefersReducedMotion } from '@theme/utilities';
  * - "Open by: Click" menus (`header-menu[data-yv-open-by="click"]`): the top-level link toggles its
  *   submenu instead of navigating; a click outside closes it.
  * - Page overlay under open panels starts at the header's bottom edge (`--yv-overlay-top`).
- * - Menu drawer: "Menu / View catalog" tabs, opening below the announcement bar
+ * - Menu drawer: "Menu / View catalog" switch, opening below the announcement bar
  *   (`--yv-drawer-offset`), and the desktop category button that opens the drawer on its catalog tab.
  * - Category dropdown: one open at a time, closes on outside click and Escape.
  * - Floating cart (`[data-yv-sticky-cart]`) once a non-sticky header leaves the viewport.
@@ -33,6 +33,9 @@ class YvHeaderComponent extends Component {
   /** @type {number | undefined} */
   #promptTimer;
 
+  /** @type {'menu' | 'catalog' | undefined} View requested for the next drawer opening. */
+  #requestedTab;
+
   connectedCallback() {
     super.connectedCallback();
     this.#abort = new AbortController();
@@ -47,7 +50,6 @@ class YvHeaderComponent extends Component {
     document.addEventListener('keydown', this.#onKeydown, { signal });
     header.addEventListener('toggle', this.#onDetailsToggle, { signal, capture: true });
     header.addEventListener('click', this.#onDrawerTabClick, { signal });
-    header.addEventListener('keydown', this.#onDrawerTabKeydown, { signal });
 
     this.#setupStickyCart(header);
     this.#setupSearchPrompts();
@@ -172,6 +174,9 @@ class YvHeaderComponent extends Component {
     }
 
     if (details.id === 'Details-menu-drawer-container' && details.open) {
+      // The hamburger opens the menu view; the category button asks for the catalog view.
+      this.#selectDrawerTab(this.#requestedTab ?? 'menu');
+      this.#requestedTab = undefined;
       this.#updateDrawerOffset();
     }
   };
@@ -198,7 +203,8 @@ class YvHeaderComponent extends Component {
     const details = header?.querySelector('#Details-menu-drawer-container');
     if (!drawer || !(details instanceof HTMLDetailsElement)) return;
 
-    this.#selectDrawerTab(tab, false);
+    this.#requestedTab = tab;
+    this.#selectDrawerTab(tab);
     this.#updateDrawerOffset();
     details.open = true;
     drawer.open?.();
@@ -210,35 +216,22 @@ class YvHeaderComponent extends Component {
     if (!(target instanceof Element)) return;
     const tab = target.closest('[data-yv-drawer-tab]');
     if (!(tab instanceof HTMLElement)) return;
-    this.#selectDrawerTab(tab.dataset.yvDrawerTab === 'catalog' ? 'catalog' : 'menu', true);
-  };
-
-  /** @param {KeyboardEvent} event */
-  #onDrawerTabKeydown = (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement) || !target.matches('[data-yv-drawer-tab]')) return;
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    const next = target.dataset.yvDrawerTab === 'catalog' ? 'menu' : 'catalog';
-    const key = event.key === 'Home' ? 'menu' : event.key === 'End' ? 'catalog' : next;
-    this.#selectDrawerTab(key, true);
+    this.#selectDrawerTab(tab.dataset.yvDrawerTab === 'catalog' ? 'catalog' : 'menu');
   };
 
   /**
+   * Shows the menu or the catalog view of the drawer ("Menu / View catalog" switch).
    * @param {'menu' | 'catalog'} name
-   * @param {boolean} focus
    */
-  #selectDrawerTab(name, focus) {
+  #selectDrawerTab(name) {
     const header = this.header;
     if (!header) return;
     for (const tab of header.querySelectorAll('[data-yv-drawer-tab]')) {
       if (!(tab instanceof HTMLElement)) continue;
       const active = tab.dataset.yvDrawerTab === name;
-      tab.setAttribute('aria-selected', active ? 'true' : 'false');
-      tab.tabIndex = active ? 0 : -1;
-      const panel = header.querySelector(`#${tab.getAttribute('aria-controls')}`);
+      tab.setAttribute('aria-pressed', active ? 'true' : 'false');
+      const panel = document.getElementById(tab.getAttribute('aria-controls') || '');
       if (panel instanceof HTMLElement) panel.hidden = !active;
-      if (active && focus) tab.focus();
     }
   }
 

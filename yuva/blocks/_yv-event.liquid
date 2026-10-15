@@ -1,0 +1,323 @@
+{% doc %}
+  Yuva event (Events calendar section): one event card. A 4:3 image with the date as a pill at
+  the top left, then the title, the time and location (the location links to a map or venue page
+  in a new tab when a link is set), the description and a small secondary button pinned to the
+  bottom of the card. Empty fields are left out. Cards reveal one after another (75ms apart).
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign event_index = 0
+  for item in section.blocks
+    if item.id == block.id
+      assign event_index = forloop.index0
+      break
+    endif
+  endfor
+  assign reveal_delay = event_index | times: 75 | at_most: 600
+  assign placeholder_name = event_index | modulo: 2 | plus: 1 | prepend: 'lifestyle-'
+
+  assign event_title = block.settings.title | strip
+  assign event_date = block.settings.date | strip
+  assign event_time = block.settings.time | strip
+  assign event_location = block.settings.location | strip
+
+  assign has_body = false
+  if event_title != blank or event_time != blank or event_location != blank or block.settings.description != blank
+    assign has_body = true
+  elsif block.settings.button_text != blank and block.settings.button_link != blank
+    assign has_body = true
+  endif
+
+  assign title_tag = 'h3'
+  case section.settings.heading_tag
+    when 'h3'
+      assign title_tag = 'h4'
+    when 'h4'
+      assign title_tag = 'h5'
+    when 'h5', 'h6', 'p'
+      assign title_tag = 'p'
+  endcase
+-%}
+
+<article
+  class="yv-event"
+  data-yv-reveal
+  style="--yv-reveal-delay: {{ reveal_delay }}ms;"
+  {{ block.shopify_attributes }}
+>
+  <div class="yv-event__media yv-media yv-hover-zoom">
+    {%- if block.settings.image != blank -%}
+      {%- capture image_alt -%}{{ block.settings.image.alt | default: event_title }}{%- endcapture -%}
+      {{
+        block.settings.image
+        | image_url: width: 1200
+        | image_tag:
+          widths: '360, 480, 640, 800, 1000, 1200',
+          sizes: '(min-width: 1200px) 410px, (min-width: 990px) 33vw, (min-width: 750px) 50vw, 100vw',
+          loading: 'lazy',
+          alt: image_alt,
+          class: 'yv-event__image'
+      }}
+    {%- else -%}
+      {{ placeholder_name | placeholder_svg_tag: 'yv-event__image yv-placeholder' }}
+    {%- endif -%}
+
+    {%- if event_date != blank -%}
+      <p class="yv-event__date">{{ event_date | escape }}</p>
+    {%- endif -%}
+  </div>
+
+  {%- if has_body -%}
+  <div class="yv-event__body">
+    {%- if event_title != blank -%}
+      <{{ title_tag }} class="yv-event__title h6">{{ event_title | escape }}</{{ title_tag }}>
+    {%- endif -%}
+
+    {%- if event_time != blank or event_location != blank -%}
+      <ul
+        class="yv-event__meta"
+        role="list"
+      >
+        {%- if event_time != blank -%}
+          <li class="yv-event__meta-item">
+            {%- render 'yv-icon', name: 'stopwatch', size: 16, class: 'yv-event__meta-icon' -%}
+            <span>{{ event_time | escape }}</span>
+          </li>
+        {%- endif -%}
+        {%- if event_location != blank -%}
+          <li class="yv-event__meta-item">
+            {%- render 'yv-icon', name: 'map-pin', size: 16, class: 'yv-event__meta-icon' -%}
+            {%- if block.settings.location_link != blank -%}
+              <a
+                class="yv-event__location yv-event__location--link"
+                href="{{ block.settings.location_link }}"
+                target="_blank"
+                rel="noopener"
+              >
+                {{- event_location | escape -}}
+                <span class="visually-hidden"> ({{ 'yv.common.opens_new_window' | t }})</span>
+              </a>
+            {%- else -%}
+              <span class="yv-event__location">{{ event_location | escape }}</span>
+            {%- endif -%}
+          </li>
+        {%- endif -%}
+      </ul>
+    {%- endif -%}
+
+    {%- if block.settings.description != blank -%}
+      <div class="yv-event__description rte">{{ block.settings.description }}</div>
+    {%- endif -%}
+
+    {%- if block.settings.button_text != blank and block.settings.button_link != blank -%}
+      <div class="yv-event__actions">
+        {%- render 'yv-button',
+          label: block.settings.button_text,
+          link: block.settings.button_link,
+          variant: 'secondary',
+          size_desktop: 'small',
+          size_mobile: 'small',
+          class: 'yv-event__button'
+        -%}
+      </div>
+    {%- endif -%}
+  </div>
+  {%- endif -%}
+</article>
+
+{% stylesheet %}
+  .yv-event {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid var(--yv-border-color, rgb(var(--color-foreground-rgb) / 0.1));
+    border-radius: var(--yv-layout-radius, 10px);
+    background-color: var(--yv-card-bg, var(--color-background));
+  }
+
+  .yv-event__media {
+    --yv-media-radius: 0;
+
+    position: relative;
+    flex: none;
+    aspect-ratio: 4 / 3;
+    border-radius: 0;
+  }
+
+  .yv-event__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-event__date {
+    position: absolute;
+    inset-block-start: 16px;
+    inset-inline-start: 16px;
+    z-index: 1;
+    max-width: calc(100% - 32px);
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: 20px;
+    background-color: #fff;
+    color: #000;
+    font-size: var(--yv-text-sm, 12px);
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .yv-event__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    gap: 12px;
+    min-width: 0;
+    padding: 20px;
+  }
+
+  .yv-event__body > * {
+    margin-block: 0;
+    max-width: 100%;
+  }
+
+  .yv-event__title {
+    overflow-wrap: anywhere;
+  }
+
+  .yv-event__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--yv-text-md, 14px);
+    line-height: 1.4;
+  }
+
+  .yv-event__meta-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .yv-event__meta-item > span,
+  .yv-event__location {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .yv-event__meta-icon {
+    flex: none;
+    margin-block-start: 1px;
+  }
+
+  .yv-event__location--link {
+    color: var(--yv-theme-color, currentColor);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 3px;
+    transition: text-decoration-color var(--animation-speed, 0.2s) ease;
+  }
+
+  .yv-event__location--link:hover {
+    color: var(--yv-theme-color, currentColor);
+    text-decoration-color: currentColor;
+  }
+
+  .yv-event__description {
+    font-size: var(--yv-text-md, 14px);
+    line-height: 1.5;
+    color: rgb(var(--color-foreground-rgb) / 0.75);
+  }
+
+  .yv-event__description > * {
+    margin-block: 0;
+  }
+
+  .yv-event__description > * + * {
+    margin-block-start: 8px;
+  }
+
+  .yv-event__actions {
+    margin-block-start: auto;
+    padding-block-start: 4px;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.event",
+  "tag": null,
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "t:settings.title",
+      "default": "t:yv.events_calendar.defaults.title"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "text",
+      "id": "date",
+      "label": "t:yv.events_calendar.settings.date",
+      "info": "t:yv.events_calendar.settings.date_info",
+      "default": "t:yv.events_calendar.defaults.date"
+    },
+    {
+      "type": "text",
+      "id": "time",
+      "label": "t:yv.events_calendar.settings.time",
+      "info": "t:yv.events_calendar.settings.time_info",
+      "default": "t:yv.events_calendar.defaults.time"
+    },
+    {
+      "type": "text",
+      "id": "location",
+      "label": "t:yv.events_calendar.settings.location"
+    },
+    {
+      "type": "url",
+      "id": "location_link",
+      "label": "t:yv.events_calendar.settings.location_link",
+      "info": "t:yv.events_calendar.settings.location_link_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.button_link",
+      "info": "t:yv.common.settings.button_info"
+    }
+  ]
+}
+{% endschema %}

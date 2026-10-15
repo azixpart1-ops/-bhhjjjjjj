@@ -1,0 +1,442 @@
+{% comment %}
+  Section contract: yv-side-drawer
+  Yuva "Side drawer content", a STATIC section rendered by layout/theme.liquid after the footer
+  group (docs part 3 "Side drawer content"). A vertical tab fixed to the right edge (Desktop drawer
+  head style: "Button" = a centred tab, "Bar" = a full-height strip; phones always use the button)
+  opens a large drawer from the right whose body stacks the merchant's blocks: collection list
+  (_yv-drawer-collections), product list (_yv-drawer-products, Horizon product cards) and media with
+  text (_yv-drawer-media-text). A copy of the tab rides on the panel's left edge and closes it.
+  Modal dialog (backdrop, focus trap, Escape, scroll lock, focus return) from Horizon's
+  DialogComponent, extended in assets/yv-popups.js (<yv-side-drawer-component>: tab state, videos play
+  only while open, opens when the section or a block is selected in the theme editor). Images are
+  lazy, so nothing downloads until the first open.
+  Nothing renders while "Enable side drawer content" is off, on the password and gift card
+  templates, or without blocks (outside the editor).
+  @example
+  {% section 'yv-side-drawer' %}
+{% endcomment %}
+
+{%- liquid
+  assign show_drawer = section.settings.enable
+  if template.name == 'password' or template.name == 'gift_card'
+    assign show_drawer = false
+  endif
+  if section.blocks.size == 0 and request.design_mode == false
+    assign show_drawer = false
+  endif
+
+  assign drawer_id = 'YvSideDrawer-' | append: section.id
+  assign title_id = 'YvSideDrawerTitle-' | append: section.id
+  assign heading = section.settings.heading | strip
+  if heading == blank
+    assign heading = 'yv.side_drawer.default_heading' | t
+  endif
+  assign head_text = section.settings.color_head_text | default: '#000000'
+  assign head_bg = section.settings.color_head_bg | default: '#f4f4f4'
+  assign body_bg = section.settings.color_body_bg | default: '#ffffff'
+  assign head_style = section.settings.head_style | default: 'button'
+-%}
+
+{%- if show_drawer -%}
+  {%- render 'contrast-override', background_color: body_bg, section_id: section.id -%}
+  <script
+    src="{{ 'yv-popups.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+
+  <yv-side-drawer-component
+    class="yv-side-drawer yv-side-drawer--{{ head_style }}"
+    data-section-id="{{ section.id }}"
+    style="--yv-drawer-head-text: {{ head_text }}; --yv-drawer-head-bg: {{ head_bg }}; --yv-drawer-body-bg: {{ body_bg }};"
+  >
+    <button
+      type="button"
+      class="yv-side-drawer__tab yv-side-drawer__tab--edge yv-edge-widget"
+      aria-haspopup="dialog"
+      aria-expanded="false"
+      aria-controls="{{ drawer_id }}"
+      ref="tab"
+      on:click="/showDialog"
+    >
+      <span class="yv-side-drawer__tab-text">{{ heading | escape }}</span>
+    </button>
+
+    <dialog
+      id="{{ drawer_id }}"
+      class="yv-side-drawer__dialog color-custom-{{ section.id }}"
+      aria-labelledby="{{ title_id }}"
+      ref="dialog"
+    >
+      <button
+        type="button"
+        class="yv-side-drawer__tab yv-side-drawer__tab--panel"
+        aria-label="{{ 'actions.close' | t | escape }}"
+        on:click="/closeDialog"
+      >
+        <span
+          id="{{ title_id }}"
+          class="yv-side-drawer__tab-text"
+        >
+          {{- heading | escape -}}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        class="yv-side-drawer__close"
+        aria-label="{{ 'actions.close' | t | escape }}"
+        on:click="/closeDialog"
+      >
+        {%- render 'yv-icon', name: 'close', size: 12 -%}
+      </button>
+
+      <div
+        class="yv-side-drawer__body"
+        ref="body"
+      >
+        <div class="yv-side-drawer__inner">
+          {%- content_for 'blocks' -%}
+        </div>
+      </div>
+    </dialog>
+  </yv-side-drawer-component>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-side-drawer {
+    --yv-drawer-tab-width: 50px;
+    --yv-drawer-speed: 0.6s;
+
+    display: contents;
+  }
+
+  /* Edge tab (fixed) and its copy on the panel's left edge. */
+  .yv-side-drawer__tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--yv-drawer-tab-width);
+    min-height: 100px;
+    padding: 20px 5px;
+    border: 0;
+    border-start-start-radius: 10px;
+    border-end-start-radius: 10px;
+    background-color: var(--yv-drawer-head-bg, #f4f4f4);
+    color: var(--yv-drawer-head-text, #000000);
+    box-shadow: -2px 0 8px rgb(0 0 0 / 0.08);
+    cursor: pointer;
+  }
+
+  .yv-side-drawer__tab--edge {
+    position: fixed;
+    inset-inline-end: 0;
+    top: 50%;
+    translate: 0 -50%;
+  }
+
+  .yv-side-drawer__tab-text {
+    writing-mode: vertical-lr;
+    rotate: 180deg;
+    font-family: var(--font-paragraph--family);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-side-drawer__tab-text {
+      animation: yv-drawer-breathe 3s ease-in-out infinite;
+    }
+  }
+
+  @keyframes yv-drawer-breathe {
+    50% {
+      opacity: 0.4;
+    }
+  }
+
+  .yv-side-drawer[data-open] .yv-side-drawer__tab--edge {
+    visibility: hidden;
+  }
+
+  .yv-side-drawer__tab:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -4px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-side-drawer--bar .yv-side-drawer__tab--edge {
+      top: 0;
+      bottom: 0;
+      translate: none;
+    }
+
+    .yv-side-drawer--bar .yv-side-drawer__tab {
+      border-radius: 0;
+    }
+  }
+
+  /* Drawer panel. */
+  .yv-side-drawer__dialog {
+    position: fixed;
+    inset: 0 0 0 auto;
+    width: min(1200px, calc(100vw - var(--yv-drawer-tab-width)));
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background-color: var(--yv-drawer-body-bg, #ffffff);
+    color: var(--color-foreground);
+  }
+
+  .yv-side-drawer__dialog::backdrop {
+    background: rgb(0 0 0 / 0.4);
+  }
+
+  .yv-side-drawer__tab--panel {
+    position: absolute;
+    inset-inline-end: 100%;
+    top: 50%;
+    translate: 0 -50%;
+    box-shadow: none;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-side-drawer--bar .yv-side-drawer__tab--panel {
+      top: 0;
+      bottom: 0;
+      translate: none;
+    }
+  }
+
+  .yv-side-drawer__close {
+    position: absolute;
+    inset-block-start: 10px;
+    inset-inline-end: 20px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid var(--yv-drawer-head-bg, #f4f4f4);
+    border-radius: 50%;
+    background-color: var(--yv-drawer-body-bg, #ffffff);
+    color: inherit;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  .yv-side-drawer__close:hover {
+    background-color: var(--yv-drawer-head-bg, #f4f4f4);
+  }
+
+  .yv-side-drawer__body {
+    height: 100%;
+    padding: 50px 20px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .yv-side-drawer__inner {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    max-width: 95%;
+    margin-inline: auto;
+    padding-inline: 30px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-side-drawer__dialog[open] {
+      animation: yv-drawer-in var(--yv-drawer-speed) var(--yv-ease, ease) both;
+    }
+
+    .yv-side-drawer__dialog[open]::backdrop {
+      animation: yv-drawer-fade var(--yv-drawer-speed) ease both;
+    }
+
+    .yv-side-drawer__dialog.dialog-closing {
+      animation: yv-drawer-out 0.4s var(--yv-ease, ease) both;
+    }
+
+    .yv-side-drawer__dialog.dialog-closing::backdrop {
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .yv-side-drawer__dialog[open] .yv-side-drawer__close {
+      animation: yv-drawer-close-in 0.3s ease 0.3s both;
+    }
+  }
+
+  @keyframes yv-drawer-in {
+    from {
+      translate: 100% 0;
+    }
+  }
+
+  @keyframes yv-drawer-out {
+    to {
+      translate: 100% 0;
+    }
+  }
+
+  @keyframes yv-drawer-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes yv-drawer-close-in {
+    from {
+      opacity: 0;
+      scale: 0.6;
+    }
+  }
+
+  /* Headings shared by the drawer blocks. */
+  .yv-side-drawer__heading {
+    margin: 0 0 20px;
+    color: var(--yv-drawer-block-text, currentColor);
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: var(--font-heading--weight);
+    font-size: 24px;
+    line-height: 1.2;
+    letter-spacing: var(--font-h4--letter-spacing, normal);
+    text-transform: var(--font-h4--case, none);
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-side-drawer {
+      --yv-drawer-tab-width: 40px;
+    }
+
+    .yv-side-drawer__tab {
+      min-height: 90px;
+      padding: 16px 4px;
+    }
+
+    .yv-side-drawer__tab-text {
+      font-size: 13px;
+    }
+
+    .yv-side-drawer__body {
+      padding: 50px 15px 30px;
+    }
+
+    .yv-side-drawer__inner {
+      max-width: none;
+      padding-inline: 0;
+    }
+
+    .yv-side-drawer__heading {
+      font-size: 20px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.side_drawer",
+  "tag": "div",
+  "class": "yv-side-drawer-section",
+  "max_blocks": 6,
+  "blocks": [
+    {
+      "type": "_yv-drawer-collections"
+    },
+    {
+      "type": "_yv-drawer-products"
+    },
+    {
+      "type": "_yv-drawer-media-text"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enable",
+      "label": "t:yv.side_drawer.settings.enable",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:settings.heading",
+      "info": "t:yv.side_drawer.settings.heading_info",
+      "default": "Explore more"
+    },
+    {
+      "type": "select",
+      "id": "head_style",
+      "label": "t:yv.side_drawer.settings.head_style",
+      "options": [
+        {
+          "value": "bar",
+          "label": "t:yv.side_drawer.options.bar"
+        },
+        {
+          "value": "button",
+          "label": "t:yv.side_drawer.options.button"
+        }
+      ],
+      "default": "button"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.side_drawer.content.drawer_head"
+    },
+    {
+      "type": "color",
+      "id": "color_head_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_head_bg",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#F4F4F4"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.side_drawer.content.drawer_body"
+    },
+    {
+      "type": "color",
+      "id": "color_body_bg",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#FFFFFF"
+    }
+  ],
+  "default": {
+    "settings": {
+      "enable": false,
+      "heading": "Explore more"
+    },
+    "blocks": [
+      {
+        "type": "_yv-drawer-collections",
+        "settings": {
+          "heading": "Shop by collection"
+        }
+      },
+      {
+        "type": "_yv-drawer-media-text",
+        "settings": {
+          "heading": "Media with text",
+          "description": "<p>Pair an image or a short video with a few words about a collection, a lookbook or a story.</p>"
+        }
+      }
+    ]
+  }
+}
+{% endschema %}

@@ -1,0 +1,428 @@
+{% comment %}
+  Section contract: yv-social-media-gallery
+  Yuva "Social media gallery": an Instagram-style grid of square images or muted looping videos
+  (private blocks `_yv-social-item`) under an optional highlight heading and description. Hovering a
+  tile (or focusing its link) fades in a coloured overlay with a social icon and the tile's caption;
+  tiles link to the post in a new tab. Six columns on large screens, three on tablets, two on phones.
+  Videos load near the viewport and play only while visible (assets/yv-autoplay-video.js).
+  Shared settings: heading, colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Social > "Social media gallery"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign needs_video = false
+  for item in section.blocks
+    if item.settings.video != blank
+      assign needs_video = true
+      break
+    endif
+  endfor
+-%}
+
+{%- if needs_video -%}
+  <script
+    src="{{ 'yv-autoplay-video.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-social-gallery color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-social-gallery-overlay: {{ section.settings.color_overlay }}; --yv-social-gallery-overlay-opacity: {{ section.settings.overlay_opacity | divided_by: 100.0 }}; --yv-social-gallery-overlay-text: {{ section.settings.color_overlay_text }};"
+  data-testid="yv-social-media-gallery"
+>
+  <div class="yv-container yv-container--page yv-social-gallery__inner">
+    {%- if section.settings.heading != blank or section.settings.description != blank -%}
+      {% render 'yv-heading',
+        text: section.settings.heading,
+        tag: section.settings.heading_tag,
+        size: section.settings.heading_size,
+        highlight_font: section.settings.highlight_font,
+        highlight_color: section.settings.highlight_color,
+        description: section.settings.description,
+        alignment: 'center',
+        class: 'yv-social-gallery__heading',
+        reveal: true
+      %}
+    {%- endif -%}
+
+    {%- if section.blocks.size > 0 -%}
+      <div class="yv-social-gallery__grid">
+        {%- content_for 'blocks' -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-social-gallery__inner {
+    min-width: 0;
+  }
+
+  .yv-social-gallery__heading {
+    margin-block-end: 25px;
+  }
+
+  .yv-social-gallery__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-social-gallery__grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-social-gallery__grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.social_media_gallery",
+  "class": "yv-social-media-gallery-section",
+  "disabled_on": {
+    "groups": ["header"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-social-item"
+    }
+  ],
+  "max_blocks": 12,
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "Follow us on <strong>Instagram</strong>"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "large"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "select",
+      "id": "media_icon",
+      "label": "t:yv.social_gallery.settings.media_icon",
+      "options": [
+        {
+          "value": "instagram",
+          "label": "t:yv.social_gallery.options.instagram"
+        },
+        {
+          "value": "facebook",
+          "label": "t:yv.social_gallery.options.facebook"
+        },
+        {
+          "value": "tiktok",
+          "label": "t:yv.social_gallery.options.tiktok"
+        },
+        {
+          "value": "pinterest",
+          "label": "t:yv.social_gallery.options.pinterest"
+        },
+        {
+          "value": "twitter",
+          "label": "t:yv.social_gallery.options.twitter"
+        },
+        {
+          "value": "youtube",
+          "label": "t:yv.social_gallery.options.youtube"
+        },
+        {
+          "value": "snapchat",
+          "label": "t:yv.social_gallery.options.snapchat"
+        },
+        {
+          "value": "tumblr",
+          "label": "t:yv.social_gallery.options.tumblr"
+        },
+        {
+          "value": "vimeo",
+          "label": "t:yv.social_gallery.options.vimeo"
+        },
+        {
+          "value": "linkedin",
+          "label": "t:yv.social_gallery.options.linkedin"
+        },
+        {
+          "value": "threads",
+          "label": "t:yv.social_gallery.options.threads"
+        },
+        {
+          "value": "bluesky",
+          "label": "t:yv.social_gallery.options.bluesky"
+        },
+        {
+          "value": "whatsapp",
+          "label": "t:yv.social_gallery.options.whatsapp"
+        }
+      ],
+      "default": "instagram"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "color",
+      "id": "color_overlay_text",
+      "label": "t:yv.social_gallery.settings.color_overlay_text",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_overlay",
+      "label": "t:yv.common.settings.overlay_color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.common.settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.social_media_gallery",
+      "category": "t:yv.categories.social",
+      "settings": {
+        "heading": "Follow us on Instagram",
+        "heading_size": "large",
+        "media_icon": "instagram",
+        "overlay_opacity": 50,
+        "spacing_top_desktop": 40,
+        "spacing_bottom_desktop": 60,
+        "spacing_top_mobile": 24,
+        "spacing_bottom_mobile": 24
+      },
+      "blocks": {
+        "post_1": {
+          "type": "_yv-social-item",
+          "settings": {}
+        },
+        "post_2": {
+          "type": "_yv-social-item",
+          "settings": {}
+        },
+        "post_3": {
+          "type": "_yv-social-item",
+          "settings": {}
+        },
+        "post_4": {
+          "type": "_yv-social-item",
+          "settings": {}
+        },
+        "post_5": {
+          "type": "_yv-social-item",
+          "settings": {}
+        },
+        "post_6": {
+          "type": "_yv-social-item",
+          "settings": {}
+        }
+      },
+      "block_order": ["post_1", "post_2", "post_3", "post_4", "post_5", "post_6"]
+    }
+  ]
+}
+{% endschema %}

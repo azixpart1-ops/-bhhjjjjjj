@@ -1,0 +1,496 @@
+{% comment %}
+  Section contract: yv-multicolumn
+  Yuva "Multicolumn": a highlight heading and description above columns (`_yv-column`), each with
+  an image or an autoplay video, a heading, a description and a button (or text link). Up to 4
+  columns per row on desktop (more wrap, the last row centred with centred columns), 2 on
+  tablets, 1 on phones. One media ratio and one button size for every column.
+  Shared settings: highlight heading, color set, visibility, spacing.
+  @example
+  Theme editor > Add section > Text > "Multicolumn"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign count = section.blocks.size | at_least: 1
+  assign columns = count | at_most: 4
+  assign columns_tablet = count | at_most: 2
+
+  assign heading_align = section.settings.heading_alignment | default: 'center'
+  assign column_align = section.settings.column_alignment | default: 'center'
+
+  case column_align
+    when 'center'
+      assign justify = 'center'
+    when 'right'
+      assign justify = 'flex-end'
+    else
+      assign justify = 'flex-start'
+  endcase
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-multicolumn color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-multicolumn"
+>
+  <div class="yv-container yv-container--page yv-multicolumn__inner">
+    {% render 'yv-heading',
+      text: section.settings.heading,
+      tag: section.settings.heading_tag,
+      size: section.settings.heading_size,
+      highlight_font: section.settings.highlight_font,
+      highlight_color: section.settings.highlight_color,
+      rotating_text: section.settings.rotating_text,
+      description: section.settings.description,
+      alignment: heading_align,
+      class: 'yv-multicolumn__header',
+      reveal: settings.yv_enable_animation
+    %}
+
+    <div
+      class="yv-multicolumn__grid yv-multicolumn__grid--{{ column_align }}"
+      style="--yv-multicolumn-columns: {{ columns }}; --yv-multicolumn-columns-tablet: {{ columns_tablet }}; --yv-multicolumn-justify: {{ justify }};"
+    >
+      {%- content_for 'blocks' -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-multicolumn__inner {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .yv-multicolumn__header .yv-heading__description {
+    max-width: 680px;
+    font-size: var(--yv-text-lg, 0.96rem);
+  }
+
+  .yv-multicolumn__grid {
+    --yv-multicolumn-gap: 20px;
+    --yv-multicolumn-per-row: 1;
+
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: var(--yv-multicolumn-justify, center);
+    gap: 40px var(--yv-multicolumn-gap);
+  }
+
+  .yv-multicolumn__grid:empty {
+    display: none;
+  }
+
+  .yv-multicolumn__grid > * {
+    flex: 0 0
+      calc(
+        (100% - (var(--yv-multicolumn-per-row) - 1) * var(--yv-multicolumn-gap)) / var(--yv-multicolumn-per-row)
+      );
+    min-width: 0;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-multicolumn__grid {
+      --yv-multicolumn-gap: 30px;
+      --yv-multicolumn-per-row: var(--yv-multicolumn-columns-tablet, 2);
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-multicolumn__grid {
+      --yv-multicolumn-per-row: var(--yv-multicolumn-columns, 4);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.multicolumn",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 8,
+  "blocks": [
+    {
+      "type": "_yv-column"
+    }
+  ],
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "Why <strong>choose us</strong>"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "large"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, rgba(166, 120, 200, 1) 0%, rgba(113, 140, 199, 1) 48%, rgba(99, 154, 71, 1) 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.layout"
+    },
+    {
+      "type": "select",
+      "id": "heading_alignment",
+      "label": "t:yv.multicolumn.settings.heading_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "column_alignment",
+      "label": "t:yv.multicolumn.settings.column_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "media_ratio",
+      "label": "t:yv.multicolumn.settings.media_ratio",
+      "options": [
+        {
+          "value": "adapt",
+          "label": "t:yv.multicolumn.options.adapt"
+        },
+        {
+          "value": "square",
+          "label": "t:yv.common.options.square"
+        },
+        {
+          "value": "portrait",
+          "label": "t:yv.multicolumn.options.portrait"
+        },
+        {
+          "value": "landscape",
+          "label": "t:yv.common.options.landscape"
+        },
+        {
+          "value": "wide",
+          "label": "t:yv.multicolumn.options.wide"
+        }
+      ],
+      "default": "square"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.multicolumn.settings.button_size_desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.multicolumn.settings.button_size_mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.multicolumn",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "heading": "Why <strong>choose us</strong>",
+        "description": "<p>Thoughtful technology, honest prices and support that is there when you need it.</p>"
+      },
+      "blocks": {
+        "column_1": {
+          "type": "_yv-column",
+          "settings": {
+            "heading": "Smart Listening",
+            "description": "<p>Immersive sound that adapts to every moment of your day.</p>",
+            "button_text": "Shop now",
+            "button_link": "shopify://collections/all",
+            "button_as_link": true
+          }
+        },
+        "column_2": {
+          "type": "_yv-column",
+          "settings": {
+            "heading": "Electric Lifestyle",
+            "description": "<p>Smart home essentials that make everyday living easier.</p>",
+            "button_text": "Shop now",
+            "button_link": "shopify://collections/all",
+            "button_as_link": true
+          }
+        },
+        "column_3": {
+          "type": "_yv-column",
+          "settings": {
+            "heading": "Digital Devices",
+            "description": "<p>Reliable gadgets designed to keep you connected.</p>",
+            "button_text": "Shop now",
+            "button_link": "shopify://collections/all",
+            "button_as_link": true
+          }
+        }
+      },
+      "block_order": ["column_1", "column_2", "column_3"]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,574 @@
+{% comment %}
+  Section contract: yv-timeline
+  Yuva "Timeline": a strip of navigation labels (years, steps…) synced to a content slider of
+  private `_yv-timeline-item` blocks. The strip sits above or below the slider, between two round
+  arrows (desktop); the active label is bold with lines that grow above and below it and a check
+  mark. Slides are 75% wide on desktop (90% on phones), centred, and the neighbours peek in at 30%
+  opacity. Items without a label are skipped. Driven by assets/yv-timeline.js (<yv-timeline>).
+  Shared settings: section border, colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Storytelling > "Timeline"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign nav_position = section.settings.nav_position | default: 'top'
+  assign label_count = 0
+  for block in section.blocks
+    if block.settings.nav_label != blank
+      assign label_count = label_count | plus: 1
+    endif
+  endfor
+-%}
+
+<script
+  src="{{ 'yv-timeline.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-timeline"
+>
+  <yv-timeline
+    class="yv-container yv-container--page yv-timeline yv-timeline--nav-{{ nav_position }}"
+    data-active-index="0"
+  >
+    {%- if label_count > 0 -%}
+      <div
+        class="yv-timeline__bar"
+        data-yv-reveal
+      >
+        <button
+          type="button"
+          class="yv-timeline__arrow yv-timeline__arrow--prev"
+          ref="prev"
+          aria-label="{{ 'yv.carousel.previous' | t }}"
+          on:click="yv-timeline/previous"
+          disabled
+        >
+          {%- render 'yv-icon', name: 'chevron-left', size: 14 -%}
+        </button>
+
+        <div
+          class="yv-timeline__nav"
+          ref="nav"
+          role="group"
+          aria-label="{{ 'yv.timeline.nav_label' | t }}"
+        >
+          {%- assign label_index = 0 -%}
+          {%- for block in section.blocks -%}
+            {%- if block.settings.nav_label != blank -%}
+              <button
+                type="button"
+                class="yv-timeline__label{% if label_index == 0 %} is-active{% endif %}"
+                ref="labels[]"
+                aria-controls="YvTimelineItem-{{ block.id }}"
+                {% if label_index == 0 %}
+                  aria-current="step"
+                {% endif %}
+                on:click="yv-timeline/select/{{ label_index }}"
+              >
+                <span
+                  class="yv-timeline__check"
+                  aria-hidden="true"
+                >
+                  {{- 'icon-checkmark.svg' | inline_asset_content -}}
+                </span>
+                <span class="yv-timeline__label-text">{{ block.settings.nav_label | escape }}</span>
+              </button>
+              {%- assign label_index = label_index | plus: 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+
+        <button
+          type="button"
+          class="yv-timeline__arrow yv-timeline__arrow--next"
+          ref="next"
+          aria-label="{{ 'yv.carousel.next' | t }}"
+          on:click="yv-timeline/next"
+          {% if label_count < 2 %}
+            disabled
+          {% endif %}
+        >
+          {%- render 'yv-icon', name: 'chevron-right', size: 14 -%}
+        </button>
+      </div>
+    {%- endif -%}
+
+    <div
+      class="yv-timeline__track"
+      ref="track"
+      data-yv-reveal
+    >
+      {%- content_for 'blocks' -%}
+    </div>
+  </yv-timeline>
+</div>
+
+{% stylesheet %}
+  .yv-timeline {
+    --yv-timeline-slide: 90cqw;
+
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    container-type: inline-size;
+  }
+
+  .yv-timeline--nav-bottom .yv-timeline__bar {
+    order: 2;
+  }
+
+  .yv-timeline__bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .yv-timeline__nav {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    border-block: 1px dashed var(--yv-border-color, rgb(var(--color-foreground-rgb) / 0.15));
+  }
+
+  .yv-timeline__nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .yv-timeline__label {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 33.333%;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+    padding: 14px 10px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: var(--yv-text-lg, 15.36px);
+    line-height: 1.4;
+    text-align: center;
+    opacity: 0.6;
+    cursor: pointer;
+    scroll-snap-align: center;
+    transition: opacity 300ms ease;
+  }
+
+  .yv-timeline__label::before,
+  .yv-timeline__label::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: 50%;
+    width: 0;
+    height: 1px;
+    background: currentColor;
+    translate: -50% 0;
+    transition: width 300ms ease;
+  }
+
+  .yv-timeline__label::before {
+    inset-block-start: -1px;
+  }
+
+  .yv-timeline__label::after {
+    inset-block-end: -1px;
+  }
+
+  .yv-timeline__label:hover {
+    opacity: 0.85;
+  }
+
+  .yv-timeline__label.is-active {
+    font-weight: 600;
+    opacity: 1;
+  }
+
+  .yv-timeline__label.is-active::before,
+  .yv-timeline__label.is-active::after {
+    width: 80%;
+  }
+
+  .yv-timeline__label-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .yv-timeline__check {
+    display: inline-flex;
+    flex: none;
+    width: 0;
+    height: 12px;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 300ms ease, width 300ms ease;
+  }
+
+  .yv-timeline__check svg {
+    width: 12px;
+    height: 12px;
+    flex: none;
+  }
+
+  .yv-timeline__label.is-active .yv-timeline__check {
+    width: 12px;
+    opacity: 1;
+  }
+
+  .yv-timeline__label:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -4px;
+  }
+
+  .yv-timeline__arrow {
+    display: none;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.12);
+    border-radius: var(--yv-arrow-radius, 50%);
+    background: var(--color-background, #fff);
+    color: var(--color-foreground, #000);
+    box-shadow: var(--yv-shadow-arrow, 0 1px 3px #d9d9d9);
+    cursor: pointer;
+    transition: opacity 200ms ease, background-color 200ms ease;
+  }
+
+  .yv-timeline__arrow:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .yv-timeline__arrow:not(:disabled):hover {
+    background: var(--yv-alt-bg, #f2f2f2);
+  }
+
+  .yv-timeline__arrow:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  [dir='rtl'] .yv-timeline__arrow svg {
+    scale: -1 1;
+  }
+
+  .yv-timeline__track {
+    display: flex;
+    min-width: 0;
+    overflow-x: auto;
+    padding-inline: calc((100cqw - var(--yv-timeline-slide)) / 2);
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .yv-timeline__track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .yv-timeline[data-dragging] .yv-timeline__track {
+    scroll-snap-type: none;
+    cursor: grabbing;
+  }
+
+  .yv-timeline[data-dragging] .yv-timeline__track * {
+    pointer-events: none;
+    user-select: none;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-timeline {
+      --yv-timeline-slide: 75cqw;
+
+      gap: 40px;
+    }
+
+    .yv-timeline__bar {
+      padding-inline: 14px;
+    }
+
+    .yv-timeline__label {
+      flex-basis: 20%;
+    }
+
+    .yv-timeline__arrow {
+      display: inline-flex;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yv-timeline__label,
+    .yv-timeline__label::before,
+    .yv-timeline__label::after,
+    .yv-timeline__check {
+      transition: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.timeline",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 12,
+  "blocks": [
+    {
+      "type": "_yv-timeline-item"
+    }
+  ],
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "select",
+      "id": "nav_position",
+      "label": "t:yv.timeline.settings.nav_position",
+      "options": [
+        {
+          "value": "top",
+          "label": "t:yv.common.options.top"
+        },
+        {
+          "value": "bottom",
+          "label": "t:yv.common.options.bottom"
+        }
+      ],
+      "default": "top"
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "t:yv.timeline.settings.image_ratio",
+      "options": [
+        {
+          "value": "auto",
+          "label": "t:yv.common.options.auto"
+        },
+        {
+          "value": "portrait",
+          "label": "t:yv.timeline.options.portrait"
+        },
+        {
+          "value": "landscape",
+          "label": "t:yv.timeline.options.landscape"
+        },
+        {
+          "value": "square",
+          "label": "t:yv.timeline.options.square"
+        }
+      ],
+      "default": "auto"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.timeline",
+      "category": "t:yv.categories.storytelling",
+      "settings": {
+        "image_ratio": "landscape"
+      },
+      "blocks": {
+        "item_1": {
+          "type": "_yv-timeline-item",
+          "settings": {
+            "nav_label": "2016",
+            "subheading": "Where it started",
+            "heading": "Our <strong>beginning</strong>",
+            "description": "<p>It started with one small studio, a handful of sketches and a simple idea: design pieces that feel good, look good and last.</p>"
+          }
+        },
+        "item_2": {
+          "type": "_yv-timeline-item",
+          "settings": {
+            "nav_label": "2018",
+            "subheading": "First collection",
+            "heading": "Our first <strong>collection</strong>",
+            "description": "<p>Twelve pieces, made in small batches and sold out in weeks. Our customers told us what to make next, and we listened.</p>"
+          }
+        },
+        "item_3": {
+          "type": "_yv-timeline-item",
+          "settings": {
+            "nav_label": "2020",
+            "subheading": "Growing together",
+            "heading": "A home <strong>online</strong>",
+            "description": "<p>We opened our online store and started shipping worldwide, with the same care we put into every order from day one.</p>"
+          }
+        },
+        "item_4": {
+          "type": "_yv-timeline-item",
+          "settings": {
+            "nav_label": "2022",
+            "subheading": "Responsible design",
+            "heading": "Made to <strong>last</strong>",
+            "description": "<p>Better materials, fewer offcuts and packaging you can recycle. Small changes that add up over every order.</p>"
+          }
+        },
+        "item_5": {
+          "type": "_yv-timeline-item",
+          "settings": {
+            "nav_label": "2024",
+            "subheading": "Today",
+            "heading": "Still <strong>growing</strong>",
+            "description": "<p>A bigger team, the same values. Thank you for being part of the story so far.</p>",
+            "button_text": "Shop now",
+            "button_link": "shopify://collections/all"
+          }
+        }
+      },
+      "block_order": ["item_1", "item_2", "item_3", "item_4", "item_5"]
+    }
+  ]
+}
+{% endschema %}

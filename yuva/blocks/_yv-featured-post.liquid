@@ -1,0 +1,356 @@
+{% doc %}
+  Yuva featured post ("Post"): one hand-picked article card of the Featured posts section.
+  Reads the section's look settings: `content_overlay` (text over the image with the "Read more"
+  button sliding up on hover, or text below the image with a date pill on the image),
+  `show_date`, `card_background`, `text_alignment` and `card_heading_size`. The image ratio comes
+  from the section (`--yv-fp-ratio`). A blank article renders a placeholder card.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign article = block.settings.article
+  assign overlay = section.settings.content_overlay
+  assign show_date = section.settings.show_date
+  assign heading_size = section.settings.card_heading_size | default: 'h6'
+  assign date_format = '%B %d, %Y'
+
+  if article != blank
+    assign post_url = article.url
+    assign post_title = article.title | escape
+    if article.excerpt != blank
+      assign post_excerpt = article.excerpt | strip_html | strip
+    else
+      assign post_excerpt = article.content | replace: '</', ' </' | strip_html | strip_newlines | truncatewords: 30 | strip
+    endif
+  else
+    assign post_url = null
+    assign post_title = 'yv.featured_posts.placeholder_title' | t
+    assign post_excerpt = 'placeholders.blog_post_description' | t
+  endif
+
+  assign block_index = section.blocks | find_index: 'id', block.id
+  assign reveal_delay = block_index | default: 0 | times: 50
+-%}
+
+<article
+  class="yv-featured-post yv-featured-post--{% if overlay %}overlay{% else %}below{% endif %}{% if section.settings.card_background and overlay == false %} yv-featured-post--card{% endif %}"
+  data-yv-reveal
+  style="--yv-reveal-delay: {{ reveal_delay }}ms;"
+  {{ block.shopify_attributes }}
+>
+  {%- capture media_content -%}
+    {%- if article.image != blank -%}
+      {{
+        article.image
+        | image_url: width: 1100
+        | image_tag:
+          widths: '300, 420, 550, 740, 900, 1100',
+          sizes: '(min-width: 1200px) 430px, (min-width: 750px) calc((100vw - 90px) / 3), 83vw',
+          loading: 'lazy',
+          alt: '',
+          class: 'yv-featured-post__image'
+      }}
+    {%- else -%}
+      {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-placeholder yv-featured-post__image' }}
+    {%- endif -%}
+  {%- endcapture -%}
+
+  {%- capture date_markup -%}
+    {%- if article != blank -%}
+      {{ article.published_at | time_tag: date_format }}
+    {%- else -%}
+      {{ 'now' | date: date_format }}
+    {%- endif -%}
+  {%- endcapture -%}
+
+  {%- capture button_markup -%}
+    {%- if post_url != blank -%}
+      <a
+        class="button-secondary yv-pill-button yv-featured-post__button"
+        href="{{ post_url }}"
+        aria-label="{{ 'yv.blog.read_more_label' | t: title: post_title }}"
+      >
+        {{- 'yv.blog.read_more' | t -}}
+      </a>
+    {%- else -%}
+      <span class="button-secondary yv-pill-button yv-featured-post__button">{{ 'yv.blog.read_more' | t }}</span>
+    {%- endif -%}
+  {%- endcapture -%}
+
+  {%- if post_url != blank -%}
+    <a
+      class="yv-media yv-featured-post__media"
+      href="{{ post_url }}"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      {{- media_content -}}
+      {%- if show_date and overlay == false -%}
+        <span class="yv-featured-post__date yv-featured-post__date--pill">{{ date_markup }}</span>
+      {%- endif -%}
+    </a>
+  {%- else -%}
+    <div class="yv-media yv-featured-post__media">
+      {{- media_content -}}
+      {%- if show_date and overlay == false -%}
+        <span class="yv-featured-post__date yv-featured-post__date--pill">{{ date_markup }}</span>
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+
+  <div class="yv-featured-post__body">
+    <div class="yv-featured-post__text">
+      {%- if show_date and overlay -%}
+        <p class="yv-featured-post__date">{{ date_markup }}</p>
+      {%- endif -%}
+      <h3 class="yv-featured-post__title {{ heading_size }}">
+        {%- if post_url != blank -%}
+          <a
+            class="yv-featured-post__link"
+            href="{{ post_url }}"
+          >
+            {{- post_title -}}
+          </a>
+        {%- else -%}
+          {{- post_title -}}
+        {%- endif -%}
+      </h3>
+      {%- if post_excerpt != blank -%}
+        <p class="yv-featured-post__excerpt">{{ post_excerpt }}</p>
+      {%- endif -%}
+    </div>
+    <div class="yv-featured-post__action">
+      {{- button_markup -}}
+    </div>
+  </div>
+</article>
+
+{% stylesheet %}
+  .yv-featured-post {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    text-align: var(--yv-fp-align, start);
+  }
+
+  .yv-featured-post__media {
+    --yv-media-radius: var(--yv-layout-radius, 10px);
+
+    display: block;
+    aspect-ratio: var(--yv-fp-ratio, 4 / 3);
+    border: var(--yv-post-image-border, 0 none);
+  }
+
+  .yv-featured-post__media .yv-featured-post__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .yv-featured-post__image {
+      transition: transform 1s var(--yv-ease-out, ease);
+    }
+
+    .yv-featured-post:hover .yv-featured-post__image {
+      transform: scale(1.1);
+    }
+  }
+
+  .yv-featured-post__date {
+    margin: 0;
+    font-size: var(--yv-text-sm, 11.52px);
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .yv-featured-post__date--pill {
+    position: absolute;
+    inset-block-end: 10px;
+    inset-inline-start: 10px;
+    z-index: 1;
+    padding: 6px 10px 5px;
+    border-radius: 20px;
+    background: #fff;
+    color: #000;
+  }
+
+  .yv-featured-post__title {
+    margin: 0;
+    padding-block-end: 10px;
+    overflow-wrap: anywhere;
+  }
+
+  .yv-featured-post__link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .yv-featured-post__link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .yv-featured-post__excerpt {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    font-size: var(--yv-text-md, 13.44px);
+    line-height: 1.6;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .yv-featured-post__action {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    margin-block-start: 20px;
+    justify-content: var(--yv-fp-justify, flex-start);
+  }
+
+  .yv-featured-post__button {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Below the image (Yuva blog card). */
+  .yv-featured-post--below .yv-featured-post__body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: space-between;
+    padding-block-start: 15px;
+  }
+
+  .yv-featured-post--card {
+    overflow: hidden;
+    border-radius: var(--yv-layout-radius, 10px);
+    background: var(--yv-card-bg, var(--color-background));
+  }
+
+  .yv-featured-post--card .yv-featured-post__media {
+    --yv-media-radius: 0;
+  }
+
+  .yv-featured-post--card .yv-featured-post__body {
+    padding: 20px;
+  }
+
+  /* Overlay (text over the image, button slides up on hover). */
+  .yv-featured-post--overlay {
+    overflow: hidden;
+    border-radius: var(--yv-layout-radius, 10px);
+    background: var(--yv-image-bg, #f3efec);
+    color: #fff;
+  }
+
+  .yv-featured-post--overlay .yv-featured-post__media {
+    --yv-media-radius: 0;
+  }
+
+  .yv-featured-post--overlay .yv-featured-post__body {
+    position: absolute;
+    inset: auto 0 0;
+    z-index: 1;
+    padding: 50px 15px 15px;
+    background: linear-gradient(0deg, rgb(0 0 0 / 0.85) 0, rgb(0 0 0 / 0) 100%);
+    pointer-events: none;
+  }
+
+  .yv-featured-post--overlay .yv-featured-post__link,
+  .yv-featured-post--overlay .yv-featured-post__action {
+    pointer-events: auto;
+  }
+
+  .yv-featured-post--overlay .yv-featured-post__title {
+    color: #fff;
+  }
+
+  .yv-featured-post--overlay .yv-featured-post__date {
+    margin-block-end: 4px;
+    letter-spacing: 1px;
+  }
+
+  .yv-featured-post--overlay .yv-featured-post__action {
+    margin-block-start: 15px;
+  }
+
+  .yv-featured-post--overlay .yv-featured-post__button {
+    --button-color: #000;
+    --button-background-color: #fff;
+    --button-border-color: #fff;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-featured-post--below .yv-featured-post__body {
+      padding-block-start: 20px;
+    }
+
+    .yv-featured-post--overlay {
+      border-radius: 0;
+    }
+
+    .yv-featured-post--overlay .yv-featured-post__body {
+      padding: 60px 25px 25px;
+    }
+
+    .yv-featured-post--overlay .yv-featured-post__action {
+      margin-block-start: 20px;
+    }
+  }
+
+  /* Hover devices: the overlay text rests low with the button hidden under the card edge. */
+  @media screen and (min-width: 750px) and (hover: hover) {
+    .yv-featured-post--overlay .yv-featured-post__body {
+      translate: 0 calc(var(--yv-fp-button-height, 32px) + 25px);
+      transition: translate 0.6s ease;
+    }
+
+    .yv-featured-post--overlay .yv-featured-post__action {
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+
+    .yv-featured-post--overlay:is(:hover, :focus-within) .yv-featured-post__body {
+      translate: 0 0;
+    }
+
+    .yv-featured-post--overlay:is(:hover, :focus-within) .yv-featured-post__action {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yv-featured-post--overlay .yv-featured-post__body,
+    .yv-featured-post--overlay .yv-featured-post__action {
+      transition: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.featured_post",
+  "tag": null,
+  "settings": [
+    {
+      "type": "article",
+      "id": "article",
+      "label": "t:yv.featured_posts.settings.article"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.featured_post"
+    }
+  ]
+}
+{% endschema %}

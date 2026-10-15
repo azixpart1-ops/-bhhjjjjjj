@@ -1,0 +1,819 @@
+{% comment %}
+  Section contract: yv-news-ticker
+  Yuva "News ticker" (the infinite text loop): one or two full-bleed rows of promotional text,
+  each an independent seamless marquee (snippets/yv-marquee.liquid) with its own font family,
+  direction, sizes and colours. Bold words render as outlined text. Optional separator glyph
+  between repeats, hairline top/bottom borders, and a background colour, gradient, image or
+  Shopify-hosted video with an overlay and minimum heights.
+  Shared settings: visibility, spacing (borders use the shared classes with their own width).
+  @example
+  Theme editor > Add section > Text > "News ticker"
+{% endcomment %}
+
+{%- liquid
+  render 'contrast-override', background_color: section.settings.color_bg, text_color: section.settings.color_heading, section_id: section.id
+
+  assign has_image = false
+  if section.settings.bg_image != blank
+    assign has_image = true
+  endif
+  assign has_video = false
+  if section.settings.bg_video != blank
+    assign has_video = true
+  endif
+  assign has_media = false
+  if has_image or has_video
+    assign has_media = true
+  endif
+
+  assign border_width = '1px'
+  if section.settings.border_width == 'thick'
+    assign border_width = '3px'
+  endif
+
+  case section.settings.separator
+    when 'dash'
+      assign separator_html = '-'
+    when 'slash'
+      assign separator_html = '/'
+    when 'dot'
+      assign separator_html = '<svg class="yv-news-ticker__glyph yv-news-ticker__glyph--dot" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="5"/></svg>'
+    when 'star'
+      assign separator_html = '<svg class="yv-news-ticker__glyph" viewBox="0 0 24 24" focusable="false"><path d="M12 0c.9 7.4 4.6 11.1 12 12-7.4.9-11.1 4.6-12 12-.9-7.4-4.6-11.1-12-12 7.4-.9 11.1-4.6 12-12z"/></svg>'
+    when 'sunburst'
+      capture separator_html
+        echo '<svg class="yv-news-ticker__glyph" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="2.6"/>'
+        for angle in (0..7)
+          assign rotation = angle | times: 45
+          echo '<ellipse cx="12" cy="5.2" rx="1.9" ry="4.4" transform="rotate(' | append: rotation | append: ' 12 12)"/>'
+        endfor
+        echo '</svg>'
+      endcapture
+    else
+      assign separator_html = ''
+  endcase
+
+  assign heading_direction = 'left'
+  if section.settings.direction_heading == 'ltr'
+    assign heading_direction = 'right'
+  endif
+  assign subheading_direction = 'left'
+  if section.settings.direction_subheading == 'ltr'
+    assign subheading_direction = 'right'
+  endif
+
+  assign heading_stroke = '1px'
+  if section.settings.size_heading_desktop >= 60
+    assign heading_stroke = '2px'
+  endif
+  assign subheading_stroke = '1px'
+  if section.settings.size_subheading_desktop >= 60
+    assign subheading_stroke = '2px'
+  endif
+
+  assign bg_gradient = section.settings.color_bg_gradient | append: '' | strip
+-%}
+
+{%- capture heading_items -%}
+  <span class="yv-news-ticker__text">{{ section.settings.heading }}</span>
+  {%- if separator_html != blank -%}
+    <span class="yv-news-ticker__separator" aria-hidden="true">{{ separator_html }}</span>
+  {%- endif -%}
+{%- endcapture -%}
+
+{%- capture subheading_items -%}
+  <span class="yv-news-ticker__text">{{ section.settings.subheading }}</span>
+  {%- if separator_html != blank -%}
+    <span class="yv-news-ticker__separator" aria-hidden="true">{{ separator_html }}</span>
+  {%- endif -%}
+{%- endcapture -%}
+
+{%- if section.settings.heading != blank or section.settings.subheading != blank -%}
+<div
+  class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"
+  {% if bg_gradient != blank %}
+    style="background: {{ bg_gradient }};"
+  {% endif %}
+></div>
+<div
+  class="section section--full-width yv-section-spacing yv-news-ticker color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% if has_media %} yv-news-ticker--media{% endif %}"
+  style="
+    {%- render 'yv-section-spacing-style', settings: section.settings -%}
+    --yv-section-border-width: {{ border_width }};
+    {%- if section.settings.color_border != blank %} --yv-border-color: {{ section.settings.color_border }};{% endif %}
+    --yv-news-ticker-spacing-d: {{ section.settings.item_spacing_desktop }}px;
+    --yv-news-ticker-spacing-m: {{ section.settings.item_spacing_mobile }}px;
+    --yv-news-ticker-min-height-d: {{ section.settings.min_height_desktop }}px;
+    --yv-news-ticker-min-height-m: {{ section.settings.min_height_mobile }}px;
+  "
+  data-testid="yv-news-ticker"
+>
+  {%- if has_media -%}
+    <div
+      class="yv-news-ticker__media"
+      aria-hidden="true"
+    >
+      {%- liquid
+        assign media_loading = 'lazy'
+        if section.index <= 2
+          assign media_loading = 'eager'
+        endif
+        assign poster = section.settings.bg_image
+        if poster == blank and has_video
+          assign poster = section.settings.bg_video.preview_image
+        endif
+      -%}
+      {%- if poster != blank -%}
+        {{
+          poster
+          | image_url: width: 2400
+          | image_tag:
+            widths: '750, 1100, 1500, 1920, 2400',
+            sizes: '100vw',
+            loading: media_loading,
+            alt: '',
+            class: 'yv-news-ticker__image'
+        }}
+      {%- endif -%}
+      {%- if has_video -%}
+        <script
+          src="{{ 'yv-autoplay-video.js' | asset_url }}"
+          type="module"
+          fetchpriority="low"
+        ></script>
+        <yv-autoplay-video-component class="yv-news-ticker__video">
+          <video
+            ref="video"
+            muted
+            loop
+            playsinline
+            preload="none"
+            {% if poster != blank %}
+              poster="{{ poster | image_url: width: 1920 }}"
+            {% endif %}
+          >
+            {%- for source in section.settings.bg_video.sources -%}
+              <source
+                data-src="{{ source.url }}"
+                type="{{ source.mime_type }}"
+              >
+            {%- endfor -%}
+          </video>
+        </yv-autoplay-video-component>
+      {%- endif -%}
+      <div
+        class="yv-overlay"
+        style="--yv-overlay-color: {{ section.settings.color_overlay }}; --yv-overlay-opacity: {{ section.settings.overlay_opacity }};"
+      ></div>
+    </div>
+  {%- endif -%}
+
+  <div class="yv-news-ticker__rows">
+    {%- if section.settings.heading != blank -%}
+      {%- capture heading_style -%}
+        --yv-news-ticker-size-d: {{ section.settings.size_heading_desktop }}px; --yv-news-ticker-size-m: {{ section.settings.size_heading_mobile }}px; --yv-news-ticker-family: var(--font-{{ section.settings.font_heading }}--family); --yv-news-ticker-font-style: var(--font-{{ section.settings.font_heading }}--style); --yv-news-ticker-color: {{ section.settings.color_heading }}; --yv-news-ticker-outline: {{ section.settings.color_heading_outline }}; --yv-news-ticker-stroke: {{ heading_stroke }};
+      {%- endcapture -%}
+      {%- assign heading_class = 'yv-news-ticker__row yv-news-ticker__row--' | append: section.settings.font_heading -%}
+      {% render 'yv-marquee',
+        content: heading_items,
+        direction: heading_direction,
+        speed: section.settings.speed,
+        pause_on_hover: section.settings.pause_on_hover,
+        class: heading_class,
+        style: heading_style
+      %}
+    {%- endif -%}
+
+    {%- if section.settings.subheading != blank -%}
+      {%- capture subheading_style -%}
+        --yv-news-ticker-size-d: {{ section.settings.size_subheading_desktop }}px; --yv-news-ticker-size-m: {{ section.settings.size_subheading_mobile }}px; --yv-news-ticker-family: var(--font-{{ section.settings.font_subheading }}--family); --yv-news-ticker-font-style: var(--font-{{ section.settings.font_subheading }}--style); --yv-news-ticker-color: {{ section.settings.color_subheading }}; --yv-news-ticker-outline: {{ section.settings.color_subheading_outline }}; --yv-news-ticker-stroke: {{ subheading_stroke }};
+      {%- endcapture -%}
+      {%- assign subheading_class = 'yv-news-ticker__row yv-news-ticker__row--' | append: section.settings.font_subheading -%}
+      {% render 'yv-marquee',
+        content: subheading_items,
+        direction: subheading_direction,
+        speed: section.settings.speed,
+        pause_on_hover: section.settings.pause_on_hover,
+        class: subheading_class,
+        style: subheading_style
+      %}
+    {%- endif -%}
+  </div>
+</div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-news-ticker {
+    --yv-news-ticker-spacing: var(--yv-news-ticker-spacing-m, 17px);
+
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .yv-news-ticker--media {
+    align-content: center;
+    min-height: var(--yv-news-ticker-min-height-m, 0px);
+  }
+
+  .yv-news-ticker__media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background-color: var(--yv-image-bg, transparent);
+  }
+
+  .yv-news-ticker__media :is(img, video),
+  .yv-news-ticker__video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yv-news-ticker__video {
+      display: none;
+    }
+  }
+
+  .yv-news-ticker__rows {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .yv-news-ticker__rows:empty {
+    display: none;
+  }
+
+  .yv-news-ticker__row {
+    font-family: var(--yv-news-ticker-family, inherit);
+    font-style: var(--yv-news-ticker-font-style, normal);
+    font-weight: 400;
+    font-size: var(--yv-news-ticker-size-m, 18px);
+    line-height: 1.2;
+    color: var(--yv-news-ticker-color, var(--color-foreground));
+    white-space: nowrap;
+  }
+
+  .yv-news-ticker__row--heading {
+    text-transform: var(--font-h2--case, none);
+  }
+
+  .yv-news-ticker__text,
+  .yv-news-ticker__separator {
+    display: block;
+    flex: none;
+    padding-inline: var(--yv-news-ticker-spacing);
+  }
+
+  .yv-news-ticker__separator {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Bold words are outlined: transparent fill, stroke in the outline colour (1px on phones). */
+  .yv-news-ticker__text :is(strong, b) {
+    font-weight: 700;
+    -webkit-text-fill-color: transparent;
+    -webkit-text-stroke: 1px var(--yv-news-ticker-outline, currentColor);
+    paint-order: stroke fill;
+  }
+
+  .yv-news-ticker__text a {
+    color: inherit;
+  }
+
+  .yv-news-ticker__glyph {
+    display: block;
+    width: 0.7em;
+    height: 0.7em;
+    fill: currentColor;
+  }
+
+  .yv-news-ticker__glyph--dot {
+    width: 0.4em;
+    height: 0.4em;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-news-ticker {
+      --yv-news-ticker-spacing: var(--yv-news-ticker-spacing-d, 53px);
+    }
+
+    .yv-news-ticker--media {
+      min-height: var(--yv-news-ticker-min-height-d, 0px);
+    }
+
+    .yv-news-ticker__row {
+      font-size: var(--yv-news-ticker-size-d, 14px);
+    }
+
+    .yv-news-ticker__text :is(strong, b) {
+      -webkit-text-stroke-width: var(--yv-news-ticker-stroke, 1px);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.news_ticker",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header"]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.text"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.news_ticker.settings.outline_info",
+      "default": "WEEKEND SALE – UP TO 50% OFF ON SELECTED ITEMS!"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading",
+      "info": "t:yv.news_ticker.settings.subheading_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.news_ticker.content.font_family"
+    },
+    {
+      "type": "select",
+      "id": "font_heading",
+      "label": "t:yv.common.settings.heading",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.news_ticker.options.headings"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        }
+      ],
+      "default": "heading"
+    },
+    {
+      "type": "select",
+      "id": "font_subheading",
+      "label": "t:yv.common.settings.subheading",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.news_ticker.options.headings"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        }
+      ],
+      "default": "body"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.news_ticker.content.direction"
+    },
+    {
+      "type": "select",
+      "id": "direction_heading",
+      "label": "t:yv.common.settings.heading",
+      "options": [
+        {
+          "value": "ltr",
+          "label": "t:yv.common.options.left_to_right"
+        },
+        {
+          "value": "rtl",
+          "label": "t:yv.common.options.right_to_left"
+        }
+      ],
+      "default": "ltr"
+    },
+    {
+      "type": "select",
+      "id": "direction_subheading",
+      "label": "t:yv.common.settings.subheading",
+      "options": [
+        {
+          "value": "ltr",
+          "label": "t:yv.common.options.left_to_right"
+        },
+        {
+          "value": "rtl",
+          "label": "t:yv.common.options.right_to_left"
+        }
+      ],
+      "default": "rtl"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.news_ticker.content.font_size"
+    },
+    {
+      "type": "range",
+      "id": "size_heading_desktop",
+      "label": "t:yv.news_ticker.settings.size_heading_desktop",
+      "min": 12,
+      "max": 120,
+      "step": 2,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "size_subheading_desktop",
+      "label": "t:yv.news_ticker.settings.size_subheading_desktop",
+      "min": 12,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "size_heading_mobile",
+      "label": "t:yv.news_ticker.settings.size_heading_mobile",
+      "min": 12,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "size_subheading_mobile",
+      "label": "t:yv.news_ticker.settings.size_subheading_mobile",
+      "min": 12,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "header",
+      "content": "t:yv.news_ticker.content.motion"
+    },
+    {
+      "type": "select",
+      "id": "separator",
+      "label": "t:yv.news_ticker.settings.separator",
+      "options": [
+        {
+          "value": "none",
+          "label": "t:yv.common.options.none"
+        },
+        {
+          "value": "dash",
+          "label": "t:yv.news_ticker.options.dash"
+        },
+        {
+          "value": "slash",
+          "label": "t:yv.news_ticker.options.slash"
+        },
+        {
+          "value": "dot",
+          "label": "t:yv.news_ticker.options.dot"
+        },
+        {
+          "value": "star",
+          "label": "t:yv.news_ticker.options.star"
+        },
+        {
+          "value": "sunburst",
+          "label": "t:yv.news_ticker.options.sunburst"
+        }
+      ],
+      "default": "dash"
+    },
+    {
+      "type": "range",
+      "id": "item_spacing_desktop",
+      "label": "t:yv.news_ticker.settings.item_spacing_desktop",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 53
+    },
+    {
+      "type": "range",
+      "id": "item_spacing_mobile",
+      "label": "t:yv.news_ticker.settings.item_spacing_mobile",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 17
+    },
+    {
+      "type": "range",
+      "id": "speed",
+      "label": "t:yv.news_ticker.settings.speed",
+      "info": "t:yv.news_ticker.settings.speed_info",
+      "min": 10,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "checkbox",
+      "id": "pause_on_hover",
+      "label": "t:yv.news_ticker.settings.pause_on_hover",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.news_ticker.content.border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_width",
+      "label": "t:yv.news_ticker.settings.border_width",
+      "options": [
+        {
+          "value": "thin",
+          "label": "t:yv.news_ticker.options.thin"
+        },
+        {
+          "value": "thick",
+          "label": "t:yv.news_ticker.options.thick"
+        }
+      ],
+      "default": "thin",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.news_ticker.content.background"
+    },
+    {
+      "type": "image_picker",
+      "id": "bg_image",
+      "label": "t:yv.common.settings.image"
+    },
+    {
+      "type": "video",
+      "id": "bg_video",
+      "label": "t:yv.news_ticker.settings.video",
+      "info": "t:yv.news_ticker.settings.video_info"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.common.settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "min_height_desktop",
+      "label": "t:yv.news_ticker.settings.min_height_desktop",
+      "info": "t:yv.news_ticker.settings.min_height_info",
+      "min": 0,
+      "max": 600,
+      "step": 10,
+      "unit": "px",
+      "default": 400
+    },
+    {
+      "type": "range",
+      "id": "min_height_mobile",
+      "label": "t:yv.news_ticker.settings.min_height_mobile",
+      "min": 0,
+      "max": 400,
+      "step": 10,
+      "unit": "px",
+      "default": 200
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_bg",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color_background",
+      "id": "color_bg_gradient",
+      "label": "t:yv.news_ticker.settings.color_bg_gradient",
+      "info": "t:yv.news_ticker.settings.color_bg_gradient_info"
+    },
+    {
+      "type": "color",
+      "id": "color_heading",
+      "label": "t:yv.common.settings.heading_color",
+      "default": "#1A1A1A"
+    },
+    {
+      "type": "color",
+      "id": "color_heading_outline",
+      "label": "t:yv.news_ticker.settings.color_heading_outline",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_subheading",
+      "label": "t:yv.common.settings.subheading",
+      "default": "#A56748"
+    },
+    {
+      "type": "color",
+      "id": "color_subheading_outline",
+      "label": "t:yv.news_ticker.settings.color_subheading_outline",
+      "default": "#A56748"
+    },
+    {
+      "type": "color",
+      "id": "color_border",
+      "label": "t:yv.news_ticker.settings.color_border",
+      "default": "#E2E2E2"
+    },
+    {
+      "type": "color",
+      "id": "color_overlay",
+      "label": "t:yv.news_ticker.settings.color_overlay",
+      "default": "#000000"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.news_ticker",
+      "category": "t:yv.categories.text"
+    },
+    {
+      "name": "t:yv.names.news_ticker_outline",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "heading": "GRAB YOUR FAVORITE STYLES AT <strong>UP TO 70% OFF!</strong>",
+        "size_heading_desktop": 66,
+        "size_heading_mobile": 18,
+        "separator": "sunburst",
+        "item_spacing_desktop": 30,
+        "item_spacing_mobile": 17,
+        "pause_on_hover": false,
+        "border_top": false,
+        "border_bottom": true,
+        "color_border": "#EEEEEE",
+        "spacing_top_desktop": 8,
+        "spacing_bottom_desktop": 8,
+        "spacing_top_mobile": 16,
+        "spacing_bottom_mobile": 16
+      }
+    },
+    {
+      "name": "t:yv.names.news_ticker_dark",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "heading": "UNVEILING THE LATEST TRENDS JUST FOR YOU",
+        "color_bg": "#000000",
+        "color_heading": "#FFFFFF",
+        "color_heading_outline": "#FFFFFF",
+        "color_border": "#000000"
+      }
+    },
+    {
+      "name": "t:yv.names.news_ticker_two_rows",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "heading": "Free shipping <strong>on all orders</strong>",
+        "subheading": "New arrivals <strong>every week</strong>",
+        "direction_heading": "rtl",
+        "direction_subheading": "ltr",
+        "size_heading_desktop": 80,
+        "size_heading_mobile": 40,
+        "size_subheading_desktop": 40,
+        "size_subheading_mobile": 24,
+        "separator": "star",
+        "item_spacing_desktop": 24,
+        "item_spacing_mobile": 12,
+        "pause_on_hover": false,
+        "border_top": true,
+        "border_bottom": true,
+        "color_heading": "#000000",
+        "color_subheading": "#000000",
+        "color_subheading_outline": "#000000",
+        "color_border": "#000000",
+        "spacing_top_desktop": 40,
+        "spacing_bottom_desktop": 40,
+        "spacing_top_mobile": 24,
+        "spacing_bottom_mobile": 24
+      }
+    }
+  ]
+}
+{% endschema %}

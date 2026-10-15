@@ -1,0 +1,500 @@
+{% comment %}
+  Section contract: yv-sidebar-offer
+  Yuva "Sidebar offer" for the footer group (docs part 3 "Sidebar offer"; visual spec
+  05-presets-amaze-burn "offer-sidebar"). A round "Coupon" stamp (76px circle with a dashed inner
+  ring and a soft pulse) fixed to the left or right edge at a chosen height opens a small panel
+  beside it: heading, subheading and up to four offers (private blocks _yv-offer) shown one at a
+  time with prev/next buttons. The panel is a native popover (light dismiss, Escape, focus return);
+  assets/yv-popups.js (<yv-sidebar-offer-component>) adds the slider, keeps the panel inside the
+  viewport and opens it when the section or an offer is selected in the theme editor.
+  Nothing renders while "Enable sidebar" is off, on the password and gift card templates, or
+  without offers (outside the editor).
+  @example
+  Theme editor > Footer > Add section > "Sidebar offer"
+{% endcomment %}
+
+{%- liquid
+  assign show_offer = section.settings.enable_sidebar
+  if template.name == 'password' or template.name == 'gift_card'
+    assign show_offer = false
+  endif
+  if section.blocks.size == 0 and request.design_mode == false
+    assign show_offer = false
+  endif
+
+  assign panel_id = 'YvSidebarOffer-' | append: section.id
+  assign title_id = 'YvSidebarOfferTitle-' | append: section.id
+  assign button_text = section.settings.button_text | strip
+  assign button_label = button_text | default: section.settings.heading
+  if button_label == blank
+    assign button_label = 'yv.sidebar_offer.open' | t
+  endif
+  assign position_x = section.settings.position_x | default: 'left'
+  assign position_y = section.settings.position_y | default: 50
+-%}
+
+{%- if show_offer -%}
+  {%- render 'yv-color-set', set: 'primary', section_id: section.id -%}
+  <script
+    src="{{ 'yv-popups.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+
+  <yv-sidebar-offer-component
+    class="yv-sidebar-offer yv-sidebar-offer--{{ position_x }}"
+    style="--yv-offer-y: {{ position_y }}; --yv-offer-bg: {{ section.settings.color_button_bg }}; --yv-offer-text: {{ section.settings.color_button_text }};"
+    data-section-id="{{ section.id }}"
+  >
+    <div class="yv-sidebar-offer__dock yv-edge-widget">
+      <button
+        type="button"
+        class="yv-sidebar-offer__trigger"
+        popovertarget="{{ panel_id }}"
+        aria-haspopup="dialog"
+        aria-controls="{{ panel_id }}"
+        ref="trigger"
+        {% if button_text == blank %}
+          aria-label="{{ button_label | escape }}"
+        {% endif %}
+      >
+        <span
+          class="yv-sidebar-offer__ring"
+          aria-hidden="true"
+        ></span>
+        <span class="yv-sidebar-offer__label">{{ button_text | escape }}</span>
+      </button>
+    </div>
+
+    <div
+      id="{{ panel_id }}"
+      class="yv-sidebar-offer__panel color-custom-{{ section.id }}"
+      popover="auto"
+      role="dialog"
+      aria-labelledby="{{ title_id }}"
+      ref="panel"
+    >
+      <div class="yv-sidebar-offer__header">
+        <p
+          id="{{ title_id }}"
+          class="yv-sidebar-offer__title"
+        >
+          {{- section.settings.heading | default: button_label | escape -}}
+        </p>
+        {%- if section.settings.subheading != blank -%}
+          <p class="yv-sidebar-offer__subtitle">{{ section.settings.subheading | escape }}</p>
+        {%- endif -%}
+        <button
+          type="button"
+          class="yv-sidebar-offer__close"
+          popovertarget="{{ panel_id }}"
+          popovertargetaction="hide"
+          aria-label="{{ 'actions.close' | t }}"
+        >
+          {%- render 'yv-icon', name: 'close', size: 14 -%}
+        </button>
+      </div>
+
+      <div class="yv-sidebar-offer__slider">
+        <div
+          class="yv-sidebar-offer__track"
+          ref="track"
+          tabindex="-1"
+        >
+          {%- content_for 'blocks' -%}
+        </div>
+        {%- if section.blocks.size > 1 -%}
+          <div class="yv-sidebar-offer__nav">
+            <button
+              type="button"
+              class="yv-sidebar-offer__arrow"
+              aria-label="{{ 'accessibility.slideshow_previous' | t }}"
+              aria-controls="{{ panel_id }}"
+              ref="previous"
+              on:click="/previous"
+              disabled
+            >
+              {%- render 'yv-icon', name: 'chevron-left', size: 14 -%}
+            </button>
+            <button
+              type="button"
+              class="yv-sidebar-offer__arrow"
+              aria-label="{{ 'accessibility.slideshow_next' | t }}"
+              aria-controls="{{ panel_id }}"
+              ref="next"
+              on:click="/next"
+            >
+              {%- render 'yv-icon', name: 'chevron-right', size: 14 -%}
+            </button>
+          </div>
+        {%- endif -%}
+      </div>
+    </div>
+  </yv-sidebar-offer-component>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-sidebar-offer {
+    --yv-offer-edge: 20px;
+    --yv-offer-size: 76px;
+    --yv-offer-ring: 66px;
+    --yv-offer-font: 12px;
+
+    display: contents;
+  }
+
+  .yv-sidebar-offer__dock {
+    inset-block-end: calc(var(--yv-offer-y, 50) * 1%);
+  }
+
+  .yv-sidebar-offer--left .yv-sidebar-offer__dock {
+    inset-inline-start: var(--yv-offer-edge);
+  }
+
+  .yv-sidebar-offer--right .yv-sidebar-offer__dock {
+    inset-inline-end: var(--yv-offer-edge);
+  }
+
+  .yv-sidebar-offer__trigger {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: var(--yv-offer-size);
+    height: var(--yv-offer-size);
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background-color: var(--yv-offer-bg, #46c0bf);
+    color: var(--yv-offer-text, #ffffff);
+    box-shadow: 0 1px 9px rgb(0 0 0 / 0.17);
+    cursor: pointer;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+
+  .yv-sidebar-offer__ring {
+    position: absolute;
+    inset: calc((var(--yv-offer-size) - var(--yv-offer-ring)) / 2);
+    border: 1px dashed currentColor;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .yv-sidebar-offer__label {
+    display: -webkit-box;
+    max-width: calc(var(--yv-offer-ring) - 6px);
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-family: var(--font-paragraph--family);
+    font-size: var(--yv-offer-font);
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    text-transform: uppercase;
+    overflow-wrap: break-word;
+  }
+
+  .yv-sidebar-offer__trigger:focus-visible {
+    outline: 2px solid var(--yv-offer-bg, #46c0bf);
+    outline-offset: 3px;
+  }
+
+  .yv-sidebar-offer:has(.yv-sidebar-offer__panel:popover-open) .yv-sidebar-offer__trigger {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-sidebar-offer__trigger {
+      animation: yv-offer-pulse 1.6s ease-out infinite;
+    }
+  }
+
+  @keyframes yv-offer-pulse {
+    0% {
+      box-shadow: 0 1px 9px rgb(0 0 0 / 0.17), 0 0 0 0 color-mix(in srgb, var(--yv-offer-bg, #46c0bf) 30%, transparent);
+    }
+
+    100% {
+      box-shadow: 0 1px 9px rgb(0 0 0 / 0.17), 0 0 0 20px color-mix(in srgb, var(--yv-offer-bg, #46c0bf) 0%, transparent);
+    }
+  }
+
+  /* Panel (top layer popover) beside the stamp. */
+  .yv-sidebar-offer__panel {
+    position: fixed;
+    inset: auto;
+    inset-block-end: var(--yv-offer-panel-bottom, calc(var(--yv-offer-y, 50) * 1%));
+    width: min(400px, calc(100vw - var(--yv-offer-edge) * 2));
+    max-height: min(80dvh, calc(100dvh - var(--yv-offer-edge) * 2));
+    margin: 0;
+    padding: 15px 25px 10px;
+    overflow-y: auto;
+    border: 0;
+    border-radius: var(--yv-layout-radius, 10px);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.31);
+    opacity: 0;
+    translate: 0 20%;
+  }
+
+  .yv-sidebar-offer--left .yv-sidebar-offer__panel {
+    inset-inline-start: var(--yv-offer-edge);
+  }
+
+  .yv-sidebar-offer--right .yv-sidebar-offer__panel {
+    inset-inline-end: var(--yv-offer-edge);
+  }
+
+  .yv-sidebar-offer__panel:popover-open {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  .yv-sidebar-offer__panel::backdrop {
+    background: transparent;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-sidebar-offer__panel {
+      transition: opacity 0.3s linear, translate 0.3s linear, display 0.3s allow-discrete, overlay 0.3s allow-discrete;
+    }
+
+    .yv-sidebar-offer__panel:popover-open {
+      transition-delay: 0.1s;
+    }
+
+    @starting-style {
+      .yv-sidebar-offer__panel:popover-open {
+        opacity: 0;
+        translate: 0 20%;
+      }
+    }
+  }
+
+  .yv-sidebar-offer__header {
+    position: relative;
+    padding-inline-end: 30px;
+    margin-block-end: 12px;
+  }
+
+  .yv-sidebar-offer__title {
+    margin: 0;
+    color: var(--yv-heading-color, var(--color-foreground));
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: var(--font-heading--weight);
+    font-size: 18px;
+    line-height: 1.25;
+    letter-spacing: var(--font-h5--letter-spacing, normal);
+  }
+
+  .yv-sidebar-offer__subtitle {
+    margin: 4px 0 0;
+    font-size: var(--font-paragraph--size);
+    opacity: 0.7;
+  }
+
+  .yv-sidebar-offer__close {
+    position: absolute;
+    inset-block-start: -3px;
+    inset-inline-end: -12px;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--yv-border-color, rgb(0 0 0 / 0.1));
+    border-radius: 50%;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    transition: background-color var(--animation-speed, 0.2s) ease;
+  }
+
+  .yv-sidebar-offer__close:hover {
+    background-color: var(--yv-alt-bg, #f2f2f2);
+  }
+
+  .yv-sidebar-offer__track {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 100%;
+    gap: 16px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .yv-sidebar-offer__track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .yv-sidebar-offer__track:focus {
+    outline: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-sidebar-offer__track {
+      scroll-behavior: smooth;
+    }
+  }
+
+  .yv-sidebar-offer__nav {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-block-start: 8px;
+  }
+
+  .yv-sidebar-offer__arrow {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--yv-border-color, rgb(0 0 0 / 0.1));
+    border-radius: var(--yv-arrow-radius, 50%);
+    background: none;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .yv-sidebar-offer__arrow:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-sidebar-offer {
+      --yv-offer-edge: 15px;
+      --yv-offer-size: 60px;
+      --yv-offer-ring: 52px;
+      --yv-offer-font: 10px;
+    }
+
+    .yv-sidebar-offer__panel {
+      width: min(300px, calc(100vw - var(--yv-offer-edge) * 2));
+      padding: 15px 20px 10px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.sidebar_offer",
+  "tag": "div",
+  "class": "yv-sidebar-offer-section",
+  "enabled_on": {
+    "groups": ["footer"]
+  },
+  "max_blocks": 4,
+  "blocks": [
+    {
+      "type": "_yv-offer"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enable_sidebar",
+      "label": "t:yv.sidebar_offer.settings.enable",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:settings.heading",
+      "default": "Brand-new collection"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading",
+      "default": "Men collection"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text",
+      "info": "t:yv.sidebar_offer.settings.button_text_info",
+      "default": "Coupon"
+    },
+    {
+      "type": "select",
+      "id": "position_x",
+      "label": "t:settings.x_position",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "range",
+      "id": "position_y",
+      "label": "t:settings.y_position",
+      "info": "t:yv.sidebar_offer.settings.position_y_info",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "color",
+      "id": "color_button_bg",
+      "label": "t:yv.common.settings.button_background",
+      "default": "#46C0BF"
+    },
+    {
+      "type": "color",
+      "id": "color_button_text",
+      "label": "t:yv.common.settings.button_text_color",
+      "default": "#FFFFFF"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.sidebar_offer",
+      "category": "t:yv.categories.promotional",
+      "settings": {
+        "enable_sidebar": true
+      },
+      "blocks": {
+        "offer_1": {
+          "type": "_yv-offer",
+          "settings": {
+            "heading": "Summer",
+            "highlighted_text": "10% off",
+            "link_text": "Shop now",
+            "link": "shopify://collections/all"
+          }
+        },
+        "offer_2": {
+          "type": "_yv-offer",
+          "settings": {
+            "heading": "New season",
+            "highlighted_text": "20% off",
+            "link_text": "Shop now",
+            "link": "shopify://collections/all"
+          }
+        }
+      },
+      "block_order": ["offer_1", "offer_2"]
+    }
+  ]
+}
+{% endschema %}

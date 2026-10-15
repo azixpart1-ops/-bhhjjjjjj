@@ -1,0 +1,245 @@
+{% doc %}
+  Scrolling text > Text: one marquee item. Styles: solid, outlined (transparent fill with a
+  stroke), pill (text in an outlined 30px-radius pill) or gradient fill. Bold words take the
+  highlight colour or render outlined. Own font role, desktop and mobile sizes, colour and an
+  optional link.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign text_style = block.settings.text_style | default: 'solid'
+  assign font_role = block.settings.font | default: 'body'
+  assign highlight = block.settings.highlight_color | append: '' | strip
+  assign highlight_mode = 'none'
+  if highlight != blank
+    if highlight contains 'gradient'
+      assign highlight_mode = 'gradient'
+    else
+      assign highlight_mode = 'solid'
+    endif
+  endif
+
+  assign stroke = '1px'
+  if block.settings.size_desktop >= 60
+    assign stroke = '1.5px'
+  endif
+-%}
+
+<div
+  class="yv-marquee-text yv-marquee-text--{{ text_style }} yv-marquee-text--bold-{{ block.settings.bold_style }} yv-marquee-text--hl-{{ highlight_mode }}"
+  style="--yv-marquee-text-family: var(--font-{{ font_role }}--family); --yv-marquee-text-style: var(--font-{{ font_role }}--style); --yv-marquee-text-size-d: {{ block.settings.size_desktop }}px; --yv-marquee-text-size-m: {{ block.settings.size_mobile }}px; --yv-marquee-text-stroke: {{ stroke }};{% if block.settings.color != blank %} --yv-marquee-text-color: {{ block.settings.color }};{% endif %}{% if highlight != blank %} --yv-marquee-text-highlight: {{ highlight }};{% endif %}"
+  {{ block.shopify_attributes }}
+>
+  {%- if block.settings.link != blank -%}
+    <a
+      class="yv-marquee-text__inner yv-marquee-text__link"
+      href="{{ block.settings.link }}"
+    >
+      {{- block.settings.text -}}
+    </a>
+  {%- else -%}
+    <span class="yv-marquee-text__inner">{{ block.settings.text }}</span>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .yv-marquee-text {
+    display: flex;
+    align-items: center;
+    font-family: var(--yv-marquee-text-family, var(--font-body--family));
+    font-style: var(--yv-marquee-text-style, normal);
+    font-weight: 400;
+    font-size: var(--yv-marquee-text-size-m, 22px);
+    line-height: 1.4;
+    color: var(--yv-marquee-text-color, currentColor);
+    white-space: nowrap;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-marquee-text {
+      font-size: var(--yv-marquee-text-size-d, 40px);
+    }
+  }
+
+  .yv-marquee-text__inner {
+    display: block;
+    color: inherit;
+  }
+
+  .yv-marquee-text__link {
+    text-decoration: none;
+  }
+
+  .yv-marquee-text__link:hover {
+    color: inherit;
+  }
+
+  /* Bold words: highlight colour (solid or gradient), or outlined. */
+  .yv-marquee-text--bold-highlight :is(strong, b) {
+    font-weight: inherit;
+  }
+
+  .yv-marquee-text--bold-highlight.yv-marquee-text--hl-solid :is(strong, b),
+  .yv-marquee-text--gradient.yv-marquee-text--hl-solid .yv-marquee-text__inner {
+    color: var(--yv-marquee-text-highlight);
+  }
+
+  .yv-marquee-text--bold-highlight.yv-marquee-text--hl-gradient :is(strong, b),
+  .yv-marquee-text--gradient.yv-marquee-text--hl-gradient .yv-marquee-text__inner {
+    background-image: var(--yv-marquee-text-highlight);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Outlines keep `color` (the stroke uses currentColor) and only hide the fill. 1px on phones. */
+  .yv-marquee-text--bold-outline :is(strong, b) {
+    font-weight: 700;
+    -webkit-text-fill-color: transparent;
+    -webkit-text-stroke: 1px currentColor;
+    paint-order: stroke fill;
+  }
+
+  /* Outlined: the whole text is a stroke; bold words stay filled. */
+  .yv-marquee-text--outline .yv-marquee-text__inner {
+    -webkit-text-fill-color: transparent;
+    -webkit-text-stroke: 1px currentColor;
+    paint-order: stroke fill;
+  }
+
+  .yv-marquee-text--outline :is(strong, b) {
+    font-weight: inherit;
+    -webkit-text-fill-color: currentColor;
+    -webkit-text-stroke: 0;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-marquee-text--bold-outline :is(strong, b),
+    .yv-marquee-text--outline .yv-marquee-text__inner {
+      -webkit-text-stroke-width: var(--yv-marquee-text-stroke, 1px);
+    }
+  }
+
+  /* Pill ("bullet highlight"): 1px outline, 30px radius. */
+  .yv-marquee-text--pill .yv-marquee-text__inner {
+    padding: 5px 20px;
+    border: 1px solid currentColor;
+    border-radius: 30px;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.marquee_text",
+  "tag": null,
+  "settings": [
+    {
+      "type": "inline_richtext",
+      "id": "text",
+      "label": "t:yv.common.settings.text",
+      "info": "t:yv.scrolling_text.settings.text_info",
+      "default": "Deals That Power You"
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "t:yv.common.settings.link"
+    },
+    {
+      "type": "select",
+      "id": "text_style",
+      "label": "t:yv.scrolling_text.settings.text_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "outline",
+          "label": "t:yv.common.options.outline"
+        },
+        {
+          "value": "pill",
+          "label": "t:yv.scrolling_text.options.pill"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "solid"
+    },
+    {
+      "type": "select",
+      "id": "bold_style",
+      "label": "t:yv.scrolling_text.settings.bold_style",
+      "options": [
+        {
+          "value": "highlight",
+          "label": "t:yv.scrolling_text.options.highlight_color"
+        },
+        {
+          "value": "outline",
+          "label": "t:yv.common.options.outline"
+        }
+      ],
+      "default": "highlight"
+    },
+    {
+      "type": "select",
+      "id": "font",
+      "label": "t:yv.scrolling_text.settings.font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "body"
+    },
+    {
+      "type": "range",
+      "id": "size_desktop",
+      "label": "t:yv.scrolling_text.settings.size_desktop",
+      "min": 12,
+      "max": 150,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "size_mobile",
+      "label": "t:yv.scrolling_text.settings.size_mobile",
+      "min": 10,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 22
+    },
+    {
+      "type": "color",
+      "id": "color",
+      "label": "t:yv.common.settings.text_color"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "info": "t:yv.scrolling_text.settings.highlight_color_info",
+      "default": "linear-gradient(90deg, rgba(166, 120, 200, 1) 0%, rgba(113, 140, 199, 1) 48%, rgba(99, 154, 71, 1) 100%)"
+    }
+  ]
+}
+{% endschema %}

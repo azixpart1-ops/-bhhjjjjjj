@@ -1,0 +1,159 @@
+{% comment %}
+  Section contract: yv-spacer
+  Yuva "Spacer": blank vertical space with separate desktop and mobile heights, painted in a
+  colour set or a custom colour. At 1–2px with a custom colour it draws a hairline divider (the
+  Yuva preset uses 1px #E7E7E7 under the icon strip). Decorative: aria-hidden. At 0px it stays
+  selectable in the theme editor as a thin dashed strip.
+  Shared settings: color set (overridden by Custom color).
+  @example
+  Theme editor > Add section > Layout > "Spacer"
+{% endcomment %}
+
+{%- liquid
+  if section.settings.custom_color != blank and section.settings.custom_color.alpha != 0
+    render 'contrast-override', background_color: section.settings.custom_color, section_id: section.id
+  else
+    render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+  endif
+-%}
+
+<div class="section-background color-custom-{{ section.id }}"></div>
+<div
+  class="section section--full-width yv-spacer color-custom-{{ section.id }}{% if section.settings.height_mobile == 0 %} yv-spacer--empty-mobile{% endif %}{% if section.settings.height_desktop == 0 %} yv-spacer--empty-desktop{% endif %}"
+  style="--yv-spacer-height-desktop: {{ section.settings.height_desktop }}px; --yv-spacer-height-mobile: {{ section.settings.height_mobile }}px;"
+  aria-hidden="true"
+>
+  {%- if request.design_mode -%}
+    <span class="yv-spacer__editor-hint"></span>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .yv-spacer {
+    position: relative;
+    display: block;
+    height: var(--yv-spacer-height-mobile, 30px);
+    padding: 0;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-spacer {
+      height: var(--yv-spacer-height-desktop, 50px);
+    }
+  }
+
+  /* Theme editor only: keep a 0px spacer selectable. */
+  .yv-spacer__editor-hint {
+    display: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-spacer--empty-mobile .yv-spacer__editor-hint {
+      display: block;
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-spacer--empty-desktop .yv-spacer__editor-hint {
+      display: block;
+    }
+  }
+
+  .yv-spacer__editor-hint {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: -4px;
+    height: 8px;
+    outline: 1px dashed rgb(var(--color-foreground-rgb) / var(--opacity-30, 0.3));
+    outline-offset: -1px;
+    pointer-events: none;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.spacer",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header"]
+  },
+  "settings": [
+    {
+      "type": "range",
+      "id": "height_desktop",
+      "label": "t:yv.common.settings.desktop_height",
+      "info": "t:yv.spacer.settings.height_desktop_info",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "height_mobile",
+      "label": "t:yv.common.settings.mobile_height",
+      "info": "t:yv.spacer.settings.height_mobile_info",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "color",
+      "id": "custom_color",
+      "label": "t:yv.spacer.settings.custom_color",
+      "info": "t:yv.spacer.settings.custom_color_info"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.spacer",
+      "category": "t:yv.categories.layout"
+    },
+    {
+      "name": "t:yv.names.divider_line",
+      "category": "t:yv.categories.layout",
+      "settings": {
+        "height_desktop": 1,
+        "height_mobile": 1,
+        "custom_color": "#E7E7E7"
+      }
+    }
+  ]
+}
+{% endschema %}

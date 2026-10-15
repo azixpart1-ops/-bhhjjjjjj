@@ -1,0 +1,598 @@
+{% comment %}
+  Section contract: yv-image-gallery
+  Yuva "Image gallery": up to six linked image boxes (private blocks `_yv-gallery-image`), each with a
+  heading and a subheading laid over the bottom of the image, under an optional highlight heading.
+  Three columns on large screens, two on tablets, one on phones (or a swipe row of 80% cards when
+  "Enable swipe on mobile" is on). Optional dotted outline around each box on desktop, landscape,
+  portrait or square boxes, bottom-left or bottom-centre text, a bottom gradient for legibility and
+  a slow image zoom on hover. Shared settings: section border, heading, colour set, visibility,
+  spacing.
+  @example
+  Theme editor > Add section > Media > "Image gallery"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign section_class = 'yv-image-gallery yv-image-gallery--' | append: section.settings.image_ratio
+  if section.settings.dotted_outline
+    assign section_class = section_class | append: ' yv-image-gallery--outline'
+  endif
+  if section.settings.mobile_swipe
+    assign section_class = section_class | append: ' yv-image-gallery--swipe'
+  endif
+
+  assign heading_alignment = section.settings.heading_alignment | default: 'center'
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing {{ section_class }} color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-image-gallery"
+>
+  <div class="yv-container yv-container--page yv-image-gallery__inner">
+    {%- if section.settings.heading != blank or section.settings.description != blank -%}
+      {% render 'yv-heading',
+        text: section.settings.heading,
+        tag: section.settings.heading_tag,
+        size: section.settings.heading_size,
+        highlight_font: section.settings.highlight_font,
+        highlight_color: section.settings.highlight_color,
+        description: section.settings.description,
+        alignment: heading_alignment,
+        class: 'yv-image-gallery__heading',
+        reveal: true
+      %}
+    {%- endif -%}
+
+    {%- if section.blocks.size > 0 -%}
+      <div class="yv-image-gallery__grid">
+        {%- content_for 'blocks' -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-image-gallery {
+    --yv-image-gallery-gap: 12px;
+    --yv-image-gallery-ratio: 484 / 284;
+  }
+
+  .yv-image-gallery--portrait {
+    --yv-image-gallery-ratio: 5 / 6;
+  }
+
+  .yv-image-gallery--square {
+    --yv-image-gallery-ratio: 1 / 1;
+  }
+
+  .yv-image-gallery__inner {
+    min-width: 0;
+  }
+
+  .yv-image-gallery__heading {
+    --yv-heading-description-width: 760px;
+
+    margin-block-end: 30px;
+  }
+
+  .yv-image-gallery__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--yv-image-gallery-gap);
+  }
+
+  /* Phones: a swipe row of 80% cards bleeding to the screen edges, no snap and no controls. */
+  @media screen and (max-width: 749px) {
+    .yv-image-gallery--swipe .yv-image-gallery__grid {
+      --yv-image-gallery-gap: 20px;
+
+      display: flex;
+      margin-inline: calc(var(--page-margin, 20px) * -1);
+      padding-inline: var(--page-margin, 20px);
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+    }
+
+    .yv-image-gallery--swipe .yv-image-gallery__grid::-webkit-scrollbar {
+      display: none;
+    }
+
+    .yv-image-gallery--swipe .yv-image-gallery__grid > * {
+      flex: 0 0 80%;
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-image-gallery {
+      --yv-image-gallery-gap: 20px;
+    }
+
+    .yv-image-gallery__heading {
+      margin-block-end: 40px;
+    }
+
+    .yv-image-gallery__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* Room for the dotted outline that sits 8px outside each box. */
+    .yv-image-gallery--outline .yv-image-gallery__grid {
+      gap: calc(var(--yv-image-gallery-gap) + 16px);
+      padding: 9px;
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-image-gallery__grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.image_gallery",
+  "class": "yv-image-gallery-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-gallery-image"
+    }
+  ],
+  "max_blocks": 6,
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "Brand-new <strong>collection</strong>"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "select",
+      "id": "heading_alignment",
+      "label": "t:yv.common.settings.alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.layout"
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "label": "t:yv.image_gallery.settings.image_ratio",
+      "options": [
+        {
+          "value": "landscape",
+          "label": "t:yv.image_gallery.options.landscape"
+        },
+        {
+          "value": "portrait",
+          "label": "t:yv.image_gallery.options.portrait"
+        },
+        {
+          "value": "square",
+          "label": "t:yv.common.options.square"
+        }
+      ],
+      "default": "landscape"
+    },
+    {
+      "type": "select",
+      "id": "text_position",
+      "label": "t:yv.image_gallery.settings.text_position",
+      "options": [
+        {
+          "value": "bottom_left",
+          "label": "t:yv.common.options.bottom_left"
+        },
+        {
+          "value": "bottom_center",
+          "label": "t:yv.common.options.bottom_center"
+        }
+      ],
+      "default": "bottom_left"
+    },
+    {
+      "type": "select",
+      "id": "box_heading_size",
+      "label": "t:yv.image_gallery.settings.box_heading_size",
+      "options": [
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        }
+      ],
+      "default": "h5"
+    },
+    {
+      "type": "range",
+      "id": "gradient_opacity",
+      "label": "t:yv.image_gallery.settings.gradient_opacity",
+      "info": "t:yv.image_gallery.settings.gradient_opacity_info",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 35
+    },
+    {
+      "type": "checkbox",
+      "id": "dotted_outline",
+      "label": "t:yv.image_gallery.settings.dotted_outline",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "mobile_swipe",
+      "label": "t:yv.gallery_carousel.settings.mobile_swipe",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.image_gallery",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "heading": "Observe Motion of <strong>luxury brands</strong>",
+        "heading_size": "large",
+        "highlight_font": "heading",
+        "highlight_color": "linear-gradient(90deg, #B50F0C 0%, #985E58 48.08%, #639A47 100%)",
+        "image_ratio": "portrait",
+        "text_position": "bottom_center",
+        "box_heading_size": "h2",
+        "gradient_opacity": 30,
+        "dotted_outline": false,
+        "mobile_swipe": true,
+        "spacing_top_desktop": 40,
+        "spacing_bottom_desktop": 48,
+        "spacing_top_mobile": 40,
+        "spacing_bottom_mobile": 24
+      },
+      "blocks": {
+        "gallery_listening": {
+          "type": "_yv-gallery-image",
+          "settings": {
+            "heading": "Smart Listening",
+            "link": "shopify://collections/all"
+          }
+        },
+        "gallery_lifestyle": {
+          "type": "_yv-gallery-image",
+          "settings": {
+            "heading": "Electric Lifestyle",
+            "link": "shopify://collections/all"
+          }
+        },
+        "gallery_devices": {
+          "type": "_yv-gallery-image",
+          "settings": {
+            "heading": "Digital Devices",
+            "link": "shopify://collections/all"
+          }
+        }
+      },
+      "block_order": ["gallery_listening", "gallery_lifestyle", "gallery_devices"]
+    },
+    {
+      "name": "t:yv.names.image_gallery_grid",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "heading": "Brand-new <strong>collection</strong>",
+        "image_ratio": "landscape",
+        "text_position": "bottom_left",
+        "box_heading_size": "h5",
+        "dotted_outline": true
+      },
+      "blocks": {
+        "image_1": {
+          "type": "_yv-gallery-image",
+          "settings": {
+            "heading": "Men collection",
+            "subheading": "Shop now",
+            "link": "shopify://collections/all"
+          }
+        },
+        "image_2": {
+          "type": "_yv-gallery-image",
+          "settings": {
+            "heading": "Women collection",
+            "subheading": "Shop now",
+            "link": "shopify://collections/all"
+          }
+        },
+        "image_3": {
+          "type": "_yv-gallery-image",
+          "settings": {
+            "heading": "Accessories",
+            "subheading": "Shop now",
+            "link": "shopify://collections/all"
+          }
+        },
+        "image_4": {
+          "type": "_yv-gallery-image",
+          "settings": {
+            "heading": "New arrivals",
+            "subheading": "Shop now",
+            "link": "shopify://collections/all"
+          }
+        },
+        "image_5": {
+          "type": "_yv-gallery-image",
+          "settings": {
+            "heading": "Best sellers",
+            "subheading": "Shop now",
+            "link": "shopify://collections/all"
+          }
+        },
+        "image_6": {
+          "type": "_yv-gallery-image",
+          "settings": {
+            "heading": "Gift ideas",
+            "subheading": "Shop now",
+            "link": "shopify://collections/all"
+          }
+        }
+      },
+      "block_order": ["image_1", "image_2", "image_3", "image_4", "image_5", "image_6"]
+    }
+  ]
+}
+{% endschema %}

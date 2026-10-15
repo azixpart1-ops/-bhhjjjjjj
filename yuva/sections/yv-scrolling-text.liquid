@@ -1,0 +1,521 @@
+{% comment %}
+  Section contract: yv-scrolling-text
+  Yuva "Scrolling text" (marquee): one full-bleed row of text items (`_yv-marquee-text`: solid,
+  outlined, pill or gradient text) and image or doodle-icon items (`_yv-marquee-image`, also
+  used for logo tickers) that loops seamlessly (snippets/yv-marquee.liquid). Direction, speed,
+  pause on hover, item spacing, an optional strip colour and a slight rotation are set on the
+  section; hairline borders top and bottom come from the shared section border.
+  Shared settings: section border (+ colour), color set, visibility, spacing.
+  @example
+  Theme editor > Add section > Text > "Scrolling text"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign rotation = section.settings.rotation | default: 0
+  assign is_rotated = false
+  if rotation != 0
+    assign is_rotated = true
+  endif
+-%}
+
+{%- capture items -%}
+  {%- content_for 'blocks' -%}
+{%- endcapture -%}
+
+{%- if section.blocks.size > 0 -%}
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--full-width yv-section-spacing yv-scrolling-text color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% if is_rotated %} yv-scrolling-text--rotated{% endif %}"
+  style="
+    {%- render 'yv-section-spacing-style', settings: section.settings -%}
+    {%- if section.settings.color_border != blank %} --yv-border-color: {{ section.settings.color_border }};{% endif %}
+    --yv-scrolling-text-gap-d: {{ section.settings.item_spacing_desktop }}px;
+    --yv-scrolling-text-gap-m: {{ section.settings.item_spacing_mobile }}px;
+    --yv-scrolling-text-py: {{ section.settings.vertical_spacing }}px;
+    --yv-scrolling-text-rotation: {{ rotation }}deg;
+    {%- if section.settings.color_strip != blank %} --yv-scrolling-text-strip: {{ section.settings.color_strip }};{% endif %}
+  "
+  data-testid="yv-scrolling-text"
+>
+  <div class="yv-scrolling-text__strip{% if section.settings.color_strip != blank %} yv-scrolling-text__strip--filled{% endif %}">
+    {% render 'yv-marquee',
+      content: items,
+      direction: section.settings.direction,
+      speed: section.settings.speed,
+      pause_on_hover: section.settings.pause_on_hover,
+      class: 'yv-scrolling-text__marquee'
+    %}
+  </div>
+</div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-scrolling-text {
+    --yv-scrolling-text-gap: var(--yv-scrolling-text-gap-m, 20px);
+
+    overflow-x: clip;
+  }
+
+  .yv-scrolling-text__strip {
+    min-width: 0;
+  }
+
+  .yv-scrolling-text__strip--filled {
+    background-color: var(--yv-scrolling-text-strip);
+  }
+
+  .yv-scrolling-text--rotated .yv-scrolling-text__strip {
+    width: 110%;
+    max-width: none;
+    margin-inline: -5%;
+    transform: rotate(var(--yv-scrolling-text-rotation, 0deg));
+  }
+
+  .yv-scrolling-text__marquee .yv-marquee__group > * {
+    flex: none;
+    padding: var(--yv-scrolling-text-py, 15px) calc(var(--yv-scrolling-text-gap) / 2);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-scrolling-text {
+      --yv-scrolling-text-gap: var(--yv-scrolling-text-gap-d, 40px);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.scrolling_text",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header"]
+  },
+  "max_blocks": 12,
+  "blocks": [
+    {
+      "type": "_yv-marquee-text"
+    },
+    {
+      "type": "_yv-marquee-image"
+    }
+  ],
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "color",
+      "id": "color_border",
+      "label": "t:yv.scrolling_text.settings.color_border",
+      "default": "#000000",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.scrolling_text.content.motion"
+    },
+    {
+      "type": "select",
+      "id": "direction",
+      "label": "t:yv.scrolling_text.settings.direction",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.right_to_left"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.left_to_right"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "range",
+      "id": "speed",
+      "label": "t:yv.news_ticker.settings.speed",
+      "info": "t:yv.news_ticker.settings.speed_info",
+      "min": 10,
+      "max": 200,
+      "step": 2,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "checkbox",
+      "id": "pause_on_hover",
+      "label": "t:yv.news_ticker.settings.pause_on_hover",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "rotation",
+      "label": "t:yv.scrolling_text.settings.rotation",
+      "info": "t:yv.scrolling_text.settings.rotation_info",
+      "min": -10,
+      "max": 10,
+      "step": 1,
+      "unit": "°",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.layout"
+    },
+    {
+      "type": "range",
+      "id": "item_spacing_desktop",
+      "label": "t:yv.scrolling_text.settings.item_spacing_desktop",
+      "min": 0,
+      "max": 160,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "item_spacing_mobile",
+      "label": "t:yv.scrolling_text.settings.item_spacing_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "vertical_spacing",
+      "label": "t:yv.scrolling_text.settings.vertical_spacing",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "px",
+      "default": 15
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "color",
+      "id": "color_strip",
+      "label": "t:yv.scrolling_text.settings.color_strip",
+      "info": "t:yv.scrolling_text.settings.color_strip_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.scrolling_text",
+      "category": "t:yv.categories.text",
+      "blocks": {
+        "text_1": {
+          "type": "_yv-marquee-text",
+          "settings": {
+            "text": "Deals That Power You"
+          }
+        },
+        "icon_1": {
+          "type": "_yv-marquee-image",
+          "settings": {
+            "icon": "dots_ring"
+          }
+        },
+        "text_2": {
+          "type": "_yv-marquee-text",
+          "settings": {
+            "text": "Powering Your Digital Life"
+          }
+        },
+        "icon_2": {
+          "type": "_yv-marquee-image",
+          "settings": {
+            "icon": "waves"
+          }
+        },
+        "text_3": {
+          "type": "_yv-marquee-text",
+          "settings": {
+            "text": "Smart Tech Better Prices"
+          }
+        },
+        "icon_3": {
+          "type": "_yv-marquee-image",
+          "settings": {
+            "icon": "rings"
+          }
+        }
+      },
+      "block_order": ["text_1", "icon_1", "text_2", "icon_2", "text_3", "icon_3"]
+    },
+    {
+      "name": "t:yv.names.scrolling_pills",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "border_top": false,
+        "border_bottom": false,
+        "direction": "left",
+        "speed": 22,
+        "item_spacing_desktop": 10,
+        "item_spacing_mobile": 10,
+        "vertical_spacing": 0,
+        "spacing_top_mobile": 20,
+        "spacing_bottom_mobile": 16
+      },
+      "blocks": {
+        "text_1": {
+          "type": "_yv-marquee-text",
+          "settings": {
+            "text": "SHOP THE FEED",
+            "text_style": "pill",
+            "size_desktop": 34,
+            "size_mobile": 18,
+            "color": "#323A45"
+          }
+        },
+        "text_2": {
+          "type": "_yv-marquee-text",
+          "settings": {
+            "text": "POWERED BY TECH",
+            "text_style": "pill",
+            "size_desktop": 34,
+            "size_mobile": 18,
+            "color": "#323A45"
+          }
+        },
+        "text_3": {
+          "type": "_yv-marquee-text",
+          "settings": {
+            "text": "SMART LIVING",
+            "text_style": "pill",
+            "size_desktop": 34,
+            "size_mobile": 18,
+            "color": "#323A45"
+          }
+        }
+      },
+      "block_order": ["text_1", "text_2", "text_3"]
+    },
+    {
+      "name": "t:yv.names.scrolling_outline",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "border_top": false,
+        "direction": "right",
+        "speed": 40,
+        "color_border": "#EEEEEE",
+        "item_spacing_desktop": 60,
+        "item_spacing_mobile": 34,
+        "vertical_spacing": 10
+      },
+      "blocks": {
+        "text_1": {
+          "type": "_yv-marquee-text",
+          "settings": {
+            "text": "GRAB YOUR FAVORITE STYLES AT <strong>UP TO 70% OFF!</strong>",
+            "bold_style": "outline",
+            "font": "heading",
+            "size_desktop": 66,
+            "size_mobile": 18
+          }
+        },
+        "icon_1": {
+          "type": "_yv-marquee-image",
+          "settings": {
+            "icon": "sunburst",
+            "width_desktop": 54,
+            "width_mobile": 18
+          }
+        }
+      },
+      "block_order": ["text_1", "icon_1"]
+    },
+    {
+      "name": "t:yv.names.logo_ticker",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "border_top": false,
+        "border_bottom": false,
+        "direction": "left",
+        "speed": 36,
+        "item_spacing_desktop": 14,
+        "item_spacing_mobile": 14,
+        "vertical_spacing": 0,
+        "color_set": "secondary",
+        "spacing_top_desktop": 20,
+        "spacing_bottom_desktop": 16,
+        "spacing_top_mobile": 20,
+        "spacing_bottom_mobile": 12
+      },
+      "blocks": {
+        "logo_1": {
+          "type": "_yv-marquee-image",
+          "settings": {
+            "icon": "none",
+            "width_desktop": 186,
+            "width_mobile": 126
+          }
+        },
+        "logo_2": {
+          "type": "_yv-marquee-image",
+          "settings": {
+            "icon": "none",
+            "width_desktop": 186,
+            "width_mobile": 126
+          }
+        },
+        "logo_3": {
+          "type": "_yv-marquee-image",
+          "settings": {
+            "icon": "none",
+            "width_desktop": 186,
+            "width_mobile": 126
+          }
+        },
+        "logo_4": {
+          "type": "_yv-marquee-image",
+          "settings": {
+            "icon": "none",
+            "width_desktop": 186,
+            "width_mobile": 126
+          }
+        },
+        "logo_5": {
+          "type": "_yv-marquee-image",
+          "settings": {
+            "icon": "none",
+            "width_desktop": 186,
+            "width_mobile": 126
+          }
+        }
+      },
+      "block_order": ["logo_1", "logo_2", "logo_3", "logo_4", "logo_5"]
+    }
+  ]
+}
+{% endschema %}

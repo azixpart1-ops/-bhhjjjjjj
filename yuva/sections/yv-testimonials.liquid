@@ -1,0 +1,604 @@
+{% comment %}
+  Section contract: yv-testimonials
+  Yuva "Testimonials": a highlight heading (+ optional description) over a looping carousel of up
+  to five private `_yv-testimonial` quotes (snippets/yv-carousel.liquid). Two looks:
+  - Classic: centred quote, big stars, small avatar + "Author / City"; arrows on the sides.
+  - Modern: raised cards with a 50px avatar and small stars. With arrows, the heading is
+    left-aligned and the arrows sit at the right end of the heading row (Yuva rule, no setting).
+  One to three cards per view on desktop (at most two on tablets, one on phones). Arrows always
+  sit centred under the slides on phones. Dots: a centred pill row under the slides.
+  Shared settings: highlight heading, show top/bottom border, colour set (the Gradient set gives
+  the soft glow background), visibility, spacing.
+  @example
+  Theme editor > Add section > Storytelling > "Testimonials"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign style = section.settings.style | default: 'classic'
+  assign columns = section.settings.columns_desktop | default: '1' | plus: 0
+  assign columns_tablet = columns | at_most: 2
+  assign navigation = section.settings.navigation | default: 'arrows'
+
+  assign heading_left = false
+  if style == 'modern' and navigation == 'arrows'
+    assign heading_left = true
+  endif
+  assign heading_alignment = 'center'
+  if heading_left
+    assign heading_alignment = 'left'
+  endif
+
+  assign carousel_id = 'YvTestimonials-' | append: section.id
+  assign carousel_label = section.settings.heading | strip_html | strip
+  assign show_dots = false
+  if navigation == 'dots'
+    assign carousel_arrows = 'none'
+    assign carousel_arrows_mobile = 'none'
+    assign show_dots = true
+  elsif heading_left
+    assign carousel_arrows = 'none'
+    assign carousel_arrows_mobile = 'bottom'
+  else
+    assign carousel_arrows = 'sides'
+    assign carousel_arrows_mobile = 'bottom'
+  endif
+-%}
+
+{%- capture slides -%}
+  {%- content_for 'blocks' -%}
+{%- endcapture -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-testimonials"
+>
+  <div class="yv-container yv-container--page yv-testimonials yv-testimonials--{{ style }} yv-testimonials--cols-{{ columns }} yv-testimonials--{{ navigation }}{% if heading_left %} yv-testimonials--heading-left{% endif %}">
+    {%- if section.settings.heading != blank or section.settings.description != blank or section.settings.rotating_text != blank or heading_left -%}
+      <div class="yv-testimonials__header">
+        {% render 'yv-heading',
+          text: section.settings.heading,
+          tag: section.settings.heading_tag,
+          size: section.settings.heading_size,
+          highlight_font: section.settings.highlight_font,
+          highlight_color: section.settings.highlight_color,
+          rotating_text: section.settings.rotating_text,
+          description: section.settings.description,
+          alignment: heading_alignment,
+          class: 'yv-testimonials__heading',
+          reveal: true
+        %}
+        {%- if heading_left and section.blocks.size > 0 -%}
+          {% render 'yv-carousel-controls',
+            carousel_id: carousel_id,
+            outside: true,
+            class: 'yv-testimonials__arrows'
+          %}
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    {%- if section.blocks.size > 0 -%}
+      {% render 'yv-carousel',
+        id: carousel_id,
+        slides: slides,
+        label: carousel_label,
+        per_view: columns,
+        per_view_tablet: columns_tablet,
+        per_view_mobile: 1,
+        gap: 0,
+        gap_mobile: 0,
+        arrows: carousel_arrows,
+        arrows_mobile: carousel_arrows_mobile,
+        dots: show_dots,
+        loop: true,
+        class: 'yv-testimonials__carousel',
+        attributes: 'data-yv-reveal'
+      %}
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-testimonials {
+    --yv-carousel-arrow-border: transparent;
+  }
+
+  .yv-testimonials .yv-carousel__arrow {
+    box-shadow: 0 1px 3px #9a9a9a;
+  }
+
+  .yv-testimonials--classic {
+    --yv-carousel-arrow-bg: var(--yv-alt-bg, #ececec);
+  }
+
+  .yv-testimonials--classic .yv-carousel__arrow:not(:disabled):hover {
+    background: #fff;
+  }
+
+  .yv-testimonials__header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    margin-block-end: 30px;
+  }
+
+  .yv-testimonials__heading {
+    --yv-heading-description-width: 700px;
+
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .yv-testimonials--modern .yv-testimonials__header {
+    margin-block-end: 20px;
+  }
+
+  .yv-testimonials--heading-left .yv-testimonials__header {
+    align-items: stretch;
+  }
+
+  .yv-testimonials__arrows {
+    display: none;
+  }
+
+  .yv-testimonials:has(yv-carousel[data-overflow='false']) .yv-testimonials__arrows {
+    visibility: hidden;
+  }
+
+  /* Dots: 8px circles, the current page a 30 x 8 pill. */
+  .yv-testimonials .yv-carousel__dots {
+    gap: 10px;
+  }
+
+  .yv-testimonials .yv-carousel__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 5px;
+    background: rgb(var(--color-foreground-rgb) / 0.4);
+  }
+
+  .yv-testimonials .yv-carousel__dot[aria-current='true'] {
+    width: 30px;
+    background: var(--color-foreground);
+  }
+
+  .yv-testimonials--dots yv-carousel > .yv-carousel__controls {
+    margin-block-start: 30px;
+  }
+
+  .yv-testimonials--modern yv-carousel > .yv-carousel__controls {
+    margin-block-start: 20px;
+  }
+
+  /* Classic, two or three per view: a hairline between the quotes. */
+  .yv-testimonials--classic:not(.yv-testimonials--cols-1) .yv-carousel__track > .yv-testimonial + .yv-testimonial {
+    border-inline-start: 1px solid var(--yv-border-color, rgb(var(--color-foreground-rgb) / 0.1));
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-testimonials--heading-left .yv-testimonials__header {
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 30px;
+    }
+
+    .yv-testimonials--heading-left .yv-testimonials__arrows {
+      display: flex;
+      flex: none;
+    }
+
+    /* Side arrows sit in a 50px gutter outside the slides (the track clips the neighbours). */
+    .yv-testimonials--classic.yv-testimonials--arrows yv-carousel {
+      padding-inline: 50px;
+    }
+
+    .yv-testimonials--classic .yv-carousel__track {
+      padding-block: 20px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.testimonials",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 5,
+  "blocks": [
+    {
+      "type": "_yv-testimonial"
+    }
+  ],
+  "settings": [
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "What our customers say"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "info": "t:yv.common.settings.highlight_color_info",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "t:yv.testimonials.settings.style",
+      "options": [
+        {
+          "value": "classic",
+          "label": "t:yv.testimonials.options.classic"
+        },
+        {
+          "value": "modern",
+          "label": "t:yv.testimonials.options.modern"
+        }
+      ],
+      "default": "classic"
+    },
+    {
+      "type": "select",
+      "id": "columns_desktop",
+      "label": "t:yv.testimonials.settings.columns_desktop",
+      "options": [
+        {
+          "value": "1",
+          "label": "t:yv.testimonials.options.one_column"
+        },
+        {
+          "value": "2",
+          "label": "t:yv.testimonials.options.two_columns"
+        },
+        {
+          "value": "3",
+          "label": "t:yv.testimonials.options.three_columns"
+        }
+      ],
+      "default": "1"
+    },
+    {
+      "type": "select",
+      "id": "navigation",
+      "label": "t:yv.testimonials.settings.navigation",
+      "options": [
+        {
+          "value": "arrows",
+          "label": "t:yv.testimonials.options.arrows"
+        },
+        {
+          "value": "dots",
+          "label": "t:yv.testimonials.options.dots"
+        }
+      ],
+      "default": "arrows"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.testimonials.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.testimonials.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.testimonials",
+      "category": "t:yv.categories.storytelling",
+      "settings": {
+        "heading": "What Our Customers Are Saying",
+        "heading_size": "large",
+        "style": "classic",
+        "columns_desktop": "1",
+        "navigation": "arrows",
+        "spacing_top_desktop": 68,
+        "spacing_bottom_desktop": 32,
+        "spacing_top_mobile": 44,
+        "spacing_bottom_mobile": 44
+      },
+      "blocks": {
+        "quote_1": {
+          "type": "_yv-testimonial",
+          "settings": {
+            "rating": 4,
+            "message": "All makeup products are the best. Best for makeup to get the brightness and super glowy skin. I was skeptical at first but after a week I am really happy using the products.",
+            "author": "Emma Pova",
+            "author_city": "London"
+          }
+        },
+        "quote_2": {
+          "type": "_yv-testimonial",
+          "settings": {
+            "rating": 5,
+            "message": "All skincare products are the best. Best for before makeup to get that glow! I used the small size first and then repurchased the bigger one.",
+            "author": "Charlotte",
+            "author_city": "Australia"
+          }
+        },
+        "quote_3": {
+          "type": "_yv-testimonial",
+          "settings": {
+            "rating": 5,
+            "message": "Every product is the best. Best for before makeup to get that suppleness! I used the small size and then went for this size and you need just a tad bit for the face.",
+            "author": "Sophia",
+            "author_city": "London"
+          }
+        },
+        "quote_4": {
+          "type": "_yv-testimonial",
+          "settings": {
+            "rating": 4,
+            "message": "All serums are the best. I used the retinol serum for about a week and actually felt the changes in my skin. I really recommend this store for skincare products.",
+            "author": "Sara Mia",
+            "author_city": "USA"
+          }
+        }
+      },
+      "block_order": ["quote_1", "quote_2", "quote_3", "quote_4"]
+    },
+    {
+      "name": "t:yv.testimonials.presets.cards",
+      "category": "t:yv.categories.storytelling",
+      "settings": {
+        "heading": "Our Happy Customers",
+        "heading_size": "large",
+        "description": "<p>From stylish fashion to top-notch quality, their reviews speak for themselves.<br/>Join our community of happy customers and experience excellence for yourself!</p>",
+        "style": "modern",
+        "columns_desktop": "3",
+        "navigation": "arrows",
+        "color_set": "gradient"
+      },
+      "blocks": {
+        "quote_1": {
+          "type": "_yv-testimonial",
+          "settings": {
+            "rating": 4,
+            "message": "I can't express how happy I am with this purchase! From the moment I opened the package, I could tell that the quality was amazing. The fabric is soft, breathable, and feels luxurious against my skin.”",
+            "author": "Snowboards Plus",
+            "author_city": "Austria"
+          }
+        },
+        "quote_2": {
+          "type": "_yv-testimonial",
+          "settings": {
+            "rating": 4,
+            "message": "I was hesitant to order online because I've had bad experiences in the past, but this exceeded all my expectations! The product arrived beautifully packaged, and as soon as I tried it on, I knew I had made the right choice.”",
+            "author": "Bracevor",
+            "author_city": "Austria"
+          }
+        },
+        "quote_3": {
+          "type": "_yv-testimonial",
+          "settings": {
+            "rating": 4,
+            "message": "I've been searching for something like this for so long, and I'm so glad I finally found it! The attention to detail is remarkable, the fabric is thick yet breathable, the stitching is strong, and the overall fit is very flattering.”",
+            "author": "Hole Black",
+            "author_city": "Austria"
+          }
+        },
+        "quote_4": {
+          "type": "_yv-testimonial",
+          "settings": {
+            "rating": 5,
+            "message": "I'm honestly blown away by the quality of this piece. It looks even better in person, fits perfectly and has already become the thing I reach for first every morning.”",
+            "author": "Mila Rose",
+            "author_city": "Austria"
+          }
+        },
+        "quote_5": {
+          "type": "_yv-testimonial",
+          "settings": {
+            "rating": 5,
+            "message": "The moment I received this, I could tell it was made with care. Fast delivery, beautiful packaging and a finish that feels premium. I've already ordered a second one as a gift.”",
+            "author": "Leon Hart",
+            "author_city": "Austria"
+          }
+        }
+      },
+      "block_order": ["quote_1", "quote_2", "quote_3", "quote_4", "quote_5"]
+    }
+  ]
+}
+{% endschema %}

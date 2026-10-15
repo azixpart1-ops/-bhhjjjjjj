@@ -1,0 +1,369 @@
+{%- doc -%}
+  Media with text of the Yuva side drawer (sections/yv-side-drawer.liquid): an image or a muted
+  looping video (the image is its poster; it plays only while the drawer is open) beside a heading,
+  a description and a button in the block's own colours. Desktop: two 50/50 columns, media on the
+  chosen side, text aligned top, middle or bottom. Phones: media first, then the text.
+{%- enddoc -%}
+
+{%- liquid
+  assign heading_tag = block.settings.heading_tag | default: 'h3'
+  unless heading_tag == 'h1' or heading_tag == 'h2' or heading_tag == 'h3' or heading_tag == 'h4' or heading_tag == 'h5' or heading_tag == 'h6' or heading_tag == 'p'
+    assign heading_tag = 'h3'
+  endunless
+  assign image = block.settings.image
+  assign video = block.settings.video
+  assign media_ratio = '4 / 3'
+  if image != blank
+    assign media_ratio = image.aspect_ratio
+  elsif video != blank and video.aspect_ratio != blank
+    assign media_ratio = video.aspect_ratio
+  endif
+  assign poster = image | default: video.preview_image
+  case block.settings.content_position
+    when 'top'
+      assign content_align = 'start'
+    when 'bottom'
+      assign content_align = 'end'
+    else
+      assign content_align = 'center'
+  endcase
+-%}
+
+<div
+  class="yv-drawer-media-text yv-drawer-media-text--media-{{ block.settings.media_alignment | default: 'left' }}"
+  style="--yv-drawer-media-ratio: {{ media_ratio }}; --yv-drawer-content-align: {{ content_align }}; --yv-drawer-mt-heading: {{ block.settings.color_heading | default: 'currentColor' }}; --yv-drawer-mt-text: {{ block.settings.color_text | default: 'currentColor' }};"
+  {{ block.shopify_attributes }}
+>
+  <div class="yv-drawer-media-text__media">
+    {%- if video != blank -%}
+      <video
+        class="yv-drawer-media-text__video"
+        muted
+        loop
+        playsinline
+        preload="none"
+        data-autoplay
+        aria-hidden="true"
+        {% if poster != blank %}
+          poster="{{ poster | image_url: width: 1200 }}"
+        {% endif %}
+      >
+        {%- for source in video.sources -%}
+          <source
+            src="{{ source.url }}"
+            type="{{ source.mime_type }}"
+          >
+        {%- endfor -%}
+      </video>
+    {%- elsif image != blank -%}
+      {{
+        image
+        | image_url: width: 1200
+        | image_tag:
+          widths: '400, 600, 800, 1000, 1200',
+          sizes: '(min-width: 750px) min(560px, 45vw), 90vw',
+          loading: 'lazy',
+          class: 'yv-drawer-media-text__image'
+      }}
+    {%- else -%}
+      {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-drawer-media-text__image yv-placeholder' }}
+    {%- endif -%}
+  </div>
+
+  <div class="yv-drawer-media-text__content">
+    {%- if block.settings.heading != blank -%}
+      <{{ heading_tag }} class="yv-side-drawer__heading yv-drawer-media-text__heading">
+        {{- block.settings.heading | escape -}}
+      </{{ heading_tag }}>
+    {%- endif -%}
+    {%- if block.settings.description != blank -%}
+      <div class="yv-drawer-media-text__text rte">{{ block.settings.description }}</div>
+    {%- endif -%}
+    {% render 'yv-button',
+      label: block.settings.button_text,
+      link: block.settings.button_link,
+      bg: block.settings.color_button_bg,
+      text: block.settings.color_button_text,
+      border: block.settings.color_button_border,
+      size_desktop: block.settings.button_size_desktop,
+      size_mobile: block.settings.button_size_mobile,
+      class: 'yv-drawer-media-text__button'
+    %}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-drawer-media-text {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    min-width: 0;
+  }
+
+  .yv-drawer-media-text__media {
+    aspect-ratio: var(--yv-drawer-media-ratio, 4 / 3);
+    max-height: 70vh;
+    overflow: hidden;
+    border-radius: var(--yv-layout-radius, 10px);
+    background-color: var(--yv-image-bg);
+  }
+
+  .yv-drawer-media-text__image,
+  .yv-drawer-media-text__video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-drawer-media-text__content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    align-self: var(--yv-drawer-content-align, center);
+    min-width: 0;
+    color: var(--yv-drawer-mt-text, currentColor);
+  }
+
+  .yv-drawer-media-text .yv-drawer-media-text__heading {
+    margin-block-end: 12px;
+    color: var(--yv-drawer-mt-heading, currentColor);
+  }
+
+  .yv-drawer-media-text__text {
+    font-size: var(--font-paragraph--size);
+    line-height: 1.6;
+  }
+
+  .yv-drawer-media-text__text > :first-child {
+    margin-block-start: 0;
+  }
+
+  .yv-drawer-media-text__text > :last-child {
+    margin-block-end: 0;
+  }
+
+  .yv-drawer-media-text__button {
+    margin-block-start: 20px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-drawer-media-text {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 40px;
+    }
+
+    .yv-drawer-media-text--media-right .yv-drawer-media-text__media {
+      order: 2;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.drawer_media_text",
+  "tag": null,
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:settings.image"
+    },
+    {
+      "type": "video",
+      "id": "video",
+      "label": "t:settings.video",
+      "info": "t:yv.side_drawer.settings.video_info"
+    },
+    {
+      "type": "select",
+      "id": "media_alignment",
+      "label": "t:yv.side_drawer.settings.media_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.content"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:settings.heading",
+      "default": "Media with text"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h3"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:settings.link",
+      "info": "t:yv.common.settings.button_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.side_drawer.content.button_size"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.common.content.desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.common.content.mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "content_position",
+      "label": "t:settings.content_position",
+      "options": [
+        {
+          "value": "top",
+          "label": "t:yv.common.options.top"
+        },
+        {
+          "value": "middle",
+          "label": "t:yv.side_drawer.options.middle"
+        },
+        {
+          "value": "bottom",
+          "label": "t:yv.common.options.bottom"
+        }
+      ],
+      "default": "middle"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_heading",
+      "label": "t:yv.common.settings.heading_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_button_bg",
+      "label": "t:yv.common.settings.button_background",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_button_text",
+      "label": "t:yv.common.settings.button_text_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_button_border",
+      "label": "t:yv.common.settings.button_border",
+      "default": "#000000"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.drawer_media_text"
+    }
+  ]
+}
+{% endschema %}

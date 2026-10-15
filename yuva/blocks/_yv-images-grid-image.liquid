@@ -1,0 +1,159 @@
+{%- doc -%}
+  One square image of the Images grid composition (sections/yv-images-grid.liquid). Its place in the
+  overlapping layout follows its position among the section's images (first = back image, second =
+  large image near the top, third = small image at the bottom corner) and the number of images; the
+  layout mirrors when the section's text sits on the left.
+{%- enddoc -%}
+
+{%- liquid
+  assign position = 1
+  for item in section.blocks
+    if item.id == block.id
+      assign position = forloop.index
+      break
+    endif
+  endfor
+  assign count = section.blocks.size | at_most: 3
+
+  case count
+    when 1
+      assign sizes = '(min-width: 750px) 500px, 100vw'
+    when 2
+      assign sizes = '(min-width: 750px) 300px, 60vw'
+    else
+      if position == 2
+        assign sizes = '(min-width: 750px) 300px, 60vw'
+      else
+        assign sizes = '(min-width: 750px) 250px, 50vw'
+      endif
+  endcase
+
+  assign image_loading = 'lazy'
+  if settings.yv_enable_lazyload == false
+    assign image_loading = 'eager'
+  endif
+
+  assign placeholder_index = position | modulo: 2 | plus: 1
+  assign placeholder_name = 'lifestyle-' | append: placeholder_index
+  assign reveal_delay = position | minus: 1 | times: 100
+-%}
+
+<div
+  class="yv-images-grid-image yv-images-grid-image--{{ position }}"
+  style="--yv-reveal-delay: {{ reveal_delay }}ms;"
+  data-yv-reveal
+  {{ block.shopify_attributes }}
+>
+  {%- if block.settings.image != blank -%}
+    {%- liquid
+      assign focal = block.settings.image.presentation.focal_point | default: 'center'
+      assign focal_style = 'object-position: ' | append: focal | append: ';'
+    -%}
+    {{
+      block.settings.image
+      | image_url: width: 1000
+      | image_tag:
+        widths: '200, 300, 400, 500, 600, 800, 1000',
+        sizes: sizes,
+        loading: image_loading,
+        style: focal_style
+    }}
+  {%- else -%}
+    {{ placeholder_name | placeholder_svg_tag: 'yv-placeholder' }}
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .yv-images-grid-image {
+    position: absolute;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background-color: var(--yv-image-bg);
+    border-radius: var(--yv-layout-radius, 10px);
+  }
+
+  .yv-images-grid-image > :is(img, svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* One image: the whole box. */
+  .yv-images-grid__box--1 .yv-images-grid-image--1 {
+    inset: 0;
+  }
+
+  /* Two images: lower-left and upper-right, overlapping. */
+  .yv-images-grid__box--2 .yv-images-grid-image--1 {
+    inset-block-start: 20%;
+    inset-inline-start: 0;
+    width: 60%;
+  }
+
+  .yv-images-grid__box--2 .yv-images-grid-image--2 {
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    z-index: 1;
+    width: 60%;
+  }
+
+  /* Three images: back-left, top-centre over it, small bottom-right over that. */
+  .yv-images-grid__box--3 .yv-images-grid-image--1 {
+    inset-block-start: 25%;
+    inset-inline-start: 0;
+    width: 50.5%;
+  }
+
+  .yv-images-grid__box--3 .yv-images-grid-image--2 {
+    inset-block-start: 4%;
+    inset-inline-end: 7%;
+    z-index: 1;
+    width: 60.5%;
+  }
+
+  .yv-images-grid__box--3 .yv-images-grid-image--3 {
+    inset-block-end: 9%;
+    inset-inline-end: 0;
+    z-index: 2;
+    width: 38%;
+  }
+
+  /* Text on the left: the composition mirrors. */
+  .yv-images-grid--content-left .yv-images-grid__box--2 .yv-images-grid-image--1,
+  .yv-images-grid--content-left .yv-images-grid__box--3 .yv-images-grid-image--1 {
+    inset-inline: auto 0;
+  }
+
+  .yv-images-grid--content-left .yv-images-grid__box--2 .yv-images-grid-image--2 {
+    inset-inline: 0 auto;
+  }
+
+  .yv-images-grid--content-left .yv-images-grid__box--3 .yv-images-grid-image--2 {
+    inset-inline: 7% auto;
+  }
+
+  .yv-images-grid--content-left .yv-images-grid__box--3 .yv-images-grid-image--3 {
+    inset-inline: 0 auto;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.images_grid_image",
+  "tag": null,
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image",
+      "info": "t:yv.images_grid.settings.image_info"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.images_grid_image"
+    }
+  ]
+}
+{% endschema %}

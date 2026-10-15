@@ -1,0 +1,526 @@
+{% comment %}
+  Section contract: yv-images-grid
+  Yuva "Images grid": a highlight heading, description and button beside an overlapping composition
+  of up to three square images (private blocks `_yv-images-grid-image`): a back image on one side,
+  a larger image overlapping it near the top and a small one hanging at the bottom corner. The
+  composition mirrors when the text takes the other side. On phones the images come first in a
+  square box, then the text. Shared settings: heading, button, colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Media > "Images grid"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign content_position = section.settings.content_position | default: 'right'
+  assign image_count = section.blocks.size | at_most: 3
+  assign button_variant = 'secondary'
+  if section.settings.button_as_link
+    assign button_variant = 'link'
+  endif
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-images-grid yv-images-grid--content-{{ content_position }} color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-images-grid-size: {{ section.settings.height }}px;"
+  data-testid="yv-images-grid"
+>
+  <div class="yv-container yv-container--{{ section.settings.container | default: 'sm' }} yv-images-grid__inner">
+    {%- if image_count > 0 -%}
+      <div class="yv-images-grid__media">
+        <div class="yv-images-grid__box yv-images-grid__box--{{ image_count }}">
+          {%- content_for 'blocks' -%}
+        </div>
+      </div>
+    {%- endif -%}
+
+    <div
+      class="yv-images-grid__content"
+      data-yv-reveal
+    >
+      {% render 'yv-heading',
+        text: section.settings.heading,
+        tag: section.settings.heading_tag,
+        size: section.settings.heading_size,
+        highlight_font: section.settings.highlight_font,
+        highlight_color: section.settings.highlight_color,
+        description: section.settings.description,
+        alignment: 'left',
+        class: 'yv-images-grid__heading'
+      %}
+      {% render 'yv-button',
+        label: section.settings.button_text,
+        link: section.settings.button_link,
+        variant: button_variant,
+        size_desktop: section.settings.button_size_desktop,
+        size_mobile: section.settings.button_size_mobile,
+        class: 'yv-images-grid__button'
+      %}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-images-grid__inner {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    min-width: 0;
+  }
+
+  .yv-images-grid__media,
+  .yv-images-grid__content {
+    min-width: 0;
+  }
+
+  .yv-images-grid__box {
+    position: relative;
+    width: 100%;
+    margin-inline: auto;
+    aspect-ratio: 1;
+  }
+
+  .yv-images-grid__content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .yv-images-grid__heading {
+    --yv-heading-gap: 20px;
+  }
+
+  .yv-images-grid__heading .yv-heading__description {
+    font-size: var(--yv-text-md, 0.84rem);
+    line-height: 1.6;
+  }
+
+  .yv-images-grid__button {
+    margin-block-start: 30px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-images-grid__inner {
+      flex-direction: row;
+      align-items: center;
+      gap: 70px;
+    }
+
+    .yv-images-grid--content-left .yv-images-grid__inner {
+      flex-direction: row-reverse;
+    }
+
+    .yv-images-grid__media,
+    .yv-images-grid__content {
+      flex: 1 1 0;
+    }
+
+    .yv-images-grid__content {
+      max-width: 520px;
+    }
+
+    .yv-images-grid__box {
+      width: min(100%, var(--yv-images-grid-size, 500px));
+      margin-inline: auto 0;
+    }
+
+    .yv-images-grid--content-left .yv-images-grid__box {
+      margin-inline: 0 auto;
+    }
+  }
+
+  @media screen and (min-width: 750px) and (max-width: 989px) {
+    .yv-images-grid__inner {
+      gap: 40px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.images_grid",
+  "class": "yv-images-grid-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-images-grid-image"
+    }
+  ],
+  "max_blocks": 3,
+  "settings": [
+    {
+      "type": "select",
+      "id": "content_position",
+      "label": "t:yv.common.settings.content_position_desktop",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "select",
+      "id": "height",
+      "label": "t:yv.images_grid.settings.height",
+      "info": "t:yv.images_grid.settings.height_info",
+      "options": [
+        {
+          "value": "400",
+          "label": "t:yv.images_grid.options.px_400"
+        },
+        {
+          "value": "450",
+          "label": "t:yv.images_grid.options.px_450"
+        },
+        {
+          "value": "500",
+          "label": "t:yv.images_grid.options.px_500"
+        },
+        {
+          "value": "600",
+          "label": "t:yv.images_grid.options.px_600"
+        },
+        {
+          "value": "700",
+          "label": "t:yv.images_grid.options.px_700"
+        }
+      ],
+      "default": "500"
+    },
+    {
+      "type": "select",
+      "id": "container",
+      "label": "t:yv.common.settings.container",
+      "options": [
+        {
+          "value": "page",
+          "label": "t:yv.common.options.page"
+        },
+        {
+          "value": "md",
+          "label": "t:yv.common.options.container_md"
+        },
+        {
+          "value": "sm",
+          "label": "t:yv.common.options.container_sm"
+        }
+      ],
+      "default": "sm"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "Shop premium <strong>essentials</strong>"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "checkbox",
+      "id": "button_as_link",
+      "label": "t:yv.common.settings.button_as_link",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text",
+      "default": "Explore"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.link",
+      "info": "t:yv.common.settings.button_info"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.common.settings.button_size_desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.common.settings.button_size_mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "small"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.images_grid",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "content_position": "right",
+        "height": "450",
+        "container": "sm",
+        "heading": "Shop Premium Sports Wear for Every Sport",
+        "heading_tag": "h2",
+        "heading_size": "large",
+        "highlight_font": "heading",
+        "description": "<p>Elevate your performance with Sportswear — where innovation meets style. Our premium collection is engineered for athletes and enthusiasts across every discipline, from running and cycling to weightlifting, tennis, and beyond. Featuring cutting-edge materials, ergonomic designs, and bold aesthetics, each piece delivers unmatched comfort, durability, and support.</p>",
+        "button_text": "Explore",
+        "button_link": "shopify://collections/all",
+        "color_set": "primary",
+        "spacing_top_desktop": 32,
+        "spacing_bottom_desktop": 0,
+        "spacing_top_mobile": 32,
+        "spacing_bottom_mobile": 32
+      },
+      "blocks": {
+        "image_back": {
+          "type": "_yv-images-grid-image",
+          "settings": {}
+        },
+        "image_top": {
+          "type": "_yv-images-grid-image",
+          "settings": {}
+        },
+        "image_corner": {
+          "type": "_yv-images-grid-image",
+          "settings": {}
+        }
+      },
+      "block_order": ["image_back", "image_top", "image_corner"]
+    }
+  ]
+}
+{% endschema %}

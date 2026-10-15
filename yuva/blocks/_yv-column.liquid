@@ -1,0 +1,258 @@
+{% doc %}
+  Multicolumn > Column: an image or a muted autoplay video (the image becomes its poster) in the
+  section's media ratio (a placeholder while both are blank), then a heading, a description and a button or text link (shown only when
+  both the text and the link are set). Alignment, media ratio and button sizes come from the
+  parent section.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign image = block.settings.image
+  assign video = block.settings.video
+  assign align = section.settings.column_alignment | default: 'center'
+
+  case section.settings.media_ratio
+    when 'portrait'
+      assign ratio = '4 / 5'
+    when 'landscape'
+      assign ratio = '4 / 3'
+    when 'wide'
+      assign ratio = '16 / 9'
+    when 'adapt'
+      if video != blank
+        assign ratio = video.aspect_ratio | default: 1
+      elsif image != blank
+        assign ratio = image.aspect_ratio | default: 1
+      else
+        assign ratio = '1 / 1'
+      endif
+    else
+      assign ratio = '1 / 1'
+  endcase
+
+  assign button_variant = 'primary'
+  if block.settings.button_as_link
+    assign button_variant = 'link'
+  endif
+-%}
+
+<div
+  class="yv-column yv-column--{{ align }}"
+  {% if settings.yv_enable_animation %}
+    data-yv-reveal
+  {% endif %}
+  {{ block.shopify_attributes }}
+>
+  {%- if video != blank -%}
+    {%- liquid
+      assign poster = image | default: video.preview_image
+    -%}
+    <script
+      src="{{ 'yv-autoplay-video.js' | asset_url }}"
+      type="module"
+      fetchpriority="low"
+    ></script>
+    <div
+      class="yv-media yv-column__media"
+      style="aspect-ratio: {{ ratio }};"
+    >
+      <yv-autoplay-video-component class="yv-column__video">
+        <video
+          ref="video"
+          muted
+          loop
+          playsinline
+          preload="none"
+          aria-hidden="true"
+          {% if poster != blank %}
+            poster="{{ poster | image_url: width: 1200 }}"
+          {% endif %}
+        >
+          {%- for source in video.sources -%}
+            <source
+              data-src="{{ source.url }}"
+              type="{{ source.mime_type }}"
+            >
+          {%- endfor -%}
+        </video>
+      </yv-autoplay-video-component>
+    </div>
+  {%- elsif image != blank -%}
+    <div
+      class="yv-media yv-column__media"
+      style="aspect-ratio: {{ ratio }};"
+    >
+      {{
+        image
+        | image_url: width: 1500
+        | image_tag:
+          widths: '375, 550, 750, 1100, 1500',
+          sizes: '(min-width: 990px) 25vw, (min-width: 750px) 50vw, 100vw',
+          loading: 'lazy',
+          class: 'yv-column__image'
+      }}
+    </div>
+  {%- else -%}
+    <div
+      class="yv-media yv-column__media"
+      style="aspect-ratio: {{ ratio }};"
+    >
+      {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-placeholder yv-column__image' }}
+    </div>
+  {%- endif -%}
+
+  {%- if block.settings.heading != blank -%}
+    <h3 class="yv-column__heading h5">{{ block.settings.heading | escape }}</h3>
+  {%- endif -%}
+
+  {%- if block.settings.description != blank -%}
+    <div class="yv-column__text rte">{{ block.settings.description }}</div>
+  {%- endif -%}
+
+  {%- if block.settings.button_text != blank and block.settings.button_link != blank -%}
+    <div class="yv-column__action">
+      {% render 'yv-button',
+        label: block.settings.button_text,
+        link: block.settings.button_link,
+        variant: button_variant,
+        size_desktop: section.settings.button_size_desktop,
+        size_mobile: section.settings.button_size_mobile
+      %}
+    </div>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .yv-column {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    text-align: start;
+  }
+
+  .yv-column--center {
+    align-items: center;
+    text-align: center;
+  }
+
+  .yv-column--right {
+    align-items: flex-end;
+    text-align: end;
+  }
+
+  .yv-column__media {
+    position: relative;
+    width: 100%;
+    margin-block-end: 20px;
+    border-radius: var(--yv-layout-radius, 10px);
+  }
+
+  .yv-column__image,
+  .yv-column__video,
+  .yv-column__video video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-column__video {
+    position: absolute;
+    inset: 0;
+  }
+
+  .yv-column__heading {
+    margin: 0;
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
+
+  .yv-column__text {
+    max-width: 100%;
+    font-size: var(--yv-text-md, 0.84rem);
+    line-height: var(--line-height--body-normal, 1.4);
+  }
+
+  .yv-column__heading + .yv-column__text {
+    margin-block-start: 8px;
+  }
+
+  .yv-column__text > :first-child {
+    margin-block-start: 0;
+  }
+
+  .yv-column__text > :last-child {
+    margin-block-end: 0;
+  }
+
+  .yv-column__action {
+    margin-block-start: 16px;
+  }
+
+  .yv-column__media + .yv-column__action {
+    margin-block-start: 0;
+  }
+
+  .yv-column:nth-child(4n + 2) {
+    --yv-reveal-delay: 75ms;
+  }
+
+  .yv-column:nth-child(4n + 3) {
+    --yv-reveal-delay: 150ms;
+  }
+
+  .yv-column:nth-child(4n + 4) {
+    --yv-reveal-delay: 225ms;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.column",
+  "tag": null,
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image"
+    },
+    {
+      "type": "video",
+      "id": "video",
+      "label": "t:yv.multicolumn.settings.video",
+      "info": "t:yv.multicolumn.settings.video_info"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "Column heading"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text",
+      "info": "t:yv.common.settings.button_info"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.button_link"
+    },
+    {
+      "type": "checkbox",
+      "id": "button_as_link",
+      "label": "t:yv.common.settings.button_as_link",
+      "default": false
+    }
+  ]
+}
+{% endschema %}

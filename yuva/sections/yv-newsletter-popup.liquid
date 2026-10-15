@@ -1,0 +1,666 @@
+{% comment %}
+  Section contract: yv-newsletter-popup
+  Yuva newsletter popups, a STATIC section rendered by layout/theme.liquid after the footer group.
+  It reconciles the two Yuva features that share the name "Newsletter popup":
+  1. The automatic popup of Theme settings > Newsletter popup (docs part 4): turned on, filled
+     (image, heading, description, social icons) and coloured there; it opens after the delay set in
+     this section unless the visitor closed it or subscribed in the last N days (cookie
+     yv_newsletter_closed, N = "Set cookie for newsletter popup (days)"). Look: the Burn preset card,
+     740px, anchored to the bottom-right corner, image left / content right; image hidden on phones.
+     Not shown on the cart, customer, password and gift card templates.
+  2. The visitor-triggered popup of the "Newsletter popup" section (docs part 3, Yuva's
+     "newsletter sidebar"): "Enable newsletter sidebar" shows a round newsletter icon on the left or
+     right edge (hover label above it); a click opens a compact 375px card with this section's image,
+     heading and subheading. No cookie.
+  Both use the shared newsletter form and take their colours and the "Show social icons" switch
+  from Theme settings > Newsletter popup, so no colour is set twice. After a sign-up Shopify reloads
+  the page to #<form id> and the popup that posted reopens with the result.
+  Behaviour: assets/yv-popups.js (<yv-newsletter-popup-component>, extends Horizon DialogComponent).
+  @example
+  {% section 'yv-newsletter-popup' %}
+{% endcomment %}
+
+{%- liquid
+  assign blocked_template = false
+  if template.name == 'password' or template.name == 'gift_card'
+    assign blocked_template = true
+  endif
+
+  assign show_auto = settings.yv_newsletter_popup
+  if blocked_template or template.name == 'cart' or template.directory == 'customers'
+    assign show_auto = false
+  endif
+
+  assign show_icon = section.settings.enable
+  if blocked_template
+    assign show_icon = false
+  endif
+
+  assign popup_bg = settings.yv_newsletter_popup_bg | default: '#ffffff'
+  assign popup_heading = settings.yv_newsletter_popup_heading_color | default: '#000000'
+  assign popup_text = settings.yv_newsletter_popup_text_color | default: '#000000'
+  assign popup_style = '--yv-nl-bg: ' | append: popup_bg | append: '; --yv-nl-heading: ' | append: popup_heading | append: '; --yv-nl-text: ' | append: popup_text | append: ';'
+
+  assign close_label = 'actions.close' | t
+-%}
+
+{%- if show_auto or show_icon -%}
+  <script
+    src="{{ 'yv-popups.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}
+
+{%- if show_auto -%}
+  {%- liquid
+    assign auto_form_id = 'yv-newsletter-popup-form'
+    assign auto_title_id = 'YvNewsletterPopupTitle-' | append: section.id
+    assign auto_image = settings.yv_newsletter_popup_image
+    assign auto_heading = settings.yv_newsletter_popup_heading | default: ''
+    if auto_heading == blank
+      assign auto_heading = 'yv.common.newsletter.subscribe' | t
+    endif
+  -%}
+  <yv-newsletter-popup-component
+    class="yv-newsletter-popup yv-newsletter-popup--auto"
+    data-mode="auto"
+    data-delay="{{ section.settings.auto_delay }}"
+    data-days="{{ settings.yv_newsletter_popup_days }}"
+    data-form-id="{{ auto_form_id }}"
+    data-section-id="{{ section.id }}"
+    style="{{ popup_style }}"
+  >
+    <dialog
+      ref="dialog"
+      class="yv-newsletter-popup__dialog yv-newsletter-popup__dialog--auto{% if auto_image != blank %} yv-newsletter-popup__dialog--media{% endif %}"
+      aria-labelledby="{{ auto_title_id }}"
+    >
+      {%- if auto_image != blank -%}
+        <div class="yv-newsletter-popup__media">
+          {{
+            auto_image
+            | image_url: width: 900
+            | image_tag:
+              widths: '370, 555, 740, 900',
+              sizes: '(min-width: 750px) 370px, 1px',
+              loading: 'lazy',
+              alt: auto_image.alt,
+              class: 'yv-newsletter-popup__media-image'
+          }}
+        </div>
+      {%- endif -%}
+      <div class="yv-newsletter-popup__content">
+        <h2
+          id="{{ auto_title_id }}"
+          class="yv-newsletter-popup__heading h5"
+        >
+          {{- auto_heading | escape -}}
+        </h2>
+        {%- if settings.yv_newsletter_popup_text != blank -%}
+          <div class="yv-newsletter-popup__text rte">{{ settings.yv_newsletter_popup_text }}</div>
+        {%- endif -%}
+        {% render 'yv-newsletter-form',
+          form_id: auto_form_id,
+          layout: 'stacked',
+          button_bg: settings.yv_newsletter_popup_btn_bg,
+          button_text: settings.yv_newsletter_popup_btn_text,
+          button_border: settings.yv_newsletter_popup_btn_border,
+          class: 'yv-newsletter-popup__form'
+        %}
+        {%- if settings.yv_newsletter_popup_social -%}
+          {% render 'yv-social-icons', style: 'plain', size: 16, alignment: 'center', class: 'yv-newsletter-popup__social' %}
+        {%- endif -%}
+      </div>
+      <button
+        type="button"
+        class="yv-newsletter-popup__close yv-newsletter-popup__close--auto"
+        aria-label="{{ close_label | escape }}"
+        ref="closeButton"
+        on:click="/closeDialog"
+      >
+        {%- render 'yv-icon', name: 'close', size: 16 -%}
+      </button>
+    </dialog>
+  </yv-newsletter-popup-component>
+{%- endif -%}
+
+{%- if show_icon -%}
+  {%- liquid
+    assign manual_form_id = 'yv-newsletter-sidebar-' | append: section.id
+    assign manual_title_id = 'YvNewsletterSidebarTitle-' | append: section.id
+    assign button_text = section.settings.button_text | strip
+    assign trigger_label = button_text
+    if trigger_label == blank
+      assign trigger_label = 'yv.newsletter_popup.open' | t
+    endif
+    assign manual_heading = section.settings.heading | default: trigger_label
+    assign email_placeholder = 'yv.common.newsletter.email_label' | t
+    assign position_x = section.settings.position_x | default: 'left'
+    assign position_y = section.settings.position_y | default: 15
+  -%}
+  <yv-newsletter-popup-component
+    class="yv-newsletter-popup yv-newsletter-popup--manual yv-newsletter-popup--{{ position_x }}"
+    data-mode="manual"
+    data-form-id="{{ manual_form_id }}"
+    data-section-id="{{ section.id }}"
+    style="{{ popup_style }} --yv-nl-y: {{ position_y }};"
+  >
+    <div class="yv-newsletter-popup__dock yv-edge-widget">
+      <button
+        type="button"
+        class="yv-newsletter-popup__trigger"
+        aria-haspopup="dialog"
+        aria-label="{{ trigger_label | escape }}"
+        on:click="/open"
+      >
+        {%- if section.settings.icon_image != blank -%}
+          {{
+            section.settings.icon_image
+            | image_url: width: 120
+            | image_tag: widths: '60, 120', sizes: '60px', loading: 'lazy', alt: '', class: 'yv-newsletter-popup__icon-image'
+          }}
+        {%- else -%}
+          {%- render 'yv-icon', name: 'mail', size: 28, class: 'yv-newsletter-popup__icon' -%}
+        {%- endif -%}
+      </button>
+      {%- if button_text != blank -%}
+        <span
+          class="yv-newsletter-popup__bubble"
+          aria-hidden="true"
+        >
+          {{- button_text | escape -}}
+        </span>
+      {%- endif -%}
+    </div>
+
+    <dialog
+      ref="dialog"
+      class="yv-newsletter-popup__dialog yv-newsletter-popup__dialog--manual"
+      aria-labelledby="{{ manual_title_id }}"
+    >
+      <div class="yv-newsletter-popup__content">
+        {%- if section.settings.image != blank -%}
+          <div class="yv-newsletter-popup__image">
+            {{
+              section.settings.image
+              | image_url: width: 750
+              | image_tag:
+                widths: '325, 500, 650, 750',
+                sizes: '(min-width: 420px) 325px, calc(90vw - 50px)',
+                loading: 'lazy',
+                alt: section.settings.image.alt,
+                class: 'yv-newsletter-popup__image-tag'
+            }}
+          </div>
+        {%- endif -%}
+        <h2
+          id="{{ manual_title_id }}"
+          class="yv-newsletter-popup__heading h5"
+        >
+          {{- manual_heading | escape -}}
+        </h2>
+        {%- if section.settings.subheading != blank -%}
+          <p class="yv-newsletter-popup__text">{{ section.settings.subheading | escape }}</p>
+        {%- endif -%}
+        {% render 'yv-newsletter-form',
+          form_id: manual_form_id,
+          placeholder: email_placeholder,
+          layout: 'stacked',
+          button_bg: settings.yv_newsletter_popup_btn_bg,
+          button_text: settings.yv_newsletter_popup_btn_text,
+          button_border: settings.yv_newsletter_popup_btn_border,
+          class: 'yv-newsletter-popup__form'
+        %}
+        {%- if settings.yv_newsletter_popup_social -%}
+          {% render 'yv-social-icons', style: 'filled', size: 14, alignment: 'center', class: 'yv-newsletter-popup__social' %}
+        {%- endif -%}
+      </div>
+      <button
+        type="button"
+        class="yv-newsletter-popup__close"
+        aria-label="{{ close_label | escape }}"
+        ref="closeButton"
+        on:click="/closeDialog"
+      >
+        {%- render 'yv-icon', name: 'close', size: 14 -%}
+      </button>
+    </dialog>
+  </yv-newsletter-popup-component>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-newsletter-popup {
+    display: contents;
+  }
+
+  /* Dialog shell shared by both popups. */
+  .yv-newsletter-popup__dialog {
+    position: fixed;
+    max-width: none;
+    max-height: calc(100dvh - 40px);
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    border: 0;
+    background-color: var(--yv-nl-bg, #ffffff);
+    color: var(--yv-nl-text, #000000);
+    box-shadow: 0 10px 40px rgb(0 0 0 / 0.18);
+  }
+
+  .yv-newsletter-popup__dialog::backdrop {
+    background: rgb(0 0 0 / 0.5);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-newsletter-popup__dialog[open] {
+      animation: yv-newsletter-in 0.4s var(--yv-ease-out, ease-out) both;
+    }
+
+    .yv-newsletter-popup__dialog[open]::backdrop {
+      animation: yv-newsletter-fade 0.4s ease both;
+    }
+
+    .yv-newsletter-popup__dialog.dialog-closing {
+      animation: yv-newsletter-out 0.25s ease-in both;
+    }
+
+    .yv-newsletter-popup__dialog.dialog-closing::backdrop {
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+  }
+
+  @keyframes yv-newsletter-in {
+    from {
+      opacity: 0;
+      translate: 0 30px;
+    }
+  }
+
+  @keyframes yv-newsletter-out {
+    to {
+      opacity: 0;
+      translate: 0 30px;
+    }
+  }
+
+  @keyframes yv-newsletter-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  .yv-newsletter-popup__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    text-align: center;
+  }
+
+  .yv-newsletter-popup__heading {
+    margin: 0;
+    color: var(--yv-nl-heading, currentColor);
+    overflow-wrap: anywhere;
+  }
+
+  .yv-newsletter-popup__text {
+    margin: 10px 0 0;
+    color: var(--yv-nl-text, currentColor);
+    font-size: var(--font-paragraph--size);
+    line-height: 1.6;
+  }
+
+  .yv-newsletter-popup__text > * {
+    margin: 0;
+  }
+
+  .yv-newsletter-popup__form {
+    margin-block-start: 20px;
+    text-align: start;
+  }
+
+  .yv-newsletter-popup__social {
+    margin-block-start: 16px;
+  }
+
+  .yv-newsletter-popup__close {
+    position: absolute;
+    inset-block-start: 10px;
+    inset-inline-end: 10px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background-color: var(--yv-nl-bg, #ffffff);
+    color: var(--yv-nl-heading, #000000);
+    cursor: pointer;
+    transition: background-color var(--animation-speed, 0.2s) ease;
+  }
+
+  .yv-newsletter-popup__close:hover {
+    background-color: color-mix(in srgb, var(--yv-nl-heading, #000000) 8%, var(--yv-nl-bg, #ffffff));
+  }
+
+  /* 1. Automatic popup: 740px card in the bottom-right corner (image left, content right). */
+  .yv-newsletter-popup__dialog--auto {
+    inset: auto 20px 20px auto;
+    width: min(420px, calc(100vw - 40px));
+    border-radius: var(--yv-card-radius, 20px);
+  }
+
+  .yv-newsletter-popup__dialog--media {
+    width: min(740px, calc(100vw - 40px));
+  }
+
+  .yv-newsletter-popup__dialog--media[open] {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .yv-newsletter-popup__media {
+    position: relative;
+    min-height: 334px;
+    background-color: var(--yv-image-bg);
+  }
+
+  .yv-newsletter-popup__media-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-newsletter-popup__dialog--auto .yv-newsletter-popup__content {
+    justify-content: center;
+    padding: 50px 40px 40px;
+  }
+
+  .yv-newsletter-popup__dialog--auto .yv-newsletter-popup__content > * {
+    width: 100%;
+    max-width: 290px;
+  }
+
+  .yv-newsletter-popup__close--auto {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* 2. Icon popup: floating round icon with a hover label, compact centred card. */
+  .yv-newsletter-popup__dock {
+    inset-block-end: calc(var(--yv-nl-y, 15) * 1%);
+  }
+
+  .yv-newsletter-popup--left .yv-newsletter-popup__dock {
+    inset-inline-start: 20px;
+  }
+
+  .yv-newsletter-popup--right .yv-newsletter-popup__dock {
+    inset-inline-end: 20px;
+  }
+
+  .yv-newsletter-popup__trigger {
+    display: grid;
+    place-items: center;
+    width: 60px;
+    height: 60px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 50%;
+    background-color: var(--color-primary-button-background, #000000);
+    color: var(--color-primary-button-text, #ffffff);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .yv-newsletter-popup__trigger:hover {
+    transform: scale(1.05);
+  }
+
+  .yv-newsletter-popup__icon-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .yv-newsletter-popup__bubble {
+    position: absolute;
+    inset-block-end: calc(100% + 10px);
+    width: max-content;
+    max-width: 220px;
+    padding: 8px;
+    border-radius: 3px;
+    background-color: var(--yv-primary-bg, #ffffff);
+    color: var(--yv-primary-text, #000000);
+    box-shadow: var(--yv-shadow-dropdown, 0 1px 10px rgb(0 0 0 / 0.15));
+    font-family: var(--font-paragraph--family);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-transform: uppercase;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+
+  .yv-newsletter-popup__bubble::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 100%;
+    width: 0;
+    height: 0;
+    border: 6px solid transparent;
+    border-block-start-color: var(--yv-primary-bg, #ffffff);
+  }
+
+  .yv-newsletter-popup--left .yv-newsletter-popup__bubble {
+    inset-inline-start: 0;
+  }
+
+  .yv-newsletter-popup--left .yv-newsletter-popup__bubble::after {
+    inset-inline-start: 24px;
+  }
+
+  .yv-newsletter-popup--right .yv-newsletter-popup__bubble {
+    inset-inline-end: 0;
+  }
+
+  .yv-newsletter-popup--right .yv-newsletter-popup__bubble::after {
+    inset-inline-end: 24px;
+  }
+
+  @media (hover: hover) {
+    .yv-newsletter-popup__trigger:is(:hover, :focus-visible) + .yv-newsletter-popup__bubble {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  .yv-newsletter-popup__dialog--manual {
+    inset: auto 0 40px;
+    width: 90%;
+    max-width: 375px;
+    margin-inline: auto;
+    padding: 25px;
+    border-radius: var(--yv-layout-radius, 10px);
+  }
+
+  .yv-newsletter-popup__image {
+    width: 100%;
+    margin-block-end: 30px;
+    overflow: hidden;
+    border-radius: var(--yv-layout-radius, 10px);
+  }
+
+  .yv-newsletter-popup__image-tag {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .yv-newsletter-popup__dialog--manual .yv-newsletter-popup__content > * {
+    width: 100%;
+  }
+
+  .yv-newsletter-popup__dialog--manual .yv-newsletter-popup__heading {
+    padding-inline: 24px;
+  }
+
+  .yv-newsletter-popup__dialog--manual .yv-newsletter-popup__text {
+    margin-block-end: 0;
+    font-size: 14px;
+  }
+
+  .yv-newsletter-popup__dialog--manual .yv-newsletter-popup__form {
+    margin-block-start: 15px;
+  }
+
+  .yv-newsletter-popup__dialog--manual .yv-newsletter-popup__close {
+    inset-block-start: 6px;
+    inset-inline-end: 6px;
+    width: 28px;
+    height: 28px;
+    background: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-newsletter-popup__dialog--auto,
+    .yv-newsletter-popup__dialog--media {
+      inset: auto 0 15px;
+      width: 92vw;
+      margin-inline: auto;
+    }
+
+    .yv-newsletter-popup__dialog--media[open] {
+      display: block;
+    }
+
+    .yv-newsletter-popup__media {
+      display: none;
+    }
+
+    .yv-newsletter-popup__dialog--auto .yv-newsletter-popup__content {
+      padding: 40px 24px 24px;
+    }
+
+    .yv-newsletter-popup__dialog--auto .yv-newsletter-popup__content > * {
+      max-width: none;
+    }
+
+    .yv-newsletter-popup--left .yv-newsletter-popup__dock {
+      inset-inline-start: 15px;
+    }
+
+    .yv-newsletter-popup--right .yv-newsletter-popup__dock {
+      inset-inline-end: 15px;
+    }
+
+    .yv-newsletter-popup__trigger {
+      width: 50px;
+      height: 50px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.newsletter_popup",
+  "tag": "div",
+  "class": "yv-newsletter-popup-section",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enable",
+      "label": "t:yv.newsletter_popup.settings.enable",
+      "info": "t:yv.newsletter_popup.settings.enable_info",
+      "default": false
+    },
+    {
+      "type": "image_picker",
+      "id": "icon_image",
+      "label": "t:settings.icon",
+      "info": "t:yv.newsletter_popup.settings.icon_info"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:settings.heading",
+      "default": "Join our newsletter"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading",
+      "default": "Keep in touch for new launches and offers"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:settings.image"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text",
+      "info": "t:yv.newsletter_popup.settings.button_text_info",
+      "default": "Get 10% off"
+    },
+    {
+      "type": "select",
+      "id": "position_x",
+      "label": "t:settings.x_position",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "range",
+      "id": "position_y",
+      "label": "t:settings.y_position",
+      "info": "t:yv.newsletter_popup.settings.position_y_info",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 15
+    },
+    {
+      "type": "header",
+      "content": "t:yv.newsletter_popup.content.automatic"
+    },
+    {
+      "type": "paragraph",
+      "content": "t:yv.newsletter_popup.content.automatic_info"
+    },
+    {
+      "type": "range",
+      "id": "auto_delay",
+      "label": "t:yv.newsletter_popup.settings.auto_delay",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "s",
+      "default": 5
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,191 @@
+{% doc %}
+  Rich text > Text: a Yuva highlight heading (bold words switch to the highlight font and take the
+  highlight colour or gradient; optional rotating words, inline or on their own line) with a
+  description underneath. Alignment follows the parent section's `text_alignment`.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign align = section.settings.text_alignment | default: 'center'
+  unless align == 'left' or align == 'right'
+    assign align = 'center'
+  endunless
+
+  assign heading = block.settings.heading
+  if block.settings.rotating_new_line and heading != blank and block.settings.rotating_text != blank
+    assign heading = heading | append: '<br>'
+  endif
+-%}
+
+<div
+  class="yv-rich-text-block"
+  {{ block.shopify_attributes }}
+>
+  {%- render 'yv-heading',
+    text: heading,
+    tag: block.settings.heading_tag,
+    size: block.settings.heading_size,
+    highlight_font: block.settings.highlight_font,
+    highlight_color: block.settings.highlight_color,
+    rotating_text: block.settings.rotating_text,
+    description: block.settings.description,
+    alignment: align,
+    reveal: settings.yv_enable_animation
+  -%}
+</div>
+
+{% stylesheet %}
+  .yv-rich-text-block {
+    --yv-heading-gap: 16px;
+
+    width: 100%;
+    min-width: 0;
+  }
+
+  .yv-rich-text-block .yv-heading__description {
+    font-size: var(--yv-text-lg, 1rem);
+    line-height: var(--line-height--body-normal, 1.4);
+  }
+
+  .yv-rich-text-block .yv-heading__description :is(p, ul, ol) {
+    margin-block: 0;
+  }
+
+  .yv-rich-text-block .yv-heading__description :is(p, ul, ol) + :is(p, ul, ol) {
+    margin-block-start: 20px;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.rich_text_block",
+  "tag": null,
+  "settings": [
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "Talk about your <strong>brand</strong>"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "info": "t:yv.common.settings.heading_tag_info",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "info": "t:yv.rich_text.settings.heading_size_info",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "info": "t:yv.common.settings.highlight_color_info",
+      "default": "linear-gradient(90deg, rgba(166, 120, 200, 1) 0%, rgba(113, 140, 199, 1) 48%, rgba(99, 154, 71, 1) 100%)"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "rotating_new_line",
+      "label": "t:yv.rich_text.settings.rotating_new_line",
+      "default": false,
+      "visible_if": "{{ block.settings.rotating_text != blank }}"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description",
+      "default": "<p>Share information about your brand with your customers.</p>"
+    }
+  ]
+}
+{% endschema %}

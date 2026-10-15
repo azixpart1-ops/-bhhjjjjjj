@@ -1,0 +1,451 @@
+{% comment %}
+  Section contract: yv-collapsible-content
+  Yuva "Collapsible content" (FAQ): an optional highlight heading above up to 6 collapsible rows
+  (`_yv-collapsible-row`) in the small (1000px) container. Each row is a shadowed card: a header
+  bar in its own colour set with a thin plus that turns into a minus, and the answer on the
+  section background. Native <details>/<summary> inside Horizon's accordion-custom (works without
+  JS); rows share a `name`, so opening one closes the others, and the first row can start open.
+  assets/yv-collapsible-content.js opens a row when it is selected in the theme editor.
+  Shared settings: section border, highlight heading, color set (+ row header set), visibility, spacing.
+  @example
+  Theme editor > Add section > Text > "Collapsible content"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+  assign row_set_id = section.id | append: '-row'
+  render 'yv-color-set', set: section.settings.row_color_set, section_id: row_set_id
+-%}
+
+<script
+  src="{{ 'yv-collapsible-content.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-faq color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-collapsible-content"
+>
+  <div class="yv-container yv-container--sm yv-faq__inner">
+    {% render 'yv-heading',
+      text: section.settings.heading,
+      tag: section.settings.heading_tag,
+      size: section.settings.heading_size,
+      highlight_font: section.settings.highlight_font,
+      highlight_color: section.settings.highlight_color,
+      alignment: 'left',
+      class: 'yv-faq__heading',
+      reveal: settings.yv_enable_animation
+    %}
+
+    <yv-collapsible-content-component class="yv-faq__list">
+      {%- content_for 'blocks' -%}
+    </yv-collapsible-content-component>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-faq__inner {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .yv-faq__list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-block-start: 40px;
+  }
+
+  .yv-faq__list:empty {
+    display: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-faq__list {
+      margin-block-start: 20px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.collapsible_content",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 6,
+  "blocks": [
+    {
+      "type": "_yv-collapsible-row"
+    }
+  ],
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "FAQs"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "small"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, rgba(166, 120, 200, 1) 0%, rgba(113, 140, 199, 1) 48%, rgba(99, 154, 71, 1) 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.collapsible_content.content.rows"
+    },
+    {
+      "type": "checkbox",
+      "id": "open_first",
+      "label": "t:yv.collapsible_content.settings.open_first",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "row_color_set",
+      "label": "t:yv.collapsible_content.settings.row_color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "quaternary"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 44
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.collapsible_content",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "heading": ""
+      },
+      "blocks": {
+        "row_1": {
+          "type": "_yv-collapsible-row",
+          "settings": {
+            "heading": "Can I buy multiple products at once?",
+            "description": "<p>Yes, you can order multiple products at once. Simply add the products you wish to purchase to your shopping cart.</p>"
+          }
+        },
+        "row_2": {
+          "type": "_yv-collapsible-row",
+          "settings": {
+            "heading": "How do I know that my order has been confirmed?",
+            "description": "<p>After checkout you will see a confirmation page with your order number.</p><p>We also send a confirmation email with the details of your order.</p><p>If you added a phone number, you will receive an SMS confirmation too.</p>"
+          }
+        },
+        "row_3": {
+          "type": "_yv-collapsible-row",
+          "settings": {
+            "heading": "Can I order multiple units of a single product?",
+            "description": "<p>You can order any number units of a single item for personal use on the basis of availability in the stock.</p>"
+          }
+        },
+        "row_4": {
+          "type": "_yv-collapsible-row",
+          "settings": {
+            "heading": "Can I change the delivery address after placing an order?",
+            "description": "<p>Address changes are not allowed once the order is placed.</p><p>For more information, we request you to kindly contact our support team.</p>"
+          }
+        }
+      },
+      "block_order": ["row_1", "row_2", "row_3", "row_4"]
+    },
+    {
+      "name": "t:yv.names.faq_with_heading",
+      "category": "t:yv.categories.text",
+      "settings": {
+        "heading": "General Questions",
+        "row_color_set": "primary",
+        "spacing_top_desktop": 60,
+        "spacing_bottom_desktop": 60,
+        "spacing_top_mobile": 32,
+        "spacing_bottom_mobile": 32
+      },
+      "blocks": {
+        "row_1": {
+          "type": "_yv-collapsible-row",
+          "settings": {
+            "heading": "Can you exchange items?",
+            "description": "<p>Yes. Items can be exchanged for a different size or colour within 30 days of delivery.</p><p>Items must be unworn, unwashed and in their original packaging.</p><p>Start an exchange from your account or contact our support team.</p>"
+          }
+        },
+        "row_2": {
+          "type": "_yv-collapsible-row",
+          "settings": {
+            "heading": "What is your return policy?",
+            "description": "<p>You can return any item within 30 days of delivery for a full refund to your original payment method.</p>"
+          }
+        },
+        "row_3": {
+          "type": "_yv-collapsible-row",
+          "settings": {
+            "heading": "When will my card be charged for my order?",
+            "description": "<p>Your card is charged when your order is placed.</p>"
+          }
+        },
+        "row_4": {
+          "type": "_yv-collapsible-row",
+          "settings": {
+            "heading": "Do you provide International delivery?",
+            "description": "<p>Yes, we ship to most countries. Shipping costs and delivery times are shown at checkout.</p>"
+          }
+        },
+        "row_5": {
+          "type": "_yv-collapsible-row",
+          "settings": {
+            "heading": "What are your delivery options?",
+            "description": "<p>Choose standard or express delivery at checkout.</p>"
+          }
+        },
+        "row_6": {
+          "type": "_yv-collapsible-row",
+          "settings": {
+            "heading": "Where do I find my tracking number?",
+            "description": "<p>Your tracking number is in the shipping confirmation email we send when your order leaves our warehouse.</p>"
+          }
+        }
+      },
+      "block_order": ["row_1", "row_2", "row_3", "row_4", "row_5", "row_6"]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,212 @@
+{% comment %}
+  Section contract: yv-custom-liquid
+  Yuva "Custom liquid": merchant-supplied Liquid, HTML or app snippets inside the page container,
+  aligned left, centre or right, on a colour set. In the theme editor an empty field shows a
+  dashed placeholder box.
+  Shared settings: color set, visibility, spacing.
+  @example
+  Theme editor > Add section > Other > "Custom liquid"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+  assign align = section.settings.alignment | default: 'left'
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-custom-liquid color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+>
+  <div class="yv-container yv-container--page yv-custom-liquid__content yv-custom-liquid__content--{{ align }}">
+    {%- if section.settings.custom_liquid != blank -%}
+      {{ section.settings.custom_liquid }}
+    {%- elsif request.design_mode -%}
+      <p class="yv-custom-liquid__placeholder">{{ 'yv.custom_liquid.placeholder' | t }}</p>
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-custom-liquid__content {
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
+  .yv-custom-liquid__content:empty {
+    display: none;
+  }
+
+  .yv-custom-liquid__content--center {
+    text-align: center;
+  }
+
+  .yv-custom-liquid__content--center > * {
+    margin-inline: auto;
+  }
+
+  .yv-custom-liquid__content--right {
+    text-align: end;
+  }
+
+  .yv-custom-liquid__content--right > * {
+    margin-inline-start: auto;
+  }
+
+  .yv-custom-liquid__content > :first-child {
+    margin-block-start: 0;
+  }
+
+  .yv-custom-liquid__content > :last-child {
+    margin-block-end: 0;
+  }
+
+  .yv-custom-liquid__placeholder {
+    max-width: 100%;
+    padding: 24px;
+    border: 1px dashed rgb(var(--color-foreground-rgb) / var(--opacity-30, 0.3));
+    border-radius: var(--yv-layout-radius, 0);
+    color: rgb(var(--color-foreground-rgb) / var(--opacity-70, 0.7));
+    font-size: var(--yv-text-md, 0.875rem);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.custom_liquid",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "liquid",
+      "id": "custom_liquid",
+      "label": "t:yv.custom_liquid.settings.custom_liquid",
+      "info": "t:yv.custom_liquid.settings.custom_liquid_info"
+    },
+    {
+      "type": "select",
+      "id": "alignment",
+      "label": "t:yv.custom_liquid.settings.alignment",
+      "info": "t:yv.custom_liquid.settings.alignment_info",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.custom_liquid",
+      "category": "t:yv.categories.other"
+    }
+  ]
+}
+{% endschema %}

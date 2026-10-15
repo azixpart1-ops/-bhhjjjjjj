@@ -1,0 +1,300 @@
+{%- doc -%}
+  Newsletter column of the Yuva footer (sections/yv-footer.liquid), always expanded (no accordion on
+  phones): heading, description, the shared newsletter form (snippets/yv-newsletter-form) with a
+  footer-coloured pill input and a black "Subscribe" pill, or an underlined input with an arrow
+  submit (Form style "Icon"), then the social icons from Theme settings > Social media (outlined
+  circles) and the Shop "Follow" button.
+{%- enddoc -%}
+
+{%- liquid
+  assign heading = block.settings.heading | strip
+  assign form_id = 'yv-footer-newsletter-' | append: block.id
+  assign form_style = block.settings.form_style | default: 'button'
+  assign show_follow = false
+  if block.settings.show_follow_on_shop and shop.features.follow_on_shop?
+    assign show_follow = true
+  endif
+-%}
+
+<div
+  class="yv-footer-col yv-footer-newsletter yv-footer-newsletter--{{ form_style }}"
+  {{ block.shopify_attributes }}
+>
+  {%- if heading != blank -%}
+    <h2 class="yv-footer-col__heading yv-footer-col__heading--static">{{ heading | escape }}</h2>
+  {%- endif -%}
+
+  {%- if block.settings.description != blank -%}
+    <div class="yv-footer-newsletter__text rte">{{ block.settings.description }}</div>
+  {%- endif -%}
+
+  {%- if block.settings.show_newsletter -%}
+    {% render 'yv-newsletter-form',
+      form_id: form_id,
+      placeholder: block.settings.placeholder,
+      layout: 'inline',
+      button_bg: '#000000',
+      button_text: '#ffffff',
+      button_border: 'color-mix(in srgb, var(--yv-footer-text) 65%, transparent)',
+      class: 'yv-footer-newsletter__form'
+    %}
+  {%- endif -%}
+
+  {%- if block.settings.show_social -%}
+    {%- capture social_label -%}{{ heading | default: shop.name | escape }}{%- endcapture -%}
+    {% render 'yv-social-icons',
+      style: 'circle',
+      size: 12,
+      label: social_label,
+      class: 'yv-footer-newsletter__social'
+    %}
+  {%- endif -%}
+
+  {%- if show_follow -%}
+    <div class="yv-footer-newsletter__follow">
+      {{ shop | login_button: action: 'follow' }}
+    </div>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .yv-footer-newsletter {
+    --yv-footer-col: 410px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .yv-footer-newsletter__text {
+    padding-block-end: 15px;
+    font-size: var(--font-paragraph--size);
+    line-height: 1.4;
+  }
+
+  .yv-footer-newsletter__text > * {
+    margin: 0;
+  }
+
+  .yv-footer-newsletter__text a {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* Pill form: footer-tinted input, black pill button, 5px apart, 50px tall. */
+  .yv-footer-newsletter .yv-newsletter-form__fields {
+    gap: 5px;
+  }
+
+  .yv-footer-newsletter .yv-newsletter-form__input {
+    min-height: 50px;
+    padding: 10px 20px;
+    border: 0;
+    border-radius: 40px;
+    box-shadow: none;
+    background-color: var(--yv-footer-field);
+    color: var(--yv-footer-text);
+    font-size: var(--font-paragraph--size);
+  }
+
+  .yv-footer-newsletter .yv-newsletter-form__input::placeholder {
+    color: var(--yv-footer-text);
+    opacity: 1;
+  }
+
+  .yv-footer-newsletter .yv-newsletter-form__button {
+    --yv-btn-height: 50px;
+
+    min-width: 126px;
+    border-radius: 50px;
+  }
+
+  /* Keep the input and button side by side on phones (Yuva: 219 + 126px at 390px). */
+  .yv-footer-newsletter .yv-newsletter-form--inline .yv-newsletter-form__fields {
+    flex-direction: row;
+  }
+
+  .yv-footer-newsletter .yv-newsletter-form--inline .yv-newsletter-form__button {
+    width: auto;
+  }
+
+  @container (max-width: 279px) {
+    .yv-footer-newsletter .yv-newsletter-form--inline .yv-newsletter-form__fields {
+      flex-direction: column;
+    }
+
+    .yv-footer-newsletter .yv-newsletter-form--inline .yv-newsletter-form__button {
+      width: 100%;
+    }
+  }
+
+  /* Icon style: underlined input with a thin arrow submit at its end. */
+  .yv-footer-newsletter--icon .yv-newsletter-form--inline .yv-newsletter-form__fields {
+    position: relative;
+    flex-direction: row;
+    gap: 0;
+    border-block-end: 1px solid var(--yv-footer-line);
+  }
+
+  .yv-footer-newsletter--icon .yv-newsletter-form__input {
+    padding-inline: 0 48px;
+    border-radius: 0;
+    background-color: transparent;
+  }
+
+  .yv-footer-newsletter--icon .yv-newsletter-form--inline .yv-newsletter-form__button {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    width: 44px;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background-color: var(--yv-footer-heading);
+    color: transparent;
+    font-size: 0;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12h17.5M14.5 6l6 6-6 6'/%3E%3C/svg%3E")
+      center / 22px no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12h17.5M14.5 6l6 6-6 6'/%3E%3C/svg%3E")
+      center / 22px no-repeat;
+  }
+
+  .yv-footer-newsletter--icon .yv-newsletter-form__button:hover {
+    background-color: var(--yv-footer-hover);
+  }
+
+  .yv-footer-newsletter--icon .yv-newsletter-form__fields:has(.yv-newsletter-form__button:focus-visible) {
+    outline: var(--focus-outline-width, 2px) solid currentColor;
+    outline-offset: 4px;
+  }
+
+  /* Social icons: 28px rings in 34px steps; a light disc grows behind the glyph on hover. */
+  .yv-footer-newsletter__social {
+    --yv-social-gap: 6px;
+
+    margin-block-start: 30px;
+  }
+
+  .yv-footer-newsletter .yv-social__link {
+    position: relative;
+    isolation: isolate;
+    border-color: color-mix(in srgb, var(--yv-footer-text) 70%, transparent);
+  }
+
+  .yv-footer-newsletter .yv-social__link::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 50%;
+    background-color: var(--yv-footer-hover);
+    opacity: 0;
+    scale: 0.8;
+  }
+
+  .yv-footer-newsletter .yv-social__link:hover {
+    border-color: var(--yv-footer-hover);
+    color: var(--yv-footer-bg);
+  }
+
+  .yv-footer-newsletter .yv-social__link:hover::before {
+    opacity: 1;
+    scale: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-footer-newsletter .yv-social__link::before {
+      transition: opacity 0.3s ease, scale 0.3s ease;
+    }
+  }
+
+  .yv-footer-newsletter__follow {
+    margin-block-start: 20px;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-footer-newsletter .yv-newsletter-form__input {
+      min-height: 44px;
+    }
+
+    .yv-footer-newsletter .yv-newsletter-form__button {
+      --yv-btn-height: 44px;
+    }
+
+    .yv-footer-newsletter__social {
+      margin-block-start: 15px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.footer_newsletter",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:settings.heading",
+      "default": "Get updates in your inbox"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description",
+      "default": "<p>Get the latest news, exclusive offers, and updates delivered straight to your inbox.</p>"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_newsletter",
+      "label": "t:yv.footer.settings.show_newsletter",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "placeholder",
+      "label": "t:yv.footer.settings.placeholder",
+      "default": "Email address",
+      "visible_if": "{{ block.settings.show_newsletter }}"
+    },
+    {
+      "type": "select",
+      "id": "form_style",
+      "label": "t:yv.footer.settings.form_style",
+      "options": [
+        {
+          "value": "button",
+          "label": "t:yv.footer.options.button"
+        },
+        {
+          "value": "icon",
+          "label": "t:yv.footer.options.icon"
+        }
+      ],
+      "default": "button",
+      "visible_if": "{{ block.settings.show_newsletter }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_social",
+      "label": "t:yv.footer.settings.show_social",
+      "info": "t:yv.footer.settings.show_social_info",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_follow_on_shop",
+      "label": "t:yv.footer.settings.show_follow_on_shop",
+      "info": "t:yv.footer.settings.show_follow_on_shop_info",
+      "default": false
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.footer_newsletter"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,846 @@
+{% comment %}
+  Section contract: yv-footer
+  Yuva footer for the footer group (docs part 3 "Footer"; visual spec 00-chrome "footer").
+  A full-bleed band in four colours (background, headings, text, link hover). The top area holds an
+  optional brand column (logo + description) and the merchant's blocks: Menu (_yv-footer-menu),
+  Text (_yv-footer-text) and Newsletter (_yv-footer-newsletter), laid out as columns spread across
+  the page width. Below 750px Menu and Text blocks become "+" accordions (Horizon accordion-custom),
+  and blocks without a heading are hidden. A bottom bar under a hairline shows the copyright line
+  (with optional policy links), Yuva language / currency pills that open upwards (a native
+  localization form, assets/yv-footer.js) and the store's payment icons. On phones the bar stacks
+  centred: pills, payment icons, copyright.
+  Colours are emitted as --yv-footer-bg / --yv-footer-heading / --yv-footer-text / --yv-footer-hover
+  on the section root and read by the blocks.
+  @example
+  Theme editor > Footer > Add section > "Yuva footer"
+{% endcomment %}
+
+{%- liquid
+  assign color_bg = section.settings.color_bg | default: '#131313'
+  assign color_heading = section.settings.color_heading | default: '#ffffff'
+  assign color_text = section.settings.color_text | default: '#a6a6a6'
+  assign color_hover = section.settings.color_link_hover | default: color_heading
+
+  render 'contrast-override', background_color: color_bg, text_color: color_text, section_id: section.id
+
+  assign show_brand = false
+  if section.settings.logo != blank or section.settings.description != blank
+    assign show_brand = true
+  endif
+
+  assign show_language = section.settings.show_language
+  if localization.available_languages.size <= 1
+    assign show_language = false
+  endif
+  assign show_country = section.settings.show_currency
+  if localization.available_countries.size <= 1
+    assign show_country = false
+  endif
+
+  assign show_payments = false
+  if section.settings.show_payment_icons and shop.enabled_payment_types.size > 0
+    assign show_payments = true
+  endif
+
+  assign show_policies = false
+  if section.settings.show_policies and shop.policies.size > 0
+    assign show_policies = true
+  endif
+
+  assign localization_form_id = 'YvFooterLocalization-' | append: section.id
+  assign logo_width = section.settings.logo_width | default: 120
+  assign logo_alt = section.settings.logo.alt | default: shop.name
+-%}
+
+<div class="section-background color-custom-{{ section.id }}"></div>
+<div
+  class="section section--page-width yv-footer color-custom-{{ section.id }}"
+  style="--yv-footer-bg: {{ color_bg }}; --yv-footer-heading: {{ color_heading }}; --yv-footer-text: {{ color_text }}; --yv-footer-hover: {{ color_hover }};"
+  data-testid="yv-footer"
+>
+  <div class="yv-footer__main yv-container yv-container--page">
+    <div class="yv-footer__grid">
+      {%- if show_brand -%}
+        <div class="yv-footer__brand">
+          {%- if section.settings.logo != blank -%}
+            <a
+              class="yv-footer__logo"
+              href="{{ routes.root_url }}"
+              style="--yv-footer-logo-width: {{ logo_width }}px;"
+            >
+              {%- liquid
+                assign logo_width_2x = logo_width | times: 2
+                assign logo_widths = logo_width | append: ', ' | append: logo_width_2x
+                assign logo_sizes = logo_width | append: 'px'
+              -%}
+              {{
+                section.settings.logo
+                | image_url: width: logo_width_2x
+                | image_tag:
+                  widths: logo_widths,
+                  sizes: logo_sizes,
+                  width: logo_width,
+                  loading: 'lazy',
+                  alt: logo_alt,
+                  class: 'yv-footer__logo-image'
+              }}
+            </a>
+          {%- endif -%}
+          {%- if section.settings.description != blank -%}
+            <div class="yv-footer__description rte">{{ section.settings.description }}</div>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      {%- content_for 'blocks' -%}
+    </div>
+  </div>
+
+  <div class="yv-footer__bottom">
+    <div class="yv-footer__bottom-inner">
+      <div class="yv-footer__zone yv-footer__zone--start">
+        {%- unless section.settings.hide_copyright -%}
+          <p class="yv-footer__copyright">
+            {%- if section.settings.copyright_text != blank -%}
+              {{ section.settings.copyright_text }}
+            {%- else -%}
+              {{ 'yv.footer.copyright' | t }}&copy; {{ 'now' | date: '%Y' }}
+              {{ shop.name | link_to: routes.root_url }}
+            {%- endif %}
+            {{ powered_by_link }}
+          </p>
+        {%- endunless -%}
+        {%- if show_policies -%}
+          <ul
+            class="yv-footer__policies list-unstyled"
+            role="list"
+          >
+            {%- for policy in shop.policies -%}
+              {%- if policy != blank -%}
+                <li class="yv-footer__policy">
+                  <a href="{{ policy.url }}">{{ policy.title | escape }}</a>
+                </li>
+              {%- endif -%}
+            {%- endfor -%}
+          </ul>
+        {%- endif -%}
+      </div>
+
+      <div class="yv-footer__zone yv-footer__zone--center">
+        {%- if show_language or show_country -%}
+          <script
+            src="{{ 'yv-footer.js' | asset_url }}"
+            type="module"
+            fetchpriority="low"
+          ></script>
+          {%- form 'localization', id: localization_form_id, class: 'yv-footer__localization' -%}
+            <span class="visually-hidden">{{ 'content.localization_region_and_language' | t }}</span>
+            {%- if show_language -%}
+              {%- assign language_panel_id = localization_form_id | append: '-language' -%}
+              <yv-footer-locale-component class="yv-footer-locale">
+                <button
+                  type="button"
+                  class="yv-footer-locale__button"
+                  aria-expanded="false"
+                  aria-controls="{{ language_panel_id }}"
+                  ref="button"
+                  on:click="/toggle"
+                >
+                  <span class="visually-hidden">{{ 'content.language' | t }}:</span>
+                  <span class="yv-footer-locale__label">{{ localization.language.iso_code | upcase }}</span>
+                  <span
+                    class="yv-footer-locale__chevron"
+                    aria-hidden="true"
+                  ></span>
+                </button>
+                <ul
+                  id="{{ language_panel_id }}"
+                  class="yv-footer-locale__panel list-unstyled"
+                  role="list"
+                  ref="panel"
+                  hidden
+                >
+                  {%- for language in localization.available_languages -%}
+                    <li>
+                      <button
+                        type="submit"
+                        name="language_code"
+                        value="{{ language.iso_code }}"
+                        class="yv-footer-locale__option"
+                        lang="{{ language.iso_code }}"
+                        {% if language.iso_code == localization.language.iso_code %}
+                          aria-current="true"
+                        {% endif %}
+                      >
+                        {{- language.endonym_name | capitalize -}}
+                      </button>
+                    </li>
+                  {%- endfor -%}
+                </ul>
+              </yv-footer-locale-component>
+            {%- endif -%}
+            {%- if show_country -%}
+              {%- assign country_panel_id = localization_form_id | append: '-country' -%}
+              <yv-footer-locale-component class="yv-footer-locale">
+                <button
+                  type="button"
+                  class="yv-footer-locale__button"
+                  aria-expanded="false"
+                  aria-controls="{{ country_panel_id }}"
+                  ref="button"
+                  on:click="/toggle"
+                >
+                  <span class="visually-hidden">{{ 'accessibility.country_region' | t }}:</span>
+                  <span
+                    class="yv-footer-locale__flag"
+                    style="background-image: url({{ localization.country | image_url: width: 40 }});"
+                    aria-hidden="true"
+                  ></span>
+                  <span class="yv-footer-locale__label">{{ localization.country.currency.iso_code }}</span>
+                  <span
+                    class="yv-footer-locale__chevron"
+                    aria-hidden="true"
+                  ></span>
+                </button>
+                <ul
+                  id="{{ country_panel_id }}"
+                  class="yv-footer-locale__panel list-unstyled"
+                  role="list"
+                  ref="panel"
+                  hidden
+                >
+                  {%- for country in localization.available_countries -%}
+                    <li>
+                      <button
+                        type="submit"
+                        name="country_code"
+                        value="{{ country.iso_code }}"
+                        class="yv-footer-locale__option"
+                        {% if country.iso_code == localization.country.iso_code %}
+                          aria-current="true"
+                        {% endif %}
+                      >
+                        <span
+                          class="yv-footer-locale__flag"
+                          style="background-image: url({{ country | image_url: width: 40 }});"
+                          aria-hidden="true"
+                        ></span>
+                        <span>
+                          {{- country.name }}
+                          <span class="yv-footer-locale__currency">
+                            ({{ country.currency.iso_code }} {{ country.currency.symbol }})
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  {%- endfor -%}
+                </ul>
+              </yv-footer-locale-component>
+            {%- endif -%}
+          {%- endform -%}
+        {%- endif -%}
+      </div>
+
+      <div class="yv-footer__zone yv-footer__zone--end">
+        {%- if show_payments -%}
+          <div class="yv-footer__payments">
+            <span class="visually-hidden">{{ 'blocks.payment_methods' | t }}</span>
+            <ul
+              class="yv-footer__payment-list list-unstyled"
+              role="list"
+            >
+              {%- for type in shop.enabled_payment_types -%}
+                <li class="yv-footer__payment-icon">
+                  {{ type | payment_type_svg_tag: class: 'icon icon--full-color' }}
+                </li>
+              {%- endfor -%}
+            </ul>
+          </div>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-footer {
+    --yv-footer-line: color-mix(in srgb, var(--yv-footer-text) 8%, var(--yv-footer-bg));
+    --yv-footer-field: color-mix(in srgb, var(--yv-footer-text) 8%, var(--yv-footer-bg));
+    --yv-footer-gap: 24px;
+
+    color: var(--yv-footer-text);
+    font-size: var(--font-paragraph--size);
+    line-height: var(--font-paragraph--line-height);
+  }
+
+  .yv-footer a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* Top area: columns spread across the page width (Yuva: 3 × 1/6 + 1/3, space-around). */
+  .yv-footer__main {
+    padding-block: 50px;
+  }
+
+  .yv-footer__grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    align-items: flex-start;
+    gap: 40px var(--yv-footer-gap);
+  }
+
+  .yv-footer__grid > * {
+    flex: 0 1 var(--yv-footer-col, 186px);
+    min-width: 0;
+  }
+
+  .yv-footer__grid:empty {
+    display: none;
+  }
+
+  .yv-footer__brand {
+    --yv-footer-col: 280px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .yv-footer__logo {
+    display: block;
+    width: var(--yv-footer-logo-width, 120px);
+    max-width: 100%;
+  }
+
+  .yv-footer__logo-image {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .yv-footer__description {
+    color: var(--yv-footer-text);
+  }
+
+  .yv-footer__description > :first-child {
+    margin-block-start: 0;
+  }
+
+  .yv-footer__description > :last-child {
+    margin-block-end: 0;
+  }
+
+  /* Columns (shared by the Menu, Text and Newsletter blocks): bold 13.44px headings 20px above the
+     content; below 750px Menu and Text become "+" accordions. */
+  .yv-footer-col {
+    min-width: 0;
+    color: var(--yv-footer-text);
+  }
+
+  .yv-footer-col__heading {
+    display: block;
+    min-width: 0;
+    margin: 0;
+    color: var(--yv-footer-heading);
+    font-family: var(--font-paragraph--family);
+    font-style: normal;
+    font-weight: 700;
+    font-size: var(--font-paragraph--size);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    text-transform: none;
+  }
+
+  .yv-footer-col__heading--static {
+    margin-block-end: 20px;
+  }
+
+  .yv-footer-col__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-block: 0 20px;
+    color: var(--yv-footer-heading);
+  }
+
+  .yv-footer-col__summary:hover {
+    color: var(--yv-footer-heading);
+  }
+
+  .yv-footer-col__summary--empty,
+  .yv-footer-col__toggle {
+    display: none;
+  }
+
+  .yv-footer-col__hint {
+    margin: 0;
+    font-size: var(--font-paragraph--size);
+    opacity: 0.7;
+  }
+
+  /* Bottom bar: full-bleed hairline, three zones inside the page width. */
+  .yv-footer > .yv-footer__bottom {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: var(--full-page-grid-with-margins);
+    border-block-start: 1px solid var(--yv-footer-line);
+  }
+
+  .yv-footer__bottom-inner {
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+    gap: 16px;
+    min-height: 74px;
+    padding-block: 15px;
+  }
+
+  .yv-footer__zone {
+    min-width: 0;
+  }
+
+  .yv-footer__zone--center {
+    display: flex;
+    justify-content: center;
+  }
+
+  .yv-footer__zone--end {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .yv-footer__copyright {
+    margin: 0;
+    font-size: calc(var(--font-paragraph--size) * 0.95);
+  }
+
+  .yv-footer__copyright a:hover,
+  .yv-footer__policy a:hover {
+    color: var(--yv-footer-hover);
+  }
+
+  .yv-footer__policies {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 6px 0 0;
+    padding: 0;
+    font-size: calc(var(--font-paragraph--size) * 0.95);
+  }
+
+  .yv-footer__policy + .yv-footer__policy::before {
+    content: '·';
+    margin-inline: 6px;
+  }
+
+  /* Language / currency pills (open upwards). */
+  .yv-footer__localization {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .yv-footer-locale {
+    position: relative;
+    display: block;
+  }
+
+  .yv-footer-locale__button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 4px 26px 4px 10px;
+    border: 0;
+    border-radius: 5px;
+    background-color: var(--yv-footer-field);
+    color: var(--yv-footer-text);
+    font-family: var(--font-paragraph--family);
+    font-size: var(--yv-text-sm, 0.72rem);
+    line-height: 1;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color var(--animation-speed, 0.2s) ease;
+  }
+
+  .yv-footer-locale__button:hover,
+  .yv-footer-locale__button[aria-expanded='true'] {
+    color: var(--yv-footer-hover);
+  }
+
+  .yv-footer-locale__chevron {
+    position: absolute;
+    inset-inline-end: 11px;
+    top: calc(50% - 4px);
+    width: 6px;
+    height: 6px;
+    border-inline-end: 1.5px solid currentColor;
+    border-block-end: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform var(--animation-speed, 0.2s) ease, top var(--animation-speed, 0.2s) ease;
+  }
+
+  .yv-footer-locale__button[aria-expanded='true'] .yv-footer-locale__chevron {
+    top: calc(50% - 1px);
+    transform: rotate(-135deg);
+  }
+
+  .yv-footer-locale__flag {
+    flex: none;
+    display: inline-block;
+    width: 20px;
+    height: 14px;
+    border-radius: 1px;
+    background-position: center;
+    background-size: cover;
+  }
+
+  .yv-footer-locale__panel {
+    position: absolute;
+    inset-block-end: calc(100% + 6px);
+    inset-inline-start: 0;
+    z-index: 2;
+    min-width: 100%;
+    width: max-content;
+    max-width: min(300px, calc(100vw - 40px));
+    max-height: 300px;
+    margin: 0;
+    padding: 6px 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 5px;
+    background-color: #ffffff;
+    color: #000000;
+    box-shadow: var(--yv-shadow-dropdown, 0 1px 10px rgb(0 0 0 / 0.15));
+    text-align: start;
+  }
+
+  .yv-footer-locale__option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 14px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-family: var(--font-paragraph--family);
+    font-size: var(--font-paragraph--size);
+    line-height: 1.3;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .yv-footer-locale__option:hover,
+  .yv-footer-locale__option:focus-visible {
+    background-color: var(--yv-alt-bg, #f2f2f2);
+  }
+
+  .yv-footer-locale__option[aria-current='true'] {
+    font-weight: 700;
+  }
+
+  .yv-footer-locale__currency {
+    opacity: 0.6;
+  }
+
+  /* Payment icons: 38 × 24, 10px apart. */
+  .yv-footer__payment-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .yv-footer__payment-icon {
+    display: flex;
+  }
+
+  .yv-footer__payment-icon .icon {
+    width: 38px;
+    height: 24px;
+  }
+
+  @media screen and (min-width: 750px) and (max-width: 989px) {
+    .yv-footer__grid {
+      justify-content: space-between;
+    }
+
+    .yv-footer__grid > * {
+      flex-basis: calc(50% - var(--yv-footer-gap));
+    }
+
+    .yv-footer__grid > :is(.yv-footer__brand, .yv-footer-newsletter) {
+      flex-basis: 100%;
+    }
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-footer__main {
+      padding-block: 25px;
+    }
+
+    .yv-footer__grid {
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      gap: 25px;
+    }
+
+    .yv-footer__grid > * {
+      flex: none;
+      width: 100%;
+    }
+
+    .yv-footer-col--no-heading {
+      display: none;
+    }
+
+    .yv-footer-col__heading {
+      font-size: 16px;
+    }
+
+    .yv-footer-col__heading--static {
+      margin-block-end: 12px;
+    }
+
+    .yv-footer-col__summary {
+      min-height: 18px;
+      padding-block: 0 12px;
+      cursor: pointer;
+    }
+
+    .yv-footer-col__toggle {
+      display: flex;
+      flex: none;
+      width: 14px;
+      height: 14px;
+      margin-inline-start: auto;
+      color: var(--yv-footer-heading);
+    }
+
+    .yv-footer-col__content {
+      padding-block-end: 8px;
+    }
+
+    .yv-footer__bottom-inner {
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+      gap: 16px;
+      padding-block: 20px;
+      text-align: center;
+    }
+
+    .yv-footer__zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .yv-footer__zone--start {
+      order: 3;
+    }
+
+    .yv-footer__zone--center {
+      order: 1;
+    }
+
+    .yv-footer__zone--end {
+      order: 2;
+    }
+
+    .yv-footer__zone:empty {
+      display: none;
+    }
+
+    .yv-footer__policies,
+    .yv-footer__payment-list {
+      justify-content: center;
+    }
+
+    .yv-footer-locale__panel {
+      inset-inline-start: 50%;
+      translate: -50% 0;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.footer",
+  "tag": "div",
+  "class": "yv-footer-section",
+  "enabled_on": {
+    "groups": ["footer"]
+  },
+  "max_blocks": 6,
+  "blocks": [
+    {
+      "type": "_yv-footer-menu"
+    },
+    {
+      "type": "_yv-footer-text"
+    },
+    {
+      "type": "_yv-footer-newsletter"
+    },
+    {
+      "type": "@app"
+    }
+  ],
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "logo",
+      "label": "t:settings.logo",
+      "info": "t:yv.footer.settings.logo_info"
+    },
+    {
+      "type": "range",
+      "id": "logo_width",
+      "label": "t:yv.footer.settings.logo_width",
+      "min": 50,
+      "max": 180,
+      "step": 2,
+      "unit": "px",
+      "default": 120
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.footer.content.language_selector"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_language",
+      "label": "t:yv.footer.settings.show_language",
+      "info": "t:yv.footer.settings.show_language_info",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.footer.content.currency_selector"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_currency",
+      "label": "t:yv.footer.settings.show_currency",
+      "info": "t:yv.footer.settings.show_currency_info",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.footer.content.payment_methods"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_payment_icons",
+      "label": "t:yv.footer.settings.show_payment_icons",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.footer.content.copyright"
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_copyright",
+      "label": "t:yv.footer.settings.hide_copyright",
+      "default": false
+    },
+    {
+      "type": "inline_richtext",
+      "id": "copyright_text",
+      "label": "t:yv.footer.settings.copyright_text",
+      "info": "t:yv.footer.settings.copyright_text_info",
+      "visible_if": "{{ section.settings.hide_copyright == false }}"
+    },
+    {
+      "type": "header",
+      "content": "t:content.policies"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_policies",
+      "label": "t:yv.footer.settings.show_policies",
+      "info": "t:yv.footer.settings.show_policies_info",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_bg",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#131313"
+    },
+    {
+      "type": "color",
+      "id": "color_heading",
+      "label": "t:yv.common.settings.heading_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#A6A6A6"
+    },
+    {
+      "type": "color",
+      "id": "color_link_hover",
+      "label": "t:yv.footer.settings.link_hover",
+      "default": "#E1E1E1"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.footer",
+      "category": "t:yv.categories.layout",
+      "blocks": {
+        "menu_quick_links": {
+          "type": "_yv-footer-menu",
+          "settings": {
+            "heading": "Quick links",
+            "menu": "main-menu"
+          }
+        },
+        "menu_collections": {
+          "type": "_yv-footer-menu",
+          "settings": {
+            "heading": "Collections",
+            "menu": "footer"
+          }
+        },
+        "menu_most_purchase": {
+          "type": "_yv-footer-menu",
+          "settings": {
+            "heading": "Most Purchase"
+          }
+        },
+        "newsletter": {
+          "type": "_yv-footer-newsletter",
+          "settings": {
+            "heading": "Get Updates in Your Inbox"
+          }
+        }
+      },
+      "block_order": ["menu_quick_links", "menu_collections", "menu_most_purchase", "newsletter"]
+    }
+  ]
+}
+{% endschema %}

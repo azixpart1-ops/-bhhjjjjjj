@@ -1,0 +1,376 @@
+{% doc %}
+  Yuva testimonial ("Quote"): one slide of the Testimonials section. The look follows the
+  section's `style` setting:
+  - classic: centred quote in the h5 type preset, large stars, then a small avatar with
+    "Author / City";
+  - modern: a raised card (left-aligned quote, then a 50px avatar beside "Author / City" with
+    small stars under the name).
+  An optional Shopify-hosted feedback video adds a "Play" pill after the name that opens the
+  shared video dialog (snippets/yv-video-modal.liquid).
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign style = section.settings.style | default: 'classic'
+  assign rating = block.settings.rating | default: 0
+  assign star_size = 22
+  assign avatar_size = 34
+  if style == 'modern'
+    assign star_size = 10
+    assign avatar_size = 50
+  endif
+  assign avatar_width = avatar_size | times: 2
+  assign author_initial = block.settings.author | strip | slice: 0 | upcase
+  assign has_author = false
+  if block.settings.author != blank or block.settings.author_city != blank
+    assign has_author = true
+  endif
+-%}
+
+<div
+  class="yv-testimonial yv-testimonial--{{ style }}"
+  {{ block.shopify_attributes }}
+>
+  <figure class="yv-testimonial__card">
+    {%- if block.settings.message != blank -%}
+      <blockquote class="yv-testimonial__quote{% if style == 'classic' %} h5{% endif %}">
+        <p>{{ block.settings.message | escape | newline_to_br }}</p>
+      </blockquote>
+    {%- endif -%}
+
+    {%- if style == 'classic' and rating > 0 -%}
+      {% render 'yv-stars', rating: rating, size: star_size, class: 'yv-testimonial__stars' %}
+    {%- endif -%}
+
+    {%- if has_author or block.settings.video != blank or style == 'modern' and rating > 0 -%}
+      <figcaption class="yv-testimonial__author">
+        {%- if block.settings.author_image != blank -%}
+          <span class="yv-testimonial__avatar">
+            {{
+              block.settings.author_image
+              | image_url: width: avatar_width
+              | image_tag:
+                width: avatar_size,
+                height: avatar_size,
+                loading: 'lazy',
+                alt: block.settings.author
+            }}
+          </span>
+        {%- elsif author_initial != blank -%}
+          <span
+            class="yv-testimonial__avatar yv-testimonial__avatar--initial"
+            aria-hidden="true"
+          >
+            {{- author_initial | escape -}}
+          </span>
+        {%- endif -%}
+
+        <span class="yv-testimonial__meta">
+          {%- if has_author -%}
+            <span class="yv-testimonial__name">
+              {%- if block.settings.author != blank -%}
+                <cite class="yv-testimonial__author-name">{{ block.settings.author | escape }}</cite>
+              {%- endif -%}
+              {%- if block.settings.author != blank and block.settings.author_city != blank %} / {% endif -%}
+              {%- if block.settings.author_city != blank -%}
+                <span class="yv-testimonial__city">{{ block.settings.author_city | escape }}</span>
+              {%- endif -%}
+            </span>
+          {%- endif -%}
+          {%- if style == 'modern' and rating > 0 -%}
+            {% render 'yv-stars', rating: rating, size: star_size, class: 'yv-testimonial__stars' %}
+          {%- endif -%}
+        </span>
+
+        {%- if block.settings.video != blank -%}
+          {%- liquid
+            assign video_label = block.settings.video_button_text | default: ''
+            if video_label == blank
+              assign video_label = 'yv.video.play' | t
+            endif
+          -%}
+          {%- capture video_trigger -%}
+            <span class="yv-testimonial__video-label">{{ video_label | escape }}</span>
+          {%- endcapture -%}
+          {% render 'yv-video-modal',
+            video: block.settings.video,
+            label: video_label,
+            title: block.settings.author,
+            trigger: video_trigger,
+            trigger_class: 'yv-testimonial__video',
+            class: 'yv-testimonial__video-modal'
+          %}
+        {%- endif -%}
+      </figcaption>
+    {%- endif -%}
+  </figure>
+</div>
+
+{% stylesheet %}
+  .yv-testimonial {
+    display: flex;
+    min-width: 0;
+    height: auto;
+  }
+
+  .yv-testimonial__card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .yv-testimonial__quote {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-style: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .yv-testimonial__quote p {
+    margin: 0;
+  }
+
+  .yv-testimonial__author {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .yv-testimonial__avatar {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: var(--yv-testimonial-avatar, 34px);
+    height: var(--yv-testimonial-avatar, 34px);
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--yv-image-bg, #f3efec);
+  }
+
+  .yv-testimonial__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-testimonial__avatar--initial {
+    font-family: var(--font-heading--family);
+    font-weight: var(--font-heading--weight);
+    font-size: calc(var(--yv-testimonial-avatar, 34px) * 0.42);
+    line-height: 1;
+    color: rgb(var(--color-foreground-rgb) / 0.7);
+  }
+
+  .yv-testimonial__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .yv-testimonial__name {
+    overflow-wrap: anywhere;
+  }
+
+  .yv-testimonial__author-name {
+    font-style: normal;
+  }
+
+  .yv-testimonial__stars {
+    --yv-star-color: var(--color-foreground);
+    --yv-star-gap: 5px;
+  }
+
+  .yv-testimonial__video-modal {
+    flex: none;
+    margin-inline-start: 4px;
+  }
+
+  .yv-testimonial__video-modal .yv-testimonial__video {
+    display: inline-flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    height: 28px;
+    padding: 0 12px 0 4px;
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.2);
+    border-radius: 30px;
+    font-size: var(--yv-text-sm, 11.52px);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .yv-testimonial__video-modal .yv-testimonial__video .yv-video-modal__play {
+    --yv-video-play-size: 20px;
+
+    position: static;
+    translate: none;
+    color: var(--color-background);
+    background: var(--color-foreground);
+    border: 0;
+    backdrop-filter: none;
+  }
+
+  .yv-testimonial__video-modal .yv-testimonial__video .yv-video-modal__play::after {
+    content: none;
+  }
+
+  .yv-testimonial__video-modal .yv-testimonial__video:hover {
+    background: rgb(var(--color-foreground-rgb) / 0.06);
+  }
+
+  /* Classic: centred quote, stars, then the author row. */
+  .yv-testimonial--classic .yv-testimonial__card {
+    align-items: center;
+    max-width: 800px;
+    margin-inline: auto;
+    padding: 0 10px;
+    text-align: center;
+  }
+
+  .yv-testimonial--classic .yv-testimonial__quote {
+    margin-block-end: 30px;
+    font-family: var(--font-body--family);
+    font-weight: var(--font-body--weight);
+    font-style: var(--font-body--style);
+    letter-spacing: normal;
+    text-transform: none;
+    line-height: 1.8;
+  }
+
+  .yv-testimonial--classic .yv-testimonial__stars {
+    margin-block-end: 20px;
+  }
+
+  .yv-testimonial--classic .yv-testimonial__stars .yv-stars__star {
+    width: 16px;
+    height: 16px;
+  }
+
+  .yv-testimonial--classic .yv-testimonial__author {
+    --yv-testimonial-avatar: 28px;
+
+    justify-content: center;
+    font-size: var(--yv-text-lg, 15.36px);
+  }
+
+  .yv-testimonial--classic .yv-testimonial__city {
+    color: rgb(var(--color-foreground-rgb) / 0.7);
+  }
+
+  /* Modern: the raised card. */
+  .yv-testimonial--modern {
+    padding: 10px;
+  }
+
+  .yv-testimonial--modern .yv-testimonial__card {
+    justify-content: center;
+    gap: 30px;
+    min-height: 260px;
+    padding: 20px;
+    border-radius: var(--yv-layout-radius, 10px);
+    background: var(--yv-card-bg, var(--color-background));
+    box-shadow: 0 0 4px rgb(0 0 0 / 0.25);
+    text-align: start;
+  }
+
+  .yv-testimonial--modern .yv-testimonial__quote {
+    font-size: var(--yv-text-md, 13.44px);
+    line-height: 1.6;
+  }
+
+  .yv-testimonial--modern .yv-testimonial__author {
+    --yv-testimonial-avatar: 50px;
+
+    font-size: var(--yv-text-lg, 15.36px);
+    line-height: 1.4;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-testimonial--classic .yv-testimonial__stars .yv-stars__star {
+      width: 22px;
+      height: 22px;
+    }
+
+    .yv-testimonial--classic .yv-testimonial__author {
+      --yv-testimonial-avatar: 34px;
+    }
+
+    .yv-testimonial--modern .yv-testimonial__card {
+      min-height: 300px;
+      padding: 20px 40px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.testimonial",
+  "tag": null,
+  "settings": [
+    {
+      "type": "range",
+      "id": "rating",
+      "label": "t:yv.testimonials.settings.rating",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "default": 5
+    },
+    {
+      "type": "textarea",
+      "id": "message",
+      "label": "t:yv.testimonials.settings.message",
+      "default": "Add client reviews & testimonials to showcase your store's happy clients."
+    },
+    {
+      "type": "text",
+      "id": "author",
+      "label": "t:yv.testimonials.settings.author",
+      "default": "Author name here"
+    },
+    {
+      "type": "text",
+      "id": "author_city",
+      "label": "t:yv.testimonials.settings.author_city",
+      "default": "Author City here"
+    },
+    {
+      "type": "image_picker",
+      "id": "author_image",
+      "label": "t:yv.testimonials.settings.author_image",
+      "info": "t:yv.testimonials.settings.author_image_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.testimonials.content.video"
+    },
+    {
+      "type": "video",
+      "id": "video",
+      "label": "t:yv.testimonials.settings.video",
+      "info": "t:yv.testimonials.settings.video_info"
+    },
+    {
+      "type": "text",
+      "id": "video_button_text",
+      "label": "t:yv.common.settings.button_text",
+      "default": "Play"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.testimonial"
+    }
+  ]
+}
+{% endschema %}

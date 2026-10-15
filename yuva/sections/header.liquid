@@ -89,61 +89,18 @@
     content_for 'block', type: '_header-logo', id: 'header-logo'
   endcapture
 
-  comment
-    yv: Yuva navigation types. 'custom' keeps every Horizon position setting; the four Yuva types
-    place the logo, menu and search themselves (passed to header-row as overrides).
-  endcomment
-  assign yv_nav = section.settings.navigation_type | default: 'custom'
-  assign yv_overrides = ''
-  assign yv_menu_alignment = section.settings.menu_alignment | default: 'left'
-  case yv_nav
-    when 'logo_left_menu_center'
-      assign yv_overrides = 'logo:left:top,category:left:top,menu:center:top,search:right:top,localization:right:top'
-    when 'logo_center_hamburger'
-      assign yv_overrides = 'logo:center:top,search:right:top,localization:right:top,category:none:top'
-    when 'full_width_menu'
-      if section.settings.logo_alignment == 'center'
-        assign yv_overrides = 'logo:center:top,search:left:top,localization:right:top'
-      else
-        assign yv_overrides = 'logo:left:top,search:right:top,localization:right:top'
-      endif
-      assign yv_overrides = yv_overrides | append: ',category:left:bottom,menu:' | append: yv_menu_alignment | append: ':bottom'
-    when 'full_width_searchbar'
-      assign yv_overrides = 'logo:left:top,search:center:top,localization:right:top,category:left:bottom,menu:'
-      assign yv_overrides = yv_overrides | append: yv_menu_alignment | append: ':bottom'
-    else
-      assign yv_overrides = 'category:' | append: section.settings.menu_position | append: ':' | append: section.settings.menu_row
-  endcase
-  if section.settings.show_category == false or section.settings.category_menu == blank
-    assign yv_overrides = yv_overrides | append: ',category:none:top'
-  endif
-  assign yv_overrides = yv_overrides | append: ',trust_badge:right:top'
-  if section.settings.localization_drawer_only
-    assign yv_overrides = yv_overrides | append: ',localization:none:top'
-  endif
-
-  assign yv_override_list = yv_overrides | split: ','
-  assign yv_eff_menu_row = section.settings.menu_row
-  assign yv_eff_search_row = section.settings.search_row
-  assign yv_eff_localization_row = section.settings.localization_row
-  assign yv_eff_category_row = 'none'
-  for yv_override in yv_override_list
-    assign yv_parts = yv_override | split: ':'
-    assign yv_row = yv_parts[2]
-    if yv_parts[1] == 'none'
-      assign yv_row = 'none'
-    endif
-    case yv_parts[0]
-      when 'menu'
-        assign yv_eff_menu_row = yv_row
-      when 'search'
-        assign yv_eff_search_row = yv_row
-      when 'localization'
-        assign yv_eff_localization_row = yv_row
-      when 'category'
-        assign yv_eff_category_row = yv_row
-    endcase
-  endfor
+  # yv: Yuva navigation types, rows and search style (snippets/yv-header-layout.liquid). 'custom'
+  # keeps every Horizon position setting; the overrides are applied by header-row.
+  capture yv_layout
+    render 'yv-header-layout', section: section, part: 'layout', search_style: search_style
+  endcapture
+  assign yv_layout = yv_layout | strip | split: '|'
+  assign yv_overrides = yv_layout[0]
+  assign yv_eff_menu_row = yv_layout[1]
+  assign yv_eff_search_row = yv_layout[2]
+  assign yv_eff_localization_row = yv_layout[3]
+  assign yv_eff_category_row = yv_layout[4]
+  assign search_style = yv_layout[5]
 
   capture utility_primary
     content_for 'block', type: '_yv-header-utility', id: 'header-utility-primary'
@@ -173,15 +130,7 @@
   assign category = category | strip
 
   capture trust_badge
-    if section.settings.trust_badge_image != blank
-      assign yv_trust_alt = section.settings.trust_badge_image.alt | default: shop.name
-      assign yv_trust_image = section.settings.trust_badge_image | image_url: width: 240 | image_tag: loading: 'lazy', alt: yv_trust_alt, class: 'yv-header-trust__image', sizes: '120px', widths: '120, 240'
-      if section.settings.trust_badge_link != blank
-        echo '<a class="yv-header-trust" href="' | append: section.settings.trust_badge_link | append: '">' | append: yv_trust_image | append: '</a>'
-      else
-        echo '<span class="yv-header-trust">' | append: yv_trust_image | append: '</span>'
-      endif
-    endif
+    render 'yv-header-layout', section: section, part: 'trust_badge'
   endcapture
   assign trust_badge = trust_badge | strip
 
@@ -205,11 +154,6 @@
   capture actions
     render 'header-actions', customer_account_menu: section.settings.customer_account_menu, display_style: section.settings.actions_display_style, section: section
   endcapture
-
-  # yv: search style for the 'Full width header with searchbar' type is an inline bar.
-  if yv_nav == 'full_width_searchbar' and section.settings.show_search
-    assign search_style = 'bar'
-  endif
 
   if shop.customer_accounts_enabled
     assign search_class = 'search-action--hidden-on-drawer'
@@ -295,13 +239,11 @@
     assign bottom_row_blocks = bottom_row_blocks | append: 'category,'
   endif
 
-  assign yv_utility_primary_content = utility_primary | strip
-  if yv_utility_primary_content != blank and section.settings.utility_primary_row == 'bottom'
+  if utility_primary != blank and section.settings.utility_primary_row == 'bottom'
     assign bottom_row_blocks = bottom_row_blocks | append: 'utility_primary,'
   endif
 
-  assign yv_utility_secondary_content = utility_secondary | strip
-  if yv_utility_secondary_content != blank and section.settings.utility_secondary_row == 'bottom'
+  if utility_secondary != blank and section.settings.utility_secondary_row == 'bottom'
     assign bottom_row_blocks = bottom_row_blocks | append: 'utility_secondary,'
   endif
 
@@ -320,30 +262,13 @@
     assign collapse_header_paddings_class = 'header--collapse-row-paddings'
   endif
 
-  assign class = 'header yv-header'
-
-  # yv: Yuva header modifiers and per-instance values.
-  assign class = class | append: ' yv-header--nav-' | append: yv_nav
-  if yv_nav == 'logo_center_hamburger'
-    assign class = class | append: ' yv-header--hamburger'
-  endif
-  if section.settings.blur_background
-    assign class = class | append: ' yv-header--blur'
-  endif
-  if section.settings.background_image != blank
-    assign class = class | append: ' yv-header--photo'
-  endif
-  if section.settings.color_text_hover != blank
-    assign class = class | append: ' yv-header--hover-color'
-  endif
-  case section.settings.icons_weight
-    when 'thin'
-      assign yv_icon_stroke = '1px'
-    when 'bold'
-      assign yv_icon_stroke = '2px'
-    else
-      assign yv_icon_stroke = '1.5px'
-  endcase
+  # yv: Yuva header modifier classes and icon stroke (snippets/yv-header-layout.liquid).
+  capture yv_classes
+    render 'yv-header-layout', section: section, part: 'classes'
+  endcapture
+  assign yv_classes = yv_classes | strip_newlines | split: '|'
+  assign yv_icon_stroke = yv_classes[1] | strip
+  assign class = 'header yv-header' | append: yv_classes[0]
 
   if header_height_class
     assign class = class | append: ' ' | append: header_height_class

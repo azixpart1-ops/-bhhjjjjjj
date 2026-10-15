@@ -1,0 +1,111 @@
+{%- doc -%}
+  Yuva infinite marquee row (News ticker, Scrolling text). Renders one group of items inside
+  `<yv-marquee-component>`; assets/yv-marquee.js clones the group to fill the width and starts a
+  seamless linear loop at `speed` pixels per second. Static under reduced motion, paused off
+  screen, optionally paused on hover.
+
+  @param {string} content - Items HTML (one sequence; it is repeated as needed).
+  @param {string} [direction] - Direction the content travels: 'left' or 'right'. Default: 'left'
+  @param {number} [speed] - Pixels per second on desktop (75% of it below 750px). Default: 35
+  @param {boolean} [pause_on_hover] - Pause while hovered (hover devices). Default: false
+  @param {string} [class] - Extra classes on the component.
+  @param {string} [style] - Extra inline style (custom properties) on the component.
+
+  @example
+  {% capture items %}<span class="yv-news-ticker__item">Free shipping</span>{% endcapture %}
+  {% render 'yv-marquee', content: items, direction: 'right', speed: 35, pause_on_hover: true %}
+{%- enddoc -%}
+
+{%- liquid
+  assign marquee_direction = direction | default: 'left'
+  unless marquee_direction == 'right'
+    assign marquee_direction = 'left'
+  endunless
+  assign marquee_speed = speed | default: 35
+-%}
+
+<script
+  src="{{ 'yv-marquee.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<yv-marquee-component
+  class="yv-marquee{% if class != blank %} {{ class }}{% endif %}"
+  data-direction="{{ marquee_direction }}"
+  data-speed="{{ marquee_speed }}"
+  {% if pause_on_hover %}
+    data-pause-on-hover
+  {% endif %}
+  {% if style != blank %}
+    style="{{ style }}"
+  {% endif %}
+>
+  <div
+    class="yv-marquee__track"
+    ref="track"
+  >
+    <div
+      class="yv-marquee__group"
+      ref="group"
+    >
+      {{- content -}}
+    </div>
+  </div>
+</yv-marquee-component>
+
+{% stylesheet %}
+  .yv-marquee {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    direction: ltr;
+  }
+
+  .yv-marquee__track {
+    display: flex;
+    width: max-content;
+  }
+
+  .yv-marquee__group {
+    display: flex;
+    flex: none;
+    align-items: center;
+    min-width: max-content;
+  }
+
+  [dir='rtl'] .yv-marquee__group > * {
+    direction: rtl;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-marquee[data-ready] .yv-marquee__track {
+      animation: yv-marquee-scroll var(--yv-marquee-duration, 40s) linear infinite;
+      will-change: transform;
+    }
+
+    .yv-marquee[data-direction='right'] .yv-marquee__track {
+      animation-direction: reverse;
+    }
+
+    .yv-marquee:is([data-paused], [data-editor-paused]) .yv-marquee__track {
+      animation-play-state: paused;
+    }
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .yv-marquee[data-pause-on-hover]:hover .yv-marquee__track {
+      animation-play-state: paused;
+    }
+  }
+
+  @keyframes yv-marquee-scroll {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+
+    to {
+      transform: translate3d(calc(-100% / var(--yv-marquee-copies, 2)), 0, 0);
+    }
+  }
+{% endstylesheet %}

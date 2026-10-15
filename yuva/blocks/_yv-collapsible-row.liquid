@@ -1,0 +1,189 @@
+{% doc %}
+  Collapsible content > Collapsible row: a question and its rich-text answer as one shadowed card.
+  The header bar takes the section's row colour set; a thin plus becomes a minus when open.
+  Native <details> inside Horizon's accordion-custom; rows of a section share a `name` (one open
+  at a time). The first row starts open when the section's "Open first row" is on.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign is_open = false
+  if section.settings.open_first and section.blocks.first.id == block.id
+    assign is_open = true
+  endif
+  assign group_name = 'yv-faq-' | append: section.id
+  assign row_set_class = 'color-custom-' | append: section.id | append: '-row'
+-%}
+
+{%- capture row_details -%}
+  <details
+    class="yv-faq-row__details"
+    name="{{ group_name }}"
+    {% if is_open %}
+      open
+    {% endif %}
+  >
+    <summary class="yv-faq-row__header yv-set-bg {{ row_set_class }}">
+      <span class="yv-faq-row__question">{{ block.settings.heading | escape }}</span>
+      <span
+        class="yv-faq-row__icon"
+        aria-hidden="true"
+      ></span>
+    </summary>
+    <div class="details-content yv-faq-row__answer rte">
+      {{- block.settings.description -}}
+    </div>
+  </details>
+{%- endcapture -%}
+
+<div
+  class="yv-faq-row"
+  {% if settings.yv_enable_animation %}
+    data-yv-reveal
+  {% endif %}
+  {{ block.shopify_attributes }}
+>
+  {% render 'accordion-custom-component',
+    children: row_details,
+    open_by_default_on_desktop: is_open,
+    open_by_default_on_mobile: is_open
+  %}
+</div>
+
+{% stylesheet %}
+  .yv-faq-row {
+    overflow: hidden;
+    border: 1px solid var(--yv-tertiary-bg, transparent);
+    border-radius: var(--yv-layout-radius, 10px);
+    background-color: var(--color-background);
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.2);
+  }
+
+  .yv-faq-row__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 13px 20px;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .yv-faq-row__header::-webkit-details-marker {
+    display: none;
+  }
+
+  .yv-faq-row__header:focus-visible {
+    outline: var(--focus-outline-width, 2px) solid currentColor;
+    outline-offset: -4px;
+  }
+
+  .yv-faq-row__question {
+    min-width: 0;
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: var(--font-heading--weight);
+    font-size: var(--yv-text-lg, 0.96rem);
+    line-height: 1.1;
+    letter-spacing: var(--letter-spacing--heading-normal, -0.025em);
+    overflow-wrap: break-word;
+  }
+
+  /* Thin plus drawn with two 1px bars; the vertical bar fades out when the row is open. */
+  .yv-faq-row__icon {
+    position: relative;
+    flex: none;
+    width: 12px;
+    height: 11px;
+  }
+
+  .yv-faq-row__icon::before,
+  .yv-faq-row__icon::after {
+    content: '';
+    position: absolute;
+    background-color: currentColor;
+  }
+
+  .yv-faq-row__icon::before {
+    inset-inline: 0;
+    inset-block-start: calc(50% - 0.5px);
+    height: 1px;
+  }
+
+  .yv-faq-row__icon::after {
+    inset-block: 0;
+    inset-inline-start: calc(50% - 0.5px);
+    width: 1px;
+  }
+
+  .yv-faq-row__details[open] .yv-faq-row__icon::after {
+    opacity: 0;
+  }
+
+  .yv-faq-row__answer {
+    padding: 20px;
+    font-size: var(--yv-text-md, 0.84rem);
+    line-height: var(--line-height--body-normal, 1.4);
+  }
+
+  .yv-faq-row__answer > :first-child {
+    margin-block-start: 0;
+  }
+
+  .yv-faq-row__answer > :last-child {
+    margin-block-end: 0;
+  }
+
+  .yv-faq-row__answer :is(p, ul, ol) {
+    margin-block: 0;
+  }
+
+  .yv-faq-row__answer :is(p, ul, ol) + :is(p, ul, ol) {
+    margin-block-start: 10px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-faq-row__header {
+      padding: 18px 25px;
+    }
+
+    .yv-faq-row__icon {
+      width: 14px;
+      height: 13px;
+    }
+  }
+
+  /* Both the opening and the closing row slide (Horizon only animates the focused one). */
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-faq-row .yv-faq-row__details::details-content,
+    .yv-faq-row .yv-faq-row__details .details-content {
+      transition: content-visibility 0.45s allow-discrete, padding-block 0.45s ease-in-out,
+        opacity 0.45s ease-in-out, block-size 0.45s ease-in-out;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.collapsible_row",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "Frequently asked question"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description",
+      "default": "<p>Use this text to answer questions in as much detail as possible for your customers.</p>"
+    }
+  ]
+}
+{% endschema %}

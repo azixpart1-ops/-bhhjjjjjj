@@ -1,0 +1,368 @@
+{% doc %}
+  Yuva timeline item: one slide of the Timeline section (image beside a subheading pill, a
+  highlight heading, a description and a button). Its navigation label is shown in the
+  section's label strip; a block without a label renders nothing (Yuva: "This label is
+  mandatory to show the block in timeline"). The image ratio comes from the section's
+  `image_ratio` setting.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign ratio_setting = section.settings.image_ratio | default: 'auto'
+  case ratio_setting
+    when 'portrait'
+      assign image_ratio = '4 / 5'
+    when 'landscape'
+      assign image_ratio = '3 / 2'
+    when 'square'
+      assign image_ratio = '1 / 1'
+    else
+      assign image_ratio = '3 / 2'
+      if block.settings.image != blank and block.settings.image.aspect_ratio > 0
+        assign image_ratio = block.settings.image.aspect_ratio
+      endif
+  endcase
+
+  assign button_variant = 'primary'
+  if block.settings.button_as_link
+    assign button_variant = 'link'
+  endif
+  assign item_label = block.settings.nav_label | strip | escape
+-%}
+
+{%- if block.settings.nav_label != blank -%}
+  <div
+    class="yv-timeline-item"
+    id="YvTimelineItem-{{ block.id }}"
+    role="group"
+    aria-roledescription="{{ 'yv.carousel.slide' | t }}"
+    aria-label="{{ item_label }}"
+    ref="slides[]"
+    {{ block.shopify_attributes }}
+  >
+    <div class="yv-timeline-item__inner">
+      <div
+        class="yv-media yv-timeline-item__media"
+        style="aspect-ratio: {{ image_ratio }};"
+      >
+        {%- if block.settings.image != blank -%}
+          {{
+            block.settings.image
+            | image_url: width: 1400
+            | image_tag:
+              widths: '375, 550, 750, 1000, 1400',
+              sizes: '(min-width: 990px) 480px, (min-width: 750px) 40vw, 80vw',
+              loading: 'lazy',
+              draggable: 'false',
+              alt: block.settings.image.alt
+          }}
+        {%- else -%}
+          {{ 'lifestyle-2' | placeholder_svg_tag: 'yv-placeholder' }}
+        {%- endif -%}
+      </div>
+
+      <div class="yv-timeline-item__content">
+        {%- if block.settings.subheading != blank -%}
+          <p class="yv-timeline-item__pill">{{ block.settings.subheading | escape }}</p>
+        {%- endif -%}
+        {% render 'yv-heading',
+          text: block.settings.heading,
+          tag: block.settings.heading_tag,
+          size: block.settings.heading_size,
+          highlight_font: block.settings.highlight_font,
+          highlight_color: block.settings.highlight_color,
+          description: block.settings.description,
+          alignment: 'left',
+          class: 'yv-timeline-item__heading'
+        %}
+        {% render 'yv-button',
+          label: block.settings.button_text,
+          link: block.settings.button_link,
+          variant: button_variant,
+          size_desktop: block.settings.button_size_desktop,
+          size_mobile: block.settings.button_size_mobile,
+          class: 'yv-timeline-item__button'
+        %}
+      </div>
+    </div>
+  </div>
+{%- elsif request.design_mode -%}
+  <div
+    class="yv-timeline-item yv-timeline-item--empty"
+    hidden
+    {{ block.shopify_attributes }}
+  ></div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-timeline-item {
+    flex: 0 0 var(--yv-timeline-slide, 90cqw);
+    min-width: 0;
+    padding-inline: 15px;
+    scroll-snap-align: center;
+    opacity: 0.3;
+    transition: opacity 500ms ease;
+    cursor: pointer;
+  }
+
+  .yv-timeline-item.is-active {
+    opacity: 1;
+    cursor: auto;
+  }
+
+  .yv-timeline-item__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    align-items: center;
+  }
+
+  .yv-timeline-item__media {
+    width: 100%;
+  }
+
+  .yv-timeline-item__media img {
+    user-select: none;
+  }
+
+  .yv-timeline-item__content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .yv-timeline-item__pill {
+    margin: 0 0 20px;
+    padding: 2px 12px;
+    border-radius: 20px;
+    background: rgb(var(--color-foreground-rgb) / 0.1);
+    font-size: var(--yv-text-md, 13.44px);
+    line-height: 1.6;
+  }
+
+  .yv-timeline-item__heading {
+    --yv-heading-gap: 20px;
+
+    width: 100%;
+  }
+
+  .yv-timeline-item__button {
+    margin-block-start: 30px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-timeline-item {
+      padding-inline: 30px;
+    }
+
+    .yv-timeline-item__inner {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 40px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yv-timeline-item {
+      transition: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.timeline_item",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "nav_label",
+      "label": "t:yv.timeline.settings.nav_label",
+      "info": "t:yv.timeline.settings.nav_label_info",
+      "default": "2024"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.text"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "Our <strong>beginning</strong>"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h3",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "info": "t:yv.common.settings.highlight_color_info",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text",
+      "info": "t:yv.timeline.settings.button_text_info"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.link"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.common.settings.button_size_desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.common.settings.button_size_mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "checkbox",
+      "id": "button_as_link",
+      "label": "t:yv.common.settings.button_as_link",
+      "default": false
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.timeline_item"
+    }
+  ]
+}
+{% endschema %}

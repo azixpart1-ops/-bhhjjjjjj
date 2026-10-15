@@ -1,0 +1,754 @@
+{% comment %}
+  Section contract: yv-before-after
+  Yuva "Before/after image": an optional centred highlight heading and description over a
+  comparison frame. The Before image shows left of a draggable divider and the After image right
+  of it; the divider is a 2px line with a white pill handle (two chevrons). Drag anywhere on the
+  frame (a transparent range input covers it, so the arrow keys work too). Start position, labels
+  (top / centre / bottom), per-device images, boxed (rounded) or full width, and its own colour
+  pickers (this section uses colours, not a colour set). Element <yv-before-after> extends
+  Horizon's ComparisonSliderComponent (assets/yv-before-after.js).
+  Shared settings: section border, visibility, spacing.
+  @example
+  Theme editor > Add section > Media > "Before/after image"
+{% endcomment %}
+
+{%- liquid
+  render 'contrast-override', background_color: section.settings.color_background, text_color: section.settings.color_heading, section_id: section.id
+
+  assign before_image = section.settings.before_image
+  assign after_image = section.settings.after_image
+  assign before_mobile = section.settings.before_image_mobile | default: before_image
+  assign after_mobile = section.settings.after_image_mobile | default: after_image
+
+  assign ratio_desktop = 1.814
+  if before_image != blank and before_image.aspect_ratio > 0
+    assign ratio_desktop = before_image.aspect_ratio
+  elsif after_image != blank and after_image.aspect_ratio > 0
+    assign ratio_desktop = after_image.aspect_ratio
+  endif
+  assign ratio_mobile = 1.167
+  if before_mobile != blank and before_mobile.aspect_ratio > 0
+    assign ratio_mobile = before_mobile.aspect_ratio
+  elsif after_mobile != blank and after_mobile.aspect_ratio > 0
+    assign ratio_mobile = after_mobile.aspect_ratio
+  endif
+
+  assign full_width = section.settings.full_width
+  assign start = section.settings.drag_position | default: 50
+  assign label_position = section.settings.text_alignment | default: 'bottom'
+
+  assign image_sizes = '(min-width: 1440px) 1300px, (min-width: 750px) calc(100vw - 30px), calc(100vw - 40px)'
+  if full_width
+    assign image_sizes = '100vw'
+  endif
+  assign image_widths = '375, 550, 750, 1100, 1500, 1920, 2400'
+
+  assign heading_id = 'YvBeforeAfterHeading-' | append: section.id
+-%}
+
+<script
+  src="{{ 'yv-before-after.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-before-after-section color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-heading-color: {{ section.settings.color_heading }}; --yv-ba-description: {{ section.settings.color_description }};"
+  data-testid="yv-before-after"
+>
+  {%- if section.settings.heading != blank or section.settings.description != blank -%}
+    <div class="yv-container yv-container--page yv-before-after__header">
+      {% render 'yv-heading',
+        text: section.settings.heading,
+        tag: section.settings.heading_tag,
+        size: 'large',
+        highlight_font: section.settings.highlight_font,
+        description: section.settings.description,
+        alignment: 'center',
+        id: heading_id,
+        class: 'yv-before-after__heading',
+        reveal: true
+      %}
+    </div>
+  {%- endif -%}
+
+  <div class="yv-container yv-container--{% if full_width %}full{% else %}page{% endif %}">
+    <yv-before-after
+      class="yv-before-after{% if full_width %} yv-before-after--full{% endif %}"
+      data-start="{{ start }}"
+      data-yv-reveal
+      style="
+        --yv-ba-ratio: {{ ratio_desktop }};
+        --yv-ba-ratio-mobile: {{ ratio_mobile }};
+        --yv-ba-cursor-bg: {{ section.settings.color_cursor_bg }};
+        --yv-ba-cursor: {{ section.settings.color_cursor }};
+        --yv-ba-before-text: {{ section.settings.color_before_text }};
+        --yv-ba-after-text: {{ section.settings.color_after_text }};
+      "
+    >
+      <div
+        class="yv-before-after__frame"
+        ref="mediaWrapper"
+        data-orientation="horizontal"
+        data-label-position="{{ label_position }}"
+        style="--compare: {{ start }};"
+      >
+        <div class="yv-before-after__layer yv-before-after__layer--before">
+          {%- if before_image != blank or before_mobile != blank -%}
+            {%- assign before_main = before_image | default: before_mobile -%}
+            <picture>
+              {%- if section.settings.before_image_mobile != blank -%}
+                <source
+                  media="(max-width: 749px)"
+                  srcset="{{ before_mobile | image_url: width: 750 }} 750w, {{ before_mobile | image_url: width: 1100 }} 1100w, {{ before_mobile | image_url: width: 1500 }} 1500w"
+                  sizes="100vw"
+                  width="{{ before_mobile.width }}"
+                  height="{{ before_mobile.height }}"
+                >
+              {%- endif -%}
+              {{
+                before_main
+                | image_url: width: 2400
+                | image_tag:
+                  widths: image_widths,
+                  sizes: image_sizes,
+                  loading: 'lazy',
+                  draggable: 'false',
+                  class: 'yv-before-after__image',
+                  alt: before_main.alt
+              }}
+            </picture>
+          {%- else -%}
+            {{ 'hero-apparel-2' | placeholder_svg_tag: 'yv-placeholder yv-before-after__image yv-before-after__image--placeholder-before' }}
+          {%- endif -%}
+          {%- if section.settings.before_text != blank -%}
+            <p class="yv-before-after__label yv-before-after__label--before h3">{{ section.settings.before_text | escape }}</p>
+          {%- endif -%}
+        </div>
+
+        <div
+          class="yv-before-after__layer yv-before-after__layer--after"
+          ref="afterImage"
+        >
+          {%- if after_image != blank or after_mobile != blank -%}
+            {%- assign after_main = after_image | default: after_mobile -%}
+            <picture>
+              {%- if section.settings.after_image_mobile != blank -%}
+                <source
+                  media="(max-width: 749px)"
+                  srcset="{{ after_mobile | image_url: width: 750 }} 750w, {{ after_mobile | image_url: width: 1100 }} 1100w, {{ after_mobile | image_url: width: 1500 }} 1500w"
+                  sizes="100vw"
+                  width="{{ after_mobile.width }}"
+                  height="{{ after_mobile.height }}"
+                >
+              {%- endif -%}
+              {{
+                after_main
+                | image_url: width: 2400
+                | image_tag:
+                  widths: image_widths,
+                  sizes: image_sizes,
+                  loading: 'lazy',
+                  draggable: 'false',
+                  class: 'yv-before-after__image',
+                  alt: after_main.alt
+              }}
+            </picture>
+          {%- else -%}
+            {{ 'hero-apparel-2' | placeholder_svg_tag: 'yv-placeholder yv-before-after__image' }}
+          {%- endif -%}
+          {%- if section.settings.after_text != blank -%}
+            <p class="yv-before-after__label yv-before-after__label--after h3">{{ section.settings.after_text | escape }}</p>
+          {%- endif -%}
+        </div>
+
+        <div
+          class="yv-before-after__divider"
+          aria-hidden="true"
+        >
+          <span class="yv-before-after__handle">
+            <svg
+              viewBox="0 0 24 12"
+              width="24"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              focusable="false"
+            >
+              <path d="M6 1.5 1.5 6 6 10.5M18 1.5 22.5 6 18 10.5"/>
+            </svg>
+          </span>
+        </div>
+
+        <input
+          type="range"
+          class="yv-before-after__range"
+          ref="slider"
+          min="0"
+          max="100"
+          step="1"
+          value="{{ start }}"
+          aria-label="{{ 'blocks.slider_label' | t }}"
+          {% if section.settings.heading != blank %}
+            aria-describedby="{{ heading_id }}"
+          {% endif %}
+          on:input="yv-before-after/sync"
+          on:pointerdown="yv-before-after/sync"
+        >
+      </div>
+    </yv-before-after>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-before-after-section {
+    overflow: hidden;
+  }
+
+  .yv-before-after__header {
+    margin-block-end: 30px;
+  }
+
+  .yv-before-after__heading {
+    --yv-heading-description-width: 1000px;
+  }
+
+  .yv-before-after__heading .yv-heading__description {
+    color: var(--yv-ba-description, inherit);
+  }
+
+  yv-before-after {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--yv-layout-radius, 10px);
+    background: var(--yv-image-bg, #f3efec);
+    aspect-ratio: var(--yv-ba-ratio-mobile, 1.167);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .yv-before-after--full {
+    border-radius: 0;
+  }
+
+  .yv-before-after__frame {
+    --compare: 50;
+
+    position: relative;
+    display: grid;
+    grid-template: 1fr / 1fr;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .yv-before-after__layer {
+    position: relative;
+    grid-area: 1 / 1;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    transition: clip-path var(--transition-duration, 0s) ease-in-out;
+  }
+
+  .yv-before-after__layer--before {
+    /* stylelint-disable-next-line plugin/no-unsupported-browser-features */
+    clip-path: inset(0 calc((100 - var(--compare)) * 1%) 0 0);
+  }
+
+  .yv-before-after__layer--after {
+    z-index: 1;
+    /* stylelint-disable-next-line plugin/no-unsupported-browser-features */
+    clip-path: inset(0 0 0 calc(var(--compare) * 1%));
+  }
+
+  .yv-before-after__layer picture {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .yv-before-after__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .yv-before-after__image--placeholder-before {
+    filter: grayscale(1);
+  }
+
+  .yv-before-after__label {
+    position: absolute;
+    z-index: 1;
+    margin: 0;
+    max-width: calc(50% - 24px);
+    inset-block-end: 12px;
+    pointer-events: none;
+    overflow-wrap: anywhere;
+  }
+
+  .yv-before-after__label--before {
+    inset-inline-start: 12px;
+    color: var(--yv-ba-before-text, #fff);
+  }
+
+  .yv-before-after__label--after {
+    inset-inline-end: 12px;
+    color: var(--yv-ba-after-text, #fff);
+    text-align: end;
+  }
+
+  [data-label-position='top'] .yv-before-after__label {
+    inset-block: 12px auto;
+  }
+
+  [data-label-position='center'] .yv-before-after__label {
+    inset-block: 50% auto;
+    translate: 0 -50%;
+  }
+
+  .yv-before-after__divider {
+    position: absolute;
+    z-index: 2;
+    inset-block: 0;
+    left: calc(var(--compare) * 1%);
+    width: 2px;
+    background: var(--yv-ba-cursor-bg, #fff);
+    translate: -50% 0;
+    pointer-events: none;
+    transition: left var(--transition-duration, 0s) ease-in-out;
+  }
+
+  .yv-before-after__handle {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 49px;
+    height: 29px;
+    border-radius: 14.5px;
+    background: var(--yv-ba-cursor-bg, #fff);
+    color: var(--yv-ba-cursor, #000);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.1), 0 1px 1px rgb(0 0 0 / 0.06);
+    translate: -50% -50%;
+    transition: scale 0.2s ease;
+  }
+
+  [dir='rtl'] .yv-before-after__handle {
+    translate: 50% -50%;
+  }
+
+  .yv-before-after__handle svg {
+    width: 24px;
+    height: 12px;
+  }
+
+  .yv-before-after__range {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: grab;
+    appearance: none;
+    touch-action: pan-y;
+  }
+
+  .yv-before-after__range:active {
+    cursor: grabbing;
+  }
+
+  .yv-before-after__range::-webkit-slider-thumb {
+    width: 49px;
+    height: 100%;
+    appearance: none;
+    cursor: inherit;
+  }
+
+  .yv-before-after__range::-moz-range-thumb {
+    width: 49px;
+    height: 100%;
+    border: 0;
+    background: transparent;
+    cursor: inherit;
+  }
+
+  yv-before-after:has(.yv-before-after__range:focus-visible) .yv-before-after__handle {
+    outline: 2px solid var(--yv-ba-cursor, #000);
+    outline-offset: 2px;
+  }
+
+  yv-before-after:has(.yv-before-after__range:active) .yv-before-after__handle {
+    scale: 1.06;
+  }
+
+  @media screen and (min-width: 750px) {
+    yv-before-after {
+      aspect-ratio: var(--yv-ba-ratio, 1.814);
+    }
+
+    .yv-before-after__header {
+      margin-block-end: 40px;
+    }
+
+    .yv-before-after__label {
+      inset-block-end: 20px;
+      max-width: calc(50% - 40px);
+    }
+
+    .yv-before-after__label--before {
+      inset-inline-start: 20px;
+    }
+
+    .yv-before-after__label--after {
+      inset-inline-end: 20px;
+    }
+
+    [data-label-position='top'] .yv-before-after__label {
+      inset-block: 20px auto;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yv-before-after__layer,
+    .yv-before-after__divider,
+    .yv-before-after__handle {
+      transition: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.before_after",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.before_after.settings.full_width",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "See the <strong>difference</strong>"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "image_picker",
+      "id": "before_image",
+      "label": "t:yv.before_after.settings.before_image",
+      "info": "t:yv.before_after.settings.before_image_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "before_image_mobile",
+      "label": "t:yv.before_after.settings.before_image_mobile"
+    },
+    {
+      "type": "image_picker",
+      "id": "after_image",
+      "label": "t:yv.before_after.settings.after_image",
+      "info": "t:yv.before_after.settings.after_image_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "after_image_mobile",
+      "label": "t:yv.before_after.settings.after_image_mobile"
+    },
+    {
+      "type": "text",
+      "id": "before_text",
+      "label": "t:yv.before_after.settings.before_text",
+      "default": "Before"
+    },
+    {
+      "type": "text",
+      "id": "after_text",
+      "label": "t:yv.before_after.settings.after_text",
+      "default": "After"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:yv.before_after.settings.text_alignment",
+      "options": [
+        {
+          "value": "top",
+          "label": "t:yv.common.options.top"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "bottom",
+          "label": "t:yv.common.options.bottom"
+        }
+      ],
+      "default": "bottom"
+    },
+    {
+      "type": "range",
+      "id": "drag_position",
+      "label": "t:yv.before_after.settings.drag_position",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_background",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_heading",
+      "label": "t:yv.common.settings.heading_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_description",
+      "label": "t:yv.common.settings.description",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_before_text",
+      "label": "t:yv.before_after.settings.before_text",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_after_text",
+      "label": "t:yv.before_after.settings.after_text",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_cursor_bg",
+      "label": "t:yv.before_after.settings.color_cursor_bg",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_cursor",
+      "label": "t:yv.before_after.settings.color_cursor",
+      "default": "#000000"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.before_after",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "heading": "Perfect Balance of Comfort &amp; Style",
+        "description": "<p>Experience the perfect blend of comfort and style with our thoughtfully designed apparel.<br/>Crafted from premium fabrics and tailored for a flawless fit.</p>",
+        "highlight_font": "heading",
+        "color_background": "#F5F5F5"
+      }
+    },
+    {
+      "name": "t:yv.before_after.presets.full_width",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "full_width": true,
+        "heading": "",
+        "color_before_text": "#000000",
+        "color_after_text": "#000000",
+        "spacing_top_desktop": 0,
+        "spacing_bottom_desktop": 0,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 0
+      }
+    }
+  ]
+}
+{% endschema %}

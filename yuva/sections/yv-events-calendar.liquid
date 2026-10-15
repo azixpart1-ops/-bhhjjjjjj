@@ -1,0 +1,382 @@
+{% comment %}
+  Section contract: yv-events-calendar
+  Yuva Events calendar (docs part 3 "Events calendar"): a centred highlight heading over a grid of
+  event cards (private blocks _yv-event: image with a date pill, title, time, linked location,
+  description and button). 3 columns at 990px and up, 2 from 750px, 1 on phones.
+  With no heading and no events the section outputs nothing on the storefront (it stays visible in
+  the theme editor so events can be added).
+  Shared settings: section border, highlight heading, colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Storytelling > "Events calendar"
+{% endcomment %}
+
+{%- liquid
+  assign show_section = true
+  if section.blocks.size == 0 and section.settings.heading == blank and request.design_mode == false
+    assign show_section = false
+  endif
+-%}
+
+{%- if show_section -%}
+{%- render 'yv-color-set', set: section.settings.color_set, section_id: section.id -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+>
+  <div class="yv-container yv-container--page yv-events">
+    {%- render 'yv-heading',
+      text: section.settings.heading,
+      tag: section.settings.heading_tag,
+      size: section.settings.heading_size,
+      highlight_font: section.settings.highlight_font,
+      highlight_color: section.settings.highlight_color,
+      rotating_text: section.settings.rotating_text,
+      alignment: 'center',
+      class: 'yv-events__heading',
+      reveal: true
+    -%}
+
+    <div class="yv-events__grid">
+      {%- content_for 'blocks' -%}
+    </div>
+  </div>
+</div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-events {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  .yv-events__heading .yv-heading__title {
+    margin: 0;
+  }
+
+  .yv-events__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .yv-events__grid:empty {
+    display: none;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-events {
+      gap: 40px;
+    }
+
+    .yv-events__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-events__grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.events_calendar",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 12,
+  "blocks": [
+    {
+      "type": "_yv-event"
+    }
+  ],
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "t:yv.events_calendar.defaults.heading"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "large"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.events_calendar",
+      "category": "t:yv.categories.storytelling",
+      "settings": {
+        "heading": "t:yv.events_calendar.defaults.heading"
+      },
+      "blocks": [
+        {
+          "type": "_yv-event",
+          "settings": {
+            "title": "t:yv.events_calendar.defaults.event_1_title",
+            "description": "t:yv.events_calendar.defaults.event_1_description",
+            "date": "t:yv.events_calendar.defaults.date",
+            "time": "t:yv.events_calendar.defaults.time",
+            "location": "t:yv.events_calendar.defaults.location",
+            "button_text": "t:yv.events_calendar.defaults.button_text",
+            "button_link": "shopify://collections/all"
+          }
+        },
+        {
+          "type": "_yv-event",
+          "settings": {
+            "title": "t:yv.events_calendar.defaults.event_2_title",
+            "description": "t:yv.events_calendar.defaults.event_2_description",
+            "date": "t:yv.events_calendar.defaults.event_2_date",
+            "time": "t:yv.events_calendar.defaults.event_2_time",
+            "location": "t:yv.events_calendar.defaults.location",
+            "button_text": "t:yv.events_calendar.defaults.button_text",
+            "button_link": "shopify://collections/all"
+          }
+        },
+        {
+          "type": "_yv-event",
+          "settings": {
+            "title": "t:yv.events_calendar.defaults.event_3_title",
+            "description": "t:yv.events_calendar.defaults.event_3_description",
+            "date": "t:yv.events_calendar.defaults.event_3_date",
+            "time": "t:yv.events_calendar.defaults.event_3_time",
+            "location": "t:yv.events_calendar.defaults.location",
+            "button_text": "t:yv.events_calendar.defaults.button_text",
+            "button_link": "shopify://collections/all"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

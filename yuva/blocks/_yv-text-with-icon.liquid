@@ -1,0 +1,422 @@
+{% doc %}
+  Text with icons > Column: a line icon (or an uploaded icon image), a short heading and sub text,
+  optionally linked (the whole column becomes clickable). Layout, card and icon styling come from
+  the parent section (`yv-text-with-icons`) through classes and custom properties.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign heading_tag = block.settings.heading_tag | default: 'h3'
+  assign allowed_tags = 'h2,h3,h4,h5,h6,p' | split: ','
+  unless allowed_tags contains heading_tag
+    assign heading_tag = 'h3'
+  endunless
+
+  case block.settings.heading_size
+    when 'h4', 'h5', 'h6'
+      assign heading_class = block.settings.heading_size
+    else
+      assign heading_class = 'yv-twi__heading--' | append: block.settings.heading_size
+  endcase
+-%}
+
+<div
+  class="yv-twi"
+  {% if settings.yv_enable_animation %}
+    data-yv-reveal
+  {% endif %}
+  {{ block.shopify_attributes }}
+>
+  <span class="yv-twi__icon">
+    {%- if block.settings.image != blank -%}
+      {{
+        block.settings.image
+        | image_url: width: 160
+        | image_tag: widths: '80, 120, 160', sizes: '80px', loading: 'lazy', class: 'yv-twi__image', alt: ''
+      }}
+    {%- else -%}
+      {%- render 'yv-icon', name: block.settings.icon, size: 26 -%}
+    {%- endif -%}
+  </span>
+
+  <div class="yv-twi__content">
+    {%- if block.settings.heading != blank -%}
+      <{{ heading_tag }} class="yv-twi__heading {{ heading_class }}">
+        {%- if block.settings.link != blank -%}
+          <a
+            class="yv-twi__link"
+            href="{{ block.settings.link }}"
+          >
+            {{- block.settings.heading | escape -}}
+          </a>
+        {%- else -%}
+          {{- block.settings.heading | escape -}}
+        {%- endif -%}
+      </{{ heading_tag }}>
+    {%- endif -%}
+    {%- if block.settings.text != blank -%}
+      <p class="yv-twi__text">{{ block.settings.text | escape | newline_to_br }}</p>
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-twi {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--yv-twi-gap-icon, 16px);
+    min-width: 0;
+    text-align: start;
+    color: var(--yv-twi-card-text, inherit);
+  }
+
+  .yv-text-with-icons--icon-left .yv-twi {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .yv-text-with-icons--icon-top.yv-text-with-icons--align-center .yv-twi {
+    align-items: center;
+    text-align: center;
+  }
+
+  .yv-text-with-icons--icon-top.yv-text-with-icons--align-right .yv-twi {
+    align-items: flex-end;
+    text-align: end;
+  }
+
+  .yv-text-with-icons--icon-left.yv-text-with-icons--align-center .yv-twi__content {
+    text-align: center;
+  }
+
+  .yv-text-with-icons--icon-left.yv-text-with-icons--align-right .yv-twi__content {
+    text-align: end;
+  }
+
+  /* Cards: background and/or border, radius per device, lift on hover. */
+  .yv-text-with-icons--card .yv-twi {
+    height: 100%;
+    padding: 20px;
+    border-radius: var(--yv-twi-radius, 10px);
+  }
+
+  .yv-text-with-icons--card-bg .yv-twi {
+    background-color: var(--yv-twi-card-bg, #ededed);
+  }
+
+  .yv-text-with-icons--card-border .yv-twi {
+    border: 1px var(--yv-twi-card-border-style, solid) var(--yv-twi-card-border, #dadada);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-text-with-icons--card .yv-twi {
+      padding: 40px;
+    }
+  }
+
+  /* Icon: plain line icon, or a round background. */
+  .yv-twi__icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    color: var(--yv-twi-icon-color, currentColor);
+  }
+
+  .yv-twi__icon .yv-icon,
+  .yv-twi__image {
+    display: block;
+    width: var(--yv-twi-icon, 26px);
+    height: var(--yv-twi-icon, 26px);
+  }
+
+  .yv-twi__image {
+    object-fit: contain;
+  }
+
+  .yv-text-with-icons--icon-bg .yv-twi__icon {
+    width: var(--yv-twi-icon-box, 52px);
+    height: var(--yv-twi-icon-box, 52px);
+    border-radius: 50%;
+    background-color: var(--yv-twi-icon-bg, #fff);
+  }
+
+  .yv-twi__content {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .yv-twi__heading {
+    margin: 0;
+    overflow-wrap: break-word;
+  }
+
+  /* Beats the colour set's heading colour (.yv-section headings) on dark cards. */
+  .yv-text-with-icons__grid .yv-twi .yv-twi__heading {
+    color: var(--yv-twi-card-text, var(--yv-heading-color, inherit));
+  }
+
+  .yv-twi__heading--large,
+  .yv-twi__heading--medium,
+  .yv-twi__heading--small {
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: var(--font-heading--weight);
+    line-height: 1.1;
+    letter-spacing: var(--letter-spacing--heading-normal, -0.025em);
+  }
+
+  .yv-twi__heading--large {
+    font-size: var(--yv-text-xl, 1.08rem);
+  }
+
+  .yv-twi__heading--medium {
+    font-size: var(--yv-text-lg, 0.96rem);
+  }
+
+  .yv-twi__heading--small {
+    font-size: var(--yv-text-md, 0.84rem);
+  }
+
+  .yv-twi__link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .yv-twi__link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+
+  .yv-twi__link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .yv-twi__text {
+    margin: 0;
+    font-size: var(--yv-text-sm, 0.72rem);
+    line-height: 1.6;
+  }
+
+  .yv-twi__heading + .yv-twi__text {
+    padding-block-start: 10px;
+  }
+
+  @media (hover: hover) and (min-width: 990px) and (prefers-reduced-motion: no-preference) {
+    .yv-text-with-icons--card .yv-twi {
+      transition: transform 0.4s ease, box-shadow 0.4s ease;
+    }
+
+    .yv-text-with-icons--card .yv-twi__icon {
+      transition: transform 0.2s ease-out;
+    }
+
+    .yv-text-with-icons--card .yv-twi:hover {
+      transform: translateY(-10px);
+      box-shadow: 6px 15px 15px rgb(36 40 53 / 0.15);
+    }
+
+    .yv-text-with-icons--card.yv-text-with-icons--icon-top .yv-twi:hover .yv-twi__icon {
+      transform: translateY(10px);
+    }
+  }
+
+  /* Stagger the reveal of the columns. */
+  .yv-twi:nth-child(2) {
+    --yv-reveal-delay: 100ms;
+  }
+
+  .yv-twi:nth-child(3) {
+    --yv-reveal-delay: 200ms;
+  }
+
+  .yv-twi:nth-child(4) {
+    --yv-reveal-delay: 300ms;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.text_with_icon",
+  "tag": null,
+  "settings": [
+    {
+      "type": "select",
+      "id": "icon",
+      "label": "t:yv.text_with_icons.settings.icon",
+      "info": "t:yv.text_with_icons.settings.icon_info",
+      "options": [
+        {
+          "value": "truck",
+          "label": "t:yv.text_with_icons.options.truck"
+        },
+        {
+          "value": "shield_check",
+          "label": "t:yv.text_with_icons.options.shield_check"
+        },
+        {
+          "value": "heart",
+          "label": "t:yv.text_with_icons.options.heart"
+        },
+        {
+          "value": "headset",
+          "label": "t:yv.text_with_icons.options.headset"
+        },
+        {
+          "value": "chat_bubble",
+          "label": "t:yv.text_with_icons.options.chat_bubble"
+        },
+        {
+          "value": "return",
+          "label": "t:yv.text_with_icons.options.return"
+        },
+        {
+          "value": "lock",
+          "label": "t:yv.text_with_icons.options.lock"
+        },
+        {
+          "value": "credit_card",
+          "label": "t:yv.text_with_icons.options.credit_card"
+        },
+        {
+          "value": "gift",
+          "label": "t:yv.text_with_icons.options.gift"
+        },
+        {
+          "value": "price_tag",
+          "label": "t:yv.text_with_icons.options.price_tag"
+        },
+        {
+          "value": "star",
+          "label": "t:yv.text_with_icons.options.star"
+        },
+        {
+          "value": "leaf",
+          "label": "t:yv.text_with_icons.options.leaf"
+        },
+        {
+          "value": "box",
+          "label": "t:yv.text_with_icons.options.box"
+        },
+        {
+          "value": "plane",
+          "label": "t:yv.text_with_icons.options.plane"
+        },
+        {
+          "value": "stopwatch",
+          "label": "t:yv.text_with_icons.options.stopwatch"
+        },
+        {
+          "value": "globe",
+          "label": "t:yv.text_with_icons.options.globe"
+        },
+        {
+          "value": "money_back",
+          "label": "t:yv.text_with_icons.options.money_back"
+        },
+        {
+          "value": "smile",
+          "label": "t:yv.text_with_icons.options.smile"
+        }
+      ],
+      "default": "truck"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.text_with_icons.settings.image",
+      "info": "t:yv.text_with_icons.settings.image_info"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "Fast & free shipping"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "info": "t:yv.common.settings.heading_tag_info",
+      "options": [
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h3"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "t:yv.text_with_icons.settings.text",
+      "default": "We believe in getting your products to you as quickly as possible."
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "t:yv.common.settings.link"
+    }
+  ]
+}
+{% endschema %}

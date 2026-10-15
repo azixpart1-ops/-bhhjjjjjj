@@ -33,6 +33,10 @@
   assign image_sizes = image_sizes | default: '(min-width: 1200px) 370px, (min-width: 990px) calc((100vw - 120px) / 3), (min-width: 750px) calc((100vw - 70px) / 2), calc(100vw - 40px)'
   assign loading = loading | default: 'lazy'
 
+  # The card can be rendered outside the blog templates, so the blog URL comes from the article's own URL.
+  assign handle_path = '/' | append: article.handle
+  assign blog_url = article.url | remove_last: handle_path
+
   assign excerpt = ''
   if show_excerpt
     if article.excerpt != blank
@@ -70,7 +74,7 @@
   {%- endif -%}
 
   <div class="yv-article-card__body">
-    {%- if show_comments and blog.comments_enabled? and article.comments_count > 0 -%}
+    {%- if show_comments and article.comments_enabled? and article.comments_count > 0 -%}
       <p class="yv-article-card__comments">{{ 'blogs.article.comments_heading' | t: count: article.comments_count }}</p>
     {%- endif -%}
 
@@ -91,7 +95,7 @@
       <p class="yv-article-card__tags">
         <span>{{ 'yv.blog.tags_label' | t }}</span>
         {% for tag in article.tags -%}
-          <a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag | escape }}</a>
+          <a href="{{ blog_url }}/tagged/{{ tag | handleize }}">{{ tag | escape }}</a>
           {%- unless forloop.last %}, {% endunless -%}
         {%- endfor %}
       </p>
@@ -101,7 +105,7 @@
       <a
         class="button-secondary yv-article-card__button"
         href="{{ article.url }}"
-        aria-label="{{ 'yv.blog.read_more_label' | t: title: article.title | escape }}"
+        aria-label="{{ 'yv.blog.read_more_label' | t: title: article.title }}"
       >
         {{- 'yv.blog.read_more' | t -}}
       </a>

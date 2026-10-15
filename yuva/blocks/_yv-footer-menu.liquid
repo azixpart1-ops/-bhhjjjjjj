@@ -1,0 +1,156 @@
+{%- doc -%}
+  Menu column of the Yuva footer (sections/yv-footer.liquid): a heading and the first-level links
+  of the chosen menu. Links slide right behind a growing dash on hover. Below 750px the column is a
+  "+" accordion (Horizon accordion-custom), closed by default; without a heading the column is not
+  shown on phones (Yuva rule: "This heading is required to show navigation on mobile devices").
+  A blank menu renders nothing on the storefront (a hint in the theme editor).
+{%- enddoc -%}
+
+{%- liquid
+  assign menu = block.settings.menu
+  assign heading = block.settings.heading | strip
+  assign has_links = false
+  if menu != blank and menu.links.size > 0
+    assign has_links = true
+  endif
+  assign nav_label = heading | default: menu.title
+-%}
+
+{%- if has_links or request.design_mode -%}
+  {%- capture menu_details -%}
+    <details class="yv-footer-col__details">
+      <summary class="yv-footer-col__summary{% if heading == blank %} yv-footer-col__summary--empty{% endif %}">
+        <span class="yv-footer-col__heading">{{ heading | escape }}</span>
+        <span class="yv-footer-col__toggle svg-wrapper icon-plus">
+          {{- 'icon-plus.svg' | inline_asset_content -}}
+        </span>
+      </summary>
+      <nav
+        class="details-content yv-footer-col__content"
+        {% if nav_label != blank %}
+          aria-label="{{ nav_label | escape }}"
+        {% endif %}
+      >
+        {%- if has_links -%}
+          <ul
+            class="yv-footer-menu__list list-unstyled"
+            role="list"
+          >
+            {%- for link in menu.links -%}
+              <li class="yv-footer-menu__item">
+                <a
+                  class="yv-footer-menu__link"
+                  href="{{ link.url }}"
+                  {% if link.current %}
+                    aria-current="page"
+                  {% endif %}
+                >
+                  {{- link.title | escape -}}
+                </a>
+              </li>
+            {%- endfor -%}
+          </ul>
+        {%- else -%}
+          <p class="yv-footer-col__hint">{{ 'yv.footer.select_menu' | t }}</p>
+        {%- endif -%}
+      </nav>
+    </details>
+  {%- endcapture -%}
+
+  <div
+    class="yv-footer-col yv-footer-menu{% if heading == blank %} yv-footer-col--no-heading{% endif %}"
+    {{ block.shopify_attributes }}
+  >
+    {% render 'accordion-custom-component',
+      children: menu_details,
+      class: 'yv-footer-col__accordion',
+      disable_on_desktop: true,
+      open_by_default_on_desktop: true
+    %}
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-footer-menu__list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .yv-footer-menu__item {
+    max-width: 100%;
+  }
+
+  .yv-footer-menu__link {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    font-size: var(--yv-footer-link-size, 15px);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .yv-footer-menu__link::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 50%;
+    width: 0;
+    height: 1px;
+    background-color: currentColor;
+  }
+
+  .yv-footer-menu__link:hover,
+  .yv-footer-menu__link[aria-current='page'] {
+    color: var(--yv-footer-hover);
+  }
+
+  .yv-footer-menu__link:hover {
+    padding-inline-start: 15px;
+  }
+
+  .yv-footer-menu__link:hover::before {
+    width: 10px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-footer-menu__link {
+      transition: padding 0.3s ease, color 0.3s ease;
+    }
+
+    .yv-footer-menu__link::before {
+      transition: width 0.3s ease;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.footer_menu",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:settings.heading",
+      "info": "t:yv.footer.settings.menu_heading_info",
+      "default": "Quick links"
+    },
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "t:settings.menu",
+      "info": "t:yv.footer.settings.menu_info",
+      "default": "footer"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.footer_menu"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,736 @@
+{% comment %}
+  Section contract: yv-image-with-text
+  Yuva "Image with text": one image beside a column of private blocks (highlight heading, Horizon
+  text, icon-with-text rows, button) plus an optional stat box that overlaps the inner bottom
+  corner of the image. Image left or right on desktop (always first on phones), Adapt/Small/
+  Medium/Large heights, optional offset shadow and hover zoom, md container or full width with
+  the image flush to the viewport edge, top/middle/bottom content position and "Icon over
+  section". Shared settings: section border, colour set, visibility, spacing.
+
+  The stat box is positioned with pure CSS: the grid is an inline-size container, so the image
+  height is known in CSS (`--yv-iwt-h`, from the image's own ratio or the fixed height) and the
+  box is placed at the image's bottom edge even when the text column is taller than the image.
+  @example
+  Theme editor > Add section > Storytelling > "Image with text"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign full_width = section.settings.full_width
+  assign image = section.settings.image
+  assign image_position = section.settings.image_position | default: 'left'
+  assign image_height = section.settings.image_height | default: 'adapt'
+  assign content_position = section.settings.content_position | default: 'middle'
+
+  assign image_ratio = 1.124
+  if image != blank and image.aspect_ratio > 0
+    assign image_ratio = image.aspect_ratio
+  endif
+
+  case image_height
+    when 'small'
+      assign height_desktop = '450px'
+      assign height_mobile = '300px'
+    when 'medium'
+      assign height_desktop = '550px'
+      assign height_mobile = '360px'
+    when 'large'
+      assign height_desktop = '650px'
+      assign height_mobile = '420px'
+    else
+      assign height_desktop = 'calc((var(--yv-iwt-col) - var(--yv-iwt-shadow)) / ' | append: image_ratio | append: ')'
+      assign height_mobile = height_desktop
+  endcase
+
+  assign shadow_direction = 'left'
+  if image_position == 'right'
+    assign shadow_direction = 'right'
+  endif
+
+  assign container = 'md'
+  if full_width
+    assign container = 'full'
+  endif
+
+  assign image_loading = 'lazy'
+  assign image_fetchpriority = 'auto'
+  if section.index == 1
+    assign image_loading = 'eager'
+    assign image_fetchpriority = 'high'
+  endif
+
+  assign image_sizes = '(min-width: 1200px) 560px, (min-width: 750px) calc(50vw - 40px), calc(100vw - 40px)'
+  if full_width
+    assign image_sizes = '(min-width: 750px) 50vw, 100vw'
+  endif
+-%}
+
+{%- capture image_markup -%}
+  <div
+    class="yv-media yv-iwt__image{% if section.settings.image_zoom %} yv-hover-zoom{% endif %}"
+    data-yv-reveal
+  >
+    {%- if image != blank -%}
+      {{
+        image
+        | image_url: width: 2000
+        | image_tag:
+          widths: '375, 550, 750, 1100, 1500, 2000',
+          sizes: image_sizes,
+          loading: image_loading,
+          fetchpriority: image_fetchpriority,
+          alt: image.alt
+      }}
+    {%- else -%}
+      {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-placeholder' }}
+    {%- endif -%}
+  </div>
+{%- endcapture -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-iwt color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-image-with-text"
+>
+  <div class="yv-container yv-container--{{ container }} yv-draw-icon-host">
+    {% render 'yv-draw-icon', icon_settings: section.settings %}
+    <div
+      class="yv-iwt__grid yv-iwt__grid--image-{{ image_position }} yv-iwt__grid--{{ content_position }}{% if full_width %} yv-iwt__grid--full{% endif %}{% if section.settings.image_shadow %} yv-iwt__grid--shadow{% endif %}"
+      style="--yv-iwt-h: {{ height_desktop }}; --yv-iwt-h-mobile: {{ height_mobile }};"
+    >
+      <div class="yv-iwt__media">
+        {% render 'yv-image-shadow',
+          content: image_markup,
+          enabled: section.settings.image_shadow,
+          color: section.settings.color_shadow,
+          direction: shadow_direction,
+          class: 'yv-iwt__shadow'
+        %}
+      </div>
+
+      <div class="yv-iwt__content">
+        {%- content_for 'blocks' -%}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-iwt__grid {
+    --yv-iwt-gap: 30px;
+    --yv-iwt-shadow: 0px;
+    --yv-iwt-col: 100cqw;
+    --yv-iwt-radius: calc(var(--yv-layout-radius, 10px) * 2);
+
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--yv-iwt-gap);
+    container-type: inline-size;
+  }
+
+  .yv-iwt__grid--shadow {
+    --yv-iwt-shadow: 10px;
+  }
+
+  .yv-iwt__media,
+  .yv-iwt__content {
+    min-width: 0;
+  }
+
+  .yv-iwt__image {
+    --yv-media-radius: var(--yv-iwt-radius);
+    --yv-zoom-scale: 1.1;
+
+    height: var(--yv-iwt-h-mobile);
+  }
+
+  .yv-iwt__grid--full .yv-iwt__image {
+    --yv-media-radius: 0;
+  }
+
+  .yv-iwt__shadow {
+    --yv-shadow-radius: var(--yv-iwt-radius);
+  }
+
+  .yv-iwt__content {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+    text-align: start;
+  }
+
+  .yv-iwt__content:empty {
+    display: none;
+  }
+
+  .yv-iwt__content > * {
+    max-width: 100%;
+    margin-block: 0;
+  }
+
+  .yv-iwt__content .text-block.rte:not(.custom-typography) {
+    font-size: var(--yv-text-lg, 15.36px);
+    line-height: 1.4;
+  }
+
+  .yv-iwt__content > .yv-icon-with-text,
+  .yv-iwt__content > .yv-button-block {
+    margin-block-start: 10px;
+  }
+
+  .yv-iwt__content > :first-child {
+    margin-block-start: 0;
+  }
+
+  /* Stat box: lifted out of the column onto the image's bottom corner. */
+  .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice) {
+    position: absolute;
+    z-index: 2;
+    inset-block-start: calc(var(--yv-iwt-h-mobile) - 16px);
+    inset-inline-start: 16px;
+    max-width: calc(100% - 32px);
+    margin: 0;
+    translate: 0 -100%;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-iwt__grid--full .yv-iwt__content {
+      padding-inline: var(--yv-page-gutter, 20px);
+    }
+
+    .yv-iwt__grid--shadow.yv-iwt__grid--image-left .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice) {
+      inset-inline-start: calc(16px + var(--yv-iwt-shadow));
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-iwt__grid {
+      --yv-iwt-gap: 20px;
+      --yv-iwt-col: calc((100cqw - var(--yv-iwt-gap)) / 2);
+
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: center;
+    }
+
+    .yv-iwt__grid--shadow {
+      --yv-iwt-shadow: 20px;
+    }
+
+    .yv-iwt__image {
+      height: var(--yv-iwt-h);
+    }
+
+    .yv-iwt__grid--image-right .yv-iwt__media {
+      order: 2;
+    }
+
+    .yv-iwt__grid--top .yv-iwt__content {
+      align-self: start;
+    }
+
+    .yv-iwt__grid--bottom .yv-iwt__content {
+      align-self: end;
+    }
+
+    .yv-iwt__content {
+      padding-inline: 20px;
+    }
+
+    .yv-iwt__grid--full .yv-iwt__content {
+      padding-inline: 40px max(40px, var(--page-margin, 15px));
+    }
+
+    .yv-iwt__grid--full.yv-iwt__grid--image-right .yv-iwt__content {
+      padding-inline: max(40px, var(--page-margin, 15px)) 40px;
+    }
+
+    /* The image box is vertically centred in the row: its bottom edge sits at 50% + h / 2. */
+    .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice) {
+      inset-block-start: calc(50% + (var(--yv-iwt-h) + var(--yv-iwt-shadow)) / 2 - var(--yv-iwt-shadow) - 24px);
+      inset-inline-start: auto;
+      inset-inline-end: calc(50% + var(--yv-iwt-gap) / 2 + 24px);
+      max-width: calc(50% - var(--yv-iwt-gap) / 2 - 48px);
+    }
+
+    .yv-iwt__grid--image-right .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice) {
+      inset-inline-start: calc(50% + var(--yv-iwt-gap) / 2 + 24px);
+      inset-inline-end: auto;
+    }
+
+    .yv-iwt__grid--top .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice),
+    .yv-iwt__grid--bottom .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice) {
+      inset-block-start: auto;
+      inset-block-end: calc(50% - (var(--yv-iwt-h) + var(--yv-iwt-shadow)) / 2 + var(--yv-iwt-shadow) + 24px);
+      translate: none;
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-iwt__content {
+      padding-inline: 40px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.image_with_text",
+  "tag": "section",
+  "class": "yv-image-with-text-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 10,
+  "blocks": [
+    {
+      "type": "_yv-heading"
+    },
+    {
+      "type": "_yv-icon-with-text"
+    },
+    {
+      "type": "text"
+    },
+    {
+      "type": "_yv-stat-box"
+    },
+    {
+      "type": "_yv-button"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.media"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.image_with_text.settings.image",
+      "info": "t:yv.image_with_text.settings.image_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "image_shadow",
+      "label": "t:yv.common.settings.show_shadow",
+      "info": "t:yv.image_with_text.settings.image_shadow_info",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "image_zoom",
+      "label": "t:yv.image_with_text.settings.image_zoom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "image_position",
+      "label": "t:yv.image_with_text.settings.image_position",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left",
+      "info": "t:yv.image_with_text.settings.image_position_info"
+    },
+    {
+      "type": "select",
+      "id": "image_height",
+      "label": "t:yv.image_with_text.settings.image_height",
+      "options": [
+        {
+          "value": "adapt",
+          "label": "t:yv.image_with_text.options.adapt"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "adapt"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.draw_icon.header"
+    },
+    {
+      "type": "checkbox",
+      "id": "draw_icon_show",
+      "label": "t:yv.draw_icon.show",
+      "info": "t:yv.draw_icon.show_info",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "draw_icon",
+      "label": "t:yv.draw_icon.icon",
+      "options": [
+        {
+          "value": "sparkle",
+          "label": "t:yv.draw_icon.options.sparkle"
+        },
+        {
+          "value": "star",
+          "label": "t:yv.draw_icon.options.star"
+        },
+        {
+          "value": "heart",
+          "label": "t:yv.draw_icon.options.heart"
+        },
+        {
+          "value": "swirl",
+          "label": "t:yv.draw_icon.options.swirl"
+        },
+        {
+          "value": "arrow",
+          "label": "t:yv.draw_icon.options.arrow"
+        },
+        {
+          "value": "circle",
+          "label": "t:yv.draw_icon.options.circle"
+        },
+        {
+          "value": "underline",
+          "label": "t:yv.draw_icon.options.underline"
+        },
+        {
+          "value": "flower",
+          "label": "t:yv.draw_icon.options.flower"
+        }
+      ],
+      "default": "sparkle",
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.draw_icon.position_header",
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_x_desktop",
+      "label": "t:yv.draw_icon.x_desktop",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 0,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_y_desktop",
+      "label": "t:yv.draw_icon.y_desktop",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 0,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_x_mobile",
+      "label": "t:yv.draw_icon.x_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 2,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_y_mobile",
+      "label": "t:yv.draw_icon.y_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 2,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "color",
+      "id": "draw_icon_color",
+      "label": "t:yv.draw_icon.color",
+      "default": "#012921",
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.content"
+    },
+    {
+      "type": "select",
+      "id": "content_position",
+      "label": "t:yv.image_with_text.settings.content_position",
+      "options": [
+        {
+          "value": "top",
+          "label": "t:yv.common.options.top"
+        },
+        {
+          "value": "middle",
+          "label": "t:yv.image_with_text.options.middle"
+        },
+        {
+          "value": "bottom",
+          "label": "t:yv.common.options.bottom"
+        }
+      ],
+      "default": "middle"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "color",
+      "id": "color_shadow",
+      "label": "t:yv.common.settings.shadow_color",
+      "default": "#EDE6E0"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 68
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 68
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.image_with_text",
+      "category": "t:yv.categories.storytelling",
+      "blocks": {
+        "heading": {
+          "type": "_yv-heading",
+          "settings": {
+            "heading": "The Story Behind Every Design We Create",
+            "heading_size": "h2",
+            "heading_tag": "h2"
+          }
+        },
+        "text": {
+          "type": "text",
+          "settings": {
+            "text": "<p>Every design we create is a reflection of passion, craftsmanship and innovation. From the first sketch to the final stitch, each piece is made to be lived in, loved and kept for years.</p>",
+            "type_preset": "rte",
+            "width": "100%",
+            "max_width": "none"
+          }
+        },
+        "feature_1": {
+          "type": "_yv-icon-with-text",
+          "settings": {
+            "icon": "heart",
+            "heading": "Crafted with Passion",
+            "description": "<p>Every piece is shaped by people who care about the details you can feel.</p>"
+          }
+        },
+        "feature_2": {
+          "type": "_yv-icon-with-text",
+          "settings": {
+            "icon": "globe",
+            "heading": "Inspired by Global Trends",
+            "description": "<p>We follow the world's best design ideas and make them our own.</p>"
+          }
+        },
+        "feature_3": {
+          "type": "_yv-icon-with-text",
+          "settings": {
+            "icon": "search",
+            "heading": "Attention to Detail",
+            "description": "<p>Every seam, finish and fabric is checked before it reaches you.</p>"
+          }
+        }
+      },
+      "block_order": ["heading", "text", "feature_1", "feature_2", "feature_3"]
+    },
+    {
+      "name": "t:yv.image_with_text.presets.full_width",
+      "category": "t:yv.categories.storytelling",
+      "settings": {
+        "full_width": true,
+        "color_set": "secondary",
+        "spacing_top_desktop": 0,
+        "spacing_bottom_desktop": 0,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 20
+      },
+      "blocks": {
+        "heading": {
+          "type": "_yv-heading",
+          "settings": {
+            "heading": "Healthy-Looking Skin with Skincare",
+            "heading_size": "h1",
+            "heading_tag": "h2"
+          }
+        },
+        "text": {
+          "type": "text",
+          "settings": {
+            "text": "<p>Unveil your natural glow with our radiant collection, formulated to brighten, hydrate and rejuvenate. Each product is designed to leave you visibly refreshed and luminous.</p><p>Whether you are starting your day or winding down, our essentials help you feel confident, naturally radiant, every day.</p>",
+            "type_preset": "rte",
+            "width": "100%",
+            "max_width": "none"
+          }
+        },
+        "button": {
+          "type": "_yv-button",
+          "settings": {
+            "text": "Read more",
+            "link": "shopify://pages/about"
+          }
+        }
+      },
+      "block_order": ["heading", "text", "button"]
+    }
+  ]
+}
+{% endschema %}

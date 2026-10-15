@@ -1,0 +1,214 @@
+{%- doc -%}
+  Product list of the Yuva side drawer (sections/yv-side-drawer.liquid): a heading and up to eight
+  products as Horizon product cards (the canonical static `_product-card` tree, Yuva card look),
+  four per row on desktop and two on phones. Placeholder cards show while no product is chosen.
+{%- enddoc -%}
+
+{%- liquid
+  assign heading_tag = block.settings.heading_tag | default: 'h3'
+  unless heading_tag == 'h1' or heading_tag == 'h2' or heading_tag == 'h3' or heading_tag == 'h4' or heading_tag == 'h5' or heading_tag == 'h6' or heading_tag == 'p'
+    assign heading_tag = 'h3'
+  endunless
+  assign products = block.settings.products
+-%}
+
+<div
+  class="yv-drawer-products"
+  style="--yv-drawer-block-text: {{ block.settings.color_text | default: 'currentColor' }};"
+  {{ block.shopify_attributes }}
+>
+  {%- if block.settings.heading != blank -%}
+    <{{ heading_tag }} class="yv-side-drawer__heading">{{ block.settings.heading | escape }}</{{ heading_tag }}>
+  {%- endif -%}
+
+  <ul
+    class="yv-product-grid yv-drawer-products__grid"
+    role="list"
+  >
+    {%- if products != blank -%}
+      {%- for product in products limit: 8 -%}
+        <li>
+          {% content_for 'block',
+            type: '_product-card',
+            id: 'static-product-card',
+            closest.product: product,
+            product_view_context: 'collection'
+          %}
+        </li>
+      {%- endfor -%}
+    {%- else -%}
+      {%- for i in (1..4) -%}
+        <li>
+          {% content_for 'block', type: '_product-card', id: 'static-product-card', closest.product: null %}
+        </li>
+      {%- endfor -%}
+    {%- endif -%}
+  </ul>
+</div>
+
+{% stylesheet %}
+  .yv-drawer-products {
+    min-width: 0;
+  }
+
+  .yv-drawer-products .yv-side-drawer__heading {
+    color: var(--yv-drawer-block-text, currentColor);
+  }
+
+  .yv-drawer-products__grid {
+    --yv-product-grid-columns: 4;
+    --yv-product-grid-columns-tablet: 4;
+    --yv-product-grid-columns-mobile: 2;
+    --yv-product-grid-gap-x: 20px;
+    --yv-product-grid-gap-y: 30px;
+    --yv-product-grid-gap-x-mobile: 20px;
+    --yv-product-grid-gap-y-mobile: 30px;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.drawer_products",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:settings.heading",
+      "default": "Trending products"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h3"
+    },
+    {
+      "type": "product_list",
+      "id": "products",
+      "label": "t:settings.products",
+      "info": "t:yv.side_drawer.settings.products_info",
+      "limit": 8
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "color",
+      "id": "color_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#000000"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.drawer_products",
+      "blocks": {
+        "static-product-card": {
+          "type": "_product-card",
+          "static": true,
+          "settings": {
+            "product_card_gap": 5,
+            "border": "none",
+            "border_radius": 0,
+            "padding-block-start": 0,
+            "padding-block-end": 0,
+            "padding-inline-start": 0,
+            "padding-inline-end": 0
+          },
+          "blocks": {
+            "product-card-gallery": {
+              "type": "_product-card-gallery",
+              "settings": {
+                "image_ratio": "square",
+                "border": "none",
+                "border_radius": 0
+              }
+            },
+            "card-vendor": {
+              "type": "_yv-card-vendor",
+              "settings": {}
+            },
+            "product-title": {
+              "type": "product-title",
+              "settings": {
+                "width": "100%",
+                "max_width": "none",
+                "alignment": "left",
+                "type_preset": "paragraph",
+                "font": "var(--font-body--family)",
+                "font_size": "1rem",
+                "line_height": "normal",
+                "letter_spacing": "normal",
+                "case": "none",
+                "wrap": "pretty",
+                "background": false
+              }
+            },
+            "price": {
+              "type": "price",
+              "settings": {
+                "show_sale_price_first": true,
+                "show_from_price": true,
+                "show_installments": false,
+                "show_tax_info": false,
+                "type_preset": "paragraph",
+                "width": "100%",
+                "alignment": "left"
+              }
+            },
+            "swatches": {
+              "type": "swatches",
+              "settings": {
+                "product_swatches_alignment": "flex-start",
+                "product_swatches_alignment_mobile": "flex-start",
+                "hide_padding": false,
+                "product_swatches_padding_top": 1,
+                "product_swatches_padding_bottom": 0,
+                "product_swatches_padding_left": 0,
+                "product_swatches_padding_right": 0
+              }
+            },
+            "card-extras": {
+              "type": "_yv-card-extras",
+              "settings": {}
+            }
+          },
+          "block_order": ["product-card-gallery", "card-vendor", "product-title", "price", "swatches", "card-extras"]
+        }
+      }
+    }
+  ]
+}
+{% endschema %}

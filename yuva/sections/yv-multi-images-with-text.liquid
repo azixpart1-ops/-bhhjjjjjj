@@ -1,0 +1,420 @@
+{% comment %}
+  Section contract: yv-multi-images-with-text
+  Yuva "Multi images with text": two staggered portrait images (optional offset shadows) over a
+  full-width band in the colour set's background, next to a column of private blocks (highlight
+  heading, Horizon text, button). The band runs edge to edge from 20% to 80% of the composition
+  height; the rest of the section stays on the page background, so the first image rises above
+  the band and the second hangs below it. Two columns from 990px; stacked (images first) below.
+  Shared settings: colour set (the band), visibility, spacing.
+  @example
+  Theme editor > Add section > Storytelling > "Multi images with text"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign text_alignment = section.settings.text_alignment | default: 'left'
+  assign image_sizes = '(min-width: 1200px) 280px, (min-width: 990px) 22vw, (min-width: 750px) 280px, 44vw'
+-%}
+
+<div class="section-background{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-mit{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-multi-images-with-text"
+>
+  <div class="yv-container yv-container--page yv-mit__grid yv-mit__grid--{{ text_alignment }}">
+    <div class="yv-mit__media">
+      <div class="yv-mit__composition{% if section.settings.image_shadow %} yv-mit__composition--shadow{% endif %}">
+        <div
+          class="yv-mit__band yv-set-bg color-custom-{{ section.id }}"
+          aria-hidden="true"
+        ></div>
+        {%- for i in (1..2) -%}
+          {%- liquid
+            if i == 1
+              assign mit_image = section.settings.image_1
+              assign placeholder = 'lifestyle-1'
+            else
+              assign mit_image = section.settings.image_2
+              assign placeholder = 'lifestyle-2'
+            endif
+            assign reveal_delay = forloop.index0 | times: 150
+          -%}
+          {%- capture image_markup -%}
+            <div class="yv-media yv-mit__image">
+              {%- if mit_image != blank -%}
+                {{
+                  mit_image
+                  | image_url: width: 1100
+                  | image_tag:
+                    widths: '240, 360, 480, 620, 800, 1100',
+                    sizes: image_sizes,
+                    loading: 'lazy',
+                    alt: mit_image.alt
+                }}
+              {%- else -%}
+                {{ placeholder | placeholder_svg_tag: 'yv-placeholder' }}
+              {%- endif -%}
+            </div>
+          {%- endcapture -%}
+          <div
+            class="yv-mit__item yv-mit__item--{{ i }}"
+            data-yv-reveal
+            style="--yv-reveal-delay: {{ reveal_delay }}ms;"
+          >
+            {% render 'yv-image-shadow',
+              content: image_markup,
+              enabled: section.settings.image_shadow,
+              color: section.settings.color_shadow,
+              direction: 'right',
+              class: 'yv-mit__shadow'
+            %}
+          </div>
+        {%- endfor -%}
+      </div>
+    </div>
+
+    <div class="yv-mit__content">
+      {%- content_for 'blocks' -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-mit {
+    overflow-x: clip;
+  }
+
+  .yv-mit__grid {
+    --yv-mit-radius: calc(var(--yv-layout-radius, 10px) * 2);
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+    align-items: center;
+  }
+
+  .yv-mit__media,
+  .yv-mit__content {
+    min-width: 0;
+  }
+
+  .yv-mit__media {
+    width: 100%;
+    max-width: 620px;
+    margin-inline: auto;
+  }
+
+  .yv-mit__composition {
+    --yv-mit-shadow: 0px;
+
+    position: relative;
+    aspect-ratio: 1 / 1.15;
+  }
+
+  .yv-mit__composition--shadow {
+    --yv-mit-shadow: 10px;
+  }
+
+  .yv-mit__band {
+    position: absolute;
+    inset-block: 20%;
+    inset-inline: -100vw;
+    background: var(--yv-set-background, var(--color-background));
+  }
+
+  .yv-mit__item {
+    position: absolute;
+    z-index: 1;
+    width: 48%;
+  }
+
+  .yv-mit__item--1 {
+    inset-block-start: 0;
+    inset-inline-start: 0;
+  }
+
+  .yv-mit__item--2 {
+    inset-block-end: 0;
+    inset-inline-end: 0;
+  }
+
+  .yv-mit__shadow {
+    --yv-shadow-radius: var(--yv-mit-radius);
+  }
+
+  .yv-mit__composition--shadow .yv-mit__item .yv-shadow {
+    margin: 0;
+  }
+
+  .yv-mit__composition--shadow .yv-mit__item--2 {
+    inset-block-end: var(--yv-mit-shadow);
+    inset-inline-end: var(--yv-mit-shadow);
+  }
+
+  .yv-mit__image {
+    --yv-media-radius: var(--yv-mit-radius);
+
+    aspect-ratio: 31 / 40;
+  }
+
+  .yv-mit__content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    text-align: start;
+  }
+
+  .yv-mit__grid--center .yv-mit__content {
+    text-align: center;
+  }
+
+  .yv-mit__grid--right .yv-mit__content {
+    text-align: end;
+  }
+
+  .yv-mit__content:empty {
+    display: none;
+  }
+
+  .yv-mit__content > * {
+    max-width: 100%;
+    margin-block: 0;
+  }
+
+  .yv-mit__content .text-block.rte:not(.custom-typography) {
+    font-size: var(--yv-text-lg, 15.36px);
+    line-height: 1.6;
+  }
+
+  .yv-mit__content .text-block.rte:not(.custom-typography) p + p {
+    margin-block-start: 1em;
+  }
+
+  .yv-mit__content > .yv-button-block {
+    margin-block-start: 10px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-mit__composition--shadow {
+      --yv-mit-shadow: 20px;
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-mit__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 60px;
+    }
+
+    .yv-mit__media {
+      max-width: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.multi_images_with_text",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 6,
+  "blocks": [
+    {
+      "type": "_yv-heading"
+    },
+    {
+      "type": "text"
+    },
+    {
+      "type": "_yv-button"
+    }
+  ],
+  "settings": [
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:yv.common.settings.text_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.multi_images_with_text.content.images"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_1",
+      "label": "t:yv.multi_images_with_text.settings.image_1",
+      "info": "t:yv.multi_images_with_text.settings.image_1_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_2",
+      "label": "t:yv.multi_images_with_text.settings.image_2",
+      "info": "t:yv.multi_images_with_text.settings.image_2_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "image_shadow",
+      "label": "t:yv.multi_images_with_text.settings.image_shadow",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "secondary",
+      "info": "t:yv.multi_images_with_text.settings.color_set_info"
+    },
+    {
+      "type": "color",
+      "id": "color_shadow",
+      "label": "t:yv.common.settings.shadow_color",
+      "default": "#DDDDDD"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.multi_images_with_text",
+      "category": "t:yv.categories.storytelling",
+      "blocks": {
+        "heading": {
+          "type": "_yv-heading",
+          "settings": {
+            "heading": "Designed for the Way <strong>You Live</strong>",
+            "heading_size": "medium",
+            "heading_tag": "h2"
+          }
+        },
+        "text": {
+          "type": "text",
+          "settings": {
+            "text": "<p>Thoughtful details, honest materials and a fit that feels made for you. Every collection starts with how you actually use it, then we refine it until it feels effortless.</p><p>Explore pieces that look good on day one and even better on day one hundred.</p>",
+            "type_preset": "rte",
+            "width": "100%",
+            "max_width": "none"
+          }
+        },
+        "button": {
+          "type": "_yv-button",
+          "settings": {
+            "text": "Shop now",
+            "link": "shopify://collections/all"
+          }
+        }
+      },
+      "block_order": ["heading", "text", "button"]
+    }
+  ]
+}
+{% endschema %}
