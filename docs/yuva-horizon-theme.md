@@ -235,7 +235,10 @@ theme behaves differently from the demo, and why.
 
 - **No demo photos or products.** Image settings start empty and show Shopify's placeholders.
   Sections that list products use the "all" collection or show placeholder cards until you pick
-  a collection. Hotspots without a product show a placeholder card on desktop only.
+  a collection. Hotspots without a product show a placeholder card on desktop only. While a
+  banner, slide or collage tile still shows a placeholder, it gets at least a 30% dark overlay so
+  its white text stays readable; once you choose an image, the section's own overlay setting
+  applies.
 - **Social links are blank.** The top bar, the menu drawer and the footer's newsletter column show
   their social icons once you fill in Theme settings > Social media. (Pre-filling them would link
   your store to someone else's accounts.)
