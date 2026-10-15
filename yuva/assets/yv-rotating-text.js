@@ -2,7 +2,7 @@ import { Component } from '@theme/component';
 import { prefersReducedMotion } from '@theme/utilities';
 
 /**
- * Rotating heading words (spec part 2 §0.4). The heading snippet (yv-heading) outputs:
+ * Rotating heading words. The heading snippet (yv-heading) outputs:
  *
  * <yv-rotating-text aria-hidden="true" [data-interval="2500"]>
  *   <span>Modern Living</span><span>Everyday Living</span><span>Connected Living</span>

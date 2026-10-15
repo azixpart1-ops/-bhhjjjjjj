@@ -2,7 +2,7 @@ import { Component } from '@theme/component';
 import { prefersReducedMotion } from '@theme/utilities';
 
 /**
- * "Icon over section" (spec part 2 §0.3). Adds `.is-drawn` once when the host section is 30% in view;
+ * "Icon over section". Adds `.is-drawn` once when the host section is 30% in view;
  * the CSS in assets/yv-components.css then animates each path's stroke-dashoffset from 1000 to 0
  * (1.2s ease-out, paths staggered by 0.2s). Under reduced motion and in the theme editor it is drawn
  * immediately. Markup: snippets/yv-draw-icon.liquid.

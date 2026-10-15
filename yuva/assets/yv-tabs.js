@@ -3,7 +3,7 @@ import { getDirectionMultiplier } from '@theme/utilities';
 
 /**
  * Accessible tabs: one role="tab" button and one role="tabpanel" per item.
- * Based on the reference component in the Horizon authoring guide (§8.4), extended with
+ * Based on Horizon's tabs pattern, extended with
  * vertical orientation, nested-tabs safety and editor block selection on tabs or panels.
  *
  * Markup contract:

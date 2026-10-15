@@ -3,7 +3,7 @@ import { morph } from '@theme/morph';
 import { ThemeEvents } from '@theme/events';
 
 /**
- * Yuva product system (b-product): behaviour shared by the product page blocks, the featured product
+ * Yuva product system: behaviour shared by the product page blocks, the featured product
  * section and the recently viewed section. Every element extends Horizon's Component, so it survives
  * Section Rendering API morphs and theme editor re-renders.
  *
@@ -344,8 +344,7 @@ if (!customElements.get('yv-featured-media-component')) {
 
 /**
  * Host of a Tabs-style `yv-product-tabs` block. Every `yv-product-meta` block with "Show as
- * tab/accordion" on, in the same details column, becomes a tab right after Description (docs part 4
- * Content area: 1 Description, 2 product meta items, 3–5 custom tabs). The meta block keeps rendering
+ * tab/accordion" on, in the same details column, becomes a tab right after Description. The meta block keeps rendering
  * itself as an accordion item (the no-JS and Accordion-style look); once absorbed it is hidden and
  * its rows are cloned into the new panel, including its <yv-variant-sync>, so SKU and availability
  * still follow the variant.

@@ -8,8 +8,7 @@ import {
 } from '@theme/scroll-container';
 
 /**
- * Yuva site-wide overlays rendered by snippets/yv-global-overlays.liquid (docs part 4: Age
- * verification popup, Cookie privacy banner, Stickers, Scroll to top). Loaded on every page by
+ * Yuva site-wide overlays rendered by snippets/yv-global-overlays.liquid. Loaded on every page by
  * snippets/scripts.liquid; each element only acts when its markup is on the page.
  *
  * Offsets shared with other fixed widgets (set on <html>):

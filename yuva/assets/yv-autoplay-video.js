@@ -7,8 +7,7 @@ import { prefersReducedMotion } from '@theme/utilities';
  *
  * - The sources are attached only when the element comes within 300px of the viewport, so a
  *   video further down the page costs nothing until it is needed.
- * - It plays while it is on screen and pauses when it leaves (spec part 3, Collage and Media
- *   banner: "paused while offscreen").
+ * - It plays while it is on screen and pauses when it leaves.
  * - Under prefers-reduced-motion it never loads or plays; the poster stays visible.
  *
  * Markup contract:

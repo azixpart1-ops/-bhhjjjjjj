@@ -1,7 +1,7 @@
 import { DialogComponent } from '@theme/dialog';
 
 /**
- * Yuva store locator (docs part 3 "Store locator"). Markup: sections/yv-store-locator.liquid and
+ * Yuva store locator. Markup: sections/yv-store-locator.liquid and
  * blocks/_yv-store.liquid.
  *
  * - A floating edge tab opens a modal dialog (Horizon DialogComponent: scroll lock, Esc, click

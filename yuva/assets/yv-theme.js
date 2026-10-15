@@ -2,7 +2,7 @@ import { StandardEvents } from '@shopify/events';
 import { prefersReducedMotion } from '@theme/utilities';
 
 /**
- * Yuva global behaviours without markup of their own (docs part 4 §0.3), loaded on every page by
+ * Yuva global behaviours without markup of their own, loaded on every page by
  * snippets/scripts.liquid and configured by `#yv-theme-config`:
  *
  * - Add to cart alerts (Theme settings > Product): a short synthesised sound and a haptic pulse

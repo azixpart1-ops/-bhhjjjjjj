@@ -99,7 +99,7 @@ export async function geocodeAddress(maps, address) {
 }
 
 /**
- * Map section canvas (docs part 2 "Map"). Markup: sections/yv-map.liquid.
+ * Map section canvas. Markup: sections/yv-map.liquid.
  *
  * Attributes: `data-api-key`, `data-address`, `data-zoom` (default 14), `data-map-type`
  * (roadmap | satellite | hybrid | terrain), `data-embed-url` (keyless embed used as the last

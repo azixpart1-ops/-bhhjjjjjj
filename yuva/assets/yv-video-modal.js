@@ -1,7 +1,7 @@
 import { DialogComponent, DialogCloseEvent } from '@theme/dialog';
 
 /**
- * Video in a modal dialog (spec part 2 §0.5), built on Horizon's DialogComponent: Escape, backdrop
+ * Video in a modal dialog, built on Horizon's DialogComponent: Escape, backdrop
  * click, scroll lock and focus return to the trigger come from the native <dialog> + dialog.js.
  *
  * Opening plays the video with sound and controls. Closing pauses it and rewinds it to 0; an

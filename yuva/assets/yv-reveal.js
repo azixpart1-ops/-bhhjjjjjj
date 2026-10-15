@@ -1,7 +1,7 @@
 import { prefersReducedMotion } from '@theme/utilities';
 
 /**
- * Yuva scroll reveal (spec part 3 §0.5 item 5, Horizon authoring guide §10.3).
+ * Yuva scroll reveal.
  *
  * Reveals [data-yv-reveal] elements the first time 15% of them enters the viewport. The visual
  * states are styled in assets/yv-base.css (body.yv-animate; --yv-reveal-distance, --yv-reveal-duration).
