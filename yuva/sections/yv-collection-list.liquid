@@ -1,0 +1,641 @@
+{% comment %}
+  Section contract: yv-collection-list
+  Yuva "Collection list": a highlight-font heading over a list of chosen collections (one
+  blocks/_yv-collection-list-item.liquid per collection).
+  Card style "Content overlay" (Yuva collections page look): image tiles in a grid with the title
+  over the image; on hover the image zooms and a frosted bar with the title and an arrow appears.
+  Below 750px each tile becomes a tinted row (thumbnail, title, arrow button).
+  Card style "Circle": round images with the title underneath, centred in one row; when they do not
+  fit, the row becomes a Yuva carousel (arrows on desktop, swipe with a peek on phones).
+  The theme editor shows placeholder cards while the section has no blocks.
+  @example
+  Theme editor > Add section > Collections > "Collection list"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign card_style = section.settings.card_style
+  assign columns = section.settings.columns
+  assign carousel_id = 'YvCarousel-' | append: section.id
+  assign carousel_label = section.settings.heading | strip_html | strip
+  if carousel_label == blank
+    assign carousel_label = 'yv.collection_carousel.label' | t
+  endif
+-%}
+
+{%- capture items -%}
+  {%- if section.blocks.size > 0 -%}
+    {%- content_for 'blocks' -%}
+  {%- elsif request.design_mode -%}
+    {%- liquid
+      if card_style == 'circle'
+        assign placeholder_count = 6
+      else
+        assign placeholder_count = columns
+      endif
+    -%}
+    {%- for i in (1..placeholder_count) -%}
+      {%- assign placeholder_art = i | modulo: 6 | plus: 1 -%}
+      <div class="yv-collection-list__item yv-collection-list__item--{{ card_style }}">
+        <span class="yv-collection-list__card">
+          <span class="yv-collection-list__media yv-media">
+            {{ 'collection-' | append: placeholder_art | placeholder_svg_tag: 'yv-collection-list__image yv-placeholder' }}
+          </span>
+          <span class="yv-collection-list__title">{{ 'placeholders.collection_title' | t }}</span>
+        </span>
+      </div>
+    {%- endfor -%}
+  {%- endif -%}
+{%- endcapture -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+>
+  <div
+    class="yv-container yv-container--page yv-collection-list yv-collection-list--{{ card_style }}"
+    style="--yv-collection-list-columns: {{ columns }};"
+  >
+    {% render 'yv-heading',
+      text: section.settings.heading,
+      tag: section.settings.heading_tag,
+      size: section.settings.heading_size,
+      highlight_font: section.settings.highlight_font,
+      highlight_color: section.settings.highlight_color,
+      alignment: 'center',
+      class: 'yv-collection-list__heading',
+      reveal: true
+    %}
+
+    {%- if items != blank -%}
+      {%- if card_style == 'circle' -%}
+        {% render 'yv-carousel',
+          id: carousel_id,
+          slides: items,
+          label: carousel_label,
+          per_view: 6,
+          per_view_tablet: 4,
+          per_view_mobile: 3.5,
+          gap: 32,
+          gap_mobile: 12,
+          arrows: 'sides-outside',
+          arrows_mobile: 'none',
+          class: 'yv-collection-list__carousel'
+        %}
+      {%- else -%}
+        <div class="yv-collection-list__grid">
+          {{ items }}
+        </div>
+      {%- endif -%}
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-collection-list {
+    --yv-collection-list-radius: calc(var(--yv-layout-radius, 10px) * 1.4);
+  }
+
+  .yv-collection-list__heading {
+    margin-block-end: 40px;
+  }
+
+  .yv-collection-list__heading .yv-heading__title {
+    margin: 0;
+  }
+
+  .yv-collection-list__item {
+    min-width: 0;
+  }
+
+  .yv-collection-list__card {
+    position: relative;
+    display: block;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .yv-collection-list__media {
+    display: block;
+    position: relative;
+    isolation: isolate;
+  }
+
+  .yv-collection-list__title {
+    display: block;
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: var(--font-heading--weight);
+    line-height: 1.1;
+    letter-spacing: var(--font-h6--letter-spacing, -0.025em);
+    overflow-wrap: anywhere;
+  }
+
+  /* Content overlay ---------------------------------------------------------------------------- */
+  .yv-collection-list__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 15px;
+  }
+
+  .yv-collection-list--overlay .yv-collection-list__arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    color: #000;
+    background: #fff;
+    border-radius: var(--yv-collection-list-radius);
+  }
+
+  .yv-collection-list__bar {
+    display: none;
+  }
+
+  /* Phones: tinted rows with a thumbnail, the title and an arrow button. */
+  @media screen and (max-width: 749px) {
+    .yv-collection-list__heading {
+      margin-block-end: 25px;
+    }
+
+    .yv-collection-list--overlay .yv-collection-list__card {
+      display: grid;
+      grid-template-columns: 30% minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 0;
+      padding-inline-end: 15px;
+      background: var(--yv-theme-color-light, rgb(var(--color-foreground-rgb) / 0.08));
+      border-radius: var(--yv-collection-list-radius);
+    }
+
+    .yv-collection-list--overlay .yv-collection-list__media {
+      margin: 10px;
+      aspect-ratio: 105 / 86;
+      border: 2px solid #fff;
+      border-radius: var(--yv-collection-list-radius);
+    }
+
+    .yv-collection-list--overlay .yv-collection-list__title {
+      padding: 15px 15px 15px 5px;
+      font-size: calc(var(--font-h6--size, 18px) * 0.9);
+      color: var(--yv-heading-color, currentColor);
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-collection-list__grid {
+      grid-template-columns: repeat(min(3, var(--yv-collection-list-columns)), minmax(0, 1fr));
+      gap: 40px 20px;
+    }
+
+    .yv-collection-list--overlay .yv-collection-list__arrow--row {
+      display: none;
+    }
+
+    .yv-collection-list--overlay .yv-collection-list__media {
+      aspect-ratio: var(--yv-collection-ratio, 1230 / 987);
+      border: var(--yv-collection-image-border, 0 none);
+      border-radius: var(--yv-collection-list-radius);
+    }
+
+    .yv-collection-list--overlay .yv-collection-list__title {
+      position: absolute;
+      inset-inline: 15px;
+      inset-block-end: 18px;
+      z-index: 1;
+      font-size: var(--font-h6--size, 19px);
+      text-align: center;
+      color: #fff;
+    }
+
+    .yv-collection-list__bar {
+      position: absolute;
+      inset-inline: 15px;
+      inset-block-end: 15px;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      color: #fff;
+      background: rgb(0 0 0 / 0.2);
+      -webkit-backdrop-filter: blur(15px);
+      backdrop-filter: blur(15px);
+      border-radius: var(--yv-collection-list-radius);
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .yv-collection-list__bar-title {
+      font-family: var(--font-heading--family);
+      font-style: var(--font-heading--style);
+      font-weight: var(--font-heading--weight);
+      font-size: var(--font-h6--size, 19px);
+      line-height: 1.1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .yv-collection-list__bar > * {
+      transform: scale(0);
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-collection-list__grid {
+      grid-template-columns: repeat(var(--yv-collection-list-columns), minmax(0, 1fr));
+    }
+  }
+
+  /* Hover (pointer devices, 1025px and up): zoom, title out, frosted bar in. */
+  @media screen and (min-width: 1025px) and (hover: hover) {
+    .yv-collection-list--overlay .yv-collection-list__card:is(:hover, :focus-visible) .yv-collection-list__title {
+      opacity: 0;
+    }
+
+    .yv-collection-list--overlay .yv-collection-list__card:is(:hover, :focus-visible) .yv-collection-list__bar {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .yv-collection-list--overlay .yv-collection-list__card:is(:hover, :focus-visible) .yv-collection-list__bar > * {
+      transform: scale(1);
+    }
+  }
+
+  @media screen and (min-width: 1025px) and (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .yv-collection-list--overlay .yv-collection-list__image {
+      transition: transform 1s var(--yv-ease-out, ease);
+    }
+
+    .yv-collection-list--overlay .yv-collection-list__card:hover .yv-collection-list__image {
+      transform: scale(1.1);
+    }
+
+    .yv-collection-list--overlay .yv-collection-list__title,
+    .yv-collection-list__bar,
+    .yv-collection-list__bar > * {
+      transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+    }
+  }
+
+  /* Circle ------------------------------------------------------------------------------------- */
+  .yv-collection-list--circle .yv-collection-list__card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .yv-collection-list--circle .yv-collection-list__media {
+    width: 100%;
+    max-width: 160px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+  }
+
+  .yv-collection-list--circle .yv-collection-list__title {
+    font-size: var(--yv-text-md, 14px);
+  }
+
+  .yv-collection-list--circle yv-carousel:not([data-overflow='true']) .yv-carousel__track {
+    justify-content: center;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-collection-list--circle .yv-collection-list__title {
+      font-size: var(--yv-text-lg, 16px);
+    }
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .yv-collection-list--circle .yv-collection-list__image {
+      transition: transform 0.6s var(--yv-ease-out, ease);
+    }
+
+    .yv-collection-list--circle .yv-collection-list__card:hover .yv-collection-list__image {
+      transform: scale(1.06);
+    }
+  }
+
+  @media (hover: hover) {
+    .yv-collection-list--circle .yv-collection-list__card:hover .yv-collection-list__title {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.collection_list",
+  "tag": "section",
+  "class": "yv-collection-list-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 12,
+  "blocks": [
+    {
+      "type": "_yv-collection-list-item"
+    }
+  ],
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.text"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "t:yv.collection_list.defaults.heading"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "large"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.layout"
+    },
+    {
+      "type": "select",
+      "id": "card_style",
+      "label": "t:yv.collection_list.settings.card_style",
+      "options": [
+        {
+          "value": "overlay",
+          "label": "t:yv.collection_list.options.overlay"
+        },
+        {
+          "value": "circle",
+          "label": "t:yv.collection_list.options.circle"
+        }
+      ],
+      "default": "overlay"
+    },
+    {
+      "type": "range",
+      "id": "columns",
+      "label": "t:yv.collection_list.settings.columns",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4,
+      "visible_if": "{{ section.settings.card_style == 'overlay' }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.collection_list",
+      "category": "t:yv.categories.collections",
+      "settings": {
+        "heading": "t:yv.collection_list.defaults.heading",
+        "card_style": "overlay",
+        "columns": 4
+      },
+      "blocks": {
+        "collection_1": {
+          "type": "_yv-collection-list-item",
+          "settings": {}
+        },
+        "collection_2": {
+          "type": "_yv-collection-list-item",
+          "settings": {}
+        },
+        "collection_3": {
+          "type": "_yv-collection-list-item",
+          "settings": {}
+        },
+        "collection_4": {
+          "type": "_yv-collection-list-item",
+          "settings": {}
+        }
+      },
+      "block_order": ["collection_1", "collection_2", "collection_3", "collection_4"]
+    },
+    {
+      "name": "t:yv.names.collection_circles",
+      "category": "t:yv.categories.collections",
+      "settings": {
+        "heading": "t:yv.collection_list.defaults.heading",
+        "card_style": "circle"
+      },
+      "blocks": {
+        "collection_1": {
+          "type": "_yv-collection-list-item",
+          "settings": {}
+        },
+        "collection_2": {
+          "type": "_yv-collection-list-item",
+          "settings": {}
+        },
+        "collection_3": {
+          "type": "_yv-collection-list-item",
+          "settings": {}
+        },
+        "collection_4": {
+          "type": "_yv-collection-list-item",
+          "settings": {}
+        },
+        "collection_5": {
+          "type": "_yv-collection-list-item",
+          "settings": {}
+        },
+        "collection_6": {
+          "type": "_yv-collection-list-item",
+          "settings": {}
+        }
+      },
+      "block_order": ["collection_1", "collection_2", "collection_3", "collection_4", "collection_5", "collection_6"]
+    }
+  ]
+}
+{% endschema %}

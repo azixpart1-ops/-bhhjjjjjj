@@ -59,17 +59,31 @@
     show_from: block_settings.show_from_price
   %}
 
-  {% if block_settings.show_tax_info %}
+  {%- comment -%} yv: "You saved" pill (Theme settings > Product > Show saved amount); hidden in cards by CSS. {%- endcomment -%}
+  {% render 'yv-saved-amount', product: product_resource, block_id: block.id %}
+
+  {%- comment -%} yv: show_shipping_policy prints Yuva's "Shipping calculated at checkout" line, "Shipping" linked to the policy. {%- endcomment -%}
+  {% if block_settings.show_tax_info or block_settings.show_shipping_policy %}
     <div class="tax-note">
-      {%- if cart.duties_included and cart.taxes_included -%}
-        {{ 'content.duties_and_taxes_included' | t }}
-      {%- elsif cart.taxes_included -%}
-        {{ 'content.taxes_included' | t }}
-      {%- elsif cart.duties_included -%}
-        {{ 'content.duties_included' | t }}
+      {%- if block_settings.show_tax_info -%}
+        {%- if cart.duties_included and cart.taxes_included -%}
+          {{ 'content.duties_and_taxes_included' | t }}
+        {%- elsif cart.taxes_included -%}
+          {{ 'content.taxes_included' | t }}
+        {%- elsif cart.duties_included -%}
+          {{ 'content.duties_included' | t }}
+        {%- endif -%}
       {%- endif -%}
 
-      {%- if shop.shipping_policy.body != blank -%}
+      {%- if block_settings.show_shipping_policy -%}
+        <span class="yv-shipping-note">
+          {%- if shop.shipping_policy.url != blank -%}
+            {{ 'yv.product.shipping_link_html' | t: url: shop.shipping_policy.url }}
+          {%- else -%}
+            {{ 'yv.product.shipping_text' | t }}
+          {%- endif -%}
+        </span>
+      {%- elsif shop.shipping_policy.body != blank -%}
         {{ 'content.shipping_policy' | t }}
       {%- endif -%}
     </div>
@@ -128,6 +142,13 @@
       "type": "checkbox",
       "id": "show_tax_info",
       "label": "t:settings.show_tax_info",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_shipping_policy",
+      "label": "t:yv.product.settings.show_shipping_policy",
+      "info": "t:yv.product.info.show_shipping_policy",
       "default": false
     },
     {

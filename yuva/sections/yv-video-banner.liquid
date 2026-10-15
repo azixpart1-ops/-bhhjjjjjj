@@ -1,0 +1,845 @@
+{% comment %}
+  Section contract: yv-video-banner
+  A large video banner from a "Video link" (YouTube, Vimeo or an .mp4 URL) or a Shopify-hosted
+  video (which wins), boxed in the page container with the layout radius or full width.
+  Autoplay on: a muted, looping background video (snippets/yv-video-url for links,
+  assets/yv-autoplay-video.js for Shopify video: lazy, paused off screen, never under reduced
+  motion), no cover. Autoplay off: the cover image (or the YouTube thumbnail) with a round glass play
+  button; clicking plays the video in place with sound and controls through Horizon's
+  <deferred-media> and hides the cover, overlay and text. Heading and subheading sit centred over
+  the video or above the box. "Cropped" uses the px heights; "Natural" keeps the video's ratio.
+  A boxed banner can sit on a decorative pattern (snippets/yv-pattern).
+  Shared: color set, visibility, spacing.
+  @example
+  Theme editor > Add section > Media > "Video banner"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign shopify_video = section.settings.video
+  assign video_link = section.settings.video_link | strip
+
+  capture link_type
+    render 'yv-video-url', url: video_link, output: 'type'
+  endcapture
+  assign link_type = link_type | strip
+  capture link_id
+    render 'yv-video-url', url: video_link, output: 'id'
+  endcapture
+  assign link_id = link_id | strip
+
+  assign has_video = false
+  if shopify_video != blank or link_type != blank
+    assign has_video = true
+  endif
+
+  assign video_ratio = 1.7778
+  if shopify_video != blank
+    assign video_ratio = shopify_video.aspect_ratio | default: 1.7778
+  endif
+
+  assign full_width = section.settings.full_width
+  assign show_pattern = false
+  if full_width == false and section.settings.background_pattern != 'none'
+    assign show_pattern = true
+  endif
+
+  assign media_loading = 'lazy'
+  assign media_priority = 'auto'
+  if section.index == 1
+    assign media_loading = 'eager'
+    assign media_priority = 'high'
+  elsif section.index == 2 or section.index == 3
+    assign media_loading = 'eager'
+  endif
+
+  assign has_text = false
+  if section.settings.heading != blank or section.settings.subheading != blank
+    assign has_text = true
+  endif
+
+  assign heading_tag = section.settings.heading_tag | default: 'h2'
+  assign video_title = 'yv.video_banner.video_title' | t
+
+  assign box_classes = 'yv-video-banner__box yv-video-banner__box--' | append: section.settings.video_size
+  if full_width
+    assign box_classes = box_classes | append: ' yv-video-banner__box--full'
+  endif
+  if section.settings.autoplay
+    assign box_classes = box_classes | append: ' yv-video-banner__box--autoplay'
+  endif
+-%}
+
+{%- if section.settings.autoplay and shopify_video != blank -%}
+  <script
+    src="{{ 'yv-autoplay-video.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}
+
+{%- capture banner_text -%}
+  {%- if has_text -%}
+    <div class="yv-video-banner__text" data-yv-reveal>
+      {%- if section.settings.heading != blank -%}
+        <{{ heading_tag }} class="yv-video-banner__heading">{{ section.settings.heading | escape }}</{{ heading_tag }}>
+      {%- endif -%}
+      {%- if section.settings.subheading != blank -%}
+        <p class="yv-video-banner__subheading">{{ section.settings.subheading | escape }}</p>
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+{%- endcapture -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}">
+  {%- if show_pattern -%}
+    {% render 'yv-pattern', pattern: section.settings.background_pattern, id: section.id %}
+  {%- endif -%}
+</div>
+<div
+  class="section {% if full_width %}section--full-width{% else %}section--page-width{% endif %} yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-video-banner"
+>
+  <div
+    class="yv-video-banner{% if show_pattern %} yv-video-banner--pattern{% endif %}"
+    style="
+      --yv-video-banner-h-d: {{ section.settings.height_desktop }}px;
+      --yv-video-banner-h-m: {{ section.settings.height_mobile }}px;
+      --yv-video-banner-ratio: {{ video_ratio }};
+      --yv-video-banner-heading: {{ section.settings.color_heading }};
+      --yv-video-banner-subheading: {{ section.settings.color_subheading }};
+      --yv-video-banner-play: {{ section.settings.color_play }};
+    "
+  >
+    {%- unless section.settings.content_overlay -%}
+      {%- if has_text -%}
+        <div class="yv-video-banner__above">{{ banner_text }}</div>
+      {%- endif -%}
+    {%- endunless -%}
+
+    <div class="{{ box_classes }}">
+      <div class="yv-video-banner__media">
+        {%- if section.settings.autoplay -%}
+          {%- if shopify_video != blank -%}
+            {%- assign poster = section.settings.cover_image | default: shopify_video.preview_image -%}
+            <yv-autoplay-video-component class="yv-video-banner__video">
+              <video
+                ref="video"
+                muted
+                loop
+                playsinline
+                preload="none"
+                aria-hidden="true"
+                {% if poster != blank %}
+                  poster="{{ poster | image_url: width: 1920 }}"
+                {% endif %}
+              >
+                {%- for source in shopify_video.sources -%}
+                  <source
+                    data-src="{{ source.url }}"
+                    type="{{ source.mime_type }}"
+                  >
+                {%- endfor -%}
+              </video>
+            </yv-autoplay-video-component>
+          {%- elsif link_type != blank -%}
+            {% render 'yv-video-url',
+              url: video_link,
+              poster: section.settings.cover_image,
+              loading: media_loading,
+              title: section.settings.heading
+            %}
+          {%- elsif section.settings.cover_image != blank -%}
+            {{
+              section.settings.cover_image
+              | image_url: width: 3840
+              | image_tag:
+                widths: '750, 1100, 1500, 1920, 2560, 3840',
+                sizes: '100vw',
+                loading: media_loading,
+                fetchpriority: media_priority,
+                class: 'yv-video-banner__cover'
+            }}
+          {%- else -%}
+            {{ 'lifestyle-2' | placeholder_svg_tag: 'yv-video-banner__cover yv-placeholder' }}
+          {%- endif -%}
+        {%- else -%}
+          {%- capture cover -%}
+            {%- if section.settings.cover_image != blank -%}
+              {{
+                section.settings.cover_image
+                | image_url: width: 3840
+                | image_tag:
+                  widths: '750, 1100, 1500, 1920, 2560, 3840',
+                  sizes: '100vw',
+                  loading: media_loading,
+                  fetchpriority: media_priority,
+                  alt: '',
+                  class: 'yv-video-banner__cover'
+              }}
+            {%- elsif shopify_video != blank and shopify_video.preview_image != blank -%}
+              {{
+                shopify_video.preview_image
+                | image_url: width: 1920
+                | image_tag: sizes: '100vw', loading: media_loading, alt: '', class: 'yv-video-banner__cover'
+              }}
+            {%- elsif link_type == 'youtube' -%}
+              {%- # The YouTube still is decorative: a background, so it stays out of the image pipeline -%}
+              <span
+                class="yv-video-banner__cover yv-video-banner__cover--remote"
+                style="background-image: url('https://i.ytimg.com/vi/{{ link_id | url_encode }}/hqdefault.jpg');"
+              ></span>
+            {%- else -%}
+              {{ 'lifestyle-2' | placeholder_svg_tag: 'yv-video-banner__cover yv-placeholder' }}
+            {%- endif -%}
+          {%- endcapture -%}
+
+          {%- if has_video -%}
+            <deferred-media class="yv-video-banner__deferred">
+              <button
+                type="button"
+                class="yv-video-banner__poster button-unstyled"
+                ref="deferredMediaPlayButton"
+                on:click="/showDeferredMedia"
+                aria-label="{{ 'accessibility.play_video' | t }}"
+              >
+                {{ cover }}
+                <span class="yv-video-banner__play" aria-hidden="true">
+                  {%- render 'yv-icon', name: 'play', size: 28, class: 'yv-icon--filled' -%}
+                </span>
+              </button>
+              <template>
+                {%- if shopify_video != blank -%}
+                  {{ shopify_video | video_tag: autoplay: true, loop: false, muted: false, controls: true, class: 'yv-video-banner__player' }}
+                {%- elsif link_type == 'youtube' -%}
+                  <iframe
+                    class="yv-video-banner__player"
+                    src="https://www.youtube-nocookie.com/embed/{{ link_id | url_encode }}?autoplay=1&rel=0&playsinline=1&modestbranding=1"
+                    title="{{ section.settings.heading | default: video_title | escape }}"
+                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                    allowfullscreen
+                    data-video-type="youtube"
+                  ></iframe>
+                {%- elsif link_type == 'vimeo' -%}
+                  <iframe
+                    class="yv-video-banner__player"
+                    src="https://player.vimeo.com/video/{{ link_id | url_encode }}?autoplay=1&dnt=1"
+                    title="{{ section.settings.heading | default: video_title | escape }}"
+                    allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                    allowfullscreen
+                    data-video-type="vimeo"
+                  ></iframe>
+                {%- else -%}
+                  <video
+                    class="yv-video-banner__player"
+                    src="{{ video_link | escape }}"
+                    controls
+                    autoplay
+                    playsinline
+                  ></video>
+                {%- endif -%}
+              </template>
+            </deferred-media>
+          {%- else -%}
+            {{ cover }}
+            <span class="yv-video-banner__play yv-video-banner__play--static" aria-hidden="true">
+              {%- render 'yv-icon', name: 'play', size: 28, class: 'yv-icon--filled' -%}
+            </span>
+          {%- endif -%}
+        {%- endif -%}
+      </div>
+
+      <div
+        class="yv-overlay"
+        style="--yv-overlay-color: {{ section.settings.color_overlay }}; --yv-overlay-opacity: {{ section.settings.overlay_opacity }};"
+      ></div>
+
+      {%- if section.settings.content_overlay and has_text -%}
+        <div class="yv-video-banner__overlay-text">{{ banner_text }}</div>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-video-banner {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+  }
+
+  .yv-video-banner--pattern {
+    padding-block: 24px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-video-banner--pattern {
+      padding-block: 40px;
+    }
+  }
+
+  .yv-video-banner__box {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    height: var(--yv-video-banner-h-m, 350px);
+    border-radius: calc(var(--yv-layout-radius, 10px) * 2);
+    background-color: var(--yv-image-bg);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-video-banner__box {
+      height: var(--yv-video-banner-h-d, 650px);
+    }
+  }
+
+  .yv-video-banner__box--full {
+    border-radius: 0;
+  }
+
+  /* Natural: the box keeps the video's own ratio (16:9 for links). */
+  .yv-video-banner__box--natural {
+    height: auto;
+    aspect-ratio: var(--yv-video-banner-ratio, 16 / 9);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-video-banner__box--natural {
+      height: auto;
+    }
+  }
+
+  .yv-video-banner__media,
+  .yv-video-banner__deferred,
+  .yv-video-banner__poster,
+  .yv-video-banner__video {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
+  .yv-video-banner__media :is(.yv-video-banner__cover, video) {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-video-banner__cover--remote {
+    background-position: center;
+    background-size: cover;
+  }
+
+  .yv-video-banner__media svg.yv-video-banner__cover {
+    color: rgb(var(--color-foreground-rgb) / 0.35);
+  }
+
+  .yv-video-banner__poster {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .yv-video-banner__box .yv-overlay {
+    z-index: 1;
+  }
+
+  /* Glass play button: 80px, 1px border, blurred, pulsing ring; grows on hover. */
+  .yv-video-banner__play {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    border: 1px solid var(--yv-video-banner-play, #fff);
+    border-radius: 50%;
+    background: rgb(255 255 255 / 0.05);
+    color: var(--yv-video-banner-play, #fff);
+    backdrop-filter: blur(6px);
+    translate: -50% -50%;
+    pointer-events: none;
+  }
+
+  .yv-video-banner__play svg {
+    margin-inline-start: 4px;
+    fill: currentColor;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-video-banner__play {
+      width: 56px;
+      height: 56px;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-video-banner__play {
+      transition: scale 1s ease;
+      animation: yv-video-banner-pulse 1.5s ease-out infinite;
+    }
+
+    .yv-video-banner__poster:hover .yv-video-banner__play {
+      scale: 1.1;
+    }
+  }
+
+  @keyframes yv-video-banner-pulse {
+    from {
+      box-shadow: 0 0 0 0 rgb(255 255 255 / 0.8);
+    }
+
+    to {
+      box-shadow: 0 0 0 30px rgb(255 255 255 / 0);
+    }
+  }
+
+  .yv-video-banner__poster:focus-visible {
+    outline: var(--focus-outline-width, 2px) solid var(--yv-video-banner-play, #fff);
+    outline-offset: -6px;
+  }
+
+  /* Playing: the player fills the box; cover, play button, overlay and text go away. */
+  .yv-video-banner__player {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #000;
+    object-fit: contain;
+  }
+
+  .yv-video-banner__poster.deferred-media__playing {
+    display: none;
+  }
+
+  .yv-video-banner__box:has(deferred-media[data-media-loaded]) :is(.yv-overlay, .yv-video-banner__overlay-text) {
+    display: none;
+  }
+
+  .yv-video-banner__box:has(deferred-media[data-media-loaded]) .yv-video-banner__media {
+    z-index: 4;
+  }
+
+  /* Text: centred over the video, or above the box. */
+  .yv-video-banner__overlay-text {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 10px;
+    pointer-events: none;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-video-banner__overlay-text {
+      padding: 40px 20px;
+    }
+  }
+
+  .yv-video-banner__above {
+    display: flex;
+    justify-content: center;
+    margin-block-end: 30px;
+  }
+
+  .yv-video-banner__text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    max-width: min(100%, 800px);
+    text-align: center;
+  }
+
+  .yv-video-banner__text > * {
+    max-width: 100%;
+    margin: 0;
+  }
+
+  /* Three classes: beats the colour-set heading rule (.yv-section :is(h1…h6, .h1…)). */
+  .yv-video-banner .yv-video-banner__text .yv-video-banner__heading {
+    font-family: var(--font-h1--family);
+    font-style: var(--font-h1--style);
+    font-weight: var(--font-h1--weight);
+    font-size: var(--font-h1--size);
+    line-height: var(--font-h1--line-height);
+    letter-spacing: var(--font-h1--letter-spacing);
+    text-transform: var(--font-h1--case);
+    color: var(--yv-video-banner-heading, #fff);
+    overflow-wrap: break-word;
+    text-wrap: balance;
+  }
+
+  .yv-video-banner__subheading {
+    color: var(--yv-video-banner-subheading, #fff);
+    font-size: var(--font-paragraph--size);
+    line-height: var(--font-paragraph--line-height);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.video_banner",
+  "tag": "section",
+  "class": "yv-video-banner-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "video_link",
+      "label": "t:yv.common.settings.video_url",
+      "info": "t:yv.common.settings.video_url_info"
+    },
+    {
+      "type": "video",
+      "id": "video",
+      "label": "t:yv.video_banner.settings.video",
+      "info": "t:yv.video_banner.settings.video_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "cover_image",
+      "label": "t:yv.video_banner.settings.cover_image",
+      "info": "t:yv.video_banner.settings.cover_image_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "height_desktop",
+      "label": "t:yv.common.settings.desktop_height",
+      "min": 300,
+      "max": 850,
+      "step": 10,
+      "unit": "px",
+      "default": 650,
+      "info": "t:yv.video_banner.settings.height_desktop_info"
+    },
+    {
+      "type": "range",
+      "id": "height_mobile",
+      "label": "t:yv.common.settings.mobile_height",
+      "min": 250,
+      "max": 600,
+      "step": 10,
+      "unit": "px",
+      "default": 350,
+      "info": "t:yv.video_banner.settings.height_mobile_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay",
+      "label": "t:yv.video_banner.settings.autoplay",
+      "info": "t:yv.video_banner.settings.autoplay_info",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "video_size",
+      "label": "t:yv.video_banner.settings.video_size",
+      "options": [
+        {
+          "value": "natural",
+          "label": "t:yv.common.options.natural"
+        },
+        {
+          "value": "cropped",
+          "label": "t:yv.common.options.cropped"
+        }
+      ],
+      "default": "cropped",
+      "info": "t:yv.video_banner.settings.video_size_info"
+    },
+    {
+      "type": "select",
+      "id": "background_pattern",
+      "label": "t:yv.common.settings.pattern",
+      "options": [
+        {
+          "value": "none",
+          "label": "t:yv.common.options.none"
+        },
+        {
+          "value": "waves",
+          "label": "t:yv.common.options.waves"
+        },
+        {
+          "value": "flowers",
+          "label": "t:yv.common.options.flowers"
+        }
+      ],
+      "default": "none",
+      "info": "t:yv.video_banner.settings.background_pattern_info",
+      "visible_if": "{{ section.settings.full_width == false }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.text"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "t:yv.video_banner.defaults.heading"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading",
+      "default": "t:yv.video_banner.defaults.subheading"
+    },
+    {
+      "type": "checkbox",
+      "id": "content_overlay",
+      "label": "t:yv.video_banner.settings.content_overlay",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_heading",
+      "label": "t:yv.common.settings.heading_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_subheading",
+      "label": "t:yv.common.settings.subheading",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_play",
+      "label": "t:yv.video_banner.settings.color_play",
+      "info": "t:yv.video_banner.settings.color_play_info",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_overlay",
+      "label": "t:yv.common.settings.overlay_color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.common.settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 30
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.video_banner",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "full_width": true,
+        "height_desktop": 650,
+        "height_mobile": 350,
+        "autoplay": true,
+        "video_size": "cropped",
+        "heading": "t:yv.video_banner.presets.heading",
+        "subheading": "t:yv.video_banner.presets.subheading",
+        "content_overlay": true,
+        "overlay_opacity": 29
+      }
+    },
+    {
+      "name": "t:yv.video_banner.presets.boxed_name",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "full_width": false,
+        "height_desktop": 650,
+        "height_mobile": 350,
+        "autoplay": true,
+        "video_size": "cropped",
+        "heading": "t:yv.video_banner.presets.boxed_heading",
+        "subheading": "",
+        "content_overlay": true,
+        "overlay_opacity": 20
+      }
+    },
+    {
+      "name": "t:yv.video_banner.presets.play_name",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "full_width": false,
+        "height_desktop": 720,
+        "height_mobile": 350,
+        "autoplay": false,
+        "video_size": "cropped",
+        "background_pattern": "waves",
+        "heading": "",
+        "subheading": "",
+        "content_overlay": true,
+        "overlay_opacity": 0,
+        "spacing_top_desktop": 60,
+        "spacing_bottom_desktop": 60,
+        "spacing_top_mobile": 40,
+        "spacing_bottom_mobile": 40
+      }
+    }
+  ]
+}
+{% endschema %}

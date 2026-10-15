@@ -1,0 +1,199 @@
+{%- doc -%}
+  Yuva product variations (KB "How to set up the product variations"): links between separate products
+  that are versions of each other (e.g. one product per colour). Reads a metaobject of type
+  yv_product_variations (fields: label, products), usually connected through a product metafield.
+  Shown like a variant option: "Select <label>", then 48px image tiles or text pills; the current
+  product is ringed and not linked. Hidden with fewer than two products.
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign variations = block.settings.variations
+  assign items = variations.products.value
+  assign label = variations.label.value | default: variations.label
+  if label == blank
+    assign label = 'yv.product.other_options' | t
+  endif
+  assign style = block.settings.style | default: 'image'
+  assign title = 'yv.product.select_option' | t: option: label
+-%}
+
+{%- if items.size > 1 -%}
+  <div
+    class="yv-variations yv-variations--{{ style }} yv-pdp-only"
+    role="group"
+    aria-labelledby="YvVariations-{{ block.id }}"
+    {{ block.shopify_attributes }}
+  >
+    <p
+      class="yv-option-title"
+      id="YvVariations-{{ block.id }}"
+    >
+      {{ title | escape }}
+    </p>
+    <ul
+      class="yv-variations__list"
+      role="list"
+    >
+      {%- for item in items -%}
+        {%- assign is_current = false -%}
+        {%- if item.id == product_resource.id -%}
+          {%- assign is_current = true -%}
+        {%- endif -%}
+        <li>
+          {%- if is_current -%}
+            <span
+              class="yv-variations__item is-current"
+              aria-current="true"
+              title="{{ item.title | escape }}"
+            >
+          {%- else -%}
+            <a
+              class="yv-variations__item"
+              href="{{ item.url }}"
+              title="{{ item.title | escape }}"
+            >
+          {%- endif -%}
+          {%- if style == 'image' -%}
+            {%- if item.featured_image -%}
+              {{
+                item.featured_image
+                | image_url: width: 96
+                | image_tag: loading: 'lazy', alt: item.title, class: 'yv-variations__image', widths: '48, 96', sizes: '48px'
+              }}
+            {%- else -%}
+              {{ 'product-1' | placeholder_svg_tag: 'yv-variations__image' }}
+              <span class="visually-hidden">{{ item.title | escape }}</span>
+            {%- endif -%}
+          {%- else -%}
+            <span class="yv-variations__text">{{ item.title | escape }}</span>
+          {%- endif -%}
+          {%- if is_current -%}
+            </span>
+          {%- else -%}
+            </a>
+          {%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+{%- elsif request.design_mode -%}
+  <div
+    class="yv-variations yv-variations--empty"
+    {{ block.shopify_attributes }}
+  >
+    <p class="yv-variations__notice">{{ 'yv.product.variations_notice' | t }}</p>
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-variations__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .yv-variations__item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .yv-variations--image .yv-variations__item {
+    width: 48px;
+    height: 48px;
+    padding: 2px;
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.15);
+    border-radius: var(--yv-radius-sm, 6px);
+    overflow: hidden;
+    background: var(--yv-image-bg, #f3efec);
+  }
+
+  .yv-variations__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: calc(var(--yv-radius-sm, 6px) - 2px);
+  }
+
+  .yv-variations--text .yv-variations__item {
+    min-height: 36px;
+    padding: 10px 15px;
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.3);
+    border-radius: 6px;
+    font-family: var(--yv-variant-font-family, inherit);
+    font-size: 14px;
+    line-height: 1.1;
+  }
+
+  .yv-variations__item.is-current {
+    border-color: var(--color-foreground);
+    box-shadow: 0 0 0 1px var(--color-foreground);
+  }
+
+  .yv-variations--text .yv-variations__item.is-current {
+    background: var(--color-foreground);
+    color: var(--color-background);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-variations__item {
+      transition:
+        border-color 0.3s var(--yv-ease, ease),
+        background-color 0.3s var(--yv-ease, ease);
+    }
+  }
+
+  a.yv-variations__item:hover {
+    border-color: var(--color-foreground);
+  }
+
+  .yv-variations__notice {
+    margin: 0;
+    font-size: var(--yv-text-sm, 0.75rem);
+    opacity: 0.6;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.product_variations",
+  "tag": null,
+  "settings": [
+    {
+      "type": "metaobject",
+      "id": "variations",
+      "label": "t:yv.product.settings.variations",
+      "metaobject_type": "yv_product_variations",
+      "info": "t:yv.product.info.variations"
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "t:yv.product.settings.variations_style",
+      "options": [
+        {
+          "value": "image",
+          "label": "t:yv.product.options.image_swatches"
+        },
+        {
+          "value": "text",
+          "label": "t:yv.product.options.text_buttons"
+        }
+      ],
+      "default": "image"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.product_variations",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

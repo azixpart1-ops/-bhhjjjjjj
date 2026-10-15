@@ -1,0 +1,569 @@
+{% comment %}
+  Section contract: yv-split-slideshow
+  A slideshow split into a content panel (left, on the section background: the "Background color"
+  setting, else the Secondary colour set) and an image (right), with optional prev/next arrows and
+  a thumbnail strip at the bottom of the panel. Up to 5 `_yv-split-slide` blocks; slides
+  cross-fade, loop, swipe and answer the arrow keys; optional autoplay (3–10s) pauses on hover,
+  focus, hidden tab and off screen. On mobile the image is full width and the text overlays it
+  (top/centre/bottom, left/centre/right per slide) over an optional overlay colour; thumbnails are
+  hidden and the arrows sit at the bottom right of the image.
+  Engine: assets/yv-slideshow.js (`yv-slideshow-component`). Shared: visibility.
+  @example
+  Theme editor > Add section > Banners > "Split slideshow"
+{% endcomment %}
+
+{%- liquid
+  if section.settings.color_bg != blank
+    render 'contrast-override', background_color: section.settings.color_bg, section_id: section.id
+  else
+    render 'yv-color-set', set: 'secondary', section_id: section.id
+  endif
+
+  assign slide_count = section.blocks.size
+  assign first_slide = section.blocks.first
+
+  assign first_ratio = 1.2353
+  assign first_ratio_mobile = 0.7
+  if first_slide != blank
+    assign first_image = first_slide.settings.image_desktop | default: first_slide.settings.image_mobile
+    if first_image != blank
+      assign first_ratio = first_image.aspect_ratio | default: 1.2353
+      assign first_ratio_mobile = first_ratio
+    endif
+    if first_slide.settings.image_mobile != blank
+      assign first_ratio_mobile = first_slide.settings.image_mobile.aspect_ratio | default: first_ratio
+    endif
+  endif
+
+  if section.settings.height_desktop == 'adapt'
+    assign slide_ratio = first_ratio | times: 2
+    assign height_style = '--yv-split-height-d: 0px; --yv-split-ratio-d: ' | append: slide_ratio | append: ';'
+  else
+    assign height_style = '--yv-split-height-d: ' | append: section.settings.height_desktop | append: 'px; --yv-split-ratio-d: auto;'
+  endif
+  if section.settings.height_mobile == 'adapt'
+    assign height_style = height_style | append: ' --yv-split-height-m: 0px; --yv-split-ratio-m: ' | append: first_ratio_mobile | append: ';'
+  else
+    assign height_style = height_style | append: ' --yv-split-height-m: ' | append: section.settings.height_mobile | append: 'px; --yv-split-ratio-m: auto;'
+  endif
+
+  assign autoplay_speed = 0
+  if section.settings.autoplay and slide_count > 1
+    assign autoplay_speed = section.settings.autoplay_speed
+  endif
+
+  assign show_arrows = false
+  assign show_thumbnails = false
+  if slide_count > 1
+    assign show_arrows = section.settings.show_arrows
+    assign show_thumbnails = section.settings.show_thumbnails
+  endif
+
+  assign slideshow_classes = 'yv-split-slideshow'
+  if section.settings.mobile_overlay
+    assign slideshow_classes = slideshow_classes | append: ' yv-split-slideshow--overlay'
+  endif
+  if show_thumbnails
+    assign slideshow_classes = slideshow_classes | append: ' yv-split-slideshow--thumbs'
+  endif
+  if show_arrows
+    assign slideshow_classes = slideshow_classes | append: ' yv-split-slideshow--arrows'
+  endif
+-%}
+
+<script
+  src="{{ 'yv-slideshow.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+{% # A first-section split slideshow pads its panel below a transparent header (`--header-height`) at first paint %}
+{%- if section.index == 1 -%}{% render 'measure-header-heights' %}{%- endif -%}
+
+{%- capture slides -%}{%- content_for 'blocks' -%}{%- endcapture -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--full-width disable-section-top-offset color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  {% if section.settings.color_bg != blank %}
+    style="--yv-heading-color: var(--color-foreground);"
+  {% endif %}
+  data-testid="yv-split-slideshow"
+>
+  {%- if slide_count > 0 -%}
+    <yv-slideshow-component
+      class="{{ slideshow_classes }}"
+      role="region"
+      aria-roledescription="{{ 'yv.carousel.roledescription' | t }}"
+      aria-label="{{ 'accessibility.slideshow' | t }}"
+      data-transition="fade"
+      data-autoplay="{{ autoplay_speed }}"
+      data-label-play="{{ 'accessibility.slideshow_play' | t }}"
+      data-label-pause="{{ 'accessibility.slideshow_pause' | t }}"
+      style="{{ height_style }} --yv-split-overlay: {{ section.settings.mobile_overlay_color }};"
+    >
+      <div class="yv-split-slideshow__track" ref="track" aria-live="polite">
+        {{- slides -}}
+      </div>
+
+      {%- if show_arrows or show_thumbnails -%}
+        <div class="yv-split-slideshow__controls">
+          {%- if show_thumbnails -%}
+            <div class="yv-split-slideshow__thumbs" role="group" aria-label="{{ 'yv.carousel.choose_slide' | t }}">
+              {%- for slide in section.blocks -%}
+                {%- liquid
+                  assign thumb_image = slide.settings.image_desktop | default: slide.settings.image_mobile
+                -%}
+                <button
+                  type="button"
+                  class="yv-split-slideshow__thumb"
+                  ref="thumbButtons[]"
+                  on:click="/select/{{ forloop.index0 }}"
+                  aria-label="{{ 'yv.carousel.go_to_slide' | t: index: forloop.index }}"
+                  {% if forloop.first %}
+                    aria-current="true"
+                  {% endif %}
+                >
+                  {%- if thumb_image != blank -%}
+                    {{
+                      thumb_image
+                      | image_url: width: 160, height: 160, crop: 'center'
+                      | image_tag: loading: 'lazy', alt: '', width: 72, height: 72, class: 'yv-split-slideshow__thumb-image'
+                    }}
+                  {%- else -%}
+                    {{ 'image' | placeholder_svg_tag: 'yv-split-slideshow__thumb-image yv-placeholder' }}
+                  {%- endif -%}
+                </button>
+              {%- endfor -%}
+            </div>
+          {%- endif -%}
+
+          {%- if show_arrows -%}
+            <div class="yv-split-slideshow__arrows">
+              <button
+                type="button"
+                class="yv-split-slideshow__arrow"
+                ref="prevButton"
+                on:click="/previous"
+                aria-label="{{ 'yv.carousel.previous' | t }}"
+              >
+                {%- render 'yv-icon', name: 'arrow-left', size: 18 -%}
+              </button>
+              <button
+                type="button"
+                class="yv-split-slideshow__arrow"
+                ref="nextButton"
+                on:click="/next"
+                aria-label="{{ 'yv.carousel.next' | t }}"
+              >
+                {%- render 'yv-icon', name: 'arrow-right', size: 18 -%}
+              </button>
+            </div>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      {%- if autoplay_speed > 0 -%}
+        <button
+          type="button"
+          class="yv-split-slideshow__play"
+          ref="playButton"
+          on:click="/togglePlay"
+          aria-label="{{ 'accessibility.slideshow_pause' | t }}"
+          aria-pressed="false"
+        >
+          {%- render 'yv-icon', name: 'pause', size: 14, class: 'yv-split-slideshow__play-pause' -%}
+          {%- render 'yv-icon', name: 'play', size: 14, class: 'yv-split-slideshow__play-play' -%}
+        </button>
+      {%- endif -%}
+    </yv-slideshow-component>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .yv-split-slideshow {
+    position: relative;
+    display: block;
+    grid-column: 1 / -1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color, var(--color-foreground));
+  }
+
+  main > .shopify-section:first-child .yv-split-slideshow {
+    --yv-split-header-offset: calc(var(--header-height, 0px) * var(--transparent-header-offset-boolean, 0));
+  }
+
+  .yv-split-slideshow--thumbs {
+    --yv-split-panel-bottom: 156px;
+  }
+
+  .yv-split-slideshow--arrows:not(.yv-split-slideshow--thumbs) {
+    --yv-split-panel-bottom: 120px;
+  }
+
+  /* Slides share one grid cell and cross-fade. */
+  .yv-split-slideshow__track {
+    position: relative;
+    display: grid;
+    touch-action: pan-y;
+  }
+
+  .yv-split-slideshow[data-dragging] .yv-split-slideshow__track {
+    cursor: grabbing;
+    user-select: none;
+  }
+
+  .yv-split-slideshow__track > .yv-split-slide {
+    grid-area: 1 / 1;
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .yv-split-slideshow__track > .yv-split-slide[data-active] {
+    z-index: 1;
+    opacity: 1;
+    visibility: visible;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-split-slideshow__track > .yv-split-slide {
+      transition: opacity 0.6s ease, visibility 0s linear 0.6s;
+    }
+
+    .yv-split-slideshow__track > .yv-split-slide[data-active] {
+      transition: opacity 0.6s ease, visibility 0s linear 0s;
+    }
+  }
+
+  .yv-split-slideshow[data-instant] .yv-split-slide {
+    transition: none;
+  }
+
+  /* Controls: thumbnails left and arrows right at the bottom of the panel (desktop); arrows bottom right on mobile. */
+  .yv-split-slideshow__controls {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 20px;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-inline: 20px;
+    pointer-events: none;
+  }
+
+  .yv-split-slideshow__controls > * {
+    pointer-events: auto;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-split-slideshow__controls {
+      inset-inline-end: 50%;
+      inset-block-end: 48px;
+      /* 4% of the full width = 8% of the panel, matching the content padding. */
+      padding-inline: 4%;
+    }
+  }
+
+  .yv-split-slideshow__thumbs {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-split-slideshow__thumbs {
+      display: flex;
+    }
+  }
+
+  .yv-split-slideshow__thumb {
+    display: block;
+    width: 72px;
+    height: 72px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: var(--yv-radius-sm, 6px);
+    background: var(--yv-image-bg);
+    opacity: 0.6;
+    cursor: pointer;
+    transition: opacity 0.3s ease, outline-color 0.3s ease;
+    outline: 1px solid transparent;
+    outline-offset: 2px;
+  }
+
+  .yv-split-slideshow__thumb:hover {
+    opacity: 0.85;
+  }
+
+  .yv-split-slideshow__thumb[aria-current] {
+    opacity: 1;
+    outline-color: currentColor;
+  }
+
+  .yv-split-slideshow__thumb:focus-visible {
+    outline: var(--focus-outline-width, 2px) solid currentColor;
+  }
+
+  .yv-split-slideshow__thumb-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-split-slideshow__arrows {
+    display: flex;
+    gap: 8px;
+    margin-inline-start: auto;
+  }
+
+  .yv-split-slideshow__arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.15);
+    border-radius: var(--yv-arrow-radius, 50%);
+    background: #fff;
+    color: #000;
+    box-shadow: var(--yv-shadow-arrow, 0 1px 3px #d9d9d9);
+    cursor: pointer;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  .yv-split-slideshow__arrow:hover {
+    background: #000;
+    color: #fff;
+  }
+
+  [dir='rtl'] .yv-split-slideshow__arrow svg {
+    transform: scaleX(-1);
+  }
+
+  .yv-split-slideshow__play {
+    position: absolute;
+    inset-block-start: calc(16px + var(--yv-split-header-offset, 0px));
+    inset-inline-start: 16px;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #fff;
+    color: #000;
+    clip-path: inset(50%);
+    opacity: 0;
+  }
+
+  .yv-split-slideshow__play:focus-visible {
+    clip-path: none;
+    opacity: 1;
+  }
+
+  .yv-split-slideshow__play[aria-pressed='false'] .yv-split-slideshow__play-play,
+  .yv-split-slideshow__play[aria-pressed='true'] .yv-split-slideshow__play-pause {
+    display: none;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.split_slideshow",
+  "tag": "section",
+  "class": "yv-split-slideshow-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 5,
+  "blocks": [
+    {
+      "type": "_yv-split-slide"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_arrows",
+      "label": "t:yv.split_slideshow.settings.show_arrows",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_thumbnails",
+      "label": "t:yv.split_slideshow.settings.show_thumbnails",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "autoplay",
+      "label": "t:yv.slideshow.settings.autoplay",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "autoplay_speed",
+      "label": "t:yv.common.settings.autoplay_speed",
+      "min": 3,
+      "max": 10,
+      "step": 1,
+      "unit": "s",
+      "default": 5,
+      "info": "t:yv.slideshow.settings.autoplay_speed_info",
+      "visible_if": "{{ section.settings.autoplay }}"
+    },
+    {
+      "type": "select",
+      "id": "height_desktop",
+      "label": "t:yv.common.settings.desktop_height",
+      "options": [
+        {
+          "value": "650",
+          "label": "t:yv.slideshow.options.h650"
+        },
+        {
+          "value": "750",
+          "label": "t:yv.slideshow.options.h750"
+        },
+        {
+          "value": "850",
+          "label": "t:yv.slideshow.options.h850"
+        },
+        {
+          "value": "adapt",
+          "label": "t:yv.slideshow.options.adapt"
+        }
+      ],
+      "default": "750"
+    },
+    {
+      "type": "select",
+      "id": "height_mobile",
+      "label": "t:yv.common.settings.mobile_height",
+      "options": [
+        {
+          "value": "550",
+          "label": "t:yv.slideshow.options.h550"
+        },
+        {
+          "value": "650",
+          "label": "t:yv.slideshow.options.h650"
+        },
+        {
+          "value": "750",
+          "label": "t:yv.slideshow.options.h750"
+        },
+        {
+          "value": "adapt",
+          "label": "t:yv.slideshow.options.adapt"
+        }
+      ],
+      "default": "650"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "color",
+      "id": "color_bg",
+      "label": "t:yv.split_slideshow.settings.color_bg",
+      "info": "t:yv.split_slideshow.settings.color_bg_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.split_slideshow.content.mobile_overlay"
+    },
+    {
+      "type": "checkbox",
+      "id": "mobile_overlay",
+      "label": "t:yv.split_slideshow.settings.mobile_overlay",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "mobile_overlay_color",
+      "label": "t:yv.split_slideshow.settings.mobile_overlay_color",
+      "alpha": true,
+      "default": "#00000066",
+      "visible_if": "{{ section.settings.mobile_overlay }}"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.split_slideshow",
+      "category": "t:yv.categories.banners",
+      "settings": {
+        "show_arrows": true,
+        "show_thumbnails": true,
+        "autoplay": false,
+        "height_desktop": "750",
+        "height_mobile": "650"
+      },
+      "blocks": {
+        "slide_1": {
+          "type": "_yv-split-slide",
+          "settings": {
+            "subheading": "t:yv.split_slideshow.presets.slide_1_subheading",
+            "heading": "t:yv.split_slideshow.presets.slide_1_heading",
+            "description": "t:yv.split_slideshow.presets.slide_1_description",
+            "button_text": "t:yv.slideshow.defaults.button",
+            "button_link": "shopify://collections/all"
+          }
+        },
+        "slide_2": {
+          "type": "_yv-split-slide",
+          "settings": {
+            "subheading": "t:yv.split_slideshow.presets.slide_2_subheading",
+            "heading": "t:yv.split_slideshow.presets.slide_2_heading",
+            "description": "t:yv.split_slideshow.presets.slide_2_description",
+            "button_text": "t:yv.slideshow.defaults.button",
+            "button_link": "shopify://collections/all"
+          }
+        },
+        "slide_3": {
+          "type": "_yv-split-slide",
+          "settings": {
+            "subheading": "t:yv.split_slideshow.presets.slide_3_subheading",
+            "heading": "t:yv.split_slideshow.presets.slide_3_heading",
+            "description": "t:yv.split_slideshow.presets.slide_3_description",
+            "button_text": "t:yv.slideshow.defaults.button",
+            "button_link": "shopify://collections/all"
+          }
+        }
+      },
+      "block_order": ["slide_1", "slide_2", "slide_3"]
+    }
+  ]
+}
+{% endschema %}

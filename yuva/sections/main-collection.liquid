@@ -29,15 +29,30 @@
 
 {% render 'collection-wrapper-styles' %}
 
+{%- comment -%}
+  yv: b-catalog — Yuva catalog look (assets/yv-collection.css: toolbar, push-in filter drawer, filter
+  groups, column switcher, grid gaps, pagination) and Yuva settings: pagination type (paged /
+  infinite, replaces Horizon's "auto load" checkbox), products per page 8–25, default desktop columns.
+{%- endcomment -%}
+{{ 'yv-collection.css' | asset_url | stylesheet_tag }}
+{%- liquid
+  assign yv_infinite = false
+  if section.settings.pagination_type == 'infinite'
+    assign yv_infinite = true
+  endif
+  assign yv_row_gap_mobile = section.settings.columns_gap_vertical | times: 0.75 | round | at_most: 30
+  assign yv_col_gap_mobile = section.settings.columns_gap_horizontal | at_most: 14
+-%}
+
 <div
   class="section-background{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
 ></div>
 <collection-component view-event-payload="{{ collection | standard_event_data: 'view' | escape }}">
   <results-list
-    class="section product-grid-container{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
-    style="--padding-block-start: {{ section.settings.padding-block-start }}px; --padding-block-end: {{ section.settings.padding-block-end }}px;"
+    class="section product-grid-container yv-collection{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+    style="--padding-block-start: {{ section.settings.padding-block-start }}px; --padding-block-end: {{ section.settings.padding-block-end }}px; --yv-grid-columns-default: {{ section.settings.columns_desktop | default: 4 }}; --yv-grid-gap-mobile: {{ yv_row_gap_mobile }}px {{ yv_col_gap_mobile }}px;"
     section-id="{{ section.id }}"
-    infinite-scroll="{{ section.settings.enable_infinite_scroll }}"
+    infinite-scroll="{{ yv_infinite }}"
   >
     {% render 'skip-to-content-link', href: '#ResultsList', text: 'accessibility.skip_to_results_list' %}
 
@@ -51,11 +66,8 @@
         results_size: collection.products_count
       %}
 
-      {% assign products_per_page = 24 %}
-
-      {% if section.settings.enable_infinite_scroll == false %}
-        {% assign products_per_page = section.settings.products_per_page %}
-      {% endif %}
+      {%- comment -%} yv: Yuva products per page (8–25) for both pagination types {%- endcomment -%}
+      {% assign products_per_page = section.settings.products_per_page | default: 12 %}
 
       {% paginate collection.products by products_per_page %}
         {% capture children %}
@@ -82,7 +94,7 @@
           children: children,
           products: collection.products,
           paginate: paginate,
-          enable_infinite_scroll: section.settings.enable_infinite_scroll
+          enable_infinite_scroll: yv_infinite
         %}
       {% endpaginate %}
     </div>
@@ -135,6 +147,17 @@
         }
       ],
       "default": "medium",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "t:yv.catalog.settings.columns_desktop",
+      "info": "t:yv.catalog.settings.columns_desktop_info",
+      "min": 2,
+      "max": 5,
+      "step": 1,
+      "default": 4,
       "visible_if": "{{ section.settings.layout_type == 'grid' }}"
     },
     {
@@ -157,17 +180,34 @@
       "type": "checkbox",
       "id": "enable_infinite_scroll",
       "label": "t:settings.auto_load_products",
-      "default": true
+      "default": false,
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "select",
+      "id": "pagination_type",
+      "label": "t:yv.catalog.settings.pagination_type",
+      "options": [
+        {
+          "value": "paged",
+          "label": "t:yv.catalog.options.paged"
+        },
+        {
+          "value": "infinite",
+          "label": "t:yv.catalog.options.infinite"
+        }
+      ],
+      "default": "paged"
     },
     {
       "type": "range",
       "id": "products_per_page",
       "label": "t:settings.products_per_page",
+      "info": "t:yv.catalog.settings.products_per_page_info",
       "min": 8,
-      "max": 36,
-      "step": 4,
-      "default": 24,
-      "visible_if": "{{ section.settings.enable_infinite_scroll == false }}"
+      "max": 25,
+      "step": 1,
+      "default": 12
     },
     {
       "type": "header",

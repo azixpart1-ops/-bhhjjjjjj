@@ -1,0 +1,838 @@
+{% comment %}
+  Section contract: yv-offer-banner
+  Yuva "Offer banner": a dark rounded promo card. A background image (with an optional mobile image) sits
+  under a strong overlay; on top, three columns from 750px: eyebrow + highlight heading (start), a live
+  frosted-glass countdown with bullet tags under it (centre), description + button (end). On phones the
+  columns stack and everything is left aligned. The countdown targets midnight at the start of the end
+  date (DD/MM/YYYY) in the visitor's time zone; when it has passed it shows 00s, or an expiry message
+  when "Hide timer when expired" is on.
+  Shared settings: colour set (around the card), visibility, spacing, highlight heading, button.
+  @example
+  Theme editor > Add section > Promotional > "Offer banner"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign media_loading = 'lazy'
+  assign media_priority = 'auto'
+  if section.index == 1
+    assign media_loading = 'eager'
+    assign media_priority = 'high'
+  endif
+  if settings.yv_enable_lazyload == false
+    assign media_loading = 'eager'
+  endif
+
+  assign has_mobile_image = false
+  if section.settings.mobile_image != blank
+    assign has_mobile_image = true
+  endif
+
+  assign on_expire = 'keep'
+  if section.settings.hide_timer_expired
+    assign on_expire = 'message'
+  endif
+
+  capture countdown_markup
+    if section.settings.end_date != blank
+      assign timer_bg = section.settings.timer_background
+      assign timer_alpha = section.settings.timer_background_opacity
+      capture timer_style
+        echo '--yv-countdown-digit-color: ' | append: section.settings.timer_text_color | append: '; '
+        echo '--yv-countdown-label-color: ' | append: section.settings.timer_text_color | append: '; '
+        echo '--yv-countdown-box-bg: color-mix(in srgb, ' | append: timer_bg | append: ' ' | append: timer_alpha | append: '%, transparent);'
+      endcapture
+      render 'yv-countdown-timer', end_date: section.settings.end_date, variant: 'glass', on_expire: on_expire, expired_message: section.settings.expired_text, class: 'yv-offer-banner__timer', style: timer_style
+    endif
+  endcapture
+  assign countdown_markup = countdown_markup | strip
+
+  assign tag_items = section.settings.tags | strip | newline_to_br | split: '<br />'
+
+  assign has_start = false
+  if section.settings.heading != blank or section.settings.subheading != blank
+    assign has_start = true
+  endif
+  assign has_center = false
+  if countdown_markup != blank or tag_items.size > 0
+    assign has_center = true
+  endif
+  assign has_end = false
+  if section.settings.description != blank
+    assign has_end = true
+  endif
+  if section.settings.button_label != blank and section.settings.button_link != blank
+    assign has_end = true
+  endif
+
+  assign card_class = 'yv-offer-banner__card'
+  if section.settings.full_width
+    assign card_class = card_class | append: ' yv-offer-banner__card--full yv-container--full'
+  endif
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-offer-banner color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-offer-banner-radius: {{ section.settings.card_radius }}px; --yv-offer-banner-padding: {{ section.settings.padding_desktop }}px; --yv-offer-banner-padding-mobile: {{ section.settings.padding_mobile }}px; --yv-offer-banner-heading: {{ section.settings.heading_color }}; --yv-offer-banner-text: {{ section.settings.text_color }};"
+  data-testid="yv-offer-banner"
+>
+  <div class="{{ card_class }}">
+    <div class="yv-offer-banner__media{% if has_mobile_image %} yv-offer-banner__media--has-mobile{% endif %}">
+      {%- if section.settings.image != blank -%}
+        {{
+          section.settings.image
+          | image_url: width: 2400
+          | image_tag:
+            widths: '750, 1100, 1500, 1920, 2400',
+            sizes: '(min-width: 1400px) 1300px, 100vw',
+            loading: media_loading,
+            fetchpriority: media_priority,
+            class: 'yv-offer-banner__image yv-offer-banner__image--desktop'
+        }}
+      {%- else -%}
+        {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-offer-banner__image yv-offer-banner__image--desktop yv-placeholder' }}
+      {%- endif -%}
+      {%- if has_mobile_image -%}
+        {{
+          section.settings.mobile_image
+          | image_url: width: 1000
+          | image_tag:
+            widths: '390, 600, 800, 1000',
+            sizes: '100vw',
+            loading: media_loading,
+            fetchpriority: media_priority,
+            class: 'yv-offer-banner__image yv-offer-banner__image--mobile'
+        }}
+      {%- endif -%}
+    </div>
+    <div
+      class="yv-overlay"
+      style="--yv-overlay-color: {{ section.settings.overlay_color }}; --yv-overlay-opacity: {{ section.settings.overlay_opacity }};"
+    ></div>
+
+    <div class="yv-offer-banner__content">
+      {%- if has_start -%}
+        <div class="yv-offer-banner__col yv-offer-banner__col--start">
+          {% render 'yv-heading',
+            text: section.settings.heading,
+            tag: section.settings.heading_tag,
+            size: section.settings.heading_size,
+            highlight_font: section.settings.highlight_font,
+            highlight_color: section.settings.highlight_color,
+            subheading: section.settings.subheading,
+            alignment: 'left',
+            class: 'yv-offer-banner__heading',
+            reveal: true
+          %}
+        </div>
+      {%- endif -%}
+
+      {%- if has_center -%}
+        <div class="yv-offer-banner__col yv-offer-banner__col--center">
+          {{ countdown_markup }}
+          {%- if tag_items.size > 0 -%}
+            <ul
+              class="yv-offer-banner__tags"
+              role="list"
+            >
+              {%- for item in tag_items -%}
+                {%- assign tag_text = item | strip -%}
+                {%- if tag_text != blank -%}
+                  <li class="yv-offer-banner__tag">{{ tag_text | escape }}</li>
+                {%- endif -%}
+              {%- endfor -%}
+            </ul>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      {%- if has_end -%}
+        <div class="yv-offer-banner__col yv-offer-banner__col--end">
+          {%- if section.settings.description != blank -%}
+            <div class="yv-offer-banner__text rte">{{ section.settings.description }}</div>
+          {%- endif -%}
+          {% render 'yv-button',
+            label: section.settings.button_label,
+            link: section.settings.button_link,
+            variant: section.settings.button_style,
+            size_desktop: section.settings.button_size_desktop,
+            size_mobile: section.settings.button_size_mobile,
+            new_tab: section.settings.button_new_tab,
+            bg: section.settings.button_background,
+            text: section.settings.button_text_color,
+            border: section.settings.button_border
+          %}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-offer-banner__card {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    min-width: 0;
+    color: var(--yv-offer-banner-text, #fff);
+    background-color: var(--yv-image-bg);
+    border-radius: var(--yv-offer-banner-radius, 16px);
+  }
+
+  .yv-offer-banner__card--full {
+    border-radius: 0;
+  }
+
+  .yv-offer-banner__media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .yv-offer-banner__image {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-offer-banner__image--mobile {
+    display: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-offer-banner__media--has-mobile .yv-offer-banner__image--desktop {
+      display: none;
+    }
+
+    .yv-offer-banner__image--mobile {
+      display: block;
+    }
+  }
+
+  .yv-offer-banner__card > .yv-overlay {
+    z-index: 1;
+  }
+
+  .yv-offer-banner__content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: var(--yv-offer-banner-padding-mobile, 30px) 20px;
+  }
+
+  .yv-offer-banner__card--full .yv-offer-banner__content {
+    width: 100%;
+    max-width: var(--page-width, 1440px);
+    margin-inline: auto;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-offer-banner__content {
+      display: grid;
+      grid-template-columns: minmax(0, 32fr) minmax(0, 36fr) minmax(0, 32fr);
+      align-items: center;
+      gap: 30px;
+      padding: var(--yv-offer-banner-padding, 50px);
+    }
+  }
+
+  .yv-offer-banner__col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-offer-banner__col--start {
+      grid-column: 1;
+    }
+
+    .yv-offer-banner__col--center {
+      grid-column: 2;
+      align-items: center;
+    }
+
+    .yv-offer-banner__col--end {
+      grid-column: 3;
+      align-items: flex-end;
+      text-align: end;
+    }
+  }
+
+  .yv-offer-banner .yv-offer-banner__heading {
+    --yv-heading-gap: 8px;
+    --yv-subheading-color: var(--yv-offer-banner-text, #fff);
+  }
+
+  .yv-offer-banner .yv-offer-banner__heading .yv-heading__eyebrow {
+    font-size: var(--yv-text-base, 0.84rem);
+    text-transform: uppercase;
+  }
+
+  .yv-offer-banner .yv-offer-banner__heading .yv-heading__title {
+    color: var(--yv-offer-banner-heading, #fff);
+  }
+
+  .yv-offer-banner__timer {
+    --yv-countdown-digit-size: var(--font-h2--size, 32px);
+    --yv-countdown-digit-size-mobile: var(--font-h2--size, 24px);
+
+    width: 100%;
+    max-width: 340px;
+  }
+
+  .yv-offer-banner__timer .yv-countdown__units {
+    width: 100%;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-offer-banner__timer {
+      max-width: none;
+      align-items: stretch;
+    }
+
+    .yv-offer-banner__timer .yv-countdown__units {
+      max-width: none;
+    }
+  }
+
+  .yv-offer-banner__tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 16px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-offer-banner__tags {
+      justify-content: flex-start;
+      gap: 6px 12px;
+    }
+  }
+
+  .yv-offer-banner__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .yv-offer-banner__tag::before {
+    content: '';
+    flex: none;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: currentColor;
+  }
+
+  .yv-offer-banner__text {
+    max-width: 260px;
+    margin-block-end: 16px;
+    font-size: var(--yv-text-base, 0.84rem);
+    color: var(--yv-offer-banner-text, #fff);
+  }
+
+  .yv-offer-banner__text :is(p, ul, ol) {
+    margin-block: 0;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-offer-banner__text {
+      max-width: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.offer_banner",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.media"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image",
+      "info": "t:yv.offer_banner.settings.image_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "mobile_image",
+      "label": "t:yv.common.settings.mobile_image",
+      "info": "t:yv.offer_banner.settings.mobile_image_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.layout"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "card_radius",
+      "label": "t:yv.offer_banner.settings.card_radius",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 16,
+      "visible_if": "{{ section.settings.full_width == false }}"
+    },
+    {
+      "type": "range",
+      "id": "padding_desktop",
+      "label": "t:yv.offer_banner.settings.padding_desktop",
+      "min": 10,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 50
+    },
+    {
+      "type": "range",
+      "id": "padding_mobile",
+      "label": "t:yv.offer_banner.settings.padding_mobile",
+      "min": 10,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.offer_banner.content.offer"
+    },
+    {
+      "type": "text",
+      "id": "end_date",
+      "label": "t:yv.offer_banner.settings.end_date",
+      "info": "t:yv.offer_banner.settings.end_date_info",
+      "placeholder": "DD/MM/YYYY"
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_timer_expired",
+      "label": "t:yv.offer_banner.settings.hide_timer_expired",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "expired_text",
+      "label": "t:yv.offer_banner.settings.expired_text",
+      "default": "This offer has ended",
+      "visible_if": "{{ section.settings.hide_timer_expired }}"
+    },
+    {
+      "type": "textarea",
+      "id": "tags",
+      "label": "t:yv.offer_banner.settings.tags",
+      "info": "t:yv.offer_banner.settings.tags_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "t:yv.common.settings.button_label",
+      "default": "Shop now"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.button_link",
+      "info": "t:yv.common.settings.button_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "button_new_tab",
+      "label": "t:yv.common.settings.open_new_tab",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "button_style",
+      "label": "t:yv.common.settings.button_style",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "outline",
+          "label": "t:yv.common.options.outline"
+        },
+        {
+          "value": "link",
+          "label": "t:yv.common.options.link"
+        }
+      ],
+      "default": "primary"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.common.settings.button_size_desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "small"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.common.settings.button_size_mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "t:yv.common.settings.heading_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "t:yv.common.settings.overlay_color",
+      "default": "#1B1A1A"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.common.settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 80
+    },
+    {
+      "type": "color",
+      "id": "timer_text_color",
+      "label": "t:yv.offer_banner.settings.timer_text",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "timer_background",
+      "label": "t:yv.offer_banner.settings.timer_background",
+      "default": "#747474"
+    },
+    {
+      "type": "range",
+      "id": "timer_background_opacity",
+      "label": "t:yv.offer_banner.settings.timer_background_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 11
+    },
+    {
+      "type": "color",
+      "id": "button_background",
+      "label": "t:yv.common.settings.button_background",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "t:yv.common.settings.button_text_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "button_border",
+      "label": "t:yv.common.settings.button_border",
+      "default": "#000000"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 44
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.offer_banner",
+      "category": "t:yv.categories.promotional",
+      "settings": {
+        "subheading": "Save big on premium electronics",
+        "heading": "Save up to 20% Off on premium electronics",
+        "end_date": "31/12/2026",
+        "tags": "Tech Essentials\nSmart Tech Sale\nPremium Electronics",
+        "description": "<p>Shop now and enjoy up to 20% off your favorite electronics.</p>",
+        "button_label": "Shop now",
+        "button_link": "shopify://collections/all"
+      }
+    }
+  ]
+}
+{% endschema %}

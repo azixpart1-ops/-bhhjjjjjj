@@ -1,0 +1,158 @@
+{%- doc -%}
+  Yuva inventory status (docs part 4 product page > Inventory status): "10 in stock" with a stock bar
+  for the selected variant. Below the minimum inventory the low text shows (||inventory|| = the bold
+  quantity) over a red→yellow bar filled to quantity ÷ minimum; otherwise the available text over a
+  full green bar. Hidden when the variant is sold out, not tracked by Shopify, or on preorder.
+  Re-rendered on variant change by <yv-variant-sync> (assets/yv-product.js).
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign variant = product_resource.selected_or_first_available_variant
+  assign quantity = variant.inventory_quantity
+  assign minimum = block.settings.min_inventory | default: 10
+  assign show_status = false
+  if variant.available and variant.inventory_management == 'shopify' and quantity > 0
+    assign show_status = true
+  endif
+  if product_resource == blank and request.design_mode
+    assign show_status = true
+    assign quantity = 5
+  endif
+
+  assign is_low = false
+  if quantity < minimum
+    assign is_low = true
+  endif
+
+  assign fill = 100
+  if is_low
+    assign fill = quantity | times: 100 | divided_by: minimum | at_least: 2 | at_most: 100
+  endif
+-%}
+
+<script
+  src="{{ 'yv-product.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<yv-variant-sync
+  class="yv-inventory"
+  data-sync-id="yv-inventory-{{ block.id }}"
+  data-product-id="{{ product_resource.id }}"
+  {{ block.shopify_attributes }}
+>
+  {%- if show_status -%}
+    {%- liquid
+      if is_low
+        assign quantity_html = '<strong>' | append: quantity | append: '</strong>'
+        assign status_text = block.settings.low_text | escape | replace: '||inventory||', quantity_html
+      else
+        assign status_text = block.settings.available_text | escape
+      endif
+    -%}
+    <div class="yv-inventory__inner{% if is_low %} yv-inventory__inner--low{% else %} yv-inventory__inner--high{% endif %}">
+      <p class="yv-inventory__text">{{ status_text }}</p>
+      <div
+        class="yv-inventory__bar"
+        role="presentation"
+      >
+        <span
+          class="yv-inventory__fill"
+          style="--yv-inventory-fill: {{ fill }}%;"
+        ></span>
+      </div>
+    </div>
+  {%- endif -%}
+</yv-variant-sync>
+
+{% stylesheet %}
+  .yv-inventory {
+    display: block;
+  }
+
+  .yv-inventory:not(:has(.yv-inventory__inner)) {
+    display: none;
+  }
+
+  .yv-inventory__text {
+    margin: 0 0 10px;
+    font-size: var(--yv-text-md, 0.875rem);
+  }
+
+  .yv-inventory__text strong {
+    font-weight: 700;
+  }
+
+  .yv-inventory__bar {
+    position: relative;
+    height: 7px;
+    border-radius: 15px;
+    background: rgb(var(--color-foreground-rgb) / 0.1);
+    overflow: hidden;
+  }
+
+  .yv-inventory__fill {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--yv-inventory-fill, 100%);
+    border-radius: inherit;
+    background: var(--yv-stock-gradient, linear-gradient(340deg, #f7332b, #f1e157));
+  }
+
+  .yv-inventory__inner--high .yv-inventory__fill {
+    background: var(--yv-success, #6cad61);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-inventory__fill {
+      animation: yv-inventory-grow 2.5s ease both;
+    }
+  }
+
+  @keyframes yv-inventory-grow {
+    from {
+      width: 0;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.inventory_status",
+  "tag": null,
+  "settings": [
+    {
+      "type": "range",
+      "id": "min_inventory",
+      "label": "t:yv.product.settings.min_inventory",
+      "info": "t:yv.product.info.min_inventory",
+      "min": 1,
+      "max": 100,
+      "step": 1,
+      "default": 10
+    },
+    {
+      "type": "text",
+      "id": "available_text",
+      "label": "t:yv.product.settings.available_text",
+      "info": "t:yv.product.info.available_text",
+      "default": "In stock"
+    },
+    {
+      "type": "text",
+      "id": "low_text",
+      "label": "t:yv.product.settings.low_text",
+      "info": "t:yv.product.info.low_text",
+      "default": "Only ||inventory|| left in stock"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.inventory_status",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

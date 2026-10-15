@@ -1,0 +1,76 @@
+{%- doc -%}
+  Free-shipping message and progress bar (Theme settings > Cart drawer > Shipping bar).
+
+  Renders nothing when the bar is off, the threshold is not set or the cart is empty. It sits inside
+  the cart markup that Horizon re-renders after every cart change (the drawer's
+  `.cart-drawer__inner` and the cart page's `cart-items-component`), so Liquid keeps it current.
+  When the buyer's currency differs from the shop currency, `assets/yv-cart.js` recomputes the
+  remaining amount with `Shopify.currency.rate` (the threshold is set in the shop currency).
+
+  @param {string} [context] - 'drawer' (default) or 'page'
+
+  @example
+  {% render 'yv-shipping-bar', context: 'drawer' %}
+{%- enddoc -%}
+
+{%- liquid
+  assign context = context | default: 'drawer'
+  assign threshold = settings.yv_shipping_bar_threshold | default: 0 | times: 1.0
+-%}
+
+{%- if settings.yv_shipping_bar and threshold > 0 and cart.item_count > 0 -%}
+  {%- liquid
+    assign threshold_cents = threshold | times: 100 | round
+    assign total = cart.total_price
+    assign remaining = threshold_cents | minus: total | at_least: 0
+    assign progress = total | times: 100.0 | divided_by: threshold_cents | at_most: 100 | round: 2
+
+    if remaining > 0
+      assign qualified = false
+      assign remaining_money = remaining | money
+      assign amount_html = '<span class="yv-shipping-bar__amount" ref="amount">' | append: remaining_money | append: '</span>'
+      assign message = settings.yv_shipping_bar_message | escape | replace: '||amount||', amount_html
+    else
+      assign qualified = true
+      assign message = settings.yv_shipping_bar_success | escape
+    endif
+  -%}
+
+  <yv-shipping-bar-component
+    class="yv-shipping-bar yv-shipping-bar--{{ context }}{% if qualified %} yv-shipping-bar--done{% endif %}"
+    data-threshold="{{ threshold }}"
+    data-total="{{ total }}"
+    data-currency="{{ cart.currency.iso_code }}"
+    data-shop-currency="{{ shop.currency }}"
+    data-money-format="{{ shop.money_format | strip_html | escape }}"
+  >
+    <p class="yv-shipping-bar__message">
+      {%- if context == 'drawer' -%}
+        <span class="yv-shipping-bar__icon">{{- 'yv-icon-party.svg' | inline_asset_content -}}</span>
+      {%- endif -%}
+      <span
+        class="yv-shipping-bar__text"
+        ref="text"
+      >
+        {{- message -}}
+      </span>
+    </p>
+    <div
+      class="yv-shipping-bar__track"
+      role="progressbar"
+      aria-label="{{ 'yv.cart.shipping_progress' | t }}"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="{{ progress | round }}"
+      ref="track"
+    >
+      <span
+        class="yv-shipping-bar__fill"
+        style="--yv-shipping-progress: {{ progress }}%;"
+        ref="fill"
+      ></span>
+    </div>
+    <template ref="messageTemplate">{{ settings.yv_shipping_bar_message | escape }}</template>
+    <template ref="successTemplate">{{ settings.yv_shipping_bar_success | escape }}</template>
+  </yv-shipping-bar-component>
+{%- endif -%}

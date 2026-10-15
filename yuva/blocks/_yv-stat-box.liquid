@@ -1,0 +1,117 @@
+{% doc %}
+  Yuva "Stat box": a big figure (for example "25+") with a short caption, in a raised card.
+  In Image with text it is lifted out of the content column and overlaps the inner bottom
+  corner of the image (positioned by the section); elsewhere it renders in the flow.
+  Only the first stat box of a section renders; extra ones show an editor notice.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign block_index = section.blocks | find_index: 'id', block.id
+  assign first_index = section.blocks | find_index: 'type', '_yv-stat-box'
+  assign is_first = true
+  if first_index != nil and block_index != nil and block_index > first_index
+    assign is_first = false
+  endif
+
+  assign has_content = false
+  if block.settings.heading != blank or block.settings.content != blank
+    assign has_content = true
+  endif
+-%}
+
+{%- if is_first and has_content -%}
+  <div
+    class="yv-stat-box"
+    {{ block.shopify_attributes }}
+  >
+    {%- if block.settings.heading != blank -%}
+      <p class="yv-stat-box__figure h2">{{ block.settings.heading | escape }}</p>
+    {%- endif -%}
+    {%- if block.settings.content != blank -%}
+      <p class="yv-stat-box__caption">{{ block.settings.content | escape }}</p>
+    {%- endif -%}
+  </div>
+{%- elsif request.design_mode -%}
+  <div
+    class="yv-stat-box yv-stat-box--notice"
+    {{ block.shopify_attributes }}
+  >
+    {%- unless is_first -%}
+      <p class="yv-stat-box__caption">{{ 'yv.stat_box.only_one' | t }}</p>
+    {%- endunless -%}
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-stat-box {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 160px;
+    max-width: 100%;
+    padding: 20px 24px;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    border-radius: var(--yv-layout-radius, 10px);
+    box-shadow: 0 6px 24px rgb(0 0 0 / 0.12);
+  }
+
+  .yv-stat-box__figure {
+    margin: 0;
+    color: var(--yv-heading-color, currentColor);
+    line-height: 1;
+  }
+
+  .yv-stat-box__caption {
+    margin: 0;
+    font-size: var(--yv-text-md, 13.44px);
+    line-height: 1.4;
+  }
+
+  .yv-stat-box--notice {
+    min-height: 0;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+  }
+
+  .yv-stat-box--notice .yv-stat-box__caption {
+    padding: 8px 12px;
+    border: 1px dashed currentColor;
+    border-radius: var(--yv-radius-sm, 6px);
+    font-size: var(--yv-text-sm, 11.52px);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.stat_box",
+  "tag": null,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "t:yv.stat_box.info"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "25+"
+    },
+    {
+      "type": "text",
+      "id": "content",
+      "label": "t:yv.stat_box.content",
+      "default": "Years of experience"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.stat_box"
+    }
+  ]
+}
+{% endschema %}

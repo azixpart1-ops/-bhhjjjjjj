@@ -1,0 +1,53 @@
+{%- doc -%}
+  Yuva size chart link as a standalone block, for layouts where the link should not sit in the
+  variant picker's size row (the variant picker block has its own "Select size chart" setting).
+  Opens the chosen page (or the product metafield yuva_theme.size_chart) in a dialog.
+{%- enddoc -%}
+
+{%- liquid
+  assign chart_page = block.settings.page
+  if chart_page == blank
+    assign chart_page = closest.product.metafields.yuva_theme.size_chart.value
+  endif
+-%}
+
+{%- if chart_page != blank -%}
+  <div
+    class="yv-size-chart-block"
+    {{ block.shopify_attributes }}
+  >
+    {% render 'yv-size-chart', page: chart_page, id: block.id, part: 'trigger' %}
+    {% render 'yv-size-chart', page: chart_page, id: block.id, part: 'dialog' %}
+  </div>
+{%- elsif request.design_mode -%}
+  <div
+    class="yv-size-chart-block"
+    {{ block.shopify_attributes }}
+  >
+    <span class="yv-size-chart__trigger">
+      {%- render 'yv-icon', name: 'ruler', size: 18 -%}
+      <span class="yv-size-chart__label">{{ 'yv.product.size_chart' | t }}</span>
+    </span>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "t:yv.names.size_chart",
+  "tag": null,
+  "settings": [
+    {
+      "type": "page",
+      "id": "page",
+      "label": "t:yv.product.settings.size_chart_page",
+      "info": "t:yv.product.info.size_chart_page"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.size_chart",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

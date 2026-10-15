@@ -1,0 +1,279 @@
+{%- doc -%}
+  One item of the Gallery carousel (sections/yv-gallery-carousel.liquid): an image box (or an
+  original line icon when no image is set) with a heading and an optional bold subheading under it.
+  When a link is set the whole item is one link named by the heading.
+  The box shape, size, fit, background and hover come from the section settings.
+{%- enddoc -%}
+
+{%- liquid
+  assign image = block.settings.image
+  assign link = block.settings.link
+  assign heading = block.settings.heading
+  assign image_style = section.settings.image_style | default: 'square'
+  assign image_size = section.settings.image_size | default: 'medium'
+  assign contain = section.settings.actual_size
+  if image_style == 'no_crop'
+    assign contain = true
+  endif
+
+  case image_size
+    when 'large'
+      assign sizes = '(min-width: 750px) 350px, 245px'
+    when 'medium'
+      assign sizes = '(min-width: 750px) 300px, 210px'
+    when 'small'
+      assign sizes = '(min-width: 750px) 200px, 175px'
+    else
+      assign sizes = '(min-width: 750px) 170px, 130px'
+  endcase
+
+  assign image_loading = 'lazy'
+  if section.index <= 2 or settings.yv_enable_lazyload == false
+    assign image_loading = 'eager'
+  endif
+
+  assign placeholder_index = 1
+  for item in section.blocks
+    if item.id == block.id
+      assign placeholder_index = forloop.index0 | modulo: 6 | plus: 1
+      break
+    endif
+  endfor
+  assign placeholder_name = 'collection-' | append: placeholder_index
+
+  assign item_tag = 'div'
+  if link != blank
+    assign item_tag = 'a'
+  endif
+
+  assign box_class = 'yv-gallery-item__box'
+  if image == blank and block.settings.icon != 'none'
+    assign box_class = box_class | append: ' yv-gallery-item__box--icon'
+  endif
+  if contain
+    assign box_class = box_class | append: ' yv-gallery-item__box--contain'
+  endif
+-%}
+
+<div
+  class="yv-gallery-item"
+  {{ block.shopify_attributes }}
+>
+  <{{ item_tag }}
+    class="yv-gallery-item__link"
+    {% if link != blank %}
+      href="{{ link }}"
+      {% if heading != blank %}
+        aria-label="{{ heading | escape }}"
+      {% endif %}
+    {% endif %}
+  >
+    <span class="{{ box_class }}">
+      {%- if image != blank -%}
+        {%- liquid
+          assign focal = image.presentation.focal_point | default: 'center'
+          assign intrinsic_style = 'object-position: ' | append: focal | append: ';'
+          if section.settings.actual_size
+            assign intrinsic_style = intrinsic_style | append: ' max-width: min(100%, ' | append: image.width | append: 'px);'
+          endif
+        -%}
+        {{
+          image
+          | image_url: width: 700
+          | image_tag:
+            widths: '150, 200, 300, 400, 500, 600, 700',
+            sizes: sizes,
+            loading: image_loading,
+            class: 'yv-gallery-item__image',
+            style: intrinsic_style
+        }}
+      {%- elsif block.settings.icon != 'none' -%}
+        {% render 'yv-gallery-icon', name: block.settings.icon, size: 40, class: 'yv-gallery-item__icon' %}
+      {%- else -%}
+        {{ placeholder_name | placeholder_svg_tag: 'yv-gallery-item__image yv-placeholder' }}
+      {%- endif -%}
+    </span>
+    {%- if heading != blank or block.settings.subheading != blank -%}
+      <span class="yv-gallery-item__text">
+        {%- if heading != blank -%}
+          <span class="yv-gallery-item__heading">{{ heading | escape }}</span>
+        {%- endif -%}
+        {%- if block.settings.subheading != blank -%}
+          <span class="yv-gallery-item__subheading">{{ block.settings.subheading | escape }}</span>
+        {%- endif -%}
+      </span>
+    {%- endif -%}
+  </{{ item_tag }}>
+</div>
+
+{% schema %}
+{
+  "name": "t:yv.names.gallery_item",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "Category"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image"
+    },
+    {
+      "type": "select",
+      "id": "icon",
+      "label": "t:yv.gallery_carousel.settings.icon",
+      "info": "t:yv.gallery_carousel.settings.icon_info",
+      "options": [
+        {
+          "value": "none",
+          "label": "t:yv.common.options.none"
+        },
+        {
+          "value": "smartphone",
+          "label": "t:yv.gallery_carousel.icons.smartphone"
+        },
+        {
+          "value": "watch",
+          "label": "t:yv.gallery_carousel.icons.watch"
+        },
+        {
+          "value": "earbuds",
+          "label": "t:yv.gallery_carousel.icons.earbuds"
+        },
+        {
+          "value": "headphones",
+          "label": "t:yv.gallery_carousel.icons.headphones"
+        },
+        {
+          "value": "microphone",
+          "label": "t:yv.gallery_carousel.icons.microphone"
+        },
+        {
+          "value": "mouse",
+          "label": "t:yv.gallery_carousel.icons.mouse"
+        },
+        {
+          "value": "speaker",
+          "label": "t:yv.gallery_carousel.icons.speaker"
+        },
+        {
+          "value": "charger",
+          "label": "t:yv.gallery_carousel.icons.charger"
+        },
+        {
+          "value": "camera",
+          "label": "t:yv.gallery_carousel.icons.camera"
+        },
+        {
+          "value": "drone",
+          "label": "t:yv.gallery_carousel.icons.drone"
+        },
+        {
+          "value": "printer",
+          "label": "t:yv.gallery_carousel.icons.printer"
+        },
+        {
+          "value": "vacuum",
+          "label": "t:yv.gallery_carousel.icons.vacuum"
+        },
+        {
+          "value": "household",
+          "label": "t:yv.gallery_carousel.icons.household"
+        },
+        {
+          "value": "laptop",
+          "label": "t:yv.gallery_carousel.icons.laptop"
+        },
+        {
+          "value": "tv",
+          "label": "t:yv.gallery_carousel.icons.tv"
+        },
+        {
+          "value": "gamepad",
+          "label": "t:yv.gallery_carousel.icons.gamepad"
+        },
+        {
+          "value": "lamp",
+          "label": "t:yv.gallery_carousel.icons.lamp"
+        },
+        {
+          "value": "sofa",
+          "label": "t:yv.gallery_carousel.icons.sofa"
+        },
+        {
+          "value": "coffee",
+          "label": "t:yv.gallery_carousel.icons.coffee"
+        },
+        {
+          "value": "shirt",
+          "label": "t:yv.gallery_carousel.icons.shirt"
+        },
+        {
+          "value": "dress",
+          "label": "t:yv.gallery_carousel.icons.dress"
+        },
+        {
+          "value": "shoe",
+          "label": "t:yv.gallery_carousel.icons.shoe"
+        },
+        {
+          "value": "bag",
+          "label": "t:yv.gallery_carousel.icons.bag"
+        },
+        {
+          "value": "glasses",
+          "label": "t:yv.gallery_carousel.icons.glasses"
+        },
+        {
+          "value": "ring",
+          "label": "t:yv.gallery_carousel.icons.ring"
+        },
+        {
+          "value": "paw",
+          "label": "t:yv.gallery_carousel.icons.paw"
+        },
+        {
+          "value": "gift",
+          "label": "t:yv.gallery_carousel.icons.gift"
+        },
+        {
+          "value": "heart",
+          "label": "t:yv.gallery_carousel.icons.heart"
+        },
+        {
+          "value": "leaf",
+          "label": "t:yv.gallery_carousel.icons.leaf"
+        },
+        {
+          "value": "home",
+          "label": "t:yv.gallery_carousel.icons.home"
+        },
+        {
+          "value": "sparkle",
+          "label": "t:yv.gallery_carousel.icons.sparkle"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "t:yv.common.settings.link"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.gallery_item"
+    }
+  ]
+}
+{% endschema %}

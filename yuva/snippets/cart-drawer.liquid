@@ -21,12 +21,24 @@
     src="{{ 'cart-drawer.js' | asset_url }}"
     fetchpriority="low"
   ></script>
+  {%- comment -%}
+    yv: Yuva cart drawer look (assets/yv-cart.css) and extras (assets/yv-cart.js): shipping bar,
+    gift wrap and upsells. Kept outside `.cart-drawer__inner` so cart re-renders never duplicate them.
+  {%- endcomment -%}
+  {{ 'yv-cart.css' | asset_url | stylesheet_tag }}
+  <script
+    type="module"
+    src="{{ 'yv-cart.js' | asset_url }}"
+    fetchpriority="low"
+  ></script>
 
   {% capture empty_cart_drawer_content %}
     <div
       class="cart-drawer__content"
       aria-label="{{ 'accessibility.cart' | t }}"
     >
+      {%- comment -%} yv: Yuva line-art empty cart icon. {%- endcomment -%}
+      <span class="yv-cart-empty__icon">{{- 'yv-icon-cart-empty.svg' | inline_asset_content -}}</span>
       <h2
         class="theme-drawer__title h4"
         id="cart-drawer-heading"
@@ -93,7 +105,8 @@
                 </span>
               {% endif %}
             {% endcapture %}
-            {% assign cart_drawer_title = 'content.cart_title' | t %}
+            {%- comment -%} yv: Yuva drawer title "Your cart". {%- endcomment -%}
+            {% assign cart_drawer_title = 'content.your_cart' | t %}
             {% render 'theme-drawer-header',
               title: cart_drawer_title,
               drawer_id: 'cart-drawer',
@@ -110,12 +123,19 @@
                 class="cart-drawer__content"
                 aria-label="{{ 'accessibility.cart' | t }}"
               >
+                {%- comment -%} yv: free-shipping message and progress bar under the header. {%- endcomment -%}
+                {% render 'yv-shipping-bar', context: 'drawer' %}
+
                 <scroll-hint class="cart-drawer__items">
                   {% render 'cart-products', context: 'drawer' %}
                 </scroll-hint>
 
+                {%- comment -%} yv: gift-wrap row between the items and the summary. {%- endcomment -%}
+                {% render 'yv-gift-wrap', context: 'drawer' %}
+
                 <div class="cart-drawer__summary">
-                  {% render 'cart-summary', section_id: 'cart-drawer-section' %}
+                  {%- comment -%} yv: `view_cart_link` adds Yuva's underlined VIEW CART link under checkout. {%- endcomment -%}
+                  {% render 'cart-summary', section_id: 'cart-drawer-section', view_cart_link: true %}
                 </div>
               </scroll-hint>
             {%- endif -%}
@@ -126,6 +146,11 @@
             section_id: 'cart-drawer-section'
           %}
         </div>
+        {%- comment -%}
+          yv: upsell tab and slide-out panel (990px and up). Outside `.cart-drawer__inner`, so the
+          drawer's hydration morph leaves the fetched products alone; yv-cart.js refreshes them.
+        {%- endcomment -%}
+        {% render 'yv-cart-upsells', part: 'shell', context: 'drawer' %}
       </cart-drawer-component>
     </dialog>
   </theme-drawer>

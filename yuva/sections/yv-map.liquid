@@ -1,0 +1,628 @@
+{% comment %}
+  Section contract: yv-map
+  Yuva Map (docs part 2 "Map"): the store address on a Google map at a fixed desktop and mobile
+  height, full width or in the page container, with an optional content box (Subheading, Heading,
+  Text and Button blocks) floating over the map on desktop and over or below it on mobile.
+  - With Theme settings > Google Maps > Google Maps API key: <yv-map> (assets/yv-map.js) loads the
+    Maps JavaScript API when the section nears the viewport, geocodes the address and places a
+    marker. On any failure the fallback image shows (or a keyless embed when there is no image).
+  - Without a key: a keyless Google Maps embed of the address (iframe), over the fallback image.
+    In the theme editor a notice explains how to enable the interactive map.
+  - No address: the fallback image, or a placeholder.
+  Shared settings: colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Media > "Map"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign api_key = settings.yv_google_maps_api_key | strip
+  assign address = section.settings.address | strip
+  assign zoom = section.settings.zoom | default: 14
+
+  case section.settings.height_desktop
+    when 'small'
+      assign height_desktop = 400
+    when 'large'
+      assign height_desktop = 650
+    else
+      assign height_desktop = 500
+  endcase
+  case section.settings.height_mobile
+    when 'medium'
+      assign height_mobile = 400
+    when 'large'
+      assign height_mobile = 500
+    else
+      assign height_mobile = 300
+  endcase
+
+  case section.settings.map_style
+    when 'satellite'
+      assign embed_type = 'k'
+    when 'hybrid'
+      assign embed_type = 'h'
+    when 'terrain'
+      assign embed_type = 'p'
+    else
+      assign embed_type = 'm'
+  endcase
+
+  assign embed_url = ''
+  assign address_query = address | url_encode
+  if address != blank
+    assign embed_url = 'https://maps.google.com/maps?q=' | append: address_query | append: '&t=' | append: embed_type | append: '&z=' | append: zoom | append: '&ie=UTF8&iwloc=&output=embed'
+  endif
+
+  assign has_fallback = false
+  if section.settings.fallback_image != blank
+    assign has_fallback = true
+  endif
+  assign has_content = false
+  if section.blocks.size > 0
+    assign has_content = true
+  endif
+
+  if section.settings.full_width
+    assign container_class = 'yv-container--full'
+  else
+    assign container_class = 'yv-container--page'
+  endif
+
+  assign map_title = 'yv.map.title' | t: address: address
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+>
+  <div class="yv-container {{ container_class }}">
+    <div
+      class="yv-map yv-map--d-{{ section.settings.content_position_desktop }} yv-map--m-{{ section.settings.content_position_mobile }}{% if section.settings.full_width %} yv-map--full{% endif %}"
+      style="--yv-map-height-desktop: {{ height_desktop }}px; --yv-map-height-mobile: {{ height_mobile }}px;"
+    >
+      {%- if api_key != blank and address != blank -%}
+        <script
+          src="{{ 'yv-map.js' | asset_url }}"
+          type="module"
+          fetchpriority="low"
+        ></script>
+      {%- endif -%}
+      <yv-map
+        class="yv-map__frame yv-media"
+        data-address="{{ address | escape }}"
+        data-zoom="{{ zoom }}"
+        data-map-type="{{ section.settings.map_style }}"
+        data-embed-url="{{ embed_url | escape }}"
+        data-embed-title="{{ map_title | escape }}"
+        data-has-fallback="{{ has_fallback }}"
+        {% if api_key != blank %}
+          data-api-key="{{ api_key | escape }}"
+        {% endif %}
+      >
+        <div class="yv-map__fallback">
+          {%- if has_fallback -%}
+            {{
+              section.settings.fallback_image
+              | image_url: width: 2400
+              | image_tag:
+                widths: '375, 750, 1100, 1500, 1920, 2400',
+                sizes: '100vw',
+                loading: 'lazy',
+                class: 'yv-map__image'
+            }}
+          {%- else -%}
+            {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-map__image yv-placeholder' }}
+          {%- endif -%}
+        </div>
+
+        {%- if api_key != blank and address != blank -%}
+          <div
+            class="yv-map__canvas"
+            ref="canvas"
+            role="region"
+            aria-label="{{ map_title | escape }}"
+          ></div>
+        {%- elsif embed_url != blank -%}
+          <iframe
+            class="yv-map__embed"
+            src="{{ embed_url }}"
+            title="{{ map_title | escape }}"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+          ></iframe>
+        {%- endif -%}
+
+        {%- if request.design_mode and api_key == blank -%}
+          <p class="yv-map__notice">
+            {%- render 'yv-icon', name: 'info', size: 16 -%}
+            <span>{{ 'yv.map.no_api_key' | t }}</span>
+          </p>
+        {%- endif -%}
+      </yv-map>
+
+      {%- if has_content -%}
+        <div
+          class="yv-map__content yv-set-bg"
+          {% if settings.yv_enable_animation %}
+            data-yv-reveal
+          {% endif %}
+        >
+          {%- content_for 'blocks' -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-map {
+    position: relative;
+  }
+
+  .yv-map__frame {
+    position: relative;
+    display: block;
+    height: var(--yv-map-height-mobile, 300px);
+    overflow: hidden;
+    background-color: var(--yv-image-bg);
+    border-radius: var(--yv-layout-radius, 10px);
+  }
+
+  .yv-map--full .yv-map__frame {
+    border-radius: 0;
+  }
+
+  .yv-map__fallback,
+  .yv-map__canvas,
+  .yv-map__embed {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .yv-map__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-map__canvas {
+    opacity: 0;
+    transition: opacity 0.4s var(--yv-ease, ease);
+  }
+
+  .yv-map__frame[data-state='ready'] .yv-map__canvas {
+    opacity: 1;
+  }
+
+  .yv-map__frame[data-state='error'] .yv-map__canvas {
+    visibility: hidden;
+  }
+
+  .yv-map__notice {
+    position: absolute;
+    inset-block-start: 12px;
+    inset-inline-start: 12px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 24px);
+    margin: 0;
+    padding: 8px 14px;
+    border-radius: 30px;
+    background-color: rgb(255 255 255 / 0.92);
+    color: #000;
+    box-shadow: var(--yv-shadow-card, 0 2px 8px rgb(0 0 0 / 0.12));
+    font-size: var(--yv-text-sm, 12px);
+    line-height: 1.4;
+  }
+
+  .yv-map__notice svg {
+    flex: none;
+  }
+
+  .yv-map__content {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    color: var(--color-foreground);
+  }
+
+  .yv-map__content > * {
+    max-width: 100%;
+    margin-block: 0;
+  }
+
+  .yv-map__content > .yv-button-block {
+    margin-block-start: 8px;
+  }
+
+  .yv-map__content .yv-heading__title {
+    margin: 0;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-map--m-below .yv-map__content {
+      padding: 24px var(--yv-page-gutter, 20px);
+    }
+
+    .yv-map--full.yv-map--m-below .yv-map__content {
+      padding-inline: var(--page-margin, 20px);
+    }
+
+    .yv-map:not(.yv-map--full).yv-map--m-below .yv-map__content {
+      padding-inline: 0;
+    }
+
+    .yv-map--m-overlay .yv-map__content {
+      position: absolute;
+      inset-inline: 16px;
+      inset-block-end: 16px;
+      max-height: calc(100% - 32px);
+      overflow: auto;
+      padding: 24px;
+      border-radius: var(--yv-layout-radius, 10px);
+      box-shadow: 0 8px 30px rgb(0 0 0 / 0.12);
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-map__frame {
+      height: var(--yv-map-height-desktop, 500px);
+    }
+
+    .yv-map__content {
+      position: absolute;
+      inset-block-start: 50%;
+      inset-inline-start: 40px;
+      width: min(420px, calc(100% - 80px));
+      max-height: calc(100% - 40px);
+      overflow: auto;
+      padding: 40px;
+      border-radius: var(--yv-layout-radius, 10px);
+      box-shadow: 0 8px 30px rgb(0 0 0 / 0.12);
+      transform: translateY(-50%);
+    }
+
+    .yv-map--d-center .yv-map__content {
+      inset-inline-start: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .yv-map--d-right .yv-map__content {
+      inset-inline-start: auto;
+      inset-inline-end: 40px;
+    }
+  }
+
+  @media screen and (min-width: 1200px) {
+    .yv-map--full.yv-map--d-left .yv-map__content {
+      inset-inline-start: max(40px, calc((100% - var(--narrow-page-width, 1270px)) / 2));
+    }
+
+    .yv-map--full.yv-map--d-right .yv-map__content {
+      inset-inline-end: max(40px, calc((100% - var(--narrow-page-width, 1270px)) / 2));
+    }
+  }
+
+  [dir='rtl'] .yv-map--d-center .yv-map__content {
+    transform: translate(50%, -50%);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.map",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 6,
+  "blocks": [
+    {
+      "type": "_yv-map-subheading"
+    },
+    {
+      "type": "_yv-map-heading"
+    },
+    {
+      "type": "text"
+    },
+    {
+      "type": "_yv-button"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "address",
+      "label": "t:yv.map.settings.address",
+      "info": "t:yv.map.settings.address_info",
+      "default": "80 Spadina Ave, Toronto"
+    },
+    {
+      "type": "select",
+      "id": "map_style",
+      "label": "t:yv.map.settings.map_style",
+      "options": [
+        {
+          "value": "roadmap",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "satellite",
+          "label": "t:yv.map.options.satellite"
+        },
+        {
+          "value": "hybrid",
+          "label": "t:yv.map.options.hybrid"
+        },
+        {
+          "value": "terrain",
+          "label": "t:yv.map.options.terrain"
+        }
+      ],
+      "default": "roadmap",
+      "info": "t:yv.map.settings.map_style_info"
+    },
+    {
+      "type": "range",
+      "id": "zoom",
+      "label": "t:yv.map.settings.zoom",
+      "min": 3,
+      "max": 20,
+      "step": 1,
+      "default": 14
+    },
+    {
+      "type": "image_picker",
+      "id": "fallback_image",
+      "label": "t:yv.common.settings.image",
+      "info": "t:yv.map.settings.fallback_image_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.map.content.desktop_layout"
+    },
+    {
+      "type": "select",
+      "id": "content_position_desktop",
+      "label": "t:yv.map.settings.content_position",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "height_desktop",
+      "label": "t:yv.map.settings.height",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.map.content.mobile_layout"
+    },
+    {
+      "type": "select",
+      "id": "content_position_mobile",
+      "label": "t:yv.map.settings.content_position",
+      "options": [
+        {
+          "value": "overlay",
+          "label": "t:yv.map.options.overlay"
+        },
+        {
+          "value": "below",
+          "label": "t:yv.map.options.below"
+        }
+      ],
+      "default": "below"
+    },
+    {
+      "type": "select",
+      "id": "height_mobile",
+      "label": "t:yv.map.settings.height",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "small"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.map.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.map",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "address": "80 Spadina Ave, Toronto"
+      },
+      "blocks": [
+        {
+          "type": "_yv-map-subheading",
+          "settings": {
+            "subheading": "Store location"
+          }
+        },
+        {
+          "type": "_yv-map-heading",
+          "settings": {
+            "heading": "Visit our store",
+            "heading_tag": "h2"
+          }
+        },
+        {
+          "type": "text",
+          "settings": {
+            "text": "<p>80 Spadina Ave, Toronto<br/>Mon – Sat: 10am – 7pm<br/>Sunday: 11am – 5pm</p>"
+          }
+        },
+        {
+          "type": "_yv-button",
+          "settings": {
+            "text": "Get directions",
+            "link": "https://www.google.com/maps/dir/?api=1&destination=80+Spadina+Ave+Toronto",
+            "open_new_tab": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "t:yv.names.map_only",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "address": "80 Spadina Ave, Toronto"
+      }
+    }
+  ]
+}
+{% endschema %}

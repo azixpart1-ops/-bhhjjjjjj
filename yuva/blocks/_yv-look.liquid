@@ -1,0 +1,360 @@
+{%- doc -%}
+  One look of the Lookbook (sections/yv-lookbook.liquid). The section renders this look's image in
+  its pinned media column (from `section.blocks`); this block renders the look's panel: highlight
+  heading (with rotating words), description and its products — the Products list, else the first
+  products of the Collection — as Horizon product cards (static `_product-card`): a 2-column grid for
+  up to 2 products, a 2-per-view carousel for more. Quick view and add-to-cart icons are hidden here.
+{%- enddoc -%}
+
+{%- liquid
+  assign look_index = 0
+  for child in section.blocks
+    if child.id == block.id
+      assign look_index = forloop.index0
+      break
+    endif
+  endfor
+
+  assign max_products = block.settings.products_count | default: 4
+  assign look_products = block.settings.products
+  assign look_collection = block.settings.collection
+
+  assign product_count = max_products
+  if look_products != blank
+    assign product_count = look_products.size | at_most: max_products
+  elsif look_collection != blank
+    assign product_count = look_collection.products_count | at_most: max_products
+  endif
+
+  assign heading_size = block.settings.heading_size
+  if heading_size == 'extra_large'
+    assign heading_size = 'h1'
+  endif
+
+  assign look_description = ''
+  if block.settings.description != blank
+    assign look_description = block.settings.description | escape | newline_to_br | prepend: '<p>' | append: '</p>'
+  endif
+
+  assign carousel_id = 'YvLookCarousel-' | append: block.id
+  assign carousel_label = block.settings.heading | strip_html | default: block.settings.collection.title
+-%}
+
+<div
+  class="yv-look{% if look_index == 0 %} is-active{% endif %}"
+  id="YvLook-{{ block.id }}"
+  ref="panels[]"
+  {{ block.shopify_attributes }}
+>
+  <div class="yv-look__inner">
+    {% render 'yv-heading',
+      text: block.settings.heading,
+      tag: block.settings.heading_tag,
+      size: heading_size,
+      highlight_font: block.settings.highlight_font,
+      highlight_color: block.settings.highlight_color,
+      rotating_text: block.settings.rotating_text,
+      description: look_description,
+      alignment: 'center',
+      class: 'yv-look__heading',
+      reveal: true
+    %}
+
+    {%- if product_count > 0 -%}
+      {%- capture look_cards -%}
+        {%- if look_products != blank -%}
+          {%- for product in look_products limit: max_products -%}
+            <div class="yv-look__product">
+              {% content_for 'block',
+                type: '_product-card',
+                id: 'static-product-card',
+                closest.product: product,
+                product_view_context: 'collection'
+              %}
+            </div>
+          {%- endfor -%}
+        {%- elsif look_collection != blank -%}
+          {%- for product in look_collection.products limit: max_products -%}
+            <div class="yv-look__product">
+              {% content_for 'block',
+                type: '_product-card',
+                id: 'static-product-card',
+                closest.product: product,
+                product_view_context: 'collection'
+              %}
+            </div>
+          {%- endfor -%}
+        {%- else -%}
+          {%- for i in (1..max_products) -%}
+            <div class="yv-look__product">
+              {% content_for 'block', type: '_product-card', id: 'static-product-card', closest.product: null %}
+            </div>
+          {%- endfor -%}
+        {%- endif -%}
+      {%- endcapture -%}
+
+      <div
+        class="yv-look__products"
+        data-yv-reveal
+      >
+        {%- if product_count > 2 -%}
+          {% render 'yv-carousel',
+            id: carousel_id,
+            slides: look_cards,
+            label: carousel_label,
+            per_view: 2,
+            per_view_tablet: 2,
+            per_view_mobile: 2,
+            gap: 20,
+            gap_mobile: 10,
+            arrows: 'sides',
+            arrows_mobile: 'bottom',
+            loop: true,
+            step: 'slide',
+            drag: false,
+            class: 'yv-look__carousel',
+            style: '--yv-carousel-arrow-top: 42%;'
+          %}
+        {%- else -%}
+          <div class="yv-look__grid">{{ look_cards }}</div>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "t:yv.names.look",
+  "tag": null,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "t:yv.lookbook.settings.look_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:settings.image"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "t:settings.collection",
+      "info": "t:yv.lookbook.settings.collection_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "t:yv.lookbook.defaults.heading"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        },
+        {
+          "value": "extra_large",
+          "label": "t:options.extra_large"
+        }
+      ],
+      "default": "large"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "textarea",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "header",
+      "content": "t:settings.products"
+    },
+    {
+      "type": "product_list",
+      "id": "products",
+      "label": "t:settings.products",
+      "limit": 12,
+      "info": "t:yv.lookbook.settings.products_info"
+    },
+    {
+      "type": "range",
+      "id": "products_count",
+      "label": "t:yv.lookbook.settings.products_count",
+      "info": "t:yv.lookbook.settings.products_count_info",
+      "min": 1,
+      "max": 12,
+      "step": 1,
+      "default": 4
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.look",
+      "settings": {
+        "products_count": 2
+      },
+      "blocks": {
+        "static-product-card": {
+          "type": "_product-card",
+          "static": true,
+          "settings": {
+            "product_card_gap": 5,
+            "border": "none",
+            "border_radius": 0,
+            "padding-block-start": 0,
+            "padding-block-end": 0,
+            "padding-inline-start": 0,
+            "padding-inline-end": 0
+          },
+          "blocks": {
+            "product-card-gallery": {
+              "type": "_product-card-gallery",
+              "settings": {
+                "image_ratio": "square",
+                "border": "none",
+                "border_radius": 0
+              }
+            },
+            "card-vendor": {
+              "type": "_yv-card-vendor",
+              "settings": {}
+            },
+            "product-title": {
+              "type": "product-title",
+              "settings": {
+                "width": "100%",
+                "max_width": "none",
+                "alignment": "left",
+                "type_preset": "paragraph",
+                "font": "var(--font-body--family)",
+                "font_size": "1rem",
+                "line_height": "normal",
+                "letter_spacing": "normal",
+                "case": "none",
+                "wrap": "pretty",
+                "background": false
+              }
+            },
+            "price": {
+              "type": "price",
+              "settings": {
+                "show_sale_price_first": true,
+                "show_from_price": true,
+                "show_installments": false,
+                "show_tax_info": false,
+                "type_preset": "paragraph",
+                "width": "100%",
+                "alignment": "left"
+              }
+            },
+            "swatches": {
+              "type": "swatches",
+              "settings": {
+                "product_swatches_alignment": "flex-start",
+                "product_swatches_alignment_mobile": "flex-start",
+                "hide_padding": false,
+                "product_swatches_padding_top": 1,
+                "product_swatches_padding_bottom": 0,
+                "product_swatches_padding_left": 0,
+                "product_swatches_padding_right": 0
+              }
+            },
+            "card-extras": {
+              "type": "_yv-card-extras",
+              "settings": {}
+            }
+          },
+          "block_order": ["product-card-gallery", "card-vendor", "product-title", "price", "swatches", "card-extras"]
+        }
+      }
+    }
+  ]
+}
+{% endschema %}

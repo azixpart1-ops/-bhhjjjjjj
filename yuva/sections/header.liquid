@@ -1,3 +1,10 @@
+{% # theme-check-disable ExcessiveSettingsCount %}
+{%- comment -%}
+  yv: Horizon's header already declares 42 settings (over theme-check's advisory 40). Yuva's header
+  options (navigation types, utility link rows, category button, trust badge, header icons, photo /
+  glass background and the Yuva colour groups) extend the same section so merchants find every
+  header option in one place, as in Yuva.
+{%- endcomment -%}
 {% liquid
   assign order = 'logo,menu,localization,search,drawer_search,actions'
 
@@ -82,12 +89,108 @@
     content_for 'block', type: '_header-logo', id: 'header-logo'
   endcapture
 
+  comment
+    yv: Yuva navigation types. 'custom' keeps every Horizon position setting; the four Yuva types
+    place the logo, menu and search themselves (passed to header-row as overrides).
+  endcomment
+  assign yv_nav = section.settings.navigation_type | default: 'custom'
+  assign yv_overrides = ''
+  assign yv_menu_alignment = section.settings.menu_alignment | default: 'left'
+  case yv_nav
+    when 'logo_left_menu_center'
+      assign yv_overrides = 'logo:left:top,category:left:top,menu:center:top,search:right:top,localization:right:top'
+    when 'logo_center_hamburger'
+      assign yv_overrides = 'logo:center:top,search:right:top,localization:right:top,category:none:top'
+    when 'full_width_menu'
+      if section.settings.logo_alignment == 'center'
+        assign yv_overrides = 'logo:center:top,search:left:top,localization:right:top'
+      else
+        assign yv_overrides = 'logo:left:top,search:right:top,localization:right:top'
+      endif
+      assign yv_overrides = yv_overrides | append: ',category:left:bottom,menu:' | append: yv_menu_alignment | append: ':bottom'
+    when 'full_width_searchbar'
+      assign yv_overrides = 'logo:left:top,search:center:top,localization:right:top,category:left:bottom,menu:'
+      assign yv_overrides = yv_overrides | append: yv_menu_alignment | append: ':bottom'
+    else
+      assign yv_overrides = 'category:' | append: section.settings.menu_position | append: ':' | append: section.settings.menu_row
+  endcase
+  if section.settings.show_category == false or section.settings.category_menu == blank
+    assign yv_overrides = yv_overrides | append: ',category:none:top'
+  endif
+  assign yv_overrides = yv_overrides | append: ',trust_badge:right:top'
+  if section.settings.localization_drawer_only
+    assign yv_overrides = yv_overrides | append: ',localization:none:top'
+  endif
+
+  assign yv_override_list = yv_overrides | split: ','
+  assign yv_eff_menu_row = section.settings.menu_row
+  assign yv_eff_search_row = section.settings.search_row
+  assign yv_eff_localization_row = section.settings.localization_row
+  assign yv_eff_category_row = 'none'
+  for yv_override in yv_override_list
+    assign yv_parts = yv_override | split: ':'
+    assign yv_row = yv_parts[2]
+    if yv_parts[1] == 'none'
+      assign yv_row = 'none'
+    endif
+    case yv_parts[0]
+      when 'menu'
+        assign yv_eff_menu_row = yv_row
+      when 'search'
+        assign yv_eff_search_row = yv_row
+      when 'localization'
+        assign yv_eff_localization_row = yv_row
+      when 'category'
+        assign yv_eff_category_row = yv_row
+    endcase
+  endfor
+
+  capture utility_primary
+    content_for 'block', type: '_yv-header-utility', id: 'header-utility-primary'
+  endcapture
+  capture utility_secondary
+    content_for 'block', type: '_yv-header-utility', id: 'header-utility-secondary'
+  endcapture
+  assign utility_primary = utility_primary | strip
+  assign utility_secondary = utility_secondary | strip
+  capture yv_drawer_links
+    content_for 'block', type: '_yv-header-utility', id: 'header-utility-secondary', variant: 'drawer'
+  endcapture
+  if yv_eff_category_row != 'none'
+    capture category
+      render 'yv-header-category', section: section, variant: 'button'
+    endcapture
+    capture yv_drawer_catalog
+      render 'yv-header-category', section: section, variant: 'drawer'
+    endcapture
+    assign yv_drawer_catalog_label = section.settings.category_text
+  else
+    capture yv_drawer_catalog
+      content_for 'block', type: '_yv-header-utility', id: 'header-utility-primary', variant: 'drawer'
+    endcapture
+  endif
+
+  assign category = category | strip
+
+  capture trust_badge
+    if section.settings.trust_badge_image != blank
+      assign yv_trust_alt = section.settings.trust_badge_image.alt | default: shop.name
+      assign yv_trust_image = section.settings.trust_badge_image | image_url: width: 240 | image_tag: loading: 'lazy', alt: yv_trust_alt, class: 'yv-header-trust__image', sizes: '120px', widths: '120, 240'
+      if section.settings.trust_badge_link != blank
+        echo '<a class="yv-header-trust" href="' | append: section.settings.trust_badge_link | append: '">' | append: yv_trust_image | append: '</a>'
+      else
+        echo '<span class="yv-header-trust">' | append: yv_trust_image | append: '</span>'
+      endif
+    endif
+  endcapture
+  assign trust_badge = trust_badge | strip
+
   capture menu
     content_for 'block', type: '_header-menu', id: 'header-menu'
   endcapture
 
   capture drawer_menu
-    content_for 'block', type: '_header-menu', id: 'header-menu', variant: 'mobile'
+    content_for 'block', type: '_header-menu', id: 'header-menu', variant: 'mobile', yv_drawer_links: yv_drawer_links, yv_drawer_catalog: yv_drawer_catalog, yv_drawer_catalog_label: yv_drawer_catalog_label
   endcapture
 
   capture navigation_bar
@@ -102,6 +205,11 @@
   capture actions
     render 'header-actions', customer_account_menu: section.settings.customer_account_menu, display_style: section.settings.actions_display_style, section: section
   endcapture
+
+  # yv: search style for the 'Full width header with searchbar' type is an inline bar.
+  if yv_nav == 'full_width_searchbar' and section.settings.show_search
+    assign search_style = 'bar'
+  endif
 
   if shop.customer_accounts_enabled
     assign search_class = 'search-action--hidden-on-drawer'
@@ -131,6 +239,9 @@
       endif
     endif
   endif
+  # yv: Yuva header items (category button, utility link rows, trust badge) join the column order.
+  assign order = order | replace: 'menu', 'category,menu,utility_primary,utility_secondary' | replace: 'actions', 'trust_badge,actions'
+
   capture search
     render 'search', style: search_style, class: search_class, display_style: section.settings.actions_display_style
   endcapture
@@ -146,7 +257,8 @@
   if section.settings.search_row == 'bottom' or search_style != 'none' and skip_drawer_search == false
     # Mobile search duplicate for when search is not in the right order for mobile layout
     capture drawer_search
-      render 'search', class: 'search-action--hidden-on-menu', style: search_style, display_style: section.settings.actions_display_style
+      assign yv_drawer_search_style = search_style | replace: 'bar', 'modal'
+      render 'search', class: 'search-action--hidden-on-menu', style: yv_drawer_search_style, display_style: section.settings.actions_display_style
     endcapture
   endif
 
@@ -162,20 +274,35 @@
 
   assign bottom_row_blocks = ''
 
-  if section.settings.menu_row == 'bottom'
+  # yv: rows come from the Yuva navigation type when one is chosen (yv_eff_* = Horizon setting otherwise).
+  if yv_eff_menu_row == 'bottom'
     assign bottom_row_blocks = bottom_row_blocks | append: 'menu,'
   endif
 
   if section.settings.show_search
-    if section.settings.search_row == 'bottom'
+    if yv_eff_search_row == 'bottom'
       assign bottom_row_blocks = bottom_row_blocks | append: 'search,'
     endif
   endif
 
   if section.settings.show_country or section.settings.show_language
-    if section.settings.localization_row == 'bottom'
+    if yv_eff_localization_row == 'bottom'
       assign bottom_row_blocks = bottom_row_blocks | append: 'localization,'
     endif
+  endif
+
+  if yv_eff_category_row == 'bottom'
+    assign bottom_row_blocks = bottom_row_blocks | append: 'category,'
+  endif
+
+  assign yv_utility_primary_content = utility_primary | strip
+  if yv_utility_primary_content != blank and section.settings.utility_primary_row == 'bottom'
+    assign bottom_row_blocks = bottom_row_blocks | append: 'utility_primary,'
+  endif
+
+  assign yv_utility_secondary_content = utility_secondary | strip
+  if yv_utility_secondary_content != blank and section.settings.utility_secondary_row == 'bottom'
+    assign bottom_row_blocks = bottom_row_blocks | append: 'utility_secondary,'
   endif
 
   assign bottom_row_blocks = bottom_row_blocks | split: ',' | compact
@@ -193,7 +320,30 @@
     assign collapse_header_paddings_class = 'header--collapse-row-paddings'
   endif
 
-  assign class = 'header'
+  assign class = 'header yv-header'
+
+  # yv: Yuva header modifiers and per-instance values.
+  assign class = class | append: ' yv-header--nav-' | append: yv_nav
+  if yv_nav == 'logo_center_hamburger'
+    assign class = class | append: ' yv-header--hamburger'
+  endif
+  if section.settings.blur_background
+    assign class = class | append: ' yv-header--blur'
+  endif
+  if section.settings.background_image != blank
+    assign class = class | append: ' yv-header--photo'
+  endif
+  if section.settings.color_text_hover != blank
+    assign class = class | append: ' yv-header--hover-color'
+  endif
+  case section.settings.icons_weight
+    when 'thin'
+      assign yv_icon_stroke = '1px'
+    when 'bold'
+      assign yv_icon_stroke = '2px'
+    else
+      assign yv_icon_stroke = '1.5px'
+  endcase
 
   if header_height_class
     assign class = class | append: ' ' | append: header_height_class
@@ -348,7 +498,7 @@
   {% endif %}
   data-skip-node-update
   data-scroll-direction="none"
-  {% if section.settings.menu_row == 'top' and bottom_row_blocks.size > 0 %}
+  {% if yv_eff_menu_row == 'top' and bottom_row_blocks.size > 0 %}
     data-submenu-overlap-bottom-row
   {% endif %}
   {% if background_transparent_color_value %}
@@ -358,6 +508,41 @@
     data-header-rows="single"
   {% endif %}
   style="
+    --yv-header-icon-stroke: {{ yv_icon_stroke }};
+    --yv-header-icon-stroke-n: {{ yv_icon_stroke | remove: 'px' }};
+    {%- if section.settings.color_text_hover != blank %}
+      --yv-header-hover: {{ section.settings.color_text_hover }};
+    {%- endif %}
+    {%- if section.settings.background_image != blank %}
+      --yv-header-overlay-color: {{ section.settings.overlay_color }};
+      --yv-header-overlay-opacity: {{ section.settings.overlay_opacity | divided_by: 100.0 }};
+    {%- endif %}
+    --yv-category-bg: {{ section.settings.color_category_bg }};
+    --yv-category-text: {{ section.settings.color_category_text }};
+    {%- if section.settings.color_fullwidth_text_hover != blank %}
+      --yv-header-bottom-hover: {{ section.settings.color_fullwidth_text_hover }};
+    {%- endif %}
+    --yv-hamburger-bg: {{ section.settings.color_hamburger_bg }};
+    --yv-hamburger-text: {{ section.settings.color_hamburger_text }};
+    --yv-hamburger-hover: {{ section.settings.color_hamburger_text_hover }};
+    {%- if section.settings.color_drawer_bg != blank %}
+      --yv-drawer-bg: {{ section.settings.color_drawer_bg }};
+    {%- endif %}
+    {%- if section.settings.color_drawer_main != blank %}
+      --yv-drawer-main: {{ section.settings.color_drawer_main }};
+    {%- endif %}
+    {%- if section.settings.color_drawer_sub != blank %}
+      --yv-drawer-sub: {{ section.settings.color_drawer_sub }};
+    {%- endif %}
+    {%- if section.settings.color_drawer_border != blank %}
+      --yv-drawer-border: {{ section.settings.color_drawer_border }};
+    {%- endif %}
+    --yv-searchbar-category-bg: {{ section.settings.color_searchbar_category_bg }};
+    --yv-searchbar-category-text: {{ section.settings.color_searchbar_category_text }};
+    --yv-searchbar-border: {{ section.settings.color_searchbar_border }};
+    --yv-searchbar-text: {{ section.settings.color_searchbar_text }};
+    --yv-searchbar-icon-bg: {{ section.settings.color_searchbar_icon_bg }};
+    --yv-searchbar-icon: {{ section.settings.color_searchbar_icon }};
     --color-background-top-row: rgba({{ section.settings.background_color_top.rgba | default: settings.page_background_color.rgba }});
     --color-background-bottom-row: rgba({{ section.settings.background_color_bottom.rgba | default: settings.page_background_color.rgba }});
     {% if transparent and text_color_transparent != blank %}
@@ -381,6 +566,25 @@
   <div
     class="header__underlay header__underlay-open"
   ></div>
+  {%- comment -%} yv: Yuva background layer (photo + overlay when solid, frosted glass when transparent). {%- endcomment -%}
+  <div
+    class="yv-header__backdrop"
+    aria-hidden="true"
+  >
+    {%- if section.settings.background_image != blank -%}
+      {{
+        section.settings.background_image
+        | image_url: width: 2400
+        | image_tag:
+          widths: '750, 1100, 1500, 1920, 2400',
+          sizes: '100vw',
+          loading: 'eager',
+          fetchpriority: 'low',
+          alt: '',
+          class: 'yv-header__backdrop-image'
+      }}
+    {%- endif -%}
+  </div>
   {%- if request.page_type == 'index' -%}
     <h1 class="visually-hidden">{{ shop.name }}</h1>
   {%- endif -%}
@@ -452,7 +656,12 @@
         actions: actions,
         localization: localization_markup,
         search: search,
-        drawer_search: drawer_search
+        drawer_search: drawer_search,
+        category: category,
+        utility_primary: utility_primary,
+        utility_secondary: utility_secondary,
+        trust_badge: trust_badge,
+        overrides: yv_overrides
       %}
     {% endcapture %}
 
@@ -477,11 +686,73 @@
       {{ navigation_bar }}
     </div>
   {% endif %}
+
+  {%- comment -%}
+    yv: Yuva mega menu and menu badge blocks. They are rendered into the matching submenu by
+    blocks/_header-menu.liquid (from section.blocks); this hidden copy only lets the theme editor
+    list and select them (assets/yv-header.js opens the matching menu item on select).
+  {%- endcomment -%}
+  {%- if section.blocks.size > 0 -%}
+    <div
+      class="yv-header__blocks"
+      hidden
+    >
+      {% content_for 'blocks' %}
+    </div>
+  {%- endif -%}
 </header-component>
+
+{%- comment -%} yv: Yuva header behaviours (assets/yv-header.js). {%- endcomment -%}
+<yv-header-component class="yv-header-controller"></yv-header-component>
+
+{%- comment -%} yv: floating cart shown once a non-sticky header scrolls out of view. {%- endcomment -%}
+{%- if section.settings.enable_sticky_cart and section.settings.enable_sticky_header == 'never' -%}
+  <div
+    class="yv-sticky-cart"
+    data-yv-sticky-cart
+    hidden
+  >
+    {%- if settings.cart_type == 'drawer' and template.name != 'cart' -%}
+      <button
+        type="button"
+        class="yv-sticky-cart__button"
+        on:click="#cart-drawer/toggle"
+        aria-haspopup="dialog"
+        aria-controls="cart-drawer"
+        aria-label="{{ 'accessibility.cart' | t }}"
+      >
+        {%- render 'yv-icon', name: section.settings.cart_icon, size: 22 -%}
+        <span
+          class="yv-sticky-cart__dot{% if cart.item_count == 0 %} yv-sticky-cart__dot--empty{% endif %}"
+          aria-hidden="true"
+        ></span>
+      </button>
+    {%- else -%}
+      <a
+        href="{{ routes.cart_url }}"
+        class="yv-sticky-cart__button"
+        aria-label="{{ 'accessibility.cart' | t }}"
+      >
+        {%- render 'yv-icon', name: section.settings.cart_icon, size: 22 -%}
+        <span
+          class="yv-sticky-cart__dot{% if cart.item_count == 0 %} yv-sticky-cart__dot--empty{% endif %}"
+          aria-hidden="true"
+        ></span>
+      </a>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+
+{{ 'yv-header.css' | asset_url | stylesheet_tag }}
 
 <script
   src="{{ 'header.js' | asset_url }}"
   type="module"
+></script>
+<script
+  src="{{ 'yv-header.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
 ></script>
 
 {% stylesheet %}
@@ -1256,7 +1527,92 @@
   "name": "t:names.header",
   "tag": "header",
   "class": "header-section",
+  "blocks": [
+    {
+      "type": "_yv-mega-menu-submenu-products"
+    },
+    {
+      "type": "_yv-mega-menu-products-gallery"
+    },
+    {
+      "type": "_yv-mega-menu-product-list"
+    },
+    {
+      "type": "_yv-mega-menu-tabs"
+    },
+    {
+      "type": "_yv-menu-badge"
+    }
+  ],
   "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.header.content.navigation"
+    },
+    {
+      "type": "select",
+      "id": "navigation_type",
+      "label": "t:yv.header.settings.navigation_type",
+      "info": "t:yv.header.settings.navigation_type_info",
+      "options": [
+        {
+          "value": "custom",
+          "label": "t:yv.header.options.custom"
+        },
+        {
+          "value": "logo_left_menu_center",
+          "label": "t:yv.header.options.logo_left_menu_center"
+        },
+        {
+          "value": "logo_center_hamburger",
+          "label": "t:yv.header.options.logo_center_hamburger"
+        },
+        {
+          "value": "full_width_menu",
+          "label": "t:yv.header.options.full_width_menu"
+        },
+        {
+          "value": "full_width_searchbar",
+          "label": "t:yv.header.options.full_width_searchbar"
+        }
+      ],
+      "default": "custom"
+    },
+    {
+      "type": "select",
+      "id": "logo_alignment",
+      "label": "t:yv.header.settings.logo_alignment",
+      "info": "t:yv.header.settings.logo_alignment_info",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        }
+      ],
+      "default": "left",
+      "visible_if": "{{ section.settings.navigation_type == 'full_width_menu' }}"
+    },
+    {
+      "type": "select",
+      "id": "menu_alignment",
+      "label": "t:yv.header.settings.menu_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        }
+      ],
+      "default": "left",
+      "visible_if": "{{ section.settings.navigation_type == 'full_width_menu' or section.settings.navigation_type == 'full_width_searchbar' }}"
+    },
     {
       "type": "header",
       "content": "t:content.logo"
@@ -1279,7 +1635,8 @@
           "label": "t:options.direction_end"
         }
       ],
-      "default": "center"
+      "default": "center",
+      "visible_if": "{{ section.settings.navigation_type == 'custom' }}"
     },
     {
       "type": "header",
@@ -1303,7 +1660,8 @@
           "label": "t:options.direction_end"
         }
       ],
-      "default": "left"
+      "default": "left",
+      "visible_if": "{{ section.settings.navigation_type == 'custom' }}"
     },
     {
       "type": "select",
@@ -1319,7 +1677,133 @@
           "label": "t:options.bottom"
         }
       ],
+      "default": "top",
+      "visible_if": "{{ section.settings.navigation_type == 'custom' }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.header.content.links"
+    },
+    {
+      "type": "paragraph",
+      "content": "t:yv.header.content.links_paragraph"
+    },
+    {
+      "type": "select",
+      "id": "utility_primary_position",
+      "label": "t:yv.header.settings.utility_primary_position",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:options.direction_start"
+        },
+        {
+          "value": "center",
+          "label": "t:options.direction_center"
+        },
+        {
+          "value": "right",
+          "label": "t:options.direction_end"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "utility_primary_row",
+      "label": "t:yv.header.settings.utility_primary_row",
+      "options": [
+        {
+          "value": "top",
+          "label": "t:options.top"
+        },
+        {
+          "value": "bottom",
+          "label": "t:options.bottom"
+        }
+      ],
       "default": "top"
+    },
+    {
+      "type": "select",
+      "id": "utility_secondary_position",
+      "label": "t:yv.header.settings.utility_secondary_position",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:options.direction_start"
+        },
+        {
+          "value": "center",
+          "label": "t:options.direction_center"
+        },
+        {
+          "value": "right",
+          "label": "t:options.direction_end"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "select",
+      "id": "utility_secondary_row",
+      "label": "t:yv.header.settings.utility_secondary_row",
+      "options": [
+        {
+          "value": "top",
+          "label": "t:options.top"
+        },
+        {
+          "value": "bottom",
+          "label": "t:options.bottom"
+        }
+      ],
+      "default": "bottom"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.header.content.category"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_category",
+      "label": "t:yv.header.settings.show_category",
+      "default": false,
+      "visible_if": "{{ section.settings.navigation_type != 'logo_center_hamburger' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "category_drawer_desktop",
+      "label": "t:yv.header.settings.category_drawer_desktop",
+      "default": false,
+      "visible_if": "{{ section.settings.show_category }}"
+    },
+    {
+      "type": "text",
+      "id": "category_text",
+      "label": "t:yv.common.settings.text",
+      "default": "t:yv.header.defaults.category_text",
+      "visible_if": "{{ section.settings.show_category }}"
+    },
+    {
+      "type": "link_list",
+      "id": "category_menu",
+      "label": "t:yv.header.settings.category_menu",
+      "visible_if": "{{ section.settings.show_category }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.header.content.trust_badge"
+    },
+    {
+      "type": "image_picker",
+      "id": "trust_badge_image",
+      "label": "t:yv.common.settings.image"
+    },
+    {
+      "type": "url",
+      "id": "trust_badge_link",
+      "label": "t:yv.common.settings.link"
     },
     {
       "type": "header",
@@ -1334,6 +1818,75 @@
       "id": "customer_account_menu",
       "label": "t:settings.customer_account_menu",
       "default": "customer-account-main-menu"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.header.content.header_icons"
+    },
+    {
+      "type": "select",
+      "id": "account_type",
+      "label": "t:yv.header.settings.account_type",
+      "info": "t:yv.header.settings.account_type_info",
+      "options": [
+        {
+          "value": "page",
+          "label": "t:yv.header.options.page"
+        },
+        {
+          "value": "dropdown",
+          "label": "t:yv.header.options.dropdown"
+        },
+        {
+          "value": "popup",
+          "label": "t:yv.header.options.popup"
+        }
+      ],
+      "default": "dropdown"
+    },
+    {
+      "type": "select",
+      "id": "cart_icon",
+      "label": "t:yv.header.settings.cart_icon",
+      "options": [
+        {
+          "value": "cart",
+          "label": "t:yv.header.options.cart"
+        },
+        {
+          "value": "bag",
+          "label": "t:yv.header.options.bag"
+        }
+      ],
+      "default": "cart"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_sticky_cart",
+      "label": "t:yv.header.settings.enable_sticky_cart",
+      "info": "t:yv.header.settings.enable_sticky_cart_info",
+      "default": false,
+      "visible_if": "{{ section.settings.enable_sticky_header == 'never' }}"
+    },
+    {
+      "type": "select",
+      "id": "icons_weight",
+      "label": "t:yv.header.settings.icons_weight",
+      "options": [
+        {
+          "value": "thin",
+          "label": "t:yv.header.options.thin"
+        },
+        {
+          "value": "normal",
+          "label": "t:yv.header.options.normal"
+        },
+        {
+          "value": "bold",
+          "label": "t:yv.header.options.bold"
+        }
+      ],
+      "default": "normal"
     },
     {
       "type": "header",
@@ -1360,7 +1913,7 @@
         }
       ],
       "default": "right",
-      "visible_if": "{{ section.settings.show_search }}"
+      "visible_if": "{{ section.settings.show_search and section.settings.navigation_type == 'custom' }}"
     },
     {
       "type": "select",
@@ -1377,7 +1930,7 @@
         }
       ],
       "default": "top",
-      "visible_if": "{{ section.settings.show_search }}"
+      "visible_if": "{{ section.settings.show_search and section.settings.navigation_type == 'custom' }}"
     },
     {
       "type": "header",
@@ -1492,6 +2045,14 @@
       "visible_if": "{{ section.settings.show_country or section.settings.show_language }}"
     },
     {
+      "type": "checkbox",
+      "id": "localization_drawer_only",
+      "label": "t:yv.header.settings.localization_drawer_only",
+      "info": "t:yv.header.settings.localization_drawer_only_info",
+      "default": false,
+      "visible_if": "{{ section.settings.show_country or section.settings.show_language }}"
+    },
+    {
       "type": "header",
       "content": "t:content.appearance"
     },
@@ -1596,6 +2157,41 @@
       "label": "t:settings.bottom_border_color",
       "placeholder": "t:settings.default",
       "visible_if": "{{ section.settings.border_width > 0 }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.header.content.background_image"
+    },
+    {
+      "type": "image_picker",
+      "id": "background_image",
+      "label": "t:yv.common.settings.image",
+      "info": "t:yv.header.settings.background_image_info"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "t:yv.common.settings.overlay_color",
+      "default": "#010101",
+      "visible_if": "{{ section.settings.background_image != blank }}"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.common.settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 62,
+      "visible_if": "{{ section.settings.background_image != blank }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "blur_background",
+      "label": "t:yv.header.settings.blur_background",
+      "info": "t:yv.header.settings.blur_background_info",
+      "default": true
     },
     {
       "type": "header",
@@ -1714,6 +2310,122 @@
       "label": "t:settings.bottom_row_text",
       "placeholder": "t:settings.default",
       "visible_if": "{{ section.settings.menu_row == 'bottom' or section.settings.localization_row == 'bottom' or section.settings.search_row == 'bottom' }}"
+    },
+    {
+      "type": "color",
+      "id": "color_text_hover",
+      "label": "t:yv.header.settings.text_hover",
+      "default": "#7E7E7E"
+    },
+    {
+      "type": "color",
+      "id": "color_fullwidth_text_hover",
+      "label": "t:yv.header.settings.bottom_row_text_hover",
+      "placeholder": "t:settings.default"
+    },
+    {
+      "type": "color",
+      "id": "color_category_bg",
+      "label": "t:yv.header.settings.category_background",
+      "default": "#000000",
+      "visible_if": "{{ section.settings.show_category }}"
+    },
+    {
+      "type": "color",
+      "id": "color_category_text",
+      "label": "t:yv.header.settings.category_text",
+      "default": "#FFFFFF",
+      "visible_if": "{{ section.settings.show_category }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.header.content.hamburger_menu"
+    },
+    {
+      "type": "color",
+      "id": "color_hamburger_bg",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_hamburger_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_hamburger_text_hover",
+      "label": "t:yv.header.settings.text_hover",
+      "default": "#6E6E6E"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.header.content.drawer"
+    },
+    {
+      "type": "color",
+      "id": "color_drawer_bg",
+      "label": "t:yv.common.settings.background_color",
+      "placeholder": "t:settings.default"
+    },
+    {
+      "type": "color",
+      "id": "color_drawer_main",
+      "label": "t:yv.header.settings.main_menu",
+      "placeholder": "t:settings.default"
+    },
+    {
+      "type": "color",
+      "id": "color_drawer_sub",
+      "label": "t:yv.header.settings.sub_menu",
+      "placeholder": "t:settings.default"
+    },
+    {
+      "type": "color",
+      "id": "color_drawer_border",
+      "label": "t:yv.header.settings.border",
+      "placeholder": "t:settings.default"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.header.content.searchbar"
+    },
+    {
+      "type": "color",
+      "id": "color_searchbar_category_bg",
+      "label": "t:yv.header.settings.category_background",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_searchbar_category_text",
+      "label": "t:yv.header.settings.category_text",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_searchbar_border",
+      "label": "t:yv.header.settings.border",
+      "default": "#E5E5E5"
+    },
+    {
+      "type": "color",
+      "id": "color_searchbar_text",
+      "label": "t:yv.header.settings.searchbar_text",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_searchbar_icon_bg",
+      "label": "t:yv.header.settings.searchbar_icon_background",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_searchbar_icon",
+      "label": "t:yv.header.settings.searchbar_icon",
+      "default": "#FFFFFF"
     },
     {
       "type": "header",

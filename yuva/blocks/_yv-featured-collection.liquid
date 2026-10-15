@@ -1,0 +1,84 @@
+{%- doc -%}
+  One collection of sections/yv-featured-collections-list.liquid. This block renders the
+  collection's title in the section's bottom strip (a link to the collection); the section reads
+  the same block's settings to render its background media layer and its centred title and
+  description, in block order, so `data-index` ties the three together.
+  Title: the custom title, else the collection title. Hovering or focusing the title makes this
+  collection active (assets/yv-featured-collections.js); on touch screens the first tap activates
+  it and a second tap opens the collection.
+{%- enddoc -%}
+
+{%- liquid
+  assign collection = block.settings.collection
+  assign card_title = block.settings.custom_title | strip
+  if card_title == blank
+    if collection != blank
+      assign card_title = collection.title
+    else
+      assign card_title = 'placeholders.collection_title' | t
+    endif
+  endif
+
+  assign card_url = routes.collections_url
+  if collection != blank
+    assign card_url = collection.url
+  endif
+
+  assign block_index = section.blocks | find_index: 'id', block.id
+  assign block_index = block_index | default: 0
+-%}
+
+<div
+  class="yv-featured-collections__cell"
+  {{ block.shopify_attributes }}
+>
+  <a
+    href="{{ card_url }}"
+    class="yv-featured-collections__link"
+    data-yv-fc-link
+    data-index="{{ block_index }}"
+    aria-current="{% if block_index == 0 %}true{% else %}false{% endif %}"
+  >
+    {{- card_title | escape -}}
+  </a>
+</div>
+
+{% schema %}
+{
+  "name": "t:yv.names.featured_collection_item",
+  "tag": null,
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "t:yv.common.settings.collection"
+    },
+    {
+      "type": "text",
+      "id": "custom_title",
+      "label": "t:yv.featured_collections.settings.custom_title"
+    },
+    {
+      "type": "textarea",
+      "id": "custom_description",
+      "label": "t:yv.featured_collections.settings.custom_description"
+    },
+    {
+      "type": "image_picker",
+      "id": "custom_image",
+      "label": "t:yv.featured_collections.settings.custom_image"
+    },
+    {
+      "type": "video",
+      "id": "custom_video",
+      "label": "t:yv.featured_collections.settings.custom_video",
+      "info": "t:yv.featured_collections.settings.custom_video_info"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.featured_collection_item"
+    }
+  ]
+}
+{% endschema %}

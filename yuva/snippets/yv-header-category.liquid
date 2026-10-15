@@ -1,0 +1,175 @@
+{%- doc -%}
+  Yuva category (catalog) button of the header and its menu, from the header section's
+  "Category" settings (show_category, category_drawer_desktop, category_text, category_menu).
+
+  - variant 'button': the header button. Opens a dropdown of the category menu (first level, second
+    level in a fly-out), or, with "Show catalog in drawer on desktop", the menu drawer on its
+    catalog tab (assets/yv-header.js).
+  - variant 'drawer': the category menu as a list for the catalog tab of the menu drawer.
+
+  @param {object} section - The header section.
+  @param {string} variant - 'button' or 'drawer'.
+
+  @example
+  {% render 'yv-header-category', section: section, variant: 'button' %}
+{%- enddoc -%}
+
+{%- liquid
+  assign category_menu = section.settings.category_menu
+  assign category_label = section.settings.category_text | default: category_menu.title
+-%}
+
+{%- if category_menu.links.size > 0 -%}
+  {%- if variant == 'drawer' -%}
+    <ul
+      class="yv-drawer-catalog list-unstyled"
+      role="list"
+    >
+      {%- for link in category_menu.links -%}
+        <li class="yv-drawer-catalog__item">
+          {%- if link.links.size > 0 -%}
+            <details class="yv-drawer-catalog__group">
+              <summary class="yv-drawer-catalog__link">
+                <span>{{ link.title | escape }}</span>
+                <span
+                  class="yv-drawer-toggle"
+                  aria-hidden="true"
+                ></span>
+              </summary>
+              <ul
+                class="yv-drawer-catalog__children list-unstyled"
+                role="list"
+              >
+                <li>
+                  <a
+                    href="{{ link.url }}"
+                    class="yv-drawer-catalog__child"
+                  >
+                    {{- 'yv.header.view_all' | t: title: link.title -}}
+                  </a>
+                </li>
+                {%- for child in link.links -%}
+                  <li>
+                    <a
+                      href="{{ child.url }}"
+                      class="yv-drawer-catalog__child"
+                      {% if child.current %}
+                        aria-current="page"
+                      {% endif %}
+                    >
+                      {{- child.title | escape -}}
+                    </a>
+                  </li>
+                {%- endfor -%}
+              </ul>
+            </details>
+          {%- else -%}
+            <a
+              href="{{ link.url }}"
+              class="yv-drawer-catalog__link"
+              {% if link.current %}
+                aria-current="page"
+              {% endif %}
+            >
+              <span>{{ link.title | escape }}</span>
+            </a>
+          {%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ul>
+  {%- else -%}
+    {%- liquid
+      if section.settings.navigation_type == 'full_width_searchbar'
+        assign category_bg = section.settings.color_searchbar_category_bg
+        assign category_text = section.settings.color_searchbar_category_text
+      else
+        assign category_bg = section.settings.color_category_bg
+        assign category_text = section.settings.color_category_text
+      endif
+    -%}
+    <div
+      class="yv-header-category"
+      style="--yv-category-bg: {{ category_bg }}; --yv-category-text: {{ category_text }};"
+    >
+      {%- if section.settings.category_drawer_desktop -%}
+        <button
+          type="button"
+          class="yv-header-category__button"
+          data-yv-open-catalog
+          aria-haspopup="dialog"
+        >
+          <span
+            class="yv-header-category__icon"
+            aria-hidden="true"
+          >
+            {%- render 'yv-icon', name: 'menu', size: 18 -%}
+          </span>
+          <span>{{ category_label | escape }}</span>
+        </button>
+      {%- else -%}
+        <details
+          class="yv-header-category__dropdown"
+          data-yv-dropdown
+        >
+          <summary class="yv-header-category__button">
+            <span
+              class="yv-header-category__icon"
+              aria-hidden="true"
+            >
+              {%- render 'yv-icon', name: 'menu', size: 18 -%}
+            </span>
+            <span>{{ category_label | escape }}</span>
+          </summary>
+          <div class="yv-header-category__panel color-custom-popover">
+            <ul
+              class="yv-header-category__list list-unstyled"
+              role="list"
+            >
+              {%- for link in category_menu.links -%}
+                <li class="yv-header-category__item{% if link.links.size > 0 %} yv-header-category__item--parent{% endif %}">
+                  <a
+                    href="{{ link.url }}"
+                    class="yv-header-category__link"
+                    {% if link.current %}
+                      aria-current="page"
+                    {% endif %}
+                  >
+                    <span>{{ link.title | escape }}</span>
+                    {%- if link.links.size > 0 -%}
+                      <span
+                        class="yv-header-category__caret"
+                        aria-hidden="true"
+                      >
+                        {%- render 'yv-icon', name: 'chevron-right', size: 14 -%}
+                      </span>
+                    {%- endif -%}
+                  </a>
+                  {%- if link.links.size > 0 -%}
+                    <ul
+                      class="yv-header-category__flyout list-unstyled"
+                      role="list"
+                    >
+                      {%- for child in link.links -%}
+                        <li>
+                          <a
+                            href="{{ child.url }}"
+                            class="yv-header-category__link"
+                            {% if child.current %}
+                              aria-current="page"
+                            {% endif %}
+                          >
+                            {{- child.title | escape -}}
+                          </a>
+                        </li>
+                      {%- endfor -%}
+                    </ul>
+                  {%- endif -%}
+                </li>
+              {%- endfor -%}
+            </ul>
+          </div>
+        </details>
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+{%- endif -%}

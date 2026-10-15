@@ -1,0 +1,145 @@
+{%- doc -%}
+  One collection card of sections/yv-collection-carousel.liquid (a slide of its yv-carousel).
+  Image: the custom image, else the collection image, else a placeholder. Heading: the custom
+  heading, else the collection title. Subheading: the custom subheading; on the image it falls back
+  to the collection's product count. The text sits on the image (bottom left, over a scrim) or under it, following the section's
+  "Collection text" setting; the colours apply in both places (blank = white on the image, the
+  section text colour under it). The whole card links to the collection.
+{%- enddoc -%}
+
+{%- liquid
+  assign collection = block.settings.collection
+  assign card_heading = block.settings.heading | strip
+  if card_heading == blank
+    if collection != blank
+      assign card_heading = collection.title
+    else
+      assign card_heading = 'placeholders.collection_title' | t
+    endif
+  endif
+
+  assign card_subheading = block.settings.subheading | strip
+  if card_subheading == blank and collection != blank
+    assign card_subheading = 'yv.collection_carousel.products_count' | t: count: collection.products_count
+  endif
+
+  assign card_image = block.settings.image
+  if card_image == blank and collection != blank
+    assign card_image = collection.featured_image
+  endif
+
+  assign text_position = section.settings.text_position | default: 'below'
+  assign columns = section.settings.columns | default: 3
+
+  if section.settings.style == 'content_top' and section.settings.full_width
+    assign image_sizes = '(min-width: 750px) calc(100vw / ' | append: columns | append: '), 85vw'
+  elsif section.settings.style == 'content_left'
+    assign image_sizes = '(min-width: 750px) calc(66vw / ' | append: columns | append: '), 85vw'
+  else
+    assign image_sizes = '(min-width: 1400px) calc(1270px / ' | append: columns | append: '), (min-width: 750px) calc(100vw / ' | append: columns | append: '), 85vw'
+  endif
+
+  assign block_index = section.blocks | find_index: 'id', block.id
+  assign placeholder_index = block_index | default: 0 | modulo: 6 | plus: 1
+  assign placeholder_name = 'collection-' | append: placeholder_index
+
+  assign link_url = routes.collections_url
+  if collection != blank
+    assign link_url = collection.url
+  endif
+-%}
+
+<div
+  class="yv-collection-carousel__slide"
+  {{ block.shopify_attributes }}
+>
+  <a
+    href="{{ link_url }}"
+    class="yv-collection-carousel__card yv-collection-carousel__card--text-{{ text_position }}"
+    style="{% if block.settings.color_heading != blank %}--yv-collection-carousel-heading: {{ block.settings.color_heading }};{% endif %}{% if block.settings.color_subheading != blank %} --yv-collection-carousel-subheading: {{ block.settings.color_subheading }};{% endif %}"
+  >
+    <div class="yv-collection-carousel__media yv-media yv-hover-zoom">
+      {%- if card_image != blank -%}
+        {{
+          card_image
+          | image_url: width: 1400
+          | image_tag:
+            widths: '300, 400, 550, 700, 900, 1100, 1400',
+            sizes: image_sizes,
+            loading: 'lazy',
+            class: 'yv-collection-carousel__image'
+        }}
+      {%- else -%}
+        {{ placeholder_name | placeholder_svg_tag: 'yv-collection-carousel__image yv-placeholder' }}
+      {%- endif -%}
+      {%- if text_position == 'overlay' -%}
+        <div class="yv-collection-carousel__text yv-collection-carousel__text--overlay">
+          <span class="yv-collection-carousel__heading h4">{{ card_heading | escape }}</span>
+          {%- if card_subheading != blank -%}
+            <span class="yv-collection-carousel__subheading">{{ card_subheading | escape }}</span>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+    </div>
+    {%- if text_position != 'overlay' -%}
+      <div class="yv-collection-carousel__text yv-collection-carousel__text--below">
+        <span class="yv-collection-carousel__heading h5">{{ card_heading | escape }}</span>
+        {%- if block.settings.subheading != blank -%}
+          <span class="yv-collection-carousel__subheading">{{ block.settings.subheading | escape }}</span>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+  </a>
+</div>
+
+{% schema %}
+{
+  "name": "t:yv.names.carousel_collection",
+  "tag": null,
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "t:yv.common.settings.collection"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.collection_carousel.settings.custom_image",
+      "info": "t:yv.collection_carousel.settings.custom_image_info"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.collection_carousel.settings.heading_info"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading",
+      "info": "t:yv.collection_carousel.settings.subheading_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_heading",
+      "label": "t:yv.common.settings.heading_color",
+      "info": "t:yv.collection_carousel.settings.color_info"
+    },
+    {
+      "type": "color",
+      "id": "color_subheading",
+      "label": "t:yv.collection_carousel.settings.color_subheading"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.carousel_collection"
+    }
+  ]
+}
+{% endschema %}

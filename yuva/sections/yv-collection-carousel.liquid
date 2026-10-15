@@ -1,0 +1,869 @@
+{% comment %}
+  Section contract: yv-collection-carousel
+  Yuva "Collection carousel": up to 5 collection cards (blocks/_yv-carousel-collection.liquid)
+  in a slider, beside ("Content left, grid right") or under ("Content top, grid bottom") a content
+  area with subheading, highlight heading, description and button.
+  Content left: content 1/3, carousel 2/3, the arrows under the button.
+  Content top: centred content with the arrows outside the carousel sides, or left-aligned content
+  with the arrows at the right of the content row; "Enable full width" runs the carousel to the
+  screen edges with landscape cards.
+  Emphasize center image (3 columns, 750px and up): the carousel centres its cards, the centre card
+  is full size and its neighbours scale to 90%; arrows move one card. assets/yv-collection-carousel.js
+  tracks the centre card.
+  Below 750px: one card at about 85% width with the next one peeking, arrows over the card edges.
+  Slider: snippets/yv-carousel.liquid.
+  @example
+  Theme editor > Add section > Collections > "Collection carousel"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign style = section.settings.style
+  assign columns = section.settings.columns
+  assign full_width = false
+  if style == 'content_top' and section.settings.full_width
+    assign full_width = true
+  endif
+
+  assign emphasize = false
+  if section.settings.emphasize_center and columns == 3 and section.blocks.size > 2
+    assign emphasize = true
+  endif
+
+  assign align = 'left'
+  if style == 'content_top' and section.settings.text_alignment == 'center'
+    assign align = 'center'
+  endif
+
+  assign outside_arrows = true
+  if style == 'content_top' and align == 'center'
+    assign outside_arrows = false
+  endif
+
+  if outside_arrows
+    assign desktop_arrows = 'none'
+  else
+    assign desktop_arrows = 'sides-outside'
+  endif
+
+  if full_width
+    assign card_ratio = '1400 / 725'
+    assign arrow_top_factor = '0.259'
+  else
+    assign card_ratio = '380 / 550'
+    assign arrow_top_factor = '0.7237'
+  endif
+  assign carousel_style = '--yv-carousel-arrow-top: calc(var(--_slide-width) * ' | append: arrow_top_factor | append: ');'
+
+  assign carousel_id = 'YvCarousel-' | append: section.id
+  assign carousel_label = section.settings.heading | strip_html | strip
+  if carousel_label == blank
+    assign carousel_label = 'yv.collection_carousel.label' | t
+  endif
+
+  assign per_view_tablet = columns | minus: 1 | at_least: 2
+  if emphasize
+    assign per_view_tablet = 3
+  endif
+-%}
+
+{%- capture content_markup -%}
+  {% render 'yv-heading',
+    text: section.settings.heading,
+    tag: section.settings.heading_tag,
+    size: section.settings.heading_size,
+    highlight_font: section.settings.highlight_font,
+    highlight_color: section.settings.highlight_color,
+    rotating_text: section.settings.rotating_text,
+    subheading: section.settings.subheading,
+    description: section.settings.description,
+    alignment: align,
+    class: 'yv-collection-carousel__heading',
+    reveal: true
+  %}
+  {%- capture button_markup -%}
+    {% render 'yv-button',
+      label: section.settings.button_text,
+      link: section.settings.button_link,
+      size_desktop: section.settings.button_size_desktop,
+      size_mobile: section.settings.button_size_mobile,
+      reveal: true
+    %}
+  {%- endcapture -%}
+  {%- if button_markup != blank -%}
+    <div class="yv-collection-carousel__button">{{ button_markup }}</div>
+  {%- endif -%}
+{%- endcapture -%}
+
+{%- capture slides -%}
+  {%- content_for 'blocks' -%}
+{%- endcapture -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+>
+  <yv-collection-carousel-component
+    class="yv-container yv-container--{% if full_width %}full{% elsif style == 'content_top' and align == 'center' %}md{% else %}page{% endif %} yv-collection-carousel yv-collection-carousel--{{ style }} yv-collection-carousel--align-{{ align }}{% if full_width %} yv-collection-carousel--full{% endif %}{% if emphasize %} yv-collection-carousel--emphasize{% endif %}"
+    style="--yv-collection-carousel-ratio: {{ card_ratio }};"
+    {% if emphasize %}
+      data-emphasize
+    {% endif %}
+  >
+    <div class="yv-collection-carousel__content">
+      {{ content_markup }}
+      {%- if outside_arrows and section.blocks.size > 0 -%}
+        {% render 'yv-carousel-controls',
+          carousel_id: carousel_id,
+          outside: true,
+          class: 'yv-collection-carousel__arrows'
+        %}
+      {%- endif -%}
+    </div>
+
+    <div class="yv-collection-carousel__slider">
+      {%- if section.blocks.size > 0 -%}
+        {%- liquid
+          if emphasize
+            assign carousel_align = 'center'
+            assign carousel_step = 'slide'
+          else
+            assign carousel_align = 'start'
+            assign carousel_step = 'page'
+          endif
+        -%}
+        {% render 'yv-carousel',
+          id: carousel_id,
+          slides: slides,
+          label: carousel_label,
+          per_view: columns,
+          per_view_tablet: per_view_tablet,
+          per_view_mobile: 1.18,
+          gap: 24,
+          gap_mobile: 12,
+          arrows: desktop_arrows,
+          arrows_mobile: 'sides',
+          align: carousel_align,
+          step: carousel_step,
+          loop: emphasize,
+          class: 'yv-collection-carousel__carousel',
+          style: carousel_style
+        %}
+      {%- elsif request.design_mode -%}
+        <div class="yv-collection-carousel__empty">
+          {%- for i in (1..3) -%}
+            <div class="yv-collection-carousel__media yv-media">
+              {{ 'collection-' | append: i | placeholder_svg_tag: 'yv-collection-carousel__image yv-placeholder' }}
+            </div>
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+    </div>
+  </yv-collection-carousel-component>
+</div>
+
+<script
+  src="{{ 'yv-collection-carousel.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+{% stylesheet %}
+  .yv-collection-carousel {
+    --yv-collection-carousel-radius: calc(var(--yv-layout-radius, 10px) * 3);
+
+    display: grid;
+    gap: 30px;
+  }
+
+  .yv-collection-carousel__content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+  }
+
+  .yv-collection-carousel--align-center .yv-collection-carousel__content {
+    align-items: center;
+    text-align: center;
+  }
+
+  .yv-collection-carousel__heading {
+    --yv-heading-description-width: 570px;
+  }
+
+  .yv-collection-carousel__heading .yv-heading__eyebrow {
+    color: var(--yv-text-light, rgb(var(--color-foreground-rgb) / 0.5));
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+    font-size: var(--yv-text-sm, 11.52px);
+  }
+
+  .yv-collection-carousel__slider {
+    min-width: 0;
+  }
+
+  /* Cards -------------------------------------------------------------------------------------- */
+  .yv-collection-carousel__slide {
+    min-width: 0;
+  }
+
+  .yv-collection-carousel__card {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .yv-collection-carousel__media {
+    --yv-zoom-scale: 1.1;
+
+    position: relative;
+    aspect-ratio: var(--yv-collection-carousel-ratio, 380 / 550);
+    border-radius: var(--yv-collection-carousel-radius);
+    isolation: isolate;
+  }
+
+  .yv-collection-carousel__media > .yv-collection-carousel__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .yv-collection-carousel__media.yv-hover-zoom :is(img, svg) {
+      transition: transform 1s var(--yv-ease-out, ease);
+    }
+  }
+
+  .yv-collection-carousel__text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .yv-collection-carousel__heading.h4,
+  .yv-collection-carousel__heading.h5 {
+    margin: 0;
+    color: var(--yv-collection-carousel-heading, currentColor);
+    overflow-wrap: anywhere;
+  }
+
+  .yv-collection-carousel__subheading {
+    font-size: var(--yv-text-md, 13.44px);
+    color: var(--yv-collection-carousel-subheading, currentColor);
+  }
+
+  .yv-collection-carousel__text--below {
+    align-items: center;
+    text-align: center;
+  }
+
+  .yv-collection-carousel__text--overlay {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: 1;
+    padding: 60px 24px 24px;
+    color: #fff;
+    background: linear-gradient(0deg, rgb(0 0 0 / 0.45), rgb(0 0 0 / 0));
+    border-radius: inherit;
+  }
+
+  .yv-collection-carousel__text--overlay .yv-collection-carousel__heading {
+    color: var(--yv-collection-carousel-heading, #fff);
+  }
+
+  .yv-collection-carousel__text--overlay .yv-collection-carousel__subheading {
+    color: var(--yv-collection-carousel-subheading, #fff);
+  }
+
+  /* Arrows: white circles with a soft shadow. */
+  .yv-collection-carousel {
+    --yv-carousel-arrow-radius: 50%;
+    --yv-carousel-arrow-bg: #fff;
+    --yv-carousel-arrow-color: #000;
+    --yv-carousel-arrow-border: transparent;
+  }
+
+  .yv-collection-carousel .yv-carousel__arrow {
+    box-shadow: 0 2px 2px 1px rgb(0 0 0 / 0.12);
+  }
+
+  .yv-collection-carousel__arrows {
+    justify-content: flex-start;
+  }
+
+  .yv-collection-carousel__empty {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-collection-carousel {
+      gap: 25px;
+    }
+
+    .yv-collection-carousel__arrows {
+      display: none;
+    }
+
+    .yv-collection-carousel--content_left .yv-collection-carousel__content,
+    .yv-collection-carousel--content_top .yv-collection-carousel__content {
+      align-items: center;
+      text-align: center;
+    }
+
+    .yv-collection-carousel__content .yv-heading {
+      align-items: center;
+      text-align: center;
+    }
+
+    .yv-collection-carousel__card {
+      gap: 15px;
+    }
+
+    .yv-collection-carousel--full .yv-collection-carousel__content {
+      padding-inline: var(--page-margin, 20px);
+    }
+
+    /* Centre emphasis is desktop only: start-aligned slides with a peek on phones (also before JS). */
+    .yv-collection-carousel--emphasize yv-carousel[data-align='center'] .yv-carousel__track {
+      padding-inline: 0;
+      scroll-padding-inline: 0;
+    }
+
+    .yv-collection-carousel--emphasize yv-carousel[data-align='center'] .yv-carousel__track > * {
+      scroll-snap-align: start;
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    /* Content left, grid right: content 1/3, vertically centred. */
+    .yv-collection-carousel--content_left {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+      align-items: center;
+      gap: 40px;
+    }
+
+    .yv-collection-carousel--content_left .yv-collection-carousel__content {
+      align-items: flex-start;
+    }
+
+    .yv-collection-carousel__arrows {
+      margin-block-start: 10px;
+    }
+
+    /* Content top, left aligned: arrows at the right of the content row. */
+    .yv-collection-carousel--content_top.yv-collection-carousel--align-left .yv-collection-carousel__content {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 20px 30px;
+    }
+
+    .yv-collection-carousel--content_top.yv-collection-carousel--align-left .yv-collection-carousel__arrows {
+      grid-column: 2;
+      grid-row: 1;
+      margin: 0;
+    }
+
+    .yv-collection-carousel--content_top.yv-collection-carousel--align-left .yv-collection-carousel__button {
+      grid-column: 1;
+    }
+
+    .yv-collection-carousel--content_top {
+      gap: 40px;
+    }
+
+    /* Full width: the content keeps the page width, the carousel runs edge to edge. */
+    .yv-collection-carousel--full {
+      grid-template-columns: var(--full-page-grid-with-margins);
+    }
+
+    .yv-collection-carousel--full .yv-collection-carousel__content {
+      grid-column: 2;
+    }
+
+    .yv-collection-carousel--full .yv-collection-carousel__slider {
+      grid-column: 1 / -1;
+    }
+
+    /* Emphasize the centre card. */
+    .yv-collection-carousel--emphasize .yv-collection-carousel__card {
+      transform: scale(0.9);
+      transform-origin: 50% 40%;
+    }
+
+    .yv-collection-carousel--emphasize .yv-collection-carousel__slide.is-center .yv-collection-carousel__card {
+      transform: none;
+    }
+  }
+
+  @media screen and (min-width: 750px) and (prefers-reduced-motion: no-preference) {
+    .yv-collection-carousel--emphasize .yv-collection-carousel__card {
+      transition: transform 1s var(--yv-ease, ease);
+    }
+  }
+
+  @media screen and (min-width: 1300px) {
+    .yv-collection-carousel--emphasize yv-carousel[data-arrows='sides-outside'] > .yv-carousel__controls {
+      inset-inline: calc(-1 * (var(--_arrow-size) + 50px));
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.collection_carousel",
+  "tag": "section",
+  "class": "yv-collection-carousel-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 5,
+  "blocks": [
+    {
+      "type": "_yv-carousel-collection"
+    }
+  ],
+  "settings": [
+    {
+      "type": "select",
+      "id": "style",
+      "label": "t:yv.collection_carousel.settings.style",
+      "options": [
+        {
+          "value": "content_left",
+          "label": "t:yv.collection_carousel.options.content_left"
+        },
+        {
+          "value": "content_top",
+          "label": "t:yv.collection_carousel.options.content_top"
+        }
+      ],
+      "default": "content_left"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "info": "t:yv.collection_carousel.settings.full_width_info",
+      "default": false,
+      "visible_if": "{{ section.settings.style == 'content_top' }}"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:yv.common.settings.text_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        }
+      ],
+      "default": "center",
+      "visible_if": "{{ section.settings.style == 'content_top' }}"
+    },
+    {
+      "type": "range",
+      "id": "columns",
+      "label": "t:yv.collection_carousel.settings.columns",
+      "min": 2,
+      "max": 5,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "checkbox",
+      "id": "emphasize_center",
+      "label": "t:yv.collection_carousel.settings.emphasize_center",
+      "info": "t:yv.collection_carousel.settings.emphasize_center_info",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "text_position",
+      "label": "t:yv.collection_carousel.settings.text_position",
+      "options": [
+        {
+          "value": "overlay",
+          "label": "t:yv.collection_carousel.options.overlay"
+        },
+        {
+          "value": "below",
+          "label": "t:yv.collection_carousel.options.below"
+        }
+      ],
+      "default": "overlay"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.text"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "t:yv.collection_carousel.defaults.heading"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading",
+      "default": "t:yv.collection_carousel.defaults.subheading"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.text",
+      "info": "t:yv.common.settings.button_info",
+      "default": "t:text_defaults.view_all_button_label"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.link",
+      "default": "/collections"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.common.settings.button_size_desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.common.settings.button_size_mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.collection_carousel",
+      "category": "t:yv.categories.collections",
+      "settings": {
+        "style": "content_top",
+        "text_alignment": "center",
+        "columns": 3,
+        "emphasize_center": true,
+        "text_position": "below",
+        "heading": "t:yv.collection_carousel.defaults.heading_centered",
+        "highlight_font": "heading",
+        "heading_size": "large",
+        "subheading": "t:yv.collection_carousel.defaults.subheading_latest",
+        "description": "t:yv.collection_carousel.defaults.description",
+        "button_text": "",
+        "spacing_top_desktop": 40,
+        "spacing_bottom_desktop": 40,
+        "spacing_top_mobile": 36,
+        "spacing_bottom_mobile": 36
+      },
+      "blocks": {
+        "collection_1": {
+          "type": "_yv-carousel-collection",
+          "settings": {}
+        },
+        "collection_2": {
+          "type": "_yv-carousel-collection",
+          "settings": {}
+        },
+        "collection_3": {
+          "type": "_yv-carousel-collection",
+          "settings": {}
+        },
+        "collection_4": {
+          "type": "_yv-carousel-collection",
+          "settings": {}
+        }
+      },
+      "block_order": ["collection_1", "collection_2", "collection_3", "collection_4"]
+    },
+    {
+      "name": "t:yv.names.collection_slider",
+      "category": "t:yv.categories.collections",
+      "settings": {
+        "style": "content_left",
+        "columns": 3,
+        "emphasize_center": false,
+        "text_position": "overlay",
+        "heading": "t:yv.collection_carousel.defaults.heading",
+        "highlight_font": "accent",
+        "heading_size": "large",
+        "subheading": "t:yv.collection_carousel.defaults.subheading",
+        "description": "t:yv.collection_carousel.defaults.description",
+        "spacing_top_desktop": 60,
+        "spacing_bottom_desktop": 60,
+        "spacing_top_mobile": 36,
+        "spacing_bottom_mobile": 36
+      },
+      "blocks": {
+        "collection_1": {
+          "type": "_yv-carousel-collection",
+          "settings": {}
+        },
+        "collection_2": {
+          "type": "_yv-carousel-collection",
+          "settings": {}
+        },
+        "collection_3": {
+          "type": "_yv-carousel-collection",
+          "settings": {}
+        },
+        "collection_4": {
+          "type": "_yv-carousel-collection",
+          "settings": {}
+        }
+      },
+      "block_order": ["collection_1", "collection_2", "collection_3", "collection_4"]
+    }
+  ]
+}
+{% endschema %}

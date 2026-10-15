@@ -1,0 +1,467 @@
+{%- doc -%}
+  Renders a Yuva mega menu panel for a first-level menu item from one of the header's mega menu
+  blocks (blocks/_yv-mega-menu-*.liquid, matched by "Menu label" in blocks/_header-menu.liquid).
+
+  Product content (images, prices) is heavy, so like Horizon's featured products it is only output on
+  the header's hydration pass (Section Rendering API, `section.index` blank) and in the theme editor;
+  the first page render keeps titles and links only.
+
+  @param {object} mega_block - The matched mega menu block.
+  @param {object} parent_link - The first-level link the panel belongs to.
+  @param {string} menu_id - Unique id suffix for this panel (used for tab ids).
+  @param {object} [section] - The header section (hydration check).
+
+  @example
+  {% render 'yv-mega-menu', mega_block: mega_block, parent_link: link, menu_id: 'MegaMenu-1', section: section %}
+{%- enddoc -%}
+
+{%- liquid
+  assign eager = false
+  if section.index == blank or request.design_mode
+    assign eager = true
+  endif
+  assign bs = mega_block.settings
+-%}
+
+{%- case mega_block.type -%}
+  {%- when '_yv-mega-menu-submenu-products' -%}
+    {%- liquid
+      assign product_count = bs.products.size | default: 0
+      assign show_submenu = false
+      if bs.show_submenu and parent_link.links.size > 0
+        assign show_submenu = true
+      endif
+    -%}
+    <div class="yv-mega yv-mega--submenu-products{% unless show_submenu %} yv-mega--products-only{% endunless %}">
+      {%- if show_submenu -%}
+        {%- if parent_link.levels > 1 -%}
+          <div
+            class="yv-mega__columns"
+            style="--yv-mega-columns: {{ parent_link.links.size | at_most: 4 }};"
+          >
+            {%- for child in parent_link.links limit: 4 -%}
+              <div class="yv-mega__column">
+                <a
+                  href="{{ child.url }}"
+                  class="yv-mega__title"
+                >
+                  {{- child.title | escape -}}
+                </a>
+                {%- if child.links.size > 0 -%}
+                  <ul
+                    class="yv-mega__links list-unstyled"
+                    role="list"
+                  >
+                    {%- for grandchild in child.links -%}
+                      <li>
+                        <a
+                          href="{{ grandchild.url }}"
+                          class="yv-mega__link"
+                          {% if grandchild.current %}
+                            aria-current="page"
+                          {% endif %}
+                        >
+                          {{- grandchild.title | escape -}}
+                        </a>
+                      </li>
+                    {%- endfor -%}
+                  </ul>
+                {%- endif -%}
+              </div>
+            {%- endfor -%}
+          </div>
+        {%- else -%}
+          <div class="yv-mega__columns yv-mega__columns--single">
+            <div class="yv-mega__column">
+              <a
+                href="{{ parent_link.url }}"
+                class="yv-mega__title"
+              >
+                {{- parent_link.title | escape -}}
+              </a>
+              <ul
+                class="yv-mega__links list-unstyled"
+                role="list"
+              >
+                {%- for child in parent_link.links -%}
+                  <li>
+                    <a
+                      href="{{ child.url }}"
+                      class="yv-mega__link"
+                      {% if child.current %}
+                        aria-current="page"
+                      {% endif %}
+                    >
+                      {{- child.title | escape -}}
+                    </a>
+                  </li>
+                {%- endfor -%}
+              </ul>
+            </div>
+          </div>
+        {%- endif -%}
+      {%- endif -%}
+
+      <ul
+        class="yv-mega__cards list-unstyled"
+        role="list"
+        style="--yv-mega-cards: {{ product_count | at_least: 1 }};"
+      >
+        {%- if eager -%}
+          {%- for product in bs.products limit: 4 -%}
+            <li class="yv-mega-card">
+              <a
+                href="{{ product.url }}"
+                class="yv-mega-card__media"
+                tabindex="-1"
+                aria-hidden="true"
+              >
+                {%- if product.featured_media -%}
+                  {{
+                    product.featured_media
+                    | image_url: width: 600
+                    | image_tag: loading: 'lazy', widths: '300, 450, 600', sizes: '(min-width: 990px) 15vw, 30vw', alt: ''
+                  }}
+                {%- else -%}
+                  {{ 'product-apparel-1' | placeholder_svg_tag: 'yv-placeholder' }}
+                {%- endif -%}
+              </a>
+              <a
+                href="{{ product.url }}"
+                class="yv-mega-card__title"
+              >
+                {{- product.title | escape -}}
+              </a>
+              <div class="yv-mega-card__price">
+                {%- render 'price', product_resource: product, show_from: true -%}
+              </div>
+            </li>
+          {%- else -%}
+            {%- if request.design_mode -%}
+              {%- for i in (1..4) -%}
+                <li class="yv-mega-card yv-mega-card--placeholder">
+                  <span class="yv-mega-card__media">{{ 'product-apparel-1' | placeholder_svg_tag: 'yv-placeholder' }}</span>
+                  <span class="yv-mega-card__title">{{ 'placeholders.product_title' | t }}</span>
+                </li>
+              {%- endfor -%}
+            {%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+      </ul>
+    </div>
+
+  {%- when '_yv-mega-menu-products-gallery' -%}
+    <div class="yv-mega yv-mega--gallery">
+      <div class="yv-mega__lists">
+        {%- for n in (1..2) -%}
+          {%- liquid
+            assign collection_key = 'collection_' | append: n
+            assign gallery_collection = bs[collection_key]
+          -%}
+          {%- if gallery_collection != blank or request.design_mode -%}
+            <div class="yv-mega__list">
+              {%- if gallery_collection != blank -%}
+                <a
+                  href="{{ gallery_collection.url }}"
+                  class="yv-mega__title"
+                >
+                  {{- gallery_collection.title | escape -}}
+                </a>
+              {%- else -%}
+                <span class="yv-mega__title">{{ 'placeholders.collection_title' | t }}</span>
+              {%- endif -%}
+              <ul
+                class="yv-mega__rows list-unstyled"
+                role="list"
+              >
+                {%- if gallery_collection != blank -%}
+                  {%- for product in gallery_collection.products limit: 4 -%}
+                    <li>
+                      <a
+                        href="{{ product.url }}"
+                        class="yv-mega-row"
+                      >
+                        <span class="yv-mega-row__media">
+                          {%- if eager -%}
+                            {%- if product.featured_media -%}
+                              {{
+                                product.featured_media
+                                | image_url: width: 160
+                                | image_tag: loading: 'lazy', widths: '80, 120, 160', sizes: '58px', alt: ''
+                              }}
+                            {%- else -%}
+                              {{ 'product-apparel-1' | placeholder_svg_tag: 'yv-placeholder' }}
+                            {%- endif -%}
+                          {%- endif -%}
+                        </span>
+                        <div class="yv-mega-row__info">
+                          <span class="yv-mega-row__title">{{ product.title | escape }}</span>
+                          {%- if eager -%}
+                            <div class="yv-mega-row__price">
+                              {%- render 'price', product_resource: product, show_from: true -%}
+                            </div>
+                          {%- endif -%}
+                        </div>
+                      </a>
+                    </li>
+                  {%- endfor -%}
+                {%- else -%}
+                  {%- for i in (1..4) -%}
+                    <li>
+                      <span class="yv-mega-row">
+                        <span class="yv-mega-row__media">{{ 'product-apparel-1' | placeholder_svg_tag: 'yv-placeholder' }}</span>
+                        <span class="yv-mega-row__info">
+                          <span class="yv-mega-row__title">{{ 'placeholders.product_title' | t }}</span>
+                        </span>
+                      </span>
+                    </li>
+                  {%- endfor -%}
+                {%- endif -%}
+              </ul>
+            </div>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+
+      <div class="yv-mega__tiles">
+        {%- for n in (1..2) -%}
+          {%- liquid
+            assign image_key = 'image_' | append: n
+            assign heading_key = 'heading_' | append: n
+            assign subheading_key = 'subheading_' | append: n
+            assign link_key = 'link_' | append: n
+            assign tile_image = bs[image_key]
+            assign tile_heading = bs[heading_key]
+            assign tile_subheading = bs[subheading_key]
+            assign tile_link = bs[link_key]
+            assign tile_tag = 'div'
+            if tile_link != blank
+              assign tile_tag = 'a'
+            endif
+          -%}
+          <{{ tile_tag }}
+            class="yv-mega-tile{% if tile_heading != blank or tile_subheading != blank %} yv-mega-tile--text{% endif %}"
+            {% if tile_link != blank %}
+              href="{{ tile_link }}"
+            {% endif %}
+          >
+            <span class="yv-mega-tile__media">
+              {%- if tile_image != blank and eager -%}
+                {{
+                  tile_image
+                  | image_url: width: 820
+                  | image_tag: loading: 'lazy', widths: '300, 410, 600, 820', sizes: '(min-width: 990px) 22vw, 45vw', alt: tile_image.alt
+                }}
+              {%- elsif tile_image == blank -%}
+                {{ 'collection-apparel-' | append: n | placeholder_svg_tag: 'yv-placeholder' }}
+              {%- endif -%}
+            </span>
+            {%- if tile_heading != blank or tile_subheading != blank -%}
+              <span class="yv-mega-tile__content">
+                {%- if tile_heading != blank -%}
+                  <span class="yv-mega-tile__heading">{{ tile_heading | escape }}</span>
+                {%- endif -%}
+                {%- if tile_subheading != blank -%}
+                  <span class="yv-mega-tile__subheading">{{ tile_subheading | escape }}</span>
+                {%- endif -%}
+              </span>
+            {%- endif -%}
+          </{{ tile_tag }}>
+        {%- endfor -%}
+      </div>
+    </div>
+
+  {%- when '_yv-mega-menu-product-list' -%}
+    {%- liquid
+      assign list_count = 0
+      for n in (1..12)
+        assign collection_key = 'collection_' | append: n
+        if bs[collection_key] != blank
+          assign list_count = list_count | plus: 1
+        endif
+      endfor
+      if list_count == 0 and request.design_mode
+        assign list_count = 3
+      endif
+    -%}
+    <div
+      class="yv-mega yv-mega--product-list"
+      style="--yv-mega-columns: {{ list_count | at_most: 6 | at_least: 1 }};"
+    >
+      {%- assign column_index = 0 -%}
+      {%- for n in (1..12) -%}
+        {%- liquid
+          assign collection_key = 'collection_' | append: n
+          assign list_collection = bs[collection_key]
+        -%}
+        {%- if list_collection != blank -%}
+          {%- assign column_index = column_index | plus: 1 -%}
+          <div class="yv-mega__card-column{% if column_index == 2 or column_index == 4 or column_index == 6 or column_index == 8 or column_index == 10 or column_index == 12 %} yv-mega__card-column--alt{% endif %}">
+            <a
+              href="{{ list_collection.url }}"
+              class="yv-mega__title yv-mega__title--large"
+            >
+              {{- list_collection.title | escape -}}
+            </a>
+            <ul
+              class="yv-mega__links list-unstyled"
+              role="list"
+            >
+              {%- for product in list_collection.products limit: bs.product_count -%}
+                <li>
+                  <a
+                    href="{{ product.url }}"
+                    class="yv-mega__link yv-mega__link--underline"
+                  >
+                    {{- product.title | escape -}}
+                  </a>
+                </li>
+              {%- endfor -%}
+            </ul>
+          </div>
+        {%- endif -%}
+      {%- endfor -%}
+      {%- if column_index == 0 and request.design_mode -%}
+        {%- for n in (1..3) -%}
+          <div class="yv-mega__card-column{% if n == 2 %} yv-mega__card-column--alt{% endif %}">
+            <span class="yv-mega__title yv-mega__title--large">{{ 'placeholders.collection_title' | t }}</span>
+            <ul
+              class="yv-mega__links list-unstyled"
+              role="list"
+            >
+              {%- for i in (1..5) -%}
+                <li>
+                  <span class="yv-mega__link">{{ 'placeholders.product_title' | t }}</span>
+                </li>
+              {%- endfor -%}
+            </ul>
+          </div>
+        {%- endfor -%}
+      {%- endif -%}
+    </div>
+
+  {%- when '_yv-mega-menu-tabs' -%}
+    {%- liquid
+      assign tab_collections = ''
+      for n in (1..6)
+        assign collection_key = 'collection_' | append: n
+        if bs[collection_key] != blank
+          assign tab_collections = tab_collections | append: bs[collection_key].handle | append: ','
+        endif
+      endfor
+      assign tab_handles = tab_collections | split: ','
+    -%}
+    <script
+      src="{{ 'yv-tabs.js' | asset_url }}"
+      type="module"
+      fetchpriority="low"
+    ></script>
+    <div class="yv-mega yv-mega--tabs">
+      <yv-tabs
+        class="yv-tabs yv-tabs--vertical yv-mega-tabs"
+        data-initial-index="0"
+      >
+        <div class="yv-mega-tabs__aside">
+          {%- if bs.heading != blank -%}
+            <p class="yv-mega__title">{{ bs.heading | escape }}</p>
+          {%- endif -%}
+          <div
+            class="yv-tabs__list yv-mega-tabs__list"
+            role="tablist"
+            aria-orientation="vertical"
+            aria-label="{{ bs.heading | default: parent_link.title | escape }}"
+            on:keydown="yv-tabs/onKeydown"
+          >
+            {%- for handle in tab_handles -%}
+              {%- assign tab_collection = collections[handle] -%}
+              <button
+                type="button"
+                class="yv-tabs__tab yv-mega-tabs__tab"
+                role="tab"
+                id="YvMegaTab-{{ menu_id }}-{{ forloop.index }}"
+                aria-controls="YvMegaPanel-{{ menu_id }}-{{ forloop.index }}"
+                aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+                tabindex="{% if forloop.first %}0{% else %}-1{% endif %}"
+                ref="tabs[]"
+                on:click="yv-tabs/select/{{ forloop.index0 }}"
+              >
+                <span class="yv-mega-tabs__label">{{ tab_collection.title | escape }}</span>
+                <span
+                  class="yv-mega-tabs__arrow"
+                  aria-hidden="true"
+                >
+                  {%- render 'yv-icon', name: 'arrow-right', size: 12 -%}
+                </span>
+              </button>
+            {%- else -%}
+              {%- if request.design_mode -%}
+                <span class="yv-tabs__tab yv-mega-tabs__tab is-active">{{ 'placeholders.collection_title' | t }}</span>
+              {%- endif -%}
+            {%- endfor -%}
+          </div>
+        </div>
+
+        <div class="yv-mega-tabs__main">
+          {%- if bs.products_heading != blank -%}
+            <p class="yv-mega__title">{{ bs.products_heading | escape }}</p>
+          {%- endif -%}
+          {%- for handle in tab_handles -%}
+            {%- assign tab_collection = collections[handle] -%}
+            <div
+              class="yv-tabs__panel yv-mega-tabs__panel"
+              role="tabpanel"
+              id="YvMegaPanel-{{ menu_id }}-{{ forloop.index }}"
+              aria-labelledby="YvMegaTab-{{ menu_id }}-{{ forloop.index }}"
+              ref="panels[]"
+              {% unless forloop.first %}
+                hidden
+              {% endunless %}
+            >
+              <ul
+                class="yv-mega-tabs__grid list-unstyled"
+                role="list"
+              >
+                {%- for product in tab_collection.products limit: bs.product_count -%}
+                  <li>
+                    <a
+                      href="{{ product.url }}"
+                      class="yv-mega-tile-card"
+                    >
+                      <span class="yv-mega-tile-card__media">
+                        {%- if eager -%}
+                          {%- if product.featured_media -%}
+                            {{
+                              product.featured_media
+                              | image_url: width: 400
+                              | image_tag: loading: 'lazy', widths: '200, 300, 400', sizes: '(min-width: 990px) 12vw, 30vw', alt: ''
+                            }}
+                          {%- else -%}
+                            {{ 'product-apparel-1' | placeholder_svg_tag: 'yv-placeholder' }}
+                          {%- endif -%}
+                        {%- endif -%}
+                      </span>
+                      <span class="yv-mega-tile-card__title">{{ product.title | escape }}</span>
+                    </a>
+                  </li>
+                {%- endfor -%}
+              </ul>
+            </div>
+          {%- endfor -%}
+          {%- if bs.browse_label != blank and bs.browse_link != blank -%}
+            <a
+              href="{{ bs.browse_link }}"
+              class="yv-mega-browse"
+            >
+              <span>{{ bs.browse_label | escape }}</span>
+              <span
+                class="yv-mega-browse__icon"
+                aria-hidden="true"
+              >
+                {%- render 'yv-icon', name: 'arrow-right', size: 16 -%}
+              </span>
+            </a>
+          {%- endif -%}
+        </div>
+      </yv-tabs>
+    </div>
+{%- endcase -%}

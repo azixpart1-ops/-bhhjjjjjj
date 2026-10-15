@@ -1,0 +1,106 @@
+{%- doc -%}
+  Yuva product title (docs part 2 Featured product > Title; part 4 Template – Default product > Title).
+  Heading in the h2 size of the type scale; the tag is the merchant's SEO choice. Linked to the product
+  everywhere except on that product's own page.
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign tag = block.settings.heading_tag | default: 'h2'
+  assign link_title = true
+  if request.page_type == 'product' and product_resource.id == product.id
+    assign link_title = false
+  endif
+  if product_resource == blank
+    assign link_title = false
+  endif
+-%}
+
+<{{ tag }}
+  class="yv-product-title h2"
+  {{ block.shopify_attributes }}
+>
+  {%- if product_resource == blank -%}
+    {{ 'placeholders.product_title' | t }}
+  {%- elsif link_title -%}
+    <a
+      class="yv-product-title__link"
+      href="{{ product_resource.selected_or_first_available_variant.url | default: product_resource.url }}"
+    >
+      {{- product_resource.title | escape -}}
+    </a>
+  {%- else -%}
+    {{- product_resource.title | escape -}}
+  {%- endif -%}
+</{{ tag }}>
+
+{% stylesheet %}
+  .yv-product-title {
+    margin: 0;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
+
+  .yv-product-title__link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .yv-product-title__link:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.product_title",
+  "tag": null,
+  "settings": [
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.product_title",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

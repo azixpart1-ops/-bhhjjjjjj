@@ -70,6 +70,13 @@
           {%- render 'gift-card-recipient-form', product: product, form: form, section: section, block: block -%}
           <span class="buy-buttons-block__bar">
         {%- endif -%}
+        {%- comment -%} yv: subscription plans (Show subscription plans) and the terms checkbox, above the buttons. {%- endcomment -%}
+        {%- if block_settings.show_selling_plans and product.selling_plan_groups.size > 0 -%}
+          {% render 'yv-selling-plans', product: product, block_id: block.id %}
+        {%- endif -%}
+        {%- if block_settings.terms_enable and block_settings.terms_text != blank -%}
+          {% render 'yv-terms', text: block_settings.terms_text, block_id: block.id %}
+        {%- endif -%}
         <div
           class="product-form-buttons spacing-style{% if block_settings.stacking %} product-form-buttons--stacked{% endif %}"
           style="{% render 'spacing-style', settings: block_settings %}"
@@ -230,12 +237,15 @@
             add_to_cart_text: add_to_cart_text
           %}
 
-          {% content_for 'block',
-            type: 'accelerated-checkout',
-            id: 'accelerated-checkout',
-            can_add_to_cart: can_add_to_cart,
-            form_obj: form
-          %}
+          {%- comment -%} yv: Show dynamic checkout button (block setting show_dynamic_checkout). {%- endcomment -%}
+          {%- unless block_settings.show_dynamic_checkout == false -%}
+            {% content_for 'block',
+              type: 'accelerated-checkout',
+              id: 'accelerated-checkout',
+              can_add_to_cart: can_add_to_cart,
+              form_obj: form
+            %}
+          {%- endunless -%}
         </div>
         {%- if block_settings.gift_card_form and product.gift_card? -%}
           </span>
@@ -396,6 +406,33 @@
       "id": "stacking",
       "label": "t:settings.always_stack_buttons",
       "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_dynamic_checkout",
+      "label": "t:yv.product.settings.show_dynamic_checkout",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_selling_plans",
+      "label": "t:yv.product.settings.show_selling_plans",
+      "info": "t:yv.product.info.show_selling_plans",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "terms_enable",
+      "label": "t:yv.product.settings.terms_enable",
+      "info": "t:yv.product.info.terms_enable",
+      "default": false
+    },
+    {
+      "type": "inline_richtext",
+      "id": "terms_text",
+      "label": "t:yv.product.settings.terms_text",
+      "default": "t:yv.product.defaults.terms_text",
+      "visible_if": "{{ block.settings.terms_enable }}"
     },
     {
       "type": "color",

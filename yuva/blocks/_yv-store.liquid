@@ -1,0 +1,163 @@
+{% doc %}
+  Yuva store (Store locator section): one radio card in the store list, with the store name, its
+  details (address, hours, phone) and, when a Google Maps API key is set, a map marker at the
+  Location address. The name is matched against the store's pickup location name, ignoring case and
+  outer spaces.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign store_name = block.settings.store_name | strip
+  if store_name == blank
+    assign store_name = 'yv.store_locator.untitled' | t
+  endif
+  assign input_id = 'YvStore-' | append: block.id
+-%}
+
+<div
+  class="yv-store-card"
+  {{ block.shopify_attributes }}
+>
+  <input
+    type="radio"
+    id="{{ input_id }}"
+    class="yv-store-card__input"
+    name="yv-store-{{ section.id }}"
+    value="{{ store_name | escape }}"
+    data-store-name="{{ store_name | escape }}"
+    {% if block.settings.location != blank %}
+      data-location="{{ block.settings.location | strip | escape }}"
+    {% endif %}
+    {% if block.settings.store_details != blank %}
+      aria-describedby="{{ input_id }}-details"
+    {% endif %}
+  >
+  <label
+    class="yv-store-card__name"
+    for="{{ input_id }}"
+  >
+    {{- store_name | escape -}}
+  </label>
+  {%- if block.settings.store_details != blank -%}
+    <div
+      id="{{ input_id }}-details"
+      class="yv-store-card__details rte"
+    >
+      {{ block.settings.store_details }}
+    </div>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .yv-store-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 4px;
+    align-items: start;
+    padding: 16px 18px;
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.15);
+    border-radius: var(--yv-layout-radius, 10px);
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .yv-store-card:hover {
+    border-color: rgb(var(--color-foreground-rgb) / 0.4);
+  }
+
+  .yv-store-card:has(.yv-store-card__input:checked) {
+    border-color: var(--color-foreground);
+    box-shadow: inset 0 0 0 1px var(--color-foreground);
+  }
+
+  .yv-store-card:has(.yv-store-card__input:focus-visible) {
+    outline: var(--focus-outline-width, 2px) solid currentColor;
+    outline-offset: 2px;
+  }
+
+  .yv-store-card__input {
+    grid-row: 1;
+    grid-column: 1;
+    width: 18px;
+    height: 18px;
+    margin: 2px 0 0;
+    accent-color: var(--color-foreground);
+    cursor: pointer;
+  }
+
+  .yv-store-card__input:focus-visible {
+    outline: none;
+  }
+
+  .yv-store-card__name {
+    grid-row: 1;
+    grid-column: 2;
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: 600;
+    font-size: var(--yv-text-lg, 15.36px);
+    line-height: 1.4;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+  }
+
+  /* The whole card selects the store. */
+  .yv-store-card__name::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+
+  .yv-store-card__details {
+    grid-column: 2;
+    font-size: var(--yv-text-md, 13.44px);
+    line-height: 1.5;
+    color: rgb(var(--color-foreground-rgb) / 0.75);
+  }
+
+  .yv-store-card__details > * {
+    margin-block: 0;
+  }
+
+  .yv-store-card__details > * + * {
+    margin-block-start: 4px;
+  }
+
+  .yv-store-card__details a {
+    position: relative;
+    z-index: 1;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.store",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "store_name",
+      "label": "t:yv.store_locator.settings.store_name",
+      "info": "t:yv.store_locator.settings.store_name_info",
+      "default": "Main store"
+    },
+    {
+      "type": "richtext",
+      "id": "store_details",
+      "label": "t:yv.store_locator.settings.store_details"
+    },
+    {
+      "type": "text",
+      "id": "location",
+      "label": "t:yv.store_locator.settings.location",
+      "info": "t:yv.store_locator.settings.location_info"
+    }
+  ]
+}
+{% endschema %}

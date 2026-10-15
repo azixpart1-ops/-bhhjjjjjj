@@ -1,0 +1,73 @@
+{%- doc -%}
+  Yuva "Size chart" for the variant picker (docs part 4, Template – Default product > Variant picker):
+  a ruler icon + underlined "Size chart" link that opens a modal dialog (Horizon dialog-component)
+  titled with the page title, holding the page content in an rte container.
+
+  Render the trigger where the link should sit (the size option's title row) and the dialog once,
+  outside the option rows. Both parts share the same `id`. Renders nothing when `page` is blank.
+
+  @param {object} page - The size chart page (block setting size_chart_page or metafield yuva_theme.size_chart).
+  @param {string} id - Unique suffix (the variant picker block id).
+  @param {string} [part] - 'trigger' (default) or 'dialog'.
+
+  @example
+  {% render 'yv-size-chart', page: size_chart_page, id: block.id, part: 'trigger' %}
+  {% render 'yv-size-chart', page: size_chart_page, id: block.id, part: 'dialog' %}
+{%- enddoc -%}
+
+{%- liquid
+  assign chart_part = part | default: 'trigger'
+  assign dialog_id = 'YvSizeChart-' | append: id
+-%}
+
+{%- if page != blank -%}
+  {%- if chart_part == 'dialog' -%}
+    <script
+      src="{{ 'dialog.js' | asset_url }}"
+      type="module"
+    ></script>
+    {% render 'dialog-styles' %}
+    <dialog-component
+      id="{{ dialog_id }}"
+      class="yv-size-chart"
+    >
+      <dialog
+        ref="dialog"
+        class="yv-size-chart__dialog yv-dialog dialog-modal color-custom-popover"
+        scroll-lock
+        aria-labelledby="{{ dialog_id }}-title"
+      >
+        <div class="yv-dialog__header">
+          <h2
+            id="{{ dialog_id }}-title"
+            class="yv-dialog__title h4"
+          >
+            {{ page.title | escape }}
+          </h2>
+          <button
+            type="button"
+            class="button button-unstyled close-button yv-dialog__close"
+            on:click="/closeDialog"
+            aria-label="{{ 'accessibility.close_dialog' | t }}"
+          >
+            <span class="svg-wrapper">{{- 'icon-close.svg' | inline_asset_content -}}</span>
+          </button>
+        </div>
+        <div class="yv-dialog__body rte">
+          {{ page.content }}
+        </div>
+      </dialog>
+    </dialog-component>
+  {%- else -%}
+    <button
+      type="button"
+      class="button-unstyled yv-size-chart__trigger"
+      aria-haspopup="dialog"
+      aria-controls="{{ dialog_id }}"
+      on:click="#{{ dialog_id }}/showDialog"
+    >
+      {%- render 'yv-icon', name: 'ruler', size: 18 -%}
+      <span class="yv-size-chart__label">{{ 'yv.product.size_chart' | t }}</span>
+    </button>
+  {%- endif -%}
+{%- endif -%}

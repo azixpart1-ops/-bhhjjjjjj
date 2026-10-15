@@ -1,0 +1,69 @@
+{%- doc -%}
+  Gift-wrap checkbox (Theme settings > Cart drawer > Gift wrap), for the cart drawer and the cart page.
+
+  Renders only when a gift-wrap product with an available variant is chosen and the cart has items.
+  Checked while any cart line belongs to that product. Checking adds the variant (quantity 1) and
+  unchecking removes its line, both through `assets/yv-cart.js`, which drives Horizon's cart events
+  so the drawer, the cart page and the cart bubble refresh.
+
+  @param {string} [context] - 'drawer' (default) or 'page'
+
+  @example
+  {% render 'yv-gift-wrap', context: 'page' %}
+{%- enddoc -%}
+
+{%- liquid
+  assign context = context | default: 'drawer'
+  assign gift_product = settings.yv_gift_wrap_product
+  assign gift_variant = gift_product.selected_or_first_available_variant
+-%}
+
+{%- if gift_product != blank and gift_variant.available and cart.item_count > 0 -%}
+  {%- liquid
+    assign gift_lines = cart.items | where: 'product_id', gift_product.id
+    assign gift_line_key = ''
+    if gift_lines.size > 0
+      assign gift_line_key = gift_lines.first.key
+    endif
+    assign gift_text = settings.yv_gift_wrap_text | default: gift_product.title
+    assign input_id = 'YvGiftWrap-' | append: context
+  -%}
+  <yv-gift-wrap-component
+    class="yv-gift-wrap yv-gift-wrap--{{ context }}"
+    data-variant-id="{{ gift_variant.id }}"
+    data-line-key="{{ gift_line_key }}"
+  >
+    <input
+      type="checkbox"
+      id="{{ input_id }}"
+      class="yv-gift-wrap__input"
+      on:change="/toggle"
+      ref="input"
+      {% if gift_line_key != blank %}
+        checked
+      {% endif %}
+    >
+    <label
+      class="yv-gift-wrap__label"
+      for="{{ input_id }}"
+    >
+      <span
+        class="yv-gift-wrap__box"
+        aria-hidden="true"
+      >
+        {%- render 'yv-icon', name: 'check', size: 12, stroke: 2.5 -%}
+      </span>
+      <span class="yv-gift-wrap__icon">{% render 'yv-icon', name: 'gift', size: 18 %}</span>
+      <span class="yv-gift-wrap__text">
+        {{- gift_text | escape }}
+        <span class="yv-gift-wrap__price">({{ gift_variant.price | money }})</span>
+      </span>
+    </label>
+    <p
+      class="yv-gift-wrap__error"
+      role="alert"
+      ref="error"
+      hidden
+    ></p>
+  </yv-gift-wrap-component>
+{%- endif -%}

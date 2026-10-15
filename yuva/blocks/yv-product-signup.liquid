@@ -1,0 +1,174 @@
+{%- doc -%}
+  Yuva product sign up / back-in-stock notify (docs part 4 product page > Product sign up): a heading,
+  then an email field and a button on one row (stacked under 400px). It posts a contact form whose
+  body names the product and its URL, so the merchant is emailed and notifies the visitor manually.
+  After posting (the page reloads at #yv-product-signup-<block id>) the row is replaced by the thanks
+  message. Product page only (hidden in quick view).
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign form_id = 'yv-product-signup-' | append: block.id
+  assign product_link = request.origin | append: product_resource.url
+  assign button_text = block.settings.button_text
+  if button_text == blank
+    assign button_text = 'yv.product.signup_button' | t
+  endif
+-%}
+
+<div
+  class="yv-signup yv-pdp-only"
+  {{ block.shopify_attributes }}
+>
+  {%- if block.settings.heading != blank -%}
+    <p class="yv-signup__heading">{{ block.settings.heading | escape }}</p>
+  {%- endif -%}
+  {%- form 'contact', id: form_id, class: 'yv-signup__form' -%}
+    {%- if form.posted_successfully? -%}
+      <p
+        class="yv-signup__success"
+        role="status"
+        data-yv-signup-success
+        hidden
+      >
+        {{ 'yv.product.signup_success' | t }}
+      </p>
+    {%- endif -%}
+    {%- if form.errors -%}
+      <p
+        class="yv-signup__error"
+        role="alert"
+        data-yv-signup-error
+        hidden
+      >
+        {{ form.errors | default_errors }}
+      </p>
+    {%- endif -%}
+    <input
+      type="hidden"
+      name="contact[body]"
+      value="{{ 'yv.product.signup_body' | t: title: product_resource.title, url: product_link | escape }}"
+    >
+    <div
+      class="yv-signup__row"
+      data-yv-signup-fields
+    >
+      <label
+        class="visually-hidden"
+        for="{{ form_id }}-email"
+      >
+        {{- 'yv.product.form.email' | t -}}
+      </label>
+      <input
+        class="field__input yv-input yv-signup__input"
+        type="email"
+        id="{{ form_id }}-email"
+        name="contact[email]"
+        autocomplete="email"
+        autocapitalize="off"
+        spellcheck="false"
+        required
+        aria-required="true"
+        placeholder="{{ 'yv.common.newsletter.placeholder' | t }}"
+      >
+      <button
+        type="submit"
+        class="button yv-signup__button"
+      >
+        {{ button_text | escape }}
+      </button>
+    </div>
+  {%- endform -%}
+</div>
+
+<script type="module">
+  {%- comment -%} Show the result only in the form that was posted (the URL ends with its id). {%- endcomment -%}
+  if (location.hash === '#' + {{ form_id | json }}) {
+    const form = document.getElementById({{ form_id | json }});
+    const success = form?.querySelector('[data-yv-signup-success]');
+    const error = form?.querySelector('[data-yv-signup-error]');
+    if (success) {
+      success.hidden = false;
+      form.querySelector('[data-yv-signup-fields]')?.setAttribute('hidden', '');
+    } else if (error) {
+      error.hidden = false;
+    }
+  }
+</script>
+
+{% stylesheet %}
+  .yv-signup__heading {
+    margin: 0 0 10px;
+    font-size: var(--yv-text-md, 0.875rem);
+    font-weight: 700;
+  }
+
+  .yv-signup__form {
+    container-type: inline-size;
+  }
+
+  .yv-signup__row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .yv-signup__row[hidden] {
+    display: none;
+  }
+
+  .yv-signup__input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .yv-signup__button {
+    flex: 0 0 auto;
+  }
+
+  .yv-signup__success,
+  .yv-signup__error {
+    margin: 0 0 10px;
+  }
+
+  .yv-signup__error {
+    color: var(--yv-error, #ec7c7c);
+  }
+
+  @container (max-width: 399px) {
+    .yv-signup__row {
+      flex-direction: column;
+    }
+
+    .yv-signup__button {
+      width: 100%;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.product_signup",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.product.info.signup_heading",
+      "default": "Get notified about this product"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text",
+      "default": "Sign up"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.product_signup",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

@@ -8,7 +8,15 @@
   @param {string} [sort_position] - { 'desktop' | 'mobile' } Used in a data-testID selector for automated testing
   @param {boolean} should_use_select_on_mobile - Whether to use a select element for the sorting component on mobile
   @param {string} section_id - The section ID
+  @param {string} [id_suffix] - yv: appended to the element ids so the sort can be rendered twice against the same form (Yuva mobile toolbar). The copy's radios share the first copy's radio group, so they are not pre-checked; the current option is marked with aria-selected. Default: ''
 {%- enddoc -%}
+
+{%- comment -%}
+  yv: b-catalog wiring — `id_suffix` keeps ids unique when the Yuva mobile toolbar renders a second
+  copy bound to the same form; the summary reads "Sort by" (Yuva wording) and the options panel
+  carries its title for the Yuva mobile bottom sheet (assets/yv-collection.css).
+{%- endcomment -%}
+{%- assign uid = section_id | append: id_suffix -%}
 
 <sorting-filter-component
   class="sorting-filter{% if filter_style == 'horizontal' %} sorting-filter__horizontal{% endif %}"
@@ -30,14 +38,14 @@
 
   <div class="sorting-filter__container {% if should_use_select_on_mobile %} desktop:hidden {% else %} hidden {% endif %}">
     <label
-      for="sort-select-{{ section_id }}"
+      for="sort-select-{{ uid }}"
       class="facets__label"
     >
       {{- 'actions.sort' | t -}}
     </label>
     <div class="sorting-filter__select-wrapper">
       <select
-        id="sort-select-{{ section_id }}"
+        id="sort-select-{{ uid }}"
         name="sort_by"
         class="sorting-filter__select"
         {% if should_use_select_on_mobile == false %}
@@ -71,7 +79,7 @@
   {% capture accordion_children %}
     <details
       ref="details"
-      id="Sorting-{{ section_id }}"
+      id="Sorting-{{ uid }}"
       data-default-sort-by="{{ default_sort_by }}"
       class="facets__panel {% if should_use_select_on_mobile %} mobile:hidden {% endif %}"
       data-auto-close-details="desktop,mobile"
@@ -81,14 +89,14 @@
         class="facets__summary"
         role="button"
         aria-expanded="false"
-        aria-controls="sorting-options-{{ section_id }}-{{ suffix }}"
+        aria-controls="sorting-options-{{ uid }}-{{ suffix }}"
         ref="summary"
       >
         <span
           class="facets__label"
-          id="sort-label-{{ section_id }}"
+          id="sort-label-{{ uid }}"
         >
-          {{- 'actions.sort' | t -}}
+          {{- 'yv.catalog.sort_by' | t -}}
         </span>
         <span
           class="facets__status h6 desktop:hidden"
@@ -100,16 +108,17 @@
         </span>
       </summary>
       <floating-panel-component
-        id="sorting-options-{{ section_id }}-{{ suffix }}"
+        id="sorting-options-{{ uid }}-{{ suffix }}"
         class="sorting-filter__options color-custom-popover"
         role="listbox"
-        aria-labelledby="sort-label-{{ section_id }}"
+        aria-labelledby="sort-label-{{ uid }}"
+        data-title="{{ 'yv.catalog.sort_by' | t | escape }}"
         ref="listbox"
       >
         <div class="sorting-filter__options-inner">
           {% for option in results.sort_options %}
             <label
-              for="sort-option-{{ option.value }}-{{ section_id }}"
+              for="sort-option-{{ option.value }}-{{ uid }}"
             >
               <div
                 class="sorting-filter__option"
@@ -120,14 +129,14 @@
                 <input
                   type="radio"
                   name="sort_by"
-                  id="sort-option-{{ option.value }}-{{ section_id }}"
+                  id="sort-option-{{ option.value }}-{{ uid }}"
                   {% if suffix != blank %}
                     form="FacetFiltersForm--{{ section_id }}-{{ suffix }}"
                   {% endif %}
                   value="{{ option.value }}"
                   class="sorting-filter__input"
                   data-option-name="{{ option.name }}"
-                  {% if option.value == sort_by %}
+                  {% if option.value == sort_by and id_suffix == blank %}
                     checked
                   {% endif %}
                   aria-hidden="true"

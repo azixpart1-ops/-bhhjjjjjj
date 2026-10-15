@@ -1,0 +1,236 @@
+{%- doc -%}
+  A Yuva utility link row in the header (static block of sections/header.liquid, used twice:
+  `header-utility-primary` for the "browse" links and `header-utility-secondary` for the quick
+  links such as "All Categories" and "Shipping & Return"). Links come from an optional menu
+  (first level) followed by Link blocks (label, link, icon). The header places the row with its
+  "Links" position and row settings; the mobile menu drawer shows the same links.
+
+  @param {string} [variant] - 'drawer' renders the links as a plain list for the mobile menu drawer.
+{%- enddoc -%}
+
+{%- liquid
+  assign menu = block.settings.menu
+  capture child_links
+    content_for 'blocks'
+  endcapture
+  assign child_links = child_links | strip
+
+  assign has_links = false
+  if menu.links.size > 0 or child_links != blank
+    assign has_links = true
+  endif
+
+  if variant == 'drawer' and block.settings.show_in_drawer == false
+    assign has_links = false
+  endif
+
+  assign nav_label = block.settings.title | default: menu.title | default: shop.name
+-%}
+
+{%- if has_links -%}
+  {%- if variant == 'drawer' -%}
+    <ul
+      class="yv-header-utility yv-header-utility--drawer list-unstyled"
+      role="list"
+    >
+      {%- for link in menu.links -%}
+        <li class="yv-header-utility__item">
+          <a
+            href="{{ link.url }}"
+            class="yv-header-link"
+            {% if link.current %}
+              aria-current="page"
+            {% endif %}
+          >
+            <span class="yv-header-link__label">{{ link.title | escape }}</span>
+          </a>
+        </li>
+      {%- endfor -%}
+      {{ child_links }}
+    </ul>
+  {%- else -%}
+    <nav
+      class="yv-header-utility{% if block.settings.underline_hover %} yv-header-utility--underline{% endif %}"
+      aria-label="{{ nav_label | escape }}"
+      style="--yv-utility-gap: {{ block.settings.gap }}px; --yv-utility-size: {{ block.settings.font_size }}px;"
+      {{ block.shopify_attributes }}
+    >
+      <ul
+        class="yv-header-utility__list list-unstyled"
+        role="list"
+      >
+        {%- for link in menu.links -%}
+          <li class="yv-header-utility__item">
+            <a
+              href="{{ link.url }}"
+              class="yv-header-link"
+              {% if link.current %}
+                aria-current="page"
+              {% endif %}
+            >
+              <span class="yv-header-link__label">{{ link.title | escape }}</span>
+            </a>
+          </li>
+        {%- endfor -%}
+        {{ child_links }}
+      </ul>
+    </nav>
+  {%- endif -%}
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-header-utility {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    min-width: 0;
+  }
+
+  .yv-header-utility__list {
+    display: flex;
+    align-items: stretch;
+    gap: var(--yv-utility-gap, 26px);
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .yv-header-utility__item {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .yv-header-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    color: var(--color-foreground);
+    font-family: var(--yv-nav-font-family, var(--font-body--family));
+    font-style: var(--yv-nav-font-style, normal);
+    font-weight: var(--yv-nav-font-weight, 400);
+    font-size: var(--yv-utility-size, 13px);
+    line-height: 22px;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: color 0.3s ease;
+  }
+
+  .yv-header-link__icon {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .yv-header-link__icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .yv-header-utility--underline .yv-header-link::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    bottom: 0;
+    width: 0;
+    height: 3px;
+    background-color: currentColor;
+    transition: width 0.4s ease;
+  }
+
+  @media (hover: hover) {
+    .yv-header-link:hover {
+      color: var(--yv-header-hover, rgb(var(--color-foreground-rgb) / var(--opacity-subdued-text)));
+    }
+
+    .yv-header-utility--underline .yv-header-link:hover::after {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yv-header-link,
+    .yv-header-utility--underline .yv-header-link::after {
+      transition: none;
+    }
+  }
+
+  /* Hidden where the header collapses to its mobile / drawer layout; the drawer lists the links. */
+  @media screen and (max-width: 749px) {
+    .yv-header-utility:not(.yv-header-utility--drawer) {
+      display: none;
+    }
+  }
+
+  #header-component[data-menu-style='drawer'] .yv-header-utility:not(.yv-header-utility--drawer) {
+    display: none;
+  }
+
+  .yv-header-utility--drawer {
+    display: block;
+    height: auto;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.header_links",
+  "tag": null,
+  "blocks": [
+    {
+      "type": "_yv-header-link"
+    }
+  ],
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "t:yv.header.settings.links_title",
+      "info": "t:yv.header.settings.links_title_info"
+    },
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "t:yv.header.settings.links_menu",
+      "info": "t:yv.header.settings.links_menu_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.typography"
+    },
+    {
+      "type": "range",
+      "id": "font_size",
+      "label": "t:yv.header.settings.font_size",
+      "min": 11,
+      "max": 18,
+      "step": 1,
+      "unit": "px",
+      "default": 13
+    },
+    {
+      "type": "range",
+      "id": "gap",
+      "label": "t:yv.header.settings.links_gap",
+      "min": 10,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 26
+    },
+    {
+      "type": "checkbox",
+      "id": "underline_hover",
+      "label": "t:yv.header.settings.underline_hover",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_in_drawer",
+      "label": "t:yv.header.settings.show_in_drawer",
+      "default": true
+    }
+  ]
+}
+{% endschema %}

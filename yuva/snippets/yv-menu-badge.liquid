@@ -1,0 +1,31 @@
+{%- doc -%}
+  Yuva menu badge for a first-level menu link: the first `_yv-menu-badge` header block whose
+  "Menu label" matches the link title (case-insensitive). Outputs nothing when none matches.
+
+  @param {object} link - The first-level link.
+  @param {object[]} badges - The header's `_yv-menu-badge` blocks (`section.blocks | where: 'type', '_yv-menu-badge'`).
+
+  @example
+  {% render 'yv-menu-badge', link: link, badges: badge_blocks %}
+{%- enddoc -%}
+
+{%- liquid
+  assign link_key = link.title | strip | downcase
+  assign badge_block = null
+  for candidate in badges
+    assign candidate_key = candidate.settings.menu_label | strip | downcase
+    if candidate_key != blank and candidate_key == link_key
+      assign badge_block = candidate
+      break
+    endif
+  endfor
+-%}
+
+{%- if badge_block and badge_block.settings.badge_text != blank -%}
+  <span
+    class="yv-menu-badge"
+    style="--yv-badge-bg: {{ badge_block.settings.badge_color_bg }}; --yv-badge-text: {{ badge_block.settings.badge_color_text }};"
+  >
+    {{- badge_block.settings.badge_text | escape -}}
+  </span>
+{%- endif -%}

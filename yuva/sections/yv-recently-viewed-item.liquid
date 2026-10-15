@@ -1,0 +1,40 @@
+{% comment %}
+  Section contract: yv-recently-viewed-item (helper, never added in the editor)
+  Rendered only through the Section Rendering API by assets/yv-product.js:
+  GET /products/<handle>?section_id=yv-recently-viewed-item returns one Yuva product card for that
+  product, built from the card's child blocks (static, default settings) inside Horizon's product-card
+  snippet, so the recently viewed row matches every other Yuva card on any template.
+{% endcomment %}
+
+{%- liquid
+  assign item = product | default: closest.product
+-%}
+
+{%- if item != blank -%}
+  <div
+    data-yv-rv-item
+    data-product-id="{{ item.id }}"
+  >
+    {%- capture children -%}
+      {% content_for 'block', type: '_product-card-gallery', id: 'rv-gallery', closest.product: item %}
+      {% content_for 'block', type: '_yv-card-vendor', id: 'rv-vendor', closest.product: item %}
+      {% content_for 'block', type: 'product-title', id: 'rv-title', closest.product: item %}
+      {% content_for 'block', type: 'price', id: 'rv-price', closest.product: item %}
+      {% content_for 'block', type: 'swatches', id: 'rv-swatches', closest.product: item %}
+      {% content_for 'block', type: '_yv-card-extras', id: 'rv-extras', closest.product: item %}
+    {%- endcapture -%}
+    {% render 'product-card', children: children, product: item, product_card_gap: 5, product_view_context: 'recently_viewed' %}
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "t:yv.names.recently_viewed_item",
+  "tag": "div",
+  "class": "yv-recently-viewed-item",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": []
+}
+{% endschema %}

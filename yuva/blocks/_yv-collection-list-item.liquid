@@ -1,0 +1,100 @@
+{%- doc -%}
+  One collection of sections/yv-collection-list.liquid, linked to the collection.
+  Image: the collection image, else the first product's image, else a placeholder.
+  Card style follows the section's "Card style":
+  - overlay: an image tile (Theme settings > Images > Collection ratio) with the title over its
+    lower part; on hover the image zooms and a frosted bar with the title and an arrow slides in.
+    Below 750px the tile becomes a row (thumbnail, title, arrow button).
+  - circle: a round image with the title under it.
+{%- enddoc -%}
+
+{%- liquid
+  assign collection = block.settings.collection
+  assign card_style = section.settings.card_style | default: 'overlay'
+
+  assign card_title = 'placeholders.collection_title' | t
+  assign card_url = routes.collections_url
+  assign card_image = collection.featured_image
+  if collection != blank
+    assign card_title = collection.title
+    assign card_url = collection.url
+    if card_image == blank
+      assign card_image = collection.products.first.featured_image
+    endif
+  endif
+
+  assign block_position = section.blocks | find_index: 'id', block.id
+  assign art_index = block_position | default: 0 | modulo: 6 | plus: 1
+  assign placeholder_name = 'collection-' | append: art_index
+
+  if card_style == 'circle'
+    assign image_sizes = '(min-width: 750px) 160px, 100px'
+  else
+    assign columns = section.settings.columns | default: 4
+    assign image_sizes = '(min-width: 1400px) calc(1270px / ' | append: columns | append: '), (min-width: 990px) calc(100vw / ' | append: columns | append: '), (min-width: 750px) 33vw, 120px'
+  endif
+-%}
+
+<div
+  class="yv-collection-list__item yv-collection-list__item--{{ card_style }}"
+  {{ block.shopify_attributes }}
+>
+  <a
+    href="{{ card_url }}"
+    class="yv-collection-list__card"
+  >
+    <span class="yv-collection-list__media yv-media">
+      {%- if card_image != blank -%}
+        {{
+          card_image
+          | image_url: width: 900
+          | image_tag:
+            widths: '120, 200, 320, 450, 600, 900',
+            sizes: image_sizes,
+            loading: 'lazy',
+            alt: '',
+            class: 'yv-collection-list__image'
+        }}
+      {%- else -%}
+        {{ placeholder_name | placeholder_svg_tag: 'yv-collection-list__image yv-placeholder' }}
+      {%- endif -%}
+    </span>
+    <span class="yv-collection-list__title">{{ card_title | escape }}</span>
+    {%- if card_style == 'overlay' -%}
+      <span
+        class="yv-collection-list__bar"
+        aria-hidden="true"
+      >
+        <span class="yv-collection-list__bar-title">{{ card_title | escape }}</span>
+        <span class="yv-collection-list__arrow">
+          {%- render 'yv-icon', name: 'arrow-right', size: 14 -%}
+        </span>
+      </span>
+      <span
+        class="yv-collection-list__arrow yv-collection-list__arrow--row"
+        aria-hidden="true"
+      >
+        {%- render 'yv-icon', name: 'arrow-right', size: 14 -%}
+      </span>
+    {%- endif -%}
+  </a>
+</div>
+
+{% schema %}
+{
+  "name": "t:yv.names.collection_list_item",
+  "tag": null,
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "t:yv.common.settings.collection"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.collection_list_item"
+    }
+  ]
+}
+{% endschema %}

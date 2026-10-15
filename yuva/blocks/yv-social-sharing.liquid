@@ -1,0 +1,134 @@
+{%- doc -%}
+  Yuva social sharing (docs part 2 Featured product > Social sharing; part 4 product page). "Share"
+  then Facebook, X/Twitter and Pinterest share links as 44px grey circles, each opening the network's
+  share page in a new tab with the product URL, title and featured image.
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign share_url = request.origin | append: product_resource.url | url_encode
+  assign share_title = product_resource.title | url_encode
+  assign share_image = product_resource.featured_image | image_url: width: 1200 | prepend: 'https:' | url_encode
+  if product_resource == blank
+    assign share_url = request.origin | url_encode
+    assign share_title = shop.name | url_encode
+  endif
+  assign new_window = 'yv.common.opens_new_window' | t
+-%}
+
+<div
+  class="yv-share"
+  {{ block.shopify_attributes }}
+>
+  <span class="yv-share__label">{{ 'yv.product.share' | t }}</span>
+  <ul
+    class="yv-share__list"
+    role="list"
+  >
+    <li>
+      <a
+        class="yv-share__link"
+        href="https://www.facebook.com/sharer/sharer.php?u={{ share_url }}"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="{{ 'yv.product.share_on' | t: network: 'Facebook' }} ({{ new_window }})"
+      >
+        {%- render 'yv-icon', name: 'facebook', size: 16 -%}
+      </a>
+    </li>
+    <li>
+      <a
+        class="yv-share__link"
+        href="https://twitter.com/intent/tweet?text={{ share_title }}&url={{ share_url }}"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="{{ 'yv.product.share_on' | t: network: 'X' }} ({{ new_window }})"
+      >
+        {%- render 'yv-icon', name: 'x', size: 16 -%}
+      </a>
+    </li>
+    <li>
+      <a
+        class="yv-share__link"
+        href="https://pinterest.com/pin/create/button/?url={{ share_url }}{% if product_resource.featured_image %}&media={{ share_image }}{% endif %}&description={{ share_title }}"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="{{ 'yv.product.share_on' | t: network: 'Pinterest' }} ({{ new_window }})"
+      >
+        {%- render 'yv-icon', name: 'pinterest', size: 16 -%}
+      </a>
+    </li>
+  </ul>
+</div>
+
+{% stylesheet %}
+  .yv-share {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 15px;
+  }
+
+  .yv-share__label {
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: var(--font-heading--weight);
+  }
+
+  .yv-share__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .yv-share__link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--yv-social-bg, #e6e6e6);
+    color: var(--color-foreground);
+  }
+
+  .yv-share__link svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-share__link {
+      transition:
+        background-color 0.3s var(--yv-ease, ease),
+        color 0.3s var(--yv-ease, ease);
+    }
+  }
+
+  .yv-share__link:hover {
+    background: var(--color-foreground);
+    color: var(--color-background);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.social_sharing",
+  "tag": null,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "t:yv.product.info.social_sharing"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.social_sharing",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

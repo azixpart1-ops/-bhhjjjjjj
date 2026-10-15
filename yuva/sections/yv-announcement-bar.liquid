@@ -1,0 +1,890 @@
+{% comment %}
+  Section contract: yv-announcement-bar
+  Yuva top bar for the header group: up to three announcements (carousel or marquee), each with an
+  optional icon, countdown and button; desktop language and currency selectors (Horizon
+  localization-form, the page's only 'dropdown' instance: turn the header's own desktop selector off
+  with its "Show selectors in the mobile menu only" setting); social icons from Theme settings;
+  an optional background image (desktop / mobile) or video under a colour overlay; a close button
+  remembered for the browser session.
+  @example
+  Theme editor > Header group > Add section > "Yuva announcement bar"
+{% endcomment %}
+
+{%- liquid
+  assign show_bar = section.settings.enable_announcement
+
+  assign show_language = section.settings.show_language
+  if localization.available_languages.size <= 1
+    assign show_language = false
+  endif
+
+  assign show_country = section.settings.show_currency
+  if localization.available_countries.size <= 1
+    assign show_country = false
+  endif
+
+  assign image_desktop = section.settings.bg_image_desktop
+  assign image_mobile = section.settings.bg_image_mobile | default: image_desktop
+  assign video_url = section.settings.video_url | strip
+
+  assign has_media = false
+  if image_desktop != blank or image_mobile != blank or video_url != blank
+    assign has_media = true
+  endif
+
+  assign autoplay = 0
+  if section.settings.carousel_autorotate and section.blocks.size > 1
+    assign autoplay = section.settings.carousel_speed
+  endif
+
+  assign text_color = section.settings.color_text | default: '#ffffff'
+  assign background_color = section.settings.color_bg_solid | default: '#000000'
+  assign localization_label = 'accessibility.localization_region_and_language' | t
+-%}
+
+{%- if show_bar -%}
+  {% render 'contrast-override',
+    background_color: background_color,
+    text_color: text_color,
+    section_id: section.id
+  %}
+
+  <script
+    src="{{ 'yv-announcement-bar.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  {%- if show_language or show_country -%}
+    <script
+      src="{{ 'localization.js' | asset_url }}"
+      type="module"
+      fetchpriority="low"
+    ></script>
+  {%- endif -%}
+
+  <yv-announcement-bar-component
+    id="YvAnnouncementBar-{{ section.id }}"
+    class="yv-announcement-bar yv-announcement-bar--{{ section.settings.layout }} color-custom-{{ section.id }}{% if has_media %} yv-announcement-bar--media{% endif %}"
+    data-section-id="{{ section.id }}"
+    data-layout="{{ section.settings.layout }}"
+    data-autoplay="{{ autoplay }}"
+    data-marquee-speed="{{ section.settings.marquee_speed }}"
+    data-marquee-direction="{{ section.settings.marquee_direction }}"
+    style="
+      --yv-ab-text: {{ text_color }};
+      --yv-ab-height: {{ section.settings.bg_height_desktop }}px;
+      --yv-ab-height-mobile: {{ section.settings.bg_height_mobile }}px;
+      {%- if section.settings.bg_style == 'gradient' and section.settings.color_bg_gradient != blank %}
+        --yv-ab-background: {{ section.settings.color_bg_gradient }};
+      {%- else %}
+        --yv-ab-background: {{ background_color }};
+      {%- endif %}
+      --yv-overlay-color: {{ section.settings.color_overlay }};
+      --yv-overlay-opacity: {{ section.settings.overlay_opacity }};
+      --yv-announcement-button-bg: {{ section.settings.color_button_bg }};
+      --yv-announcement-button-text: {{ section.settings.color_button_text }};
+      --yv-announcement-button-border: {{ section.settings.color_button_border }};
+    "
+  >
+    {%- if has_media -%}
+      <div
+        class="yv-announcement-bar__media"
+        aria-hidden="true"
+      >
+        {%- if video_url != blank -%}
+          {% render 'yv-video-url', url: video_url, poster: image_desktop, loading: 'eager' %}
+        {%- else -%}
+          {%- if image_desktop != blank -%}
+            {{
+              image_desktop
+              | image_url: width: 2500
+              | image_tag:
+                widths: '750, 1100, 1500, 1920, 2500',
+                sizes: '100vw',
+                loading: 'eager',
+                alt: '',
+                class: 'yv-announcement-bar__image yv-announcement-bar__image--desktop'
+            }}
+          {%- endif -%}
+          {%- if image_mobile != blank -%}
+            {{
+              image_mobile
+              | image_url: width: 1500
+              | image_tag:
+                widths: '750, 1100, 1500',
+                sizes: '100vw',
+                loading: 'eager',
+                alt: '',
+                class: 'yv-announcement-bar__image yv-announcement-bar__image--mobile'
+            }}
+          {%- endif -%}
+        {%- endif -%}
+        <span class="yv-overlay"></span>
+      </div>
+    {%- endif -%}
+
+    <div class="yv-announcement-bar__container section section--page-width">
+      <div class="yv-announcement-bar__row">
+        <div class="yv-announcement-bar__side yv-announcement-bar__side--start">
+          {%- if show_language or show_country -%}
+            {%- if show_country -%}
+              <dropdown-localization-component class="dropdown-localization yv-announcement-bar__localization">
+                <button
+                  type="button"
+                  class="yv-announcement-bar__locale-button"
+                  aria-expanded="false"
+                  aria-controls="YvAnnouncementLocalization-{{ section.id }}"
+                  ref="button"
+                  on:click="/toggleSelector"
+                >
+                  <span class="visually-hidden">{{ localization_label }}</span>
+                  {%- if show_language -%}
+                    <span class="yv-announcement-bar__locale">
+                      {{- localization.language.iso_code | upcase -}}
+                      <span
+                        class="yv-announcement-bar__chevron"
+                        aria-hidden="true"
+                      ></span>
+                    </span>
+                  {%- endif -%}
+                  <span class="yv-announcement-bar__locale">
+                    {%- if section.settings.show_flag -%}
+                      <span
+                        class="yv-announcement-bar__flag"
+                        style="background-image: url({{- localization.country | image_url: width: 40 }});"
+                        aria-hidden="true"
+                      ></span>
+                    {%- endif -%}
+                    {{- localization.country.currency.iso_code -}}
+                    <span
+                      class="yv-announcement-bar__chevron"
+                      aria-hidden="true"
+                    ></span>
+                  </span>
+                </button>
+                <div
+                  id="YvAnnouncementLocalization-{{ section.id }}"
+                  class="localization-wrapper left-bound color-custom-popover yv-announcement-bar__panel"
+                  hidden
+                  ref="panel"
+                >
+                  {% render 'localization-form',
+                    show_country: show_country,
+                    show_language: show_language,
+                    localization_style: 'dropdown',
+                    form_id: section.id
+                  %}
+                </div>
+              </dropdown-localization-component>
+            {%- else -%}
+              <div class="dropdown-localization yv-announcement-bar__localization yv-announcement-bar__localization--language">
+                {% render 'localization-form',
+                  show_country: false,
+                  show_language: show_language,
+                  localization_style: 'dropdown',
+                  form_id: section.id
+                %}
+              </div>
+            {%- endif -%}
+          {%- endif -%}
+        </div>
+
+        <div class="yv-announcement-bar__main">
+          {%- if section.settings.layout == 'marquee' -%}
+            <div
+              class="yv-announcement-bar__marquee"
+              ref="marquee"
+            >
+              <div
+                class="yv-announcement-bar__marquee-track"
+                ref="marqueeTrack"
+              >
+                <div
+                  class="yv-announcement-bar__marquee-group"
+                  ref="marqueeGroup"
+                >
+                  {% content_for 'blocks' %}
+                </div>
+              </div>
+            </div>
+          {%- else -%}
+            {%- if section.blocks.size > 1 -%}
+              <button
+                type="button"
+                class="yv-announcement-bar__arrow yv-announcement-bar__arrow--previous"
+                aria-label="{{ 'accessibility.slideshow_previous' | t }}"
+                on:click="/previous"
+              >
+                {% render 'yv-icon', name: 'chevron-left', size: 14 %}
+              </button>
+            {%- endif -%}
+            <div
+              class="yv-announcement-bar__slides"
+              ref="slides"
+              aria-live="polite"
+            >
+              {% content_for 'blocks' %}
+            </div>
+            {%- if section.blocks.size > 1 -%}
+              <button
+                type="button"
+                class="yv-announcement-bar__arrow yv-announcement-bar__arrow--next"
+                aria-label="{{ 'accessibility.slideshow_next' | t }}"
+                on:click="/next"
+              >
+                {% render 'yv-icon', name: 'chevron-right', size: 14 %}
+              </button>
+            {%- endif -%}
+          {%- endif -%}
+        </div>
+
+        <div class="yv-announcement-bar__side yv-announcement-bar__side--end">
+          {%- if section.settings.show_social -%}
+            <div class="yv-announcement-bar__social">
+              {% render 'yv-social-icons', style: 'plain', size: 13 %}
+            </div>
+          {%- endif -%}
+        </div>
+
+        {%- if section.settings.show_close -%}
+          <button
+            type="button"
+            class="yv-announcement-bar__close"
+            aria-label="{{ 'yv.announcement_bar.close' | t }}"
+            on:click="/close"
+          >
+            {% render 'yv-icon', name: 'close', size: 14 %}
+          </button>
+        {%- endif -%}
+      </div>
+    </div>
+  </yv-announcement-bar-component>
+
+  {%- if section.settings.show_close and request.design_mode == false -%}
+    <script>
+      try {
+        if (sessionStorage.getItem('yv-announcement-closed-{{ section.id }}')) {
+          var yvAnnouncementSection = document.getElementById('shopify-section-{{ section.id }}');
+          if (yvAnnouncementSection) yvAnnouncementSection.hidden = true;
+        }
+      } catch (error) {}
+    </script>
+  {%- endif -%}
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-announcement-section {
+    /* Above the header so the localization panel can open over it (Yuva z-order). */
+    z-index: calc(var(--layer-menu-drawer) + 1) !important; /* stylelint-disable-line declaration-no-important */
+  }
+
+  .yv-announcement-section[hidden] {
+    display: none;
+  }
+
+  .yv-announcement-bar {
+    --yv-ab-gap: 20px;
+
+    position: relative;
+    display: block;
+    color: var(--yv-ab-text);
+    background: var(--yv-ab-background);
+    font-family: var(--font-body--family);
+    font-size: var(--yv-text-sm, 11.52px);
+    line-height: 1.2;
+    letter-spacing: 0.035em;
+  }
+
+  .yv-announcement-bar__media {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .yv-announcement-bar__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-announcement-bar__image--mobile {
+    display: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-announcement-bar__image--mobile {
+      display: block;
+    }
+
+    .yv-announcement-bar__image--desktop:has(+ .yv-announcement-bar__image--mobile) {
+      display: none;
+    }
+  }
+
+  .yv-announcement-bar__media .yv-overlay {
+    z-index: 1;
+  }
+
+  .yv-announcement-bar__container {
+    position: relative;
+    z-index: 2;
+  }
+
+  .yv-announcement-bar__row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--yv-ab-gap);
+    min-height: var(--yv-ab-height-mobile);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-announcement-bar__row {
+      min-height: var(--yv-ab-height);
+    }
+  }
+
+  .yv-announcement-bar__side {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .yv-announcement-bar__side--end {
+    justify-content: flex-end;
+  }
+
+  .yv-announcement-bar__main {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-announcement-bar--carousel .yv-announcement-bar__main {
+      max-width: min(70vw, 900px);
+    }
+  }
+
+  /* Small screens: message only, centred (selectors and socials live in the menu drawer). */
+  @media screen and (max-width: 989px) {
+    .yv-announcement-bar__row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .yv-announcement-bar__side {
+      display: none;
+    }
+
+    .yv-announcement-bar {
+      letter-spacing: normal;
+    }
+
+    .yv-announcement-bar__row:has(.yv-announcement-bar__close) {
+      padding-inline-end: 28px;
+    }
+  }
+
+  /* Carousel */
+  .yv-announcement-bar__slides {
+    display: grid;
+    grid-template-areas: 'stack';
+    align-items: center;
+    min-width: 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  .yv-announcement-bar__slides > * {
+    grid-area: stack;
+    transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out;
+  }
+
+  .yv-announcement-bar__slides > [aria-hidden='true'] {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  /* Before the script runs, only the first announcement shows. */
+  yv-announcement-bar-component:not(:defined) .yv-announcement-bar__slides > :not(:first-child) {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .yv-announcement-bar__arrow {
+    display: none;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.8;
+  }
+
+  .yv-announcement-bar__arrow:hover {
+    opacity: 1;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-announcement-bar__arrow {
+      display: inline-flex;
+    }
+  }
+
+  /* Marquee */
+  .yv-announcement-bar--marquee .yv-announcement-bar__row {
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+  }
+
+  @media screen and (max-width: 989px) {
+    .yv-announcement-bar--marquee .yv-announcement-bar__row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .yv-announcement-bar__marquee {
+    width: 100%;
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  }
+
+  .yv-announcement-bar__marquee-track {
+    display: flex;
+    width: max-content;
+    will-change: transform;
+  }
+
+  .yv-announcement-bar__marquee-group {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 48px;
+    padding-inline-end: 48px;
+  }
+
+  .yv-announcement-bar__marquee-group .yv-announcement__inner {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+
+  /* Localization (one Horizon dropdown instance) */
+  .yv-announcement-bar__localization {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .yv-announcement-bar__locale-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 34px;
+    padding: 4px 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .yv-announcement-bar__locale {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding-inline-end: 20px;
+    position: relative;
+  }
+
+  .yv-announcement-bar__locale + .yv-announcement-bar__locale {
+    padding-inline-start: 10px;
+  }
+
+  .yv-announcement-bar__chevron {
+    position: absolute;
+    inset-inline-end: 4px;
+    top: calc(50% - 5px);
+    width: 6px;
+    height: 6px;
+    border-inline-end: 1.5px solid currentColor;
+    border-block-end: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform var(--animation-speed, 0.2s) ease;
+  }
+
+  .yv-announcement-bar__locale-button[aria-expanded='true'] .yv-announcement-bar__chevron {
+    top: calc(50% - 2px);
+    transform: rotate(-135deg);
+  }
+
+  .yv-announcement-bar__flag {
+    display: inline-block;
+    width: 20px;
+    height: 15px;
+    background-position: center;
+    background-size: cover;
+    border-radius: 1px;
+  }
+
+  .yv-announcement-bar dropdown-localization-component .localization-wrapper.yv-announcement-bar__panel {
+    top: 100%;
+    inset-inline-start: 0;
+    border-radius: 5px;
+    box-shadow: var(--yv-shadow-dropdown, 0 1px 10px rgb(0 0 0 / 0.15));
+    color: var(--color-foreground);
+    font-size: var(--font-size--sm, 13.44px);
+    letter-spacing: normal;
+    text-transform: none;
+  }
+
+  .yv-announcement-bar .yv-announcement-bar__panel .localization-form__list {
+    max-height: 300px;
+  }
+
+  .yv-announcement-bar__localization--language .localization-form__select {
+    color: inherit;
+    font: inherit;
+    text-transform: uppercase;
+    background: transparent;
+    border: 0;
+  }
+
+  /* Social icons */
+  .yv-announcement-bar__social .yv-social {
+    --yv-social-gap: 16px;
+    --yv-social-icon: 13px;
+
+    color: inherit;
+  }
+
+  .yv-announcement-bar__social .yv-social__link {
+    color: inherit;
+  }
+
+  .yv-announcement-bar__social .yv-social__link:hover {
+    opacity: 0.75;
+  }
+
+  /* Close */
+  .yv-announcement-bar__close {
+    position: absolute;
+    inset-inline-end: -6px;
+    top: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    transform: translateY(-50%);
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-announcement-bar__row:has(.yv-announcement-bar__close) {
+      padding-inline-end: 36px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.announcement_bar",
+  "class": "yv-announcement-section",
+  "max_blocks": 3,
+  "enabled_on": {
+    "groups": ["header"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-announcement"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enable_announcement",
+      "label": "t:yv.announcement_bar.settings.enable",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.announcement_bar.content.background_image"
+    },
+    {
+      "type": "image_picker",
+      "id": "bg_image_desktop",
+      "label": "t:yv.announcement_bar.settings.desktop_image"
+    },
+    {
+      "type": "image_picker",
+      "id": "bg_image_mobile",
+      "label": "t:yv.announcement_bar.settings.mobile_image"
+    },
+    {
+      "type": "text",
+      "id": "video_url",
+      "label": "t:yv.common.settings.video_url",
+      "info": "t:yv.common.settings.video_url_info"
+    },
+    {
+      "type": "range",
+      "id": "bg_height_desktop",
+      "label": "t:yv.common.settings.desktop_height",
+      "min": 20,
+      "max": 120,
+      "step": 2,
+      "unit": "px",
+      "default": 34
+    },
+    {
+      "type": "range",
+      "id": "bg_height_mobile",
+      "label": "t:yv.common.settings.mobile_height",
+      "min": 20,
+      "max": 120,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "t:yv.announcement_bar.settings.layout",
+      "options": [
+        {
+          "value": "carousel",
+          "label": "t:yv.announcement_bar.options.carousel"
+        },
+        {
+          "value": "marquee",
+          "label": "t:yv.announcement_bar.options.marquee"
+        }
+      ],
+      "default": "carousel"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_close",
+      "label": "t:yv.announcement_bar.settings.show_close",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.announcement_bar.content.carousel"
+    },
+    {
+      "type": "checkbox",
+      "id": "carousel_autorotate",
+      "label": "t:yv.announcement_bar.settings.autorotate",
+      "default": true,
+      "visible_if": "{{ section.settings.layout == 'carousel' }}"
+    },
+    {
+      "type": "range",
+      "id": "carousel_speed",
+      "label": "t:yv.announcement_bar.settings.carousel_speed",
+      "min": 3,
+      "max": 10,
+      "step": 1,
+      "unit": "s",
+      "default": 5,
+      "visible_if": "{{ section.settings.layout == 'carousel' and section.settings.carousel_autorotate }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.announcement_bar.content.marquee"
+    },
+    {
+      "type": "select",
+      "id": "marquee_direction",
+      "label": "t:yv.announcement_bar.settings.direction",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left",
+      "visible_if": "{{ section.settings.layout == 'marquee' }}"
+    },
+    {
+      "type": "range",
+      "id": "marquee_speed",
+      "label": "t:yv.announcement_bar.settings.speed",
+      "min": 10,
+      "max": 60,
+      "step": 1,
+      "unit": "s",
+      "default": 25,
+      "visible_if": "{{ section.settings.layout == 'marquee' }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.announcement_bar.content.language_selector"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_language",
+      "label": "t:yv.announcement_bar.settings.show_language",
+      "info": "t:yv.announcement_bar.settings.desktop_only_info",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.announcement_bar.content.currency_selector"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_currency",
+      "label": "t:yv.announcement_bar.settings.show_currency",
+      "info": "t:yv.announcement_bar.settings.desktop_only_info",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_flag",
+      "label": "t:yv.announcement_bar.settings.show_flag",
+      "default": true,
+      "visible_if": "{{ section.settings.show_currency }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.announcement_bar.content.social"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_social",
+      "label": "t:yv.common.settings.show_social",
+      "info": "t:yv.common.settings.show_social_info",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.announcement_bar.content.background"
+    },
+    {
+      "type": "select",
+      "id": "bg_style",
+      "label": "t:yv.announcement_bar.settings.background_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "solid"
+    },
+    {
+      "type": "color",
+      "id": "color_bg_solid",
+      "label": "t:yv.common.options.solid",
+      "default": "#000000",
+      "visible_if": "{{ section.settings.bg_style == 'solid' }}"
+    },
+    {
+      "type": "color_background",
+      "id": "color_bg_gradient",
+      "label": "t:yv.common.options.gradient",
+      "default": "linear-gradient(90deg, rgba(0, 0, 0, 1) 0%, rgba(67, 67, 67, 1) 100%)",
+      "visible_if": "{{ section.settings.bg_style == 'gradient' }}"
+    },
+    {
+      "type": "color",
+      "id": "color_overlay",
+      "label": "t:yv.common.settings.overlay_color",
+      "info": "t:yv.announcement_bar.settings.overlay_info",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.announcement_bar.settings.banner_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 30
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "color",
+      "id": "color_button_bg",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_button_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_button_border",
+      "label": "t:yv.announcement_bar.settings.border",
+      "default": "#FFFFFF"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.announcement_bar",
+      "category": "t:yv.categories.promotional",
+      "settings": {
+        "show_language": true,
+        "show_currency": true,
+        "show_social": true,
+        "color_text": "#E7E7E7",
+        "color_bg_solid": "#1C620D",
+        "color_overlay": "#20750D",
+        "overlay_opacity": 82
+      },
+      "blocks": [
+        {
+          "type": "_yv-announcement",
+          "settings": {
+            "heading": "t:yv.announcement_bar.defaults.heading"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

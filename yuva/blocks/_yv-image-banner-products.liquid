@@ -1,0 +1,256 @@
+{%- doc -%}
+  Product strip of the Image banner (sections/yv-image-banner.liquid): compact white cards (60px
+  thumbnail, title, "From" price) from a collection, in a draggable `yv-carousel` that sits along the
+  bottom of the banner. Arrows sit above the strip at the top right (or on the sides). About 5.3 cards
+  show on desktop, 3.3 on tablets and 1.2 on phones (the next card peeks). With no collection the
+  strip shows placeholder cards; an empty collection renders nothing.
+{%- enddoc -%}
+
+{%- liquid
+  assign strip_collection = block.settings.collection
+  assign strip_count = block.settings.products_count
+  assign strip_arrows = block.settings.arrows_position | default: 'top-right'
+  assign strip_id = 'YvImageBannerStrip-' | append: block.id
+  assign strip_label = strip_collection.title | default: section.settings.heading | strip_html
+  if strip_label == blank
+    assign strip_label = 'yv.image_banner.products_label' | t
+  endif
+  assign placeholder_title = 'placeholders.product_title' | t
+
+  assign card_text_color = block.settings.card_text_color
+  if card_text_color == blank
+    assign card_text_color = 'var(--yv-theme-color, #4c5765)'
+  endif
+
+  assign show_strip = true
+  if strip_collection != blank and strip_collection.products_count == 0
+    assign show_strip = false
+  endif
+-%}
+
+{%- capture strip_slides -%}
+  {%- if strip_collection != blank -%}
+    {%- for product in strip_collection.products limit: strip_count -%}
+      <div class="yv-image-banner-products__slide">
+        <a
+          class="yv-image-banner-products__card"
+          href="{{ product.url }}"
+        >
+          <span class="yv-image-banner-products__media">
+            {%- if product.featured_media != blank -%}
+              {{
+                product.featured_media
+                | image_url: width: 180
+                | image_tag:
+                  widths: '60, 120, 180',
+                  sizes: '60px',
+                  loading: 'lazy',
+                  alt: product.featured_media.alt,
+                  class: 'yv-image-banner-products__image'
+              }}
+            {%- else -%}
+              {{ 'product-apparel-1' | placeholder_svg_tag: 'yv-image-banner-products__image yv-placeholder' }}
+            {%- endif -%}
+          </span>
+          <div class="yv-image-banner-products__info">
+            <span class="yv-image-banner-products__title">{{ product.title | escape }}</span>
+            <div class="yv-image-banner-products__price">
+              {%- render 'price', product_resource: product, show_sale_price_first: true, show_from: true -%}
+            </div>
+          </div>
+        </a>
+      </div>
+    {%- endfor -%}
+  {%- else -%}
+    {%- for i in (1..strip_count) -%}
+      {%- assign placeholder_index = i | minus: 1 | modulo: 4 | plus: 1 -%}
+      {%- assign placeholder_name = 'product-apparel-' | append: placeholder_index -%}
+      <div class="yv-image-banner-products__slide">
+        <span class="yv-image-banner-products__card">
+          <span class="yv-image-banner-products__media">
+            {{ placeholder_name | placeholder_svg_tag: 'yv-image-banner-products__image yv-placeholder' }}
+          </span>
+          <span class="yv-image-banner-products__info">
+            <span class="yv-image-banner-products__title">{{ placeholder_title }}</span>
+            <span class="yv-image-banner-products__price">
+              <span class="price">{{ 1999 | money }}</span>
+            </span>
+          </span>
+        </span>
+      </div>
+    {%- endfor -%}
+  {%- endif -%}
+{%- endcapture -%}
+
+<div
+  class="yv-image-banner-products yv-image-banner-products--arrows-{{ strip_arrows }}{% unless show_strip %} yv-image-banner-products--empty{% endunless %}"
+  style="--yv-image-banner-products-card-bg: {{ block.settings.card_background }}; --yv-image-banner-products-card-text: {{ card_text_color }};"
+  {{ block.shopify_attributes }}
+>
+  {%- if show_strip -%}
+    {% render 'yv-carousel',
+      id: strip_id,
+      slides: strip_slides,
+      label: strip_label,
+      per_view: 5.36,
+      per_view_tablet: 3.3,
+      per_view_mobile: 1.17,
+      gap: 10,
+      gap_mobile: 10,
+      arrows: strip_arrows,
+      arrows_mobile: 'top-right',
+      step: 'page',
+      class: 'yv-image-banner-products__carousel'
+    %}
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .yv-image-banner-products {
+    min-width: 0;
+    padding-block: 15px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-image-banner-products {
+      padding-block: 30px;
+    }
+  }
+
+  .yv-image-banner-products--empty {
+    padding: 0;
+  }
+
+  .yv-image-banner-products__slide {
+    display: flex;
+  }
+
+  .yv-image-banner-products__card {
+    display: grid;
+    grid-template-columns: 60px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 20px;
+    width: 100%;
+    min-height: 80px;
+    padding: 10px;
+    color: var(--yv-image-banner-products-card-text, #4c5765);
+    text-decoration: none;
+    background-color: var(--yv-image-banner-products-card-bg, #fff);
+    border-radius: var(--yv-layout-radius, 10px);
+  }
+
+  .yv-image-banner-products__card:focus-visible {
+    outline: 2px solid var(--yv-image-banner-products-card-text, #4c5765);
+    outline-offset: -4px;
+  }
+
+  .yv-image-banner-products__media {
+    display: block;
+    width: 60px;
+    height: 60px;
+    overflow: hidden;
+    background-color: var(--yv-image-bg);
+    border-radius: var(--yv-layout-radius, 10px);
+  }
+
+  .yv-image-banner-products__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-image-banner-products__info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .yv-image-banner-products__title {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: var(--yv-text-base, 0.84rem);
+    line-height: 1.4;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .yv-image-banner-products__price,
+  .yv-image-banner-products__price .price {
+    font-size: var(--yv-text-base, 0.84rem);
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--yv-image-banner-products-card-text, #4c5765);
+  }
+
+  .yv-image-banner-products__price .compare-at-price {
+    font-size: var(--yv-text-sm, 0.72rem);
+    font-weight: 400;
+    opacity: 0.7;
+  }
+
+  .yv-image-banner-products--arrows-top-right .yv-carousel__controls {
+    margin-block-end: 5px;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.image_banner_products",
+  "tag": null,
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "t:yv.common.settings.collection"
+    },
+    {
+      "type": "range",
+      "id": "products_count",
+      "label": "t:yv.image_banner.settings.products_count",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "default": 6
+    },
+    {
+      "type": "select",
+      "id": "arrows_position",
+      "label": "t:yv.image_banner.settings.arrows_position",
+      "options": [
+        {
+          "value": "top-right",
+          "label": "t:yv.common.options.top"
+        },
+        {
+          "value": "sides",
+          "label": "t:yv.image_banner.options.sides"
+        }
+      ],
+      "default": "top-right"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "card_background",
+      "label": "t:yv.image_banner.settings.card_background",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "card_text_color",
+      "label": "t:yv.image_banner.settings.card_text_color",
+      "info": "t:yv.image_banner.settings.card_text_color_info"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.image_banner_products"
+    }
+  ]
+}
+{% endschema %}

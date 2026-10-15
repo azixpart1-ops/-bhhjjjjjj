@@ -1,0 +1,283 @@
+{%- doc -%}
+  Yuva product content tabs (docs part 4 Template – Default product > Content area): the product
+  description plus up to three custom tabs ("Description | Explore More"), shown as underline tabs
+  (aligned left/center/right, keyboard accessible through <yv-tabs>) or as an accordion of
+  <details> items. Custom tabs render only when their heading is set; the block hides when it has
+  nothing to show.
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign style = block.settings.content_style | default: 'tabs'
+
+  assign description = product_resource.description
+  if product_resource == blank and request.design_mode
+    assign description = 'yv.product.description_placeholder' | t
+  endif
+
+  assign show_description = false
+  if block.settings.show_description and description != blank
+    assign show_description = true
+  endif
+
+  assign count = 0
+  if show_description
+    assign count = count | plus: 1
+  endif
+  for i in (1..3)
+    assign heading_key = 'tab_' | append: i | append: '_heading'
+    if block.settings[heading_key] != blank
+      assign count = count | plus: 1
+    endif
+  endfor
+-%}
+
+{%- if count > 0 -%}
+  {%- if style == 'tabs' -%}
+    <script
+      src="{{ 'yv-tabs.js' | asset_url }}"
+      type="module"
+      fetchpriority="low"
+    ></script>
+    <div
+      class="yv-product-tabs yv-product-tabs--tabs yv-product-tabs--{{ block.settings.content_alignment | default: 'left' }}"
+      {{ block.shopify_attributes }}
+    >
+      <yv-tabs data-initial-index="0">
+        <div class="yv-product-tabs__scroller">
+          <div
+            class="yv-product-tabs__list"
+            role="tablist"
+            aria-label="{{ 'yv.product.details_label' | t }}"
+            on:keydown="yv-tabs/onKeydown"
+          >
+            {%- assign tab_index = 0 -%}
+            {%- if show_description -%}
+              <button
+                type="button"
+                class="yv-product-tabs__tab"
+                role="tab"
+                id="YvProductTab-{{ block.id }}-0"
+                aria-controls="YvProductPanel-{{ block.id }}-0"
+                aria-selected="true"
+                tabindex="0"
+                ref="tabs[]"
+                on:click="yv-tabs/select/{{ tab_index }}"
+              >
+                {{ 'yv.product.description' | t }}
+              </button>
+              {%- assign tab_index = tab_index | plus: 1 -%}
+            {%- endif -%}
+            {%- for i in (1..3) -%}
+              {%- assign heading_key = 'tab_' | append: i | append: '_heading' -%}
+              {%- if block.settings[heading_key] != blank -%}
+                <button
+                  type="button"
+                  class="yv-product-tabs__tab"
+                  role="tab"
+                  id="YvProductTab-{{ block.id }}-{{ i }}"
+                  aria-controls="YvProductPanel-{{ block.id }}-{{ i }}"
+                  aria-selected="{% if tab_index == 0 %}true{% else %}false{% endif %}"
+                  tabindex="{% if tab_index == 0 %}0{% else %}-1{% endif %}"
+                  ref="tabs[]"
+                  on:click="yv-tabs/select/{{ tab_index }}"
+                >
+                  {{ block.settings[heading_key] | escape }}
+                </button>
+                {%- assign tab_index = tab_index | plus: 1 -%}
+              {%- endif -%}
+            {%- endfor -%}
+          </div>
+        </div>
+
+        {%- assign panel_index = 0 -%}
+        {%- if show_description -%}
+          <div
+            class="yv-product-tabs__panel rte"
+            role="tabpanel"
+            id="YvProductPanel-{{ block.id }}-0"
+            aria-labelledby="YvProductTab-{{ block.id }}-0"
+            tabindex="0"
+            ref="panels[]"
+          >
+            {{ description }}
+          </div>
+          {%- assign panel_index = panel_index | plus: 1 -%}
+        {%- endif -%}
+        {%- for i in (1..3) -%}
+          {%- liquid
+            assign heading_key = 'tab_' | append: i | append: '_heading'
+            assign content_key = 'tab_' | append: i | append: '_content'
+          -%}
+          {%- if block.settings[heading_key] != blank -%}
+            <div
+              class="yv-product-tabs__panel rte"
+              role="tabpanel"
+              id="YvProductPanel-{{ block.id }}-{{ i }}"
+              aria-labelledby="YvProductTab-{{ block.id }}-{{ i }}"
+              tabindex="0"
+              ref="panels[]"
+              {% if panel_index > 0 %}
+                hidden
+              {% endif %}
+            >
+              {{ block.settings[content_key] }}
+            </div>
+            {%- assign panel_index = panel_index | plus: 1 -%}
+          {%- endif -%}
+        {%- endfor -%}
+      </yv-tabs>
+    </div>
+  {%- else -%}
+    <div
+      class="yv-product-tabs yv-product-tabs--accordion"
+      {{ block.shopify_attributes }}
+    >
+      {%- if show_description -%}
+        <details
+          class="yv-accordion__item"
+          {% if block.settings.description_open %}
+            open
+          {% endif %}
+        >
+          <summary class="yv-accordion__summary">
+            <span class="yv-accordion__title">{{ 'yv.product.description' | t }}</span>
+            <span
+              class="yv-accordion__icon"
+              aria-hidden="true"
+            ></span>
+          </summary>
+          <div class="yv-accordion__content rte">{{ description }}</div>
+        </details>
+      {%- endif -%}
+      {%- for i in (1..3) -%}
+        {%- liquid
+          assign heading_key = 'tab_' | append: i | append: '_heading'
+          assign content_key = 'tab_' | append: i | append: '_content'
+        -%}
+        {%- if block.settings[heading_key] != blank -%}
+          <details class="yv-accordion__item">
+            <summary class="yv-accordion__summary">
+              <span class="yv-accordion__title">{{ block.settings[heading_key] | escape }}</span>
+              <span
+                class="yv-accordion__icon"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="yv-accordion__content rte">{{ block.settings[content_key] }}</div>
+          </details>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  {%- endif -%}
+{%- elsif request.design_mode -%}
+  <div
+    class="yv-product-tabs yv-product-tabs--empty"
+    {{ block.shopify_attributes }}
+  ></div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "t:yv.names.product_tabs",
+  "tag": null,
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "label": "t:yv.product.settings.show_description",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "description_open",
+      "label": "t:yv.product.settings.description_open",
+      "default": true,
+      "visible_if": "{{ block.settings.show_description and block.settings.content_style == 'accordion' }}"
+    },
+    {
+      "type": "select",
+      "id": "content_style",
+      "label": "t:yv.product.settings.content_style",
+      "options": [
+        {
+          "value": "tabs",
+          "label": "t:yv.product.options.tabs"
+        },
+        {
+          "value": "accordion",
+          "label": "t:yv.product.options.accordion"
+        }
+      ],
+      "default": "tabs"
+    },
+    {
+      "type": "select",
+      "id": "content_alignment",
+      "label": "t:yv.common.settings.alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left",
+      "info": "t:yv.product.info.tabs_alignment",
+      "visible_if": "{{ block.settings.content_style == 'tabs' }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.product.content.custom_content"
+    },
+    {
+      "type": "text",
+      "id": "tab_1_heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.product.info.tab_heading"
+    },
+    {
+      "type": "richtext",
+      "id": "tab_1_content",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "text",
+      "id": "tab_2_heading",
+      "label": "t:yv.product.settings.tab_2"
+    },
+    {
+      "type": "richtext",
+      "id": "tab_2_content",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "text",
+      "id": "tab_3_heading",
+      "label": "t:yv.product.settings.tab_3"
+    },
+    {
+      "type": "richtext",
+      "id": "tab_3_content",
+      "label": "t:yv.common.settings.description"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.product_tabs",
+      "category": "t:categories.product",
+      "settings": {
+        "tab_1_heading": "Explore More",
+        "tab_1_content": "<p>Discover thoughtful details designed to make everyday life easier, from durable materials to easy care.</p>"
+      }
+    }
+  ]
+}
+{% endschema %}

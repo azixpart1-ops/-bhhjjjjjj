@@ -1,0 +1,271 @@
+{%- doc -%}
+  Yuva "Ask a question" (docs part 4 product page > Query form): a question-mark link that opens a
+  480px dialog with a contact form (name, email, phone, message) carrying the product title and URL.
+  After posting, the page reloads at #yv-query-form-<block id>; the dialog re-opens with the thank-you
+  message or the errors. Product page only (hidden in quick view).
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign form_id = 'yv-query-form-' | append: block.id
+  assign dialog_id = 'YvQueryDialog-' | append: block.id
+  assign heading = block.settings.heading
+  if heading == blank
+    assign heading = 'yv.product.ask_question' | t
+  endif
+  assign button_text = block.settings.button_text
+  if button_text == blank
+    assign button_text = 'yv.product.form.send' | t
+  endif
+-%}
+
+<script
+  src="{{ 'dialog.js' | asset_url }}"
+  type="module"
+></script>
+{% render 'dialog-styles' %}
+
+<dialog-component
+  id="{{ dialog_id }}"
+  class="yv-query yv-pdp-only"
+  {{ block.shopify_attributes }}
+>
+  <button
+    type="button"
+    class="button-unstyled yv-query__trigger"
+    aria-haspopup="dialog"
+    on:click="/showDialog"
+  >
+    <span
+      class="svg-wrapper yv-query__icon"
+      aria-hidden="true"
+    >
+      <svg
+        viewBox="0 0 20 20"
+        width="18"
+        height="18"
+        focusable="false"
+      >
+        {%- render 'icon', icon: 'question_mark' -%}
+      </svg>
+    </span>
+    <span class="yv-query__label">{{ heading | escape }}</span>
+  </button>
+
+  <dialog
+    ref="dialog"
+    class="yv-query__dialog yv-dialog dialog-modal color-custom-popover"
+    scroll-lock
+    aria-labelledby="{{ dialog_id }}-title"
+  >
+    <div class="yv-dialog__header">
+      <h2
+        id="{{ dialog_id }}-title"
+        class="yv-dialog__title h4"
+      >
+        {{ heading | escape }}
+      </h2>
+      <button
+        type="button"
+        class="button button-unstyled close-button yv-dialog__close"
+        on:click="/closeDialog"
+        aria-label="{{ 'accessibility.close_dialog' | t }}"
+      >
+        <span class="svg-wrapper">{{- 'icon-close.svg' | inline_asset_content -}}</span>
+      </button>
+    </div>
+
+    <div class="yv-dialog__body">
+      {%- form 'contact', id: form_id, class: 'yv-query__form' -%}
+        {%- if form.posted_successfully? -%}
+          <p
+            class="yv-query__message yv-query__message--success"
+            role="status"
+            data-yv-open-dialog
+          >
+            {{ 'yv.product.query_success' | t }}
+          </p>
+        {%- else -%}
+          {%- if form.errors -%}
+            <div
+              class="yv-query__message yv-query__message--error"
+              role="alert"
+              data-yv-open-dialog
+            >
+              {{ form.errors | default_errors }}
+            </div>
+          {%- endif -%}
+          <input
+            type="hidden"
+            name="contact[Product]"
+            value="{{ product_resource.title | escape }}"
+          >
+          <input
+            type="hidden"
+            name="contact[Product URL]"
+            value="{{ request.origin }}{{ product_resource.url }}"
+          >
+          <div class="yv-query__fields">
+            <label
+              class="visually-hidden"
+              for="{{ form_id }}-name"
+            >
+              {{- 'yv.product.form.name' | t -}}
+            </label>
+            <input
+              class="field__input yv-input"
+              type="text"
+              id="{{ form_id }}-name"
+              name="contact[name]"
+              autocomplete="name"
+              placeholder="{{ 'yv.product.form.name' | t }}"
+              value="{{ form.name | escape }}"
+            >
+            <label
+              class="visually-hidden"
+              for="{{ form_id }}-email"
+            >
+              {{- 'yv.product.form.email' | t -}}
+            </label>
+            <input
+              class="field__input yv-input"
+              type="email"
+              id="{{ form_id }}-email"
+              name="contact[email]"
+              autocomplete="email"
+              autocapitalize="off"
+              spellcheck="false"
+              required
+              aria-required="true"
+              placeholder="{{ 'yv.product.form.email' | t }}"
+              value="{{ form.email | escape }}"
+            >
+            <label
+              class="visually-hidden"
+              for="{{ form_id }}-phone"
+            >
+              {{- 'yv.product.form.phone' | t -}}
+            </label>
+            <input
+              class="field__input yv-input"
+              type="tel"
+              id="{{ form_id }}-phone"
+              name="contact[phone]"
+              autocomplete="tel"
+              placeholder="{{ 'yv.product.form.phone' | t }}"
+              value="{{ form.phone | escape }}"
+            >
+            <label
+              class="visually-hidden"
+              for="{{ form_id }}-body"
+            >
+              {{- 'yv.product.form.message' | t -}}
+            </label>
+            <textarea
+              class="field__input yv-input yv-query__textarea"
+              id="{{ form_id }}-body"
+              name="contact[body]"
+              rows="4"
+              required
+              aria-required="true"
+              placeholder="{{ 'yv.product.form.message' | t }}"
+            >
+              {{- form.body -}}
+            </textarea>
+          </div>
+          <button
+            type="submit"
+            class="button yv-query__submit"
+          >
+            {{ button_text | escape }}
+          </button>
+        {%- endif -%}
+      {%- endform -%}
+    </div>
+  </dialog>
+</dialog-component>
+
+{%- comment -%} Re-open the dialog after the contact form posted back to #yv-query-form-<id>. {%- endcomment -%}
+{%- if form_id != blank -%}
+  <script type="module">
+    const host = document.getElementById({{ dialog_id | json }});
+    if (host?.querySelector('[data-yv-open-dialog]') && location.hash === '#' + {{ form_id | json }}) {
+      customElements.whenDefined('dialog-component').then(() => host.showDialog?.());
+    }
+  </script>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-query__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .yv-query__label {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .yv-query__trigger:hover .yv-query__label {
+    text-decoration-thickness: 2px;
+  }
+
+  .yv-query__dialog {
+    --yv-dialog-width: 480px;
+  }
+
+  .yv-query__fields {
+    display: grid;
+    gap: 12px;
+    margin-block-end: 16px;
+  }
+
+  .yv-query__textarea {
+    min-height: 110px;
+    resize: vertical;
+  }
+
+  .yv-query__submit {
+    width: 100%;
+  }
+
+  .yv-query__message {
+    margin: 0 0 12px;
+  }
+
+  .yv-query__message--error {
+    color: var(--yv-error, #ec7c7c);
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.query_form",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.product.info.query_heading",
+      "default": "Ask a question"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.product.settings.form_button",
+      "info": "t:yv.product.info.form_button",
+      "default": "Send"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.query_form",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

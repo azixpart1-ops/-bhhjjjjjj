@@ -1,0 +1,957 @@
+{% comment %}
+  Section contract: yv-image-banner
+  A tall image or background-video banner (Yuva "Image banner"). The copy (eyebrow, highlight heading,
+  description, button) sits in a box placed by the nine-position settings, top left by default. An
+  optional product strip runs along the bottom of the banner: compact white cards (60px thumbnail,
+  title, price) from a collection in a draggable `yv-carousel` with its arrows above the strip.
+  Media: an image (with an optional mobile image), or a Shopify-hosted video / video link (YouTube,
+  Vimeo or MP4) that plays muted in a loop; on mobile the mobile image replaces the video when set.
+  Shared settings: colour set (around a boxed banner), visibility, spacing, highlight heading, button.
+  @example
+  Theme editor > Add section > Banners > "Image banner"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign media_loading = 'lazy'
+  assign media_priority = 'auto'
+  if section.index == 1
+    assign media_loading = 'eager'
+    assign media_priority = 'high'
+  elsif section.index == 2
+    assign media_loading = 'eager'
+  endif
+  if settings.yv_enable_lazyload == false
+    assign media_loading = 'eager'
+  endif
+
+  assign media_type = section.settings.media_type
+  assign has_image = false
+  if section.settings.image != blank
+    assign has_image = true
+  endif
+  assign has_mobile_image = false
+  if section.settings.mobile_image != blank
+    assign has_mobile_image = true
+  endif
+
+  assign has_video = false
+  assign video_kind = ''
+  if media_type == 'video'
+    if section.settings.video != blank
+      assign has_video = true
+      assign video_kind = 'shopify'
+    elsif section.settings.video_url != blank
+      capture video_kind
+        render 'yv-video-url', url: section.settings.video_url, output: 'type'
+      endcapture
+      assign video_kind = video_kind | strip
+      if video_kind != blank
+        assign has_video = true
+      endif
+    endif
+  endif
+
+  assign box_class = 'yv-image-banner__box'
+  if section.settings.full_width
+    assign box_class = box_class | append: ' yv-image-banner__box--full yv-container--full'
+  else
+    assign box_class = box_class | append: ' yv-image-banner__box--boxed'
+  endif
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-image-banner color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% if section.settings.full_width %} disable-section-top-offset{% endif %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-image-banner-height: {{ section.settings.height_desktop }}px; --yv-image-banner-height-mobile: {{ section.settings.height_mobile }}px; --yv-image-banner-heading-size: {{ section.settings.heading_font_size }}px; --yv-image-banner-content-width: {{ section.settings.content_width }}%; --yv-image-banner-heading-color: {{ section.settings.heading_color }}; --yv-image-banner-text-color: {{ section.settings.text_color }};"
+  data-testid="yv-image-banner"
+>
+  <div class="{{ box_class }}">
+    <div class="yv-image-banner__media{% if has_mobile_image %} yv-image-banner__media--has-mobile{% endif %}">
+      {%- if has_video -%}
+        <div class="yv-image-banner__video{% if has_mobile_image %} yv-image-banner__video--desktop{% endif %}">
+          {%- if video_kind == 'shopify' -%}
+            <video-background-component class="yv-image-banner__video-player">
+              {%- assign video_poster = section.settings.video.preview_image -%}
+              {%- if section.settings.image != blank -%}
+                {%- assign video_poster = section.settings.image -%}
+              {%- endif -%}
+              {%- if video_poster != blank -%}
+                {{
+                  video_poster
+                  | image_url: width: 1920
+                  | image_tag:
+                    widths: '750, 1100, 1500, 1920',
+                    sizes: '100vw',
+                    loading: media_loading,
+                    fetchpriority: media_priority,
+                    class: 'yv-image-banner__poster'
+                }}
+              {%- endif -%}
+              <video
+                class="yv-image-banner__video-element"
+                playsinline
+                muted
+                autoplay
+                loop
+                preload="metadata"
+                aria-hidden="true"
+                ref="videoElement"
+              >
+                {%- for source in section.settings.video.sources -%}
+                  <source
+                    data-video-source="{{ source.url }}"
+                    type="{{ source.mime_type }}"
+                    ref="videoSources[]"
+                  >
+                {%- endfor -%}
+              </video>
+            </video-background-component>
+          {%- else -%}
+            {% render 'yv-video-url',
+              url: section.settings.video_url,
+              poster: section.settings.image,
+              loading: media_loading
+            %}
+          {%- endif -%}
+        </div>
+      {%- elsif has_image -%}
+        {{
+          section.settings.image
+          | image_url: width: 3000
+          | image_tag:
+            widths: '750, 1100, 1500, 1920, 2400, 3000',
+            sizes: '100vw',
+            loading: media_loading,
+            fetchpriority: media_priority,
+            class: 'yv-image-banner__image yv-image-banner__image--desktop'
+        }}
+      {%- else -%}
+        {{ 'hero-apparel-1' | placeholder_svg_tag: 'yv-image-banner__image yv-image-banner__image--desktop yv-placeholder' }}
+      {%- endif -%}
+
+      {%- if has_mobile_image -%}
+        {{
+          section.settings.mobile_image
+          | image_url: width: 1200
+          | image_tag:
+            widths: '390, 600, 800, 1000, 1200',
+            sizes: '100vw',
+            loading: media_loading,
+            fetchpriority: media_priority,
+            class: 'yv-image-banner__image yv-image-banner__image--mobile'
+        }}
+      {%- endif -%}
+    </div>
+
+    <div
+      class="yv-overlay"
+      style="--yv-overlay-color: {{ section.settings.overlay_color }}; --yv-overlay-opacity: {{ section.settings.overlay_opacity }};"
+    ></div>
+
+    <div class="yv-image-banner__inner">
+      <div class="yv-image-banner__content-area yv-pos-d--{{ section.settings.content_position_desktop }} yv-pos-m--{{ section.settings.content_position_mobile }}">
+        <div class="yv-image-banner__content">
+          {% render 'yv-heading',
+            text: section.settings.heading,
+            tag: section.settings.heading_tag,
+            size: 'h1',
+            highlight_font: section.settings.highlight_font,
+            highlight_color: section.settings.highlight_color,
+            rotating_text: section.settings.rotating_text,
+            subheading: section.settings.subheading,
+            description: section.settings.description,
+            alignment: section.settings.text_alignment,
+            class: 'yv-image-banner__heading',
+            title_class: 'yv-image-banner__title',
+            reveal: true
+          %}
+          {%- if section.settings.button_label != blank and section.settings.button_link != blank -%}
+            <div class="yv-image-banner__actions yv-image-banner__actions--{{ section.settings.text_alignment }}">
+              {% render 'yv-button',
+                label: section.settings.button_label,
+                link: section.settings.button_link,
+                variant: section.settings.button_style,
+                size_desktop: section.settings.button_size_desktop,
+                size_mobile: section.settings.button_size_mobile,
+                new_tab: section.settings.button_new_tab,
+                bg: section.settings.button_background,
+                text: section.settings.button_text_color,
+                border: section.settings.button_border,
+                reveal: true
+              %}
+            </div>
+          {%- endif -%}
+        </div>
+      </div>
+
+      {%- content_for 'blocks' -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-image-banner__box {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    min-width: 0;
+    background-color: var(--yv-image-bg);
+  }
+
+  .yv-image-banner__box--full {
+    display: grid;
+    grid-template-columns: var(--full-page-grid-with-margins);
+  }
+
+  .yv-image-banner__box--full > .yv-image-banner__inner {
+    grid-column: 2;
+  }
+
+  .yv-image-banner__box--boxed {
+    border-radius: var(--yv-layout-radius, 0);
+  }
+
+  .yv-image-banner__box--boxed > .yv-image-banner__inner {
+    padding-inline: 20px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-image-banner__box--boxed > .yv-image-banner__inner {
+      padding-inline: 40px;
+    }
+  }
+
+  .yv-image-banner__media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .yv-image-banner__media > :is(img, svg),
+  .yv-image-banner__poster,
+  .yv-image-banner__video-element {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-image-banner__video,
+  .yv-image-banner__video-player {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
+  .yv-image-banner__image--mobile {
+    display: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-image-banner__media--has-mobile .yv-image-banner__image--desktop,
+    .yv-image-banner__video--desktop {
+      display: none;
+    }
+
+    .yv-image-banner__image--mobile {
+      display: block;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yv-image-banner__video-element {
+      display: none;
+    }
+  }
+
+  .yv-image-banner__box > .yv-overlay {
+    z-index: 1;
+  }
+
+  .yv-image-banner__inner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: var(--yv-image-banner-height-mobile, 500px);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-image-banner__inner {
+      min-height: var(--yv-image-banner-height, 750px);
+    }
+  }
+
+  .yv-image-banner__content-area {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .yv-image-banner__content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+    padding: 35px 0;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-image-banner__content {
+      max-width: 75%;
+      padding: 50px 10px;
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-image-banner__content {
+      max-width: var(--yv-image-banner-content-width, 55%);
+    }
+  }
+
+  .yv-image-banner__heading {
+    --yv-heading-gap: 20px;
+    --yv-subheading-color: var(--yv-image-banner-text-color, #f1f1f1);
+
+    color: var(--yv-image-banner-text-color, #f1f1f1);
+  }
+
+  .yv-image-banner .yv-image-banner__heading .yv-image-banner__title {
+    font-size: min(var(--yv-image-banner-heading-size, 54px), 36px);
+    line-height: 1.1;
+    color: var(--yv-image-banner-heading-color, #fff);
+    overflow-wrap: anywhere;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-image-banner .yv-image-banner__heading .yv-image-banner__title {
+      font-size: calc(var(--yv-image-banner-heading-size, 54px) * 0.65);
+    }
+  }
+
+  @media screen and (min-width: 1200px) {
+    .yv-image-banner .yv-image-banner__heading .yv-image-banner__title {
+      font-size: calc(var(--yv-image-banner-heading-size, 54px) * 0.85);
+    }
+  }
+
+  @media screen and (min-width: 1441px) {
+    .yv-image-banner .yv-image-banner__heading .yv-image-banner__title {
+      font-size: var(--yv-image-banner-heading-size, 54px);
+    }
+  }
+
+  .yv-image-banner__heading .yv-heading__description {
+    color: var(--yv-image-banner-text-color, #f1f1f1);
+  }
+
+  .yv-image-banner__heading .yv-heading__description :is(p, ul, ol) {
+    margin-block: 0;
+  }
+
+  .yv-image-banner__actions {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .yv-image-banner__actions--center {
+    justify-content: center;
+  }
+
+  .yv-image-banner__actions--right {
+    justify-content: flex-end;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.image_banner",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-image-banner-products"
+    }
+  ],
+  "max_blocks": 1,
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.media"
+    },
+    {
+      "type": "select",
+      "id": "media_type",
+      "label": "t:yv.image_banner.settings.media_type",
+      "options": [
+        {
+          "value": "image",
+          "label": "t:yv.common.options.image"
+        },
+        {
+          "value": "video",
+          "label": "t:yv.common.options.video"
+        }
+      ],
+      "default": "image"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image",
+      "info": "t:yv.image_banner.settings.image_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "mobile_image",
+      "label": "t:yv.common.settings.mobile_image",
+      "info": "t:yv.image_banner.settings.mobile_image_info"
+    },
+    {
+      "type": "video",
+      "id": "video",
+      "label": "t:yv.image_banner.settings.video",
+      "info": "t:yv.image_banner.settings.video_info"
+    },
+    {
+      "type": "text",
+      "id": "video_url",
+      "label": "t:yv.common.settings.video_url",
+      "info": "t:yv.common.settings.video_url_info",
+      "visible_if": "{{ section.settings.media_type == 'video' }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.layout"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "height_desktop",
+      "label": "t:yv.common.settings.desktop_height",
+      "min": 300,
+      "max": 1000,
+      "step": 10,
+      "unit": "px",
+      "default": 750
+    },
+    {
+      "type": "range",
+      "id": "height_mobile",
+      "label": "t:yv.common.settings.mobile_height",
+      "min": 250,
+      "max": 900,
+      "step": 10,
+      "unit": "px",
+      "default": 500
+    },
+    {
+      "type": "select",
+      "id": "content_position_desktop",
+      "label": "t:yv.common.settings.content_position_desktop",
+      "options": [
+        {
+          "value": "top_left",
+          "label": "t:yv.common.options.top_left"
+        },
+        {
+          "value": "top_center",
+          "label": "t:yv.common.options.top_center"
+        },
+        {
+          "value": "top_right",
+          "label": "t:yv.common.options.top_right"
+        },
+        {
+          "value": "center_left",
+          "label": "t:yv.common.options.center_left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "center_right",
+          "label": "t:yv.common.options.center_right"
+        },
+        {
+          "value": "bottom_left",
+          "label": "t:yv.common.options.bottom_left"
+        },
+        {
+          "value": "bottom_center",
+          "label": "t:yv.common.options.bottom_center"
+        },
+        {
+          "value": "bottom_right",
+          "label": "t:yv.common.options.bottom_right"
+        }
+      ],
+      "default": "top_left"
+    },
+    {
+      "type": "select",
+      "id": "content_position_mobile",
+      "label": "t:yv.common.settings.content_position_mobile",
+      "options": [
+        {
+          "value": "top_left",
+          "label": "t:yv.common.options.top_left"
+        },
+        {
+          "value": "top_center",
+          "label": "t:yv.common.options.top_center"
+        },
+        {
+          "value": "top_right",
+          "label": "t:yv.common.options.top_right"
+        },
+        {
+          "value": "center_left",
+          "label": "t:yv.common.options.center_left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "center_right",
+          "label": "t:yv.common.options.center_right"
+        },
+        {
+          "value": "bottom_left",
+          "label": "t:yv.common.options.bottom_left"
+        },
+        {
+          "value": "bottom_center",
+          "label": "t:yv.common.options.bottom_center"
+        },
+        {
+          "value": "bottom_right",
+          "label": "t:yv.common.options.bottom_right"
+        }
+      ],
+      "default": "top_left"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:yv.common.settings.text_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "range",
+      "id": "content_width",
+      "label": "t:yv.image_banner.settings.content_width",
+      "min": 30,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 55
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "range",
+      "id": "heading_font_size",
+      "label": "t:yv.image_banner.settings.heading_font_size",
+      "info": "t:yv.image_banner.settings.heading_font_size_info",
+      "min": 24,
+      "max": 100,
+      "step": 2,
+      "unit": "px",
+      "default": 54
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "t:yv.common.settings.button_label",
+      "default": "Shop now"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.button_link",
+      "info": "t:yv.common.settings.button_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "button_new_tab",
+      "label": "t:yv.common.settings.open_new_tab",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "button_style",
+      "label": "t:yv.common.settings.button_style",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "outline",
+          "label": "t:yv.common.options.outline"
+        },
+        {
+          "value": "link",
+          "label": "t:yv.common.options.link"
+        }
+      ],
+      "default": "primary"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.common.settings.button_size_desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "small"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.common.settings.button_size_mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "small"
+    },
+    {
+      "type": "color",
+      "id": "button_background",
+      "label": "t:yv.common.settings.button_background",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "t:yv.common.settings.button_text_color",
+      "default": "#0E0E0E"
+    },
+    {
+      "type": "color",
+      "id": "button_border",
+      "label": "t:yv.common.settings.button_border",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "t:yv.common.settings.heading_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#F1F1F1"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "t:yv.common.settings.overlay_color",
+      "default": "#272727"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.common.settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.image_banner",
+      "category": "t:yv.categories.banners",
+      "settings": {
+        "heading": "Upgrade Your Lifestyle",
+        "description": "<p>Upgrade everyday life with smarter, innovative technology designed to make every moment easier, faster, and more connected.</p>",
+        "button_label": "Shop now",
+        "button_link": "shopify://collections/all"
+      },
+      "blocks": {
+        "products": {
+          "type": "_yv-image-banner-products",
+          "settings": {}
+        }
+      },
+      "block_order": ["products"]
+    },
+    {
+      "name": "t:yv.names.image_banner_centered",
+      "category": "t:yv.categories.banners",
+      "settings": {
+        "heading": "Make Time For Engaging Playtime",
+        "description": "<p>Our favourite pieces for long, lazy weekends, picked for comfort and made to last.</p>",
+        "button_label": "Shop now",
+        "button_link": "shopify://collections/all",
+        "content_position_desktop": "center",
+        "content_position_mobile": "center",
+        "text_alignment": "center",
+        "heading_font_size": 50,
+        "overlay_color": "#000000",
+        "overlay_opacity": 20
+      }
+    }
+  ]
+}
+{% endschema %}

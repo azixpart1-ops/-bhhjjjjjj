@@ -1,0 +1,181 @@
+{%- doc -%}
+  One accordion row of the Tabbed collage (sections/yv-tabbed-collage.liquid), shared by the private
+  blocks `_yv-collage-media` and `_yv-collage-product`. Reads the parent section's `blocks_background`
+  (card rows with a "+" toggle, none open on load) and `open_on` (hover rows with a dot and "»"),
+  otherwise list rows with a round chevron toggle and the first row open. The block's own settings
+  give the icon, heading tag and size, and "Show as link".
+
+  @param {object} block - The row's block (for id, settings and shopify_attributes).
+  @param {string} [title] - Row title (plain text).
+  @param {string} [subtitle] - Small line under the title (plain text).
+  @param {string} [description] - Rich text shown in the open row.
+  @param {string} [button_text] - Button label (the button shows when text and link are set).
+  @param {string} [button_link] - Button link.
+  @param {product} [product] - Product row: its price shows above the description.
+
+  @example
+  {% render 'yv-tabbed-collage-row', block: block, title: block.settings.heading, description: block.settings.description %}
+{%- enddoc -%}
+
+{%- liquid
+  assign cards = section.settings.blocks_background
+  assign mode = 'click'
+  if section.settings.open_on == 'hover'
+    assign mode = 'hover'
+  endif
+  if cards
+    assign mode = 'cards'
+  endif
+
+  assign row_index = 0
+  for child in section.blocks
+    if child.id == block.id
+      assign row_index = forloop.index0
+      break
+    endif
+  endfor
+
+  assign has_button = false
+  if button_text != blank and button_link != blank
+    assign has_button = true
+  endif
+
+  assign has_panel = false
+  if description != blank or has_button or product != blank
+    assign has_panel = true
+  endif
+
+  assign is_open = false
+  if row_index == 0 and mode != 'cards'
+    assign is_open = true
+  endif
+
+  assign row_tag = block.settings.heading_tag | default: 'h3'
+  case block.settings.heading_size
+    when 'small'
+      assign title_class = 'h6'
+    when 'large'
+      assign title_class = 'h4'
+    else
+      assign title_class = 'h5'
+  endcase
+
+  assign icon_size = 18
+  if mode == 'cards'
+    assign icon_size = 24
+  endif
+
+  assign button_variant = 'primary'
+  if block.settings.button_as_link
+    assign button_variant = 'link'
+  endif
+-%}
+
+<div
+  class="yv-tabbed-collage__item{% if is_open %} is-open{% endif %}{% if has_panel %} has-panel{% endif %}"
+  ref="items[]"
+  data-yv-reveal
+  style="--yv-reveal-delay: {{ row_index | times: 50 | at_most: 500 }}ms;"
+  {{ block.shopify_attributes }}
+>
+  <{{ row_tag }} class="yv-tabbed-collage__item-heading">
+    <button
+      type="button"
+      class="yv-tabbed-collage__trigger"
+      id="YvCollageTrigger-{{ block.id }}"
+      {% if has_panel %}
+        aria-expanded="{{ is_open }}"
+        aria-controls="YvCollagePanel-{{ block.id }}"
+      {% elsif is_open %}
+        aria-current="true"
+      {% endif %}
+      on:click="yv-tabbed-collage/toggle"
+      on:pointerenter="yv-tabbed-collage/onPointerEnter"
+      on:pointerleave="yv-tabbed-collage/onPointerLeave"
+    >
+      {%- if block.settings.icon != blank and block.settings.icon != 'none' -%}
+        <span
+          class="yv-tabbed-collage__icon"
+          aria-hidden="true"
+        >
+          {%- render 'yv-icon', name: block.settings.icon, size: icon_size -%}
+        </span>
+      {%- endif -%}
+      <span class="yv-tabbed-collage__titles">
+        <span class="yv-tabbed-collage__title {{ title_class }}">{{ title | escape }}</span>
+        {%- if subtitle != blank -%}
+          <span class="yv-tabbed-collage__subtitle">{{ subtitle | escape }}</span>
+        {%- endif -%}
+      </span>
+      <span
+        class="yv-tabbed-collage__toggle"
+        aria-hidden="true"
+      >
+        {%- case mode -%}
+          {%- when 'cards' -%}
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 14 14"
+              fill="none"
+              focusable="false"
+            >
+              <path d="M7 1.5v11M1.5 7h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          {%- when 'hover' -%}
+            <svg
+              width="13"
+              height="12"
+              viewBox="0 0 14 14"
+              fill="none"
+              focusable="false"
+            >
+              <path d="m2 2.5 4.5 4.5L2 11.5M7.5 2.5 12 7l-4.5 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          {%- else -%}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 14 14"
+              fill="none"
+              focusable="false"
+            >
+              <path d="M5 2.5 9.5 7 5 11.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        {%- endcase -%}
+      </span>
+    </button>
+  </{{ row_tag }}>
+
+  {%- if has_panel -%}
+    <div
+      class="yv-tabbed-collage__panel"
+      id="YvCollagePanel-{{ block.id }}"
+      role="region"
+      aria-labelledby="YvCollageTrigger-{{ block.id }}"
+    >
+      <div class="yv-tabbed-collage__panel-inner">
+        <div class="yv-tabbed-collage__body">
+          {%- if product != blank -%}
+            <div class="yv-tabbed-collage__price">
+              {% render 'price', product_resource: product, show_from: true %}
+            </div>
+          {%- endif -%}
+          {%- if description != blank -%}
+            <div class="yv-tabbed-collage__description rte">{{ description }}</div>
+          {%- endif -%}
+          {%- if has_button -%}
+            {% render 'yv-button',
+              label: button_text,
+              link: button_link,
+              variant: button_variant,
+              size_desktop: 'small',
+              size_mobile: 'small',
+              class: 'yv-tabbed-collage__button'
+            %}
+          {%- endif -%}
+        </div>
+      </div>
+    </div>
+  {%- endif -%}
+</div>

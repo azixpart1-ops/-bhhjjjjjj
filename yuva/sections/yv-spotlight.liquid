@@ -1,0 +1,422 @@
+{% comment %}
+  Section contract: yv-spotlight
+  Yuva "Spotlight": a shoppable full-bleed lifestyle image with pulsing hotspots (private blocks
+  `_yv-spotlight-hotspot`, each placed by x/y % on desktop and on mobile). Hovering or clicking a
+  hotspot on desktop opens a small product card beside it (thumbnail, title, price, "View product" for
+  quick view); on phones a tap opens the product's quick view. The image keeps its own proportions
+  (or a fixed height), with an optional mobile image and overlay. Hotspots use the shared
+  `yv-hotspot` component (assets/yv-hotspot.js).
+  Shared settings: colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Media > "Spotlight"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign media_loading = 'lazy'
+  assign media_priority = 'auto'
+  if section.index == 1
+    assign media_loading = 'eager'
+    assign media_priority = 'high'
+  elsif section.index == 2
+    assign media_loading = 'eager'
+  endif
+  if settings.yv_enable_lazyload == false
+    assign media_loading = 'eager'
+  endif
+
+  assign ratio_desktop = 2.4
+  if section.settings.image != blank
+    assign ratio_desktop = section.settings.image.aspect_ratio
+  endif
+  assign ratio_mobile = ratio_desktop
+  if section.settings.mobile_image != blank
+    assign ratio_mobile = section.settings.mobile_image.aspect_ratio
+  endif
+
+  assign media_class = 'yv-spotlight__media'
+  if section.settings.media_height == 'custom'
+    assign media_class = media_class | append: ' yv-spotlight__media--custom'
+  endif
+  if section.settings.mobile_image != blank
+    assign media_class = media_class | append: ' yv-spotlight__media--has-mobile'
+  endif
+
+  assign box_class = 'yv-spotlight__box'
+  if section.settings.full_width
+    assign box_class = box_class | append: ' yv-spotlight__box--full yv-container--full'
+  endif
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-spotlight color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% if section.settings.full_width %} disable-section-top-offset{% endif %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-spotlight-ratio: {{ ratio_desktop }}; --yv-spotlight-ratio-mobile: {{ ratio_mobile }}; --yv-spotlight-height: {{ section.settings.height_desktop }}px; --yv-spotlight-height-mobile: {{ section.settings.height_mobile }}px; --yv-hotspot-color: {{ section.settings.hotspot_color }}; --yv-hotspot-pulse: {{ section.settings.hotspot_color }};"
+  data-testid="yv-spotlight"
+>
+  <div class="{{ box_class }}">
+    <div
+      class="{{ media_class }}"
+      data-yv-hotspot-container
+    >
+      {%- if section.settings.image != blank -%}
+        {{
+          section.settings.image
+          | image_url: width: 3000
+          | image_tag:
+            widths: '750, 1100, 1500, 1920, 2400, 3000',
+            sizes: '100vw',
+            loading: media_loading,
+            fetchpriority: media_priority,
+            class: 'yv-spotlight__image yv-spotlight__image--desktop'
+        }}
+      {%- else -%}
+        {{ 'lifestyle-2' | placeholder_svg_tag: 'yv-spotlight__image yv-spotlight__image--desktop yv-placeholder' }}
+      {%- endif -%}
+      {%- if section.settings.mobile_image != blank -%}
+        {{
+          section.settings.mobile_image
+          | image_url: width: 1200
+          | image_tag:
+            widths: '390, 600, 800, 1000, 1200',
+            sizes: '100vw',
+            loading: media_loading,
+            fetchpriority: media_priority,
+            class: 'yv-spotlight__image yv-spotlight__image--mobile'
+        }}
+      {%- endif -%}
+      <div
+        class="yv-overlay"
+        style="--yv-overlay-color: {{ section.settings.overlay_color }}; --yv-overlay-opacity: {{ section.settings.overlay_opacity }};"
+      ></div>
+      {%- content_for 'blocks' -%}
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-spotlight__box {
+    min-width: 0;
+  }
+
+  .yv-spotlight__box:not(.yv-spotlight__box--full) .yv-spotlight__media {
+    border-radius: var(--yv-layout-radius, 0);
+  }
+
+  .yv-spotlight__media {
+    position: relative;
+    width: 100%;
+    aspect-ratio: var(--yv-spotlight-ratio-mobile, 2.4);
+    background-color: var(--yv-image-bg);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-spotlight__media {
+      aspect-ratio: var(--yv-spotlight-ratio, 2.4);
+    }
+  }
+
+  .yv-spotlight__media--custom {
+    aspect-ratio: auto;
+    height: var(--yv-spotlight-height-mobile, 400px);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-spotlight__media--custom {
+      aspect-ratio: auto;
+      height: var(--yv-spotlight-height, 600px);
+    }
+  }
+
+  /* The image is clipped to the box; the hotspot popovers may extend past it. */
+  .yv-spotlight__image {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+  }
+
+  .yv-spotlight__image--mobile {
+    display: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-spotlight__media--has-mobile .yv-spotlight__image--desktop {
+      display: none;
+    }
+
+    .yv-spotlight__image--mobile {
+      display: block;
+    }
+  }
+
+  /* Yuva spotlight hotspot: a 44px translucent ring with a 40% solid core. */
+  .yv-spotlight yv-hotspot {
+    --_dot: 44px;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-spotlight yv-hotspot {
+      --_dot: 30px;
+    }
+  }
+
+  /* Keep the card's pointer clear of the larger ring. */
+  @media screen and (min-width: 750px) {
+    .yv-spotlight .yv-hotspot__popover:not([data-side='left']) {
+      left: 36px;
+    }
+
+    .yv-spotlight .yv-hotspot__popover[data-side='left'] {
+      right: 36px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.spotlight",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-spotlight-hotspot"
+    }
+  ],
+  "max_blocks": 10,
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.media"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image",
+      "info": "t:yv.spotlight.settings.image_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "mobile_image",
+      "label": "t:yv.common.settings.mobile_image",
+      "info": "t:yv.spotlight.settings.mobile_image_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "media_height",
+      "label": "t:yv.spotlight.settings.media_height",
+      "options": [
+        {
+          "value": "adapt",
+          "label": "t:yv.spotlight.options.adapt"
+        },
+        {
+          "value": "custom",
+          "label": "t:yv.spotlight.options.custom"
+        }
+      ],
+      "default": "adapt"
+    },
+    {
+      "type": "range",
+      "id": "height_desktop",
+      "label": "t:yv.common.settings.desktop_height",
+      "min": 300,
+      "max": 1000,
+      "step": 10,
+      "unit": "px",
+      "default": 600,
+      "visible_if": "{{ section.settings.media_height == 'custom' }}"
+    },
+    {
+      "type": "range",
+      "id": "height_mobile",
+      "label": "t:yv.common.settings.mobile_height",
+      "min": 150,
+      "max": 800,
+      "step": 10,
+      "unit": "px",
+      "default": 400,
+      "visible_if": "{{ section.settings.media_height == 'custom' }}"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "t:yv.common.settings.overlay_color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.common.settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 0
+    },
+    {
+      "type": "header",
+      "content": "t:yv.spotlight.content.hotspots"
+    },
+    {
+      "type": "color",
+      "id": "hotspot_color",
+      "label": "t:yv.spotlight.settings.hotspot_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "select",
+      "id": "card_layout",
+      "label": "t:yv.spotlight.settings.card_layout",
+      "options": [
+        {
+          "value": "horizontal",
+          "label": "t:yv.spotlight.options.media_left"
+        },
+        {
+          "value": "vertical",
+          "label": "t:yv.spotlight.options.media_top"
+        }
+      ],
+      "default": "horizontal"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.spotlight",
+      "category": "t:yv.categories.media",
+      "blocks": {
+        "hotspot_1": {
+          "type": "_yv-spotlight-hotspot",
+          "settings": {
+            "pos_x": 60,
+            "pos_y": 45,
+            "pos_x_mobile": 60,
+            "pos_y_mobile": 45
+          }
+        },
+        "hotspot_2": {
+          "type": "_yv-spotlight-hotspot",
+          "settings": {
+            "pos_x": 43,
+            "pos_y": 55,
+            "pos_x_mobile": 43,
+            "pos_y_mobile": 55
+          }
+        }
+      },
+      "block_order": ["hotspot_1", "hotspot_2"]
+    }
+  ]
+}
+{% endschema %}

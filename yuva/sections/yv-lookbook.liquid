@@ -1,0 +1,1110 @@
+{% comment %}
+  Section contract: yv-lookbook
+  A scroll-driven editorial of "looks" (private blocks `_yv-look`). Desktop (750px+): a 50/50 split;
+  the left column is pinned (sticky, full viewport height) and holds every look's image stacked in
+  block order; the right column holds one full-height panel per look (heading, description, product
+  cards). As panel n scrolls up, image n is revealed over image n-1 like a curtain from the top edge,
+  1:1 with scroll (assets/yv-lookbook.js, <yv-lookbook>; a 0.2s crossfade at mid-viewport under
+  reduced motion). Mobile: the images become a swipe slider with pill dots, and the panel of the
+  current image shows below it.
+  Shared settings: colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Products > "Lookbook"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign look_count = section.blocks.size
+  assign first_image = section.blocks.first.settings.image
+  assign mobile_ratio = first_image.aspect_ratio | default: 1.1
+  if mobile_ratio < 0.75
+    assign mobile_ratio = 0.75
+  endif
+
+  assign image_loading = 'lazy'
+  assign image_priority = 'auto'
+  if section.index <= 2
+    assign image_loading = 'eager'
+  endif
+  if section.index == 1
+    assign image_priority = 'high'
+  endif
+
+  assign carousel_label = 'yv.lookbook.label' | t
+-%}
+
+{%- if look_count > 0 or request.design_mode -%}
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--full-width yv-section-spacing yv-lookbook color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-look-ratio: {{ mobile_ratio }};"
+  data-testid="yv-lookbook"
+>
+  <script
+    src="{{ 'yv-lookbook.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  <yv-lookbook class="yv-lookbook__layout">
+    <div
+      class="yv-lookbook__media"
+      role="group"
+      aria-label="{{ carousel_label | escape }}"
+    >
+      <div
+        class="yv-lookbook__track"
+        ref="track"
+      >
+        {%- for child in section.blocks -%}
+          {%- liquid
+            assign layer_loading = 'lazy'
+            assign layer_priority = 'auto'
+            if forloop.first
+              assign layer_loading = image_loading
+              assign layer_priority = image_priority
+            endif
+            assign layer_alt = child.settings.image.alt | default: child.settings.heading | strip_html | escape
+          -%}
+          <div
+            class="yv-lookbook__layer"
+            ref="layers[]"
+            style="--yv-look-p: {% if forloop.first %}1{% else %}0{% endif %};"
+          >
+            {%- if child.settings.image != blank -%}
+              {{
+                child.settings.image
+                | image_url: width: 1800
+                | image_tag:
+                  widths: '400, 600, 800, 1000, 1200, 1500, 1800',
+                  sizes: '(min-width: 750px) 50vw, 100vw',
+                  loading: layer_loading,
+                  fetchpriority: layer_priority,
+                  alt: layer_alt,
+                  class: 'yv-lookbook__image'
+              }}
+            {%- else -%}
+              {%- liquid
+                assign placeholder_name = 'lifestyle-1'
+                assign layer_mod = forloop.index0 | modulo: 2
+                if layer_mod == 1
+                  assign placeholder_name = 'lifestyle-2'
+                endif
+              -%}
+              {{ placeholder_name | placeholder_svg_tag: 'yv-lookbook__image yv-placeholder' }}
+            {%- endif -%}
+          </div>
+        {%- else -%}
+          <div
+            class="yv-lookbook__layer"
+            style="--yv-look-p: 1;"
+          >
+            {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-lookbook__image yv-placeholder' }}
+          </div>
+        {%- endfor -%}
+      </div>
+
+      {%- if look_count > 1 -%}
+        <div class="yv-lookbook__dots">
+          {%- for child in section.blocks -%}
+            {%- assign dot_label = 'yv.carousel.go_to_slide' | t: index: forloop.index -%}
+            <button
+              type="button"
+              class="yv-lookbook__dot{% if forloop.first %} is-active{% endif %}"
+              aria-label="{{ dot_label | escape }}"
+              aria-controls="YvLook-{{ child.id }}"
+              {% if forloop.first %}
+                aria-current="true"
+              {% endif %}
+              ref="dots[]"
+              on:click="yv-lookbook/goTo/{{ forloop.index0 }}"
+            ></button>
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+    </div>
+
+    <div class="yv-lookbook__panels">
+      {%- content_for 'blocks' -%}
+    </div>
+  </yv-lookbook>
+</div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-lookbook__layout {
+    display: block;
+    min-width: 0;
+  }
+
+  .yv-lookbook__media {
+    position: relative;
+    min-width: 0;
+    background: var(--yv-image-bg, #f3efec);
+  }
+
+  /* Mobile: a swipe slider of look images. */
+  .yv-lookbook__track {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .yv-lookbook__track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .yv-lookbook__layer {
+    position: relative;
+    flex: 0 0 100%;
+    min-width: 0;
+    aspect-ratio: var(--yv-look-ratio, 1.1);
+    max-height: 120vw;
+    overflow: hidden;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .yv-lookbook__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-lookbook__dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding-block: 15px 0;
+    background: var(--color-background);
+  }
+
+  .yv-lookbook__dot {
+    width: 6px;
+    height: 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: var(--yv-theme-color, #4c5765);
+    opacity: 0.35;
+    cursor: pointer;
+    transition: width 0.2s linear, opacity 0.2s linear;
+  }
+
+  .yv-lookbook__dot.is-active {
+    width: 30px;
+    opacity: 1;
+  }
+
+  .yv-lookbook__dot:focus-visible {
+    outline: 2px solid var(--color-foreground);
+    outline-offset: 2px;
+  }
+
+  /* Panels: only the current look's panel shows on mobile. */
+  .yv-lookbook__panels {
+    min-width: 0;
+  }
+
+  .yv-look {
+    display: none;
+    justify-content: center;
+    min-width: 0;
+    padding: 20px var(--page-margin, 20px) 0;
+    text-align: center;
+  }
+
+  .yv-look.is-active {
+    display: flex;
+  }
+
+  .yv-look__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .yv-look__heading {
+    --yv-heading-gap: 10px;
+    --yv-heading-description-width: 520px;
+    max-width: 100%;
+  }
+
+  .yv-look__heading .yv-heading__description {
+    text-wrap: balance;
+  }
+
+  .yv-look__heading .yv-heading__title {
+    line-height: 1.3;
+  }
+
+  .yv-look__products {
+    width: 100%;
+    min-width: 0;
+    padding-block: 10px 30px;
+    text-align: start;
+  }
+
+  .yv-look__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .yv-look__product {
+    min-width: 0;
+  }
+
+  /* Static product cards in this section: no quick view / add to cart icons, no hover slides. */
+  .yv-lookbook .yv-card-actions,
+  .yv-lookbook .yv-badge--custom,
+  .yv-lookbook .card-gallery slideshow-controls,
+  .yv-lookbook .card-gallery .slideshow-control {
+    display: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-look.is-active {
+      animation: yv-look-in 0.4s ease both;
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-lookbook__layout {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* Pinned media column: every look image stacked; later looks wipe in from the top edge. */
+    .yv-lookbook__media {
+      position: sticky;
+      inset-block-start: 0;
+      align-self: start;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .yv-lookbook__track {
+      position: relative;
+      display: block;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .yv-lookbook__layer {
+      position: absolute;
+      inset: 0;
+      aspect-ratio: auto;
+      max-height: none;
+      clip-path: inset(0 0 calc((1 - var(--yv-look-p, 0)) * 100%) 0);
+    }
+
+    .yv-lookbook__layer:first-child {
+      clip-path: none;
+    }
+
+    .yv-lookbook__dots {
+      display: none;
+    }
+
+    .yv-look {
+      display: flex;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px 0;
+    }
+
+    .yv-look__inner {
+      max-width: 80%;
+    }
+
+    .yv-look__heading {
+      max-width: 90%;
+    }
+
+    .yv-look__products {
+      padding-block: 30px 0;
+    }
+
+    .yv-look__grid {
+      gap: 20px;
+    }
+  }
+
+  @media screen and (min-width: 750px) and (prefers-reduced-motion: reduce) {
+    .yv-lookbook__layer {
+      clip-path: none;
+      opacity: var(--yv-look-p, 0);
+      transition: opacity 0.2s linear;
+    }
+
+    .yv-lookbook__layer:first-child {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yv-lookbook__dot {
+      transition: none;
+    }
+
+    .yv-look.is-active {
+      animation: none;
+    }
+  }
+
+  @keyframes yv-look-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.lookbook",
+  "tag": "section",
+  "class": "yv-lookbook-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 6,
+  "blocks": [
+    {
+      "type": "_yv-look"
+    }
+  ],
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "secondary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.lookbook",
+      "category": "t:yv.categories.products",
+      "settings": {
+        "color_set": "secondary",
+        "spacing_top_desktop": 0,
+        "spacing_bottom_desktop": 0,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 20
+      },
+      "blocks": {
+        "look_1": {
+          "type": "_yv-look",
+          "settings": {
+            "heading": "t:yv.lookbook.defaults.look_1_heading",
+            "rotating_text": "t:yv.lookbook.defaults.look_1_rotating",
+            "highlight_color": "linear-gradient(90deg, rgba(181, 15, 12, 1) 0%, rgba(152, 94, 88, 1) 48.08%, rgba(99, 154, 71, 1) 100%)",
+            "heading_size": "extra_large",
+            "description": "t:yv.lookbook.defaults.look_1_text",
+            "products_count": 2
+          },
+          "blocks": {
+            "static-product-card": {
+              "type": "_product-card",
+              "static": true,
+              "settings": {
+                "product_card_gap": 5,
+                "border": "none",
+                "border_radius": 0,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {
+                "product-card-gallery": {
+                  "type": "_product-card-gallery",
+                  "settings": {
+                    "image_ratio": "square",
+                    "border": "none",
+                    "border_radius": 0
+                  }
+                },
+                "card-vendor": {
+                  "type": "_yv-card-vendor",
+                  "settings": {}
+                },
+                "product-title": {
+                  "type": "product-title",
+                  "settings": {
+                    "width": "100%",
+                    "max_width": "none",
+                    "alignment": "left",
+                    "type_preset": "paragraph",
+                    "font": "var(--font-body--family)",
+                    "font_size": "1rem",
+                    "line_height": "normal",
+                    "letter_spacing": "normal",
+                    "case": "none",
+                    "wrap": "pretty",
+                    "background": false
+                  }
+                },
+                "price": {
+                  "type": "price",
+                  "settings": {
+                    "show_sale_price_first": true,
+                    "show_from_price": true,
+                    "show_installments": false,
+                    "show_tax_info": false,
+                    "type_preset": "paragraph",
+                    "width": "100%",
+                    "alignment": "left"
+                  }
+                },
+                "swatches": {
+                  "type": "swatches",
+                  "settings": {
+                    "product_swatches_alignment": "flex-start",
+                    "product_swatches_alignment_mobile": "flex-start",
+                    "hide_padding": false,
+                    "product_swatches_padding_top": 1,
+                    "product_swatches_padding_bottom": 0,
+                    "product_swatches_padding_left": 0,
+                    "product_swatches_padding_right": 0
+                  }
+                },
+                "card-extras": {
+                  "type": "_yv-card-extras",
+                  "settings": {}
+                }
+              },
+              "block_order": ["product-card-gallery", "card-vendor", "product-title", "price", "swatches", "card-extras"]
+            }
+          }
+        },
+        "look_2": {
+          "type": "_yv-look",
+          "settings": {
+            "heading": "t:yv.lookbook.defaults.look_2_heading",
+            "rotating_text": "t:yv.lookbook.defaults.look_2_rotating",
+            "highlight_color": "linear-gradient(90deg, rgba(181, 15, 12, 1) 0%, rgba(152, 94, 88, 1) 48.08%, rgba(99, 154, 71, 1) 100%)",
+            "heading_size": "extra_large",
+            "description": "t:yv.lookbook.defaults.look_2_text",
+            "products_count": 2
+          },
+          "blocks": {
+            "static-product-card": {
+              "type": "_product-card",
+              "static": true,
+              "settings": {
+                "product_card_gap": 5,
+                "border": "none",
+                "border_radius": 0,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {
+                "product-card-gallery": {
+                  "type": "_product-card-gallery",
+                  "settings": {
+                    "image_ratio": "square",
+                    "border": "none",
+                    "border_radius": 0
+                  }
+                },
+                "card-vendor": {
+                  "type": "_yv-card-vendor",
+                  "settings": {}
+                },
+                "product-title": {
+                  "type": "product-title",
+                  "settings": {
+                    "width": "100%",
+                    "max_width": "none",
+                    "alignment": "left",
+                    "type_preset": "paragraph",
+                    "font": "var(--font-body--family)",
+                    "font_size": "1rem",
+                    "line_height": "normal",
+                    "letter_spacing": "normal",
+                    "case": "none",
+                    "wrap": "pretty",
+                    "background": false
+                  }
+                },
+                "price": {
+                  "type": "price",
+                  "settings": {
+                    "show_sale_price_first": true,
+                    "show_from_price": true,
+                    "show_installments": false,
+                    "show_tax_info": false,
+                    "type_preset": "paragraph",
+                    "width": "100%",
+                    "alignment": "left"
+                  }
+                },
+                "swatches": {
+                  "type": "swatches",
+                  "settings": {
+                    "product_swatches_alignment": "flex-start",
+                    "product_swatches_alignment_mobile": "flex-start",
+                    "hide_padding": false,
+                    "product_swatches_padding_top": 1,
+                    "product_swatches_padding_bottom": 0,
+                    "product_swatches_padding_left": 0,
+                    "product_swatches_padding_right": 0
+                  }
+                },
+                "card-extras": {
+                  "type": "_yv-card-extras",
+                  "settings": {}
+                }
+              },
+              "block_order": ["product-card-gallery", "card-vendor", "product-title", "price", "swatches", "card-extras"]
+            }
+          }
+        }
+      },
+      "block_order": ["look_1", "look_2"]
+    },
+    {
+      "name": "t:yv.lookbook.presets.carousel",
+      "category": "t:yv.categories.products",
+      "settings": {
+        "color_set": "primary",
+        "spacing_top_desktop": 0,
+        "spacing_bottom_desktop": 0,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 20
+      },
+      "blocks": {
+        "look_1": {
+          "type": "_yv-look",
+          "settings": {
+            "heading": "t:yv.lookbook.defaults.look_3_heading",
+            "heading_size": "large",
+            "description": "t:yv.lookbook.defaults.look_3_text",
+            "products_count": 4
+          },
+          "blocks": {
+            "static-product-card": {
+              "type": "_product-card",
+              "static": true,
+              "settings": {
+                "product_card_gap": 5,
+                "border": "none",
+                "border_radius": 0,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {
+                "product-card-gallery": {
+                  "type": "_product-card-gallery",
+                  "settings": {
+                    "image_ratio": "square",
+                    "border": "none",
+                    "border_radius": 0
+                  }
+                },
+                "card-vendor": {
+                  "type": "_yv-card-vendor",
+                  "settings": {}
+                },
+                "product-title": {
+                  "type": "product-title",
+                  "settings": {
+                    "width": "100%",
+                    "max_width": "none",
+                    "alignment": "left",
+                    "type_preset": "paragraph",
+                    "font": "var(--font-body--family)",
+                    "font_size": "1rem",
+                    "line_height": "normal",
+                    "letter_spacing": "normal",
+                    "case": "none",
+                    "wrap": "pretty",
+                    "background": false
+                  }
+                },
+                "price": {
+                  "type": "price",
+                  "settings": {
+                    "show_sale_price_first": true,
+                    "show_from_price": true,
+                    "show_installments": false,
+                    "show_tax_info": false,
+                    "type_preset": "paragraph",
+                    "width": "100%",
+                    "alignment": "left"
+                  }
+                },
+                "swatches": {
+                  "type": "swatches",
+                  "settings": {
+                    "product_swatches_alignment": "flex-start",
+                    "product_swatches_alignment_mobile": "flex-start",
+                    "hide_padding": false,
+                    "product_swatches_padding_top": 1,
+                    "product_swatches_padding_bottom": 0,
+                    "product_swatches_padding_left": 0,
+                    "product_swatches_padding_right": 0
+                  }
+                },
+                "card-extras": {
+                  "type": "_yv-card-extras",
+                  "settings": {}
+                }
+              },
+              "block_order": ["product-card-gallery", "card-vendor", "product-title", "price", "swatches", "card-extras"]
+            }
+          }
+        },
+        "look_2": {
+          "type": "_yv-look",
+          "settings": {
+            "heading": "t:yv.lookbook.defaults.look_4_heading",
+            "heading_size": "large",
+            "description": "t:yv.lookbook.defaults.look_4_text",
+            "products_count": 4
+          },
+          "blocks": {
+            "static-product-card": {
+              "type": "_product-card",
+              "static": true,
+              "settings": {
+                "product_card_gap": 5,
+                "border": "none",
+                "border_radius": 0,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {
+                "product-card-gallery": {
+                  "type": "_product-card-gallery",
+                  "settings": {
+                    "image_ratio": "square",
+                    "border": "none",
+                    "border_radius": 0
+                  }
+                },
+                "card-vendor": {
+                  "type": "_yv-card-vendor",
+                  "settings": {}
+                },
+                "product-title": {
+                  "type": "product-title",
+                  "settings": {
+                    "width": "100%",
+                    "max_width": "none",
+                    "alignment": "left",
+                    "type_preset": "paragraph",
+                    "font": "var(--font-body--family)",
+                    "font_size": "1rem",
+                    "line_height": "normal",
+                    "letter_spacing": "normal",
+                    "case": "none",
+                    "wrap": "pretty",
+                    "background": false
+                  }
+                },
+                "price": {
+                  "type": "price",
+                  "settings": {
+                    "show_sale_price_first": true,
+                    "show_from_price": true,
+                    "show_installments": false,
+                    "show_tax_info": false,
+                    "type_preset": "paragraph",
+                    "width": "100%",
+                    "alignment": "left"
+                  }
+                },
+                "swatches": {
+                  "type": "swatches",
+                  "settings": {
+                    "product_swatches_alignment": "flex-start",
+                    "product_swatches_alignment_mobile": "flex-start",
+                    "hide_padding": false,
+                    "product_swatches_padding_top": 1,
+                    "product_swatches_padding_bottom": 0,
+                    "product_swatches_padding_left": 0,
+                    "product_swatches_padding_right": 0
+                  }
+                },
+                "card-extras": {
+                  "type": "_yv-card-extras",
+                  "settings": {}
+                }
+              },
+              "block_order": ["product-card-gallery", "card-vendor", "product-title", "price", "swatches", "card-extras"]
+            }
+          }
+        }
+      },
+      "block_order": ["look_1", "look_2"]
+    },
+    {
+      "name": "t:yv.lookbook.presets.products_only",
+      "category": "t:yv.categories.products",
+      "settings": {
+        "color_set": "secondary",
+        "spacing_top_desktop": 0,
+        "spacing_bottom_desktop": 0,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 20
+      },
+      "blocks": {
+        "look_1": {
+          "type": "_yv-look",
+          "settings": {
+            "heading": "",
+            "products_count": 6
+          },
+          "blocks": {
+            "static-product-card": {
+              "type": "_product-card",
+              "static": true,
+              "settings": {
+                "product_card_gap": 5,
+                "border": "none",
+                "border_radius": 0,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {
+                "product-card-gallery": {
+                  "type": "_product-card-gallery",
+                  "settings": {
+                    "image_ratio": "square",
+                    "border": "none",
+                    "border_radius": 0
+                  }
+                },
+                "card-vendor": {
+                  "type": "_yv-card-vendor",
+                  "settings": {}
+                },
+                "product-title": {
+                  "type": "product-title",
+                  "settings": {
+                    "width": "100%",
+                    "max_width": "none",
+                    "alignment": "left",
+                    "type_preset": "paragraph",
+                    "font": "var(--font-body--family)",
+                    "font_size": "1rem",
+                    "line_height": "normal",
+                    "letter_spacing": "normal",
+                    "case": "none",
+                    "wrap": "pretty",
+                    "background": false
+                  }
+                },
+                "price": {
+                  "type": "price",
+                  "settings": {
+                    "show_sale_price_first": true,
+                    "show_from_price": true,
+                    "show_installments": false,
+                    "show_tax_info": false,
+                    "type_preset": "paragraph",
+                    "width": "100%",
+                    "alignment": "left"
+                  }
+                },
+                "swatches": {
+                  "type": "swatches",
+                  "settings": {
+                    "product_swatches_alignment": "flex-start",
+                    "product_swatches_alignment_mobile": "flex-start",
+                    "hide_padding": false,
+                    "product_swatches_padding_top": 1,
+                    "product_swatches_padding_bottom": 0,
+                    "product_swatches_padding_left": 0,
+                    "product_swatches_padding_right": 0
+                  }
+                },
+                "card-extras": {
+                  "type": "_yv-card-extras",
+                  "settings": {}
+                }
+              },
+              "block_order": ["product-card-gallery", "card-vendor", "product-title", "price", "swatches", "card-extras"]
+            }
+          }
+        },
+        "look_2": {
+          "type": "_yv-look",
+          "settings": {
+            "heading": "",
+            "products_count": 6
+          },
+          "blocks": {
+            "static-product-card": {
+              "type": "_product-card",
+              "static": true,
+              "settings": {
+                "product_card_gap": 5,
+                "border": "none",
+                "border_radius": 0,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {
+                "product-card-gallery": {
+                  "type": "_product-card-gallery",
+                  "settings": {
+                    "image_ratio": "square",
+                    "border": "none",
+                    "border_radius": 0
+                  }
+                },
+                "card-vendor": {
+                  "type": "_yv-card-vendor",
+                  "settings": {}
+                },
+                "product-title": {
+                  "type": "product-title",
+                  "settings": {
+                    "width": "100%",
+                    "max_width": "none",
+                    "alignment": "left",
+                    "type_preset": "paragraph",
+                    "font": "var(--font-body--family)",
+                    "font_size": "1rem",
+                    "line_height": "normal",
+                    "letter_spacing": "normal",
+                    "case": "none",
+                    "wrap": "pretty",
+                    "background": false
+                  }
+                },
+                "price": {
+                  "type": "price",
+                  "settings": {
+                    "show_sale_price_first": true,
+                    "show_from_price": true,
+                    "show_installments": false,
+                    "show_tax_info": false,
+                    "type_preset": "paragraph",
+                    "width": "100%",
+                    "alignment": "left"
+                  }
+                },
+                "swatches": {
+                  "type": "swatches",
+                  "settings": {
+                    "product_swatches_alignment": "flex-start",
+                    "product_swatches_alignment_mobile": "flex-start",
+                    "hide_padding": false,
+                    "product_swatches_padding_top": 1,
+                    "product_swatches_padding_bottom": 0,
+                    "product_swatches_padding_left": 0,
+                    "product_swatches_padding_right": 0
+                  }
+                },
+                "card-extras": {
+                  "type": "_yv-card-extras",
+                  "settings": {}
+                }
+              },
+              "block_order": ["product-card-gallery", "card-vendor", "product-title", "price", "swatches", "card-extras"]
+            }
+          }
+        },
+        "look_3": {
+          "type": "_yv-look",
+          "settings": {
+            "heading": "",
+            "products_count": 6
+          },
+          "blocks": {
+            "static-product-card": {
+              "type": "_product-card",
+              "static": true,
+              "settings": {
+                "product_card_gap": 5,
+                "border": "none",
+                "border_radius": 0,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {
+                "product-card-gallery": {
+                  "type": "_product-card-gallery",
+                  "settings": {
+                    "image_ratio": "square",
+                    "border": "none",
+                    "border_radius": 0
+                  }
+                },
+                "card-vendor": {
+                  "type": "_yv-card-vendor",
+                  "settings": {}
+                },
+                "product-title": {
+                  "type": "product-title",
+                  "settings": {
+                    "width": "100%",
+                    "max_width": "none",
+                    "alignment": "left",
+                    "type_preset": "paragraph",
+                    "font": "var(--font-body--family)",
+                    "font_size": "1rem",
+                    "line_height": "normal",
+                    "letter_spacing": "normal",
+                    "case": "none",
+                    "wrap": "pretty",
+                    "background": false
+                  }
+                },
+                "price": {
+                  "type": "price",
+                  "settings": {
+                    "show_sale_price_first": true,
+                    "show_from_price": true,
+                    "show_installments": false,
+                    "show_tax_info": false,
+                    "type_preset": "paragraph",
+                    "width": "100%",
+                    "alignment": "left"
+                  }
+                },
+                "swatches": {
+                  "type": "swatches",
+                  "settings": {
+                    "product_swatches_alignment": "flex-start",
+                    "product_swatches_alignment_mobile": "flex-start",
+                    "hide_padding": false,
+                    "product_swatches_padding_top": 1,
+                    "product_swatches_padding_bottom": 0,
+                    "product_swatches_padding_left": 0,
+                    "product_swatches_padding_right": 0
+                  }
+                },
+                "card-extras": {
+                  "type": "_yv-card-extras",
+                  "settings": {}
+                }
+              },
+              "block_order": ["product-card-gallery", "card-vendor", "product-title", "price", "swatches", "card-extras"]
+            }
+          }
+        }
+      },
+      "block_order": ["look_1", "look_2", "look_3"]
+    }
+  ]
+}
+{% endschema %}

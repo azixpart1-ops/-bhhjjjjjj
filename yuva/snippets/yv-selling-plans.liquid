@@ -1,0 +1,68 @@
+{%- doc -%}
+  Yuva subscription plan picker inside the product form (buy buttons > Show subscription plans).
+  A radio list: "One time purchase" (left out when the product requires a selling plan), then one
+  radio per plan ("<group name>: <plan name>") with the plan price for the selected variant.
+  The chosen radio posts `selling_plan` with the product form; one-time purchase posts it empty.
+  Wrapped in <yv-variant-sync> so prices re-render on variant change.
+
+  @param {object} product - The product.
+  @param {string} block_id - The buy buttons block id.
+
+  @example
+  {% render 'yv-selling-plans', product: product, block_id: block.id %}
+{%- enddoc -%}
+
+{%- liquid
+  assign variant = product.selected_or_first_available_variant
+  assign selected_plan_id = product.selected_selling_plan.id
+  if selected_plan_id == blank and product.requires_selling_plan
+    assign selected_plan_id = variant.selling_plan_allocations.first.selling_plan.id
+  endif
+-%}
+
+<script
+  src="{{ 'yv-product.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<yv-variant-sync
+  class="yv-selling-plans"
+  data-sync-id="yv-selling-plans-{{ block_id }}"
+  data-product-id="{{ product.id }}"
+>
+  <fieldset class="yv-selling-plans__list">
+    <legend class="yv-option-title">{{ 'yv.product.purchase_options' | t }}</legend>
+    {%- unless product.requires_selling_plan -%}
+      <label class="yv-selling-plans__option">
+        <input
+          type="radio"
+          name="selling_plan"
+          value=""
+          {% if selected_plan_id == blank %}
+            checked
+          {% endif %}
+        >
+        <span class="yv-selling-plans__name">{{ 'yv.product.one_time_purchase' | t }}</span>
+        <span class="yv-selling-plans__price">{{ variant.price | money }}</span>
+      </label>
+    {%- endunless -%}
+    {%- for allocation in variant.selling_plan_allocations -%}
+      {%- assign group = product.selling_plan_groups | where: 'id', allocation.selling_plan_group_id | first -%}
+      <label class="yv-selling-plans__option">
+        <input
+          type="radio"
+          name="selling_plan"
+          value="{{ allocation.selling_plan.id }}"
+          {% if allocation.selling_plan.id == selected_plan_id %}
+            checked
+          {% endif %}
+        >
+        <span class="yv-selling-plans__name">
+          {%- if group.name != blank -%}{{ group.name | escape }}: {% endif -%}
+          {{- allocation.selling_plan.name | escape -}}
+        </span>
+        <span class="yv-selling-plans__price">{{ allocation.price | money }}</span>
+      </label>
+    {%- endfor -%}
+  </fieldset>
+</yv-variant-sync>

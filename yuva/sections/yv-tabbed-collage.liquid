@@ -1,0 +1,1281 @@
+{% comment %}
+  Section contract: yv-tabbed-collage
+  A split section: a content column (subheading, highlight heading, description and an accordion of
+  rows) beside a media column that shows the media of the open row. Rows are private blocks:
+  `_yv-collage-media` (own image or MP4 video) and `_yv-collage-product` (the product's featured media,
+  price, description and link). The media of every row is pre-rendered here, stacked, and crossfades
+  (0.4s) when another row opens (assets/yv-tabbed-collage.js, <yv-tabbed-collage>).
+  Three row looks: list rows with a round chevron toggle (click, first row open), list rows that open on
+  hover with a dot and "»" (desktop), or white card rows with a "+" toggle ("Show blocks background",
+  none open on load). Full width bleeds the media to the viewport edge.
+  Shared settings: icon over section, section border, highlight heading, colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Media > "Tabbed collage"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign full_width = section.settings.full_width
+  assign width_class = 'section--page-width'
+  if full_width
+    assign width_class = 'section--full-width'
+  endif
+
+  assign mode = 'click'
+  if section.settings.open_on == 'hover'
+    assign mode = 'hover'
+  endif
+  if section.settings.blocks_background
+    assign mode = 'cards'
+  endif
+
+  assign height_desktop = section.settings.height_desktop | append: 'px'
+  if section.settings.height_desktop == 'full'
+    assign height_desktop = '100svh'
+  endif
+  assign height_mobile = section.settings.height_mobile | append: 'px'
+
+  assign heading_size = section.settings.heading_size
+  if heading_size == 'extra_large'
+    assign heading_size = 'h1'
+  endif
+
+  assign image_loading = 'lazy'
+  assign image_priority = 'auto'
+  if section.index <= 2
+    assign image_loading = 'eager'
+  endif
+  if section.index == 1
+    assign image_priority = 'high'
+  endif
+
+  assign container = section.settings.container | default: 'page'
+-%}
+
+<script
+  src="{{ 'yv-tabbed-collage.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section {{ width_class }} yv-section-spacing yv-tabbed-collage yv-draw-icon-host color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-tc-height: {{ height_desktop }}; --yv-tc-height-mobile: {{ height_mobile }}; --yv-tc-radius: {{ section.settings.radius_desktop }}px; --yv-tc-radius-mobile: {{ section.settings.radius_mobile }}px;"
+  data-testid="yv-tabbed-collage"
+>
+  {% render 'yv-draw-icon', icon_settings: section.settings %}
+
+  <yv-tabbed-collage
+    class="yv-tabbed-collage__grid yv-tabbed-collage--{{ mode }} yv-tabbed-collage--media-{{ section.settings.media_alignment }}{% if full_width %} yv-tabbed-collage--full{% else %} yv-container yv-container--{{ container }}{% endif %}"
+    data-mode="{{ mode }}"
+  >
+    <div class="yv-tabbed-collage__media">
+      {%- assign slide_index = 0 -%}
+      {%- for child in section.blocks -%}
+        {%- liquid
+          if child.type == '_yv-collage-product' and child.settings.product == blank and request.design_mode == false
+            continue
+          endif
+          assign slide_loading = 'lazy'
+          assign slide_priority = 'auto'
+          if slide_index == 0
+            assign slide_loading = image_loading
+            assign slide_priority = image_priority
+          endif
+          assign slide_alt = child.settings.heading | default: child.settings.product.title | escape
+        -%}
+        <div
+          class="yv-tabbed-collage__slide{% if slide_index == 0 %} is-active{% endif %}"
+          ref="slides[]"
+          data-block-id="{{ child.id }}"
+        >
+          {%- if child.type == '_yv-collage-product' -%}
+            {%- assign slide_media = child.settings.product.featured_media -%}
+            {%- if slide_media != blank -%}
+              {{
+                slide_media
+                | image_url: width: 1600
+                | image_tag:
+                  widths: '400, 600, 800, 1000, 1200, 1600',
+                  sizes: '(min-width: 750px) 50vw, 100vw',
+                  loading: slide_loading,
+                  fetchpriority: slide_priority,
+                  alt: slide_alt,
+                  class: 'yv-tabbed-collage__image'
+              }}
+            {%- else -%}
+              {{ 'product-apparel-2' | placeholder_svg_tag: 'yv-tabbed-collage__image yv-placeholder' }}
+            {%- endif -%}
+          {%- elsif child.settings.video != blank -%}
+            {{
+              child.settings.video
+              | video_tag:
+                image_size: '1600x',
+                autoplay: false,
+                loop: true,
+                muted: true,
+                controls: false,
+                playsinline: true,
+                preload: 'metadata',
+                class: 'yv-tabbed-collage__video'
+            }}
+          {%- elsif child.settings.image != blank -%}
+            {{
+              child.settings.image
+              | image_url: width: 1600
+              | image_tag:
+                widths: '400, 600, 800, 1000, 1200, 1600',
+                sizes: '(min-width: 750px) 50vw, 100vw',
+                loading: slide_loading,
+                fetchpriority: slide_priority,
+                alt: slide_alt,
+                class: 'yv-tabbed-collage__image'
+            }}
+          {%- else -%}
+            {%- assign placeholder_name = 'lifestyle-1' -%}
+            {%- assign slide_mod = slide_index | modulo: 2 -%}
+            {%- if slide_mod == 1 -%}
+              {%- assign placeholder_name = 'lifestyle-2' -%}
+            {%- endif -%}
+            {{ placeholder_name | placeholder_svg_tag: 'yv-tabbed-collage__image yv-placeholder' }}
+          {%- endif -%}
+        </div>
+        {%- assign slide_index = slide_index | plus: 1 -%}
+      {%- endfor -%}
+      {%- if slide_index == 0 -%}
+        <div class="yv-tabbed-collage__slide is-active">
+          {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-tabbed-collage__image yv-placeholder' }}
+        </div>
+      {%- endif -%}
+    </div>
+
+    <div class="yv-tabbed-collage__content">
+      <div class="yv-tabbed-collage__inner">
+        {% render 'yv-heading',
+          text: section.settings.heading,
+          tag: section.settings.heading_tag,
+          size: heading_size,
+          highlight_font: section.settings.highlight_font,
+          highlight_color: section.settings.highlight_color,
+          rotating_text: section.settings.rotating_text,
+          subheading: section.settings.subheading,
+          description: section.settings.description,
+          alignment: 'left',
+          class: 'yv-tabbed-collage__heading',
+          reveal: true
+        %}
+        <div class="yv-tabbed-collage__items">
+          {%- content_for 'blocks' -%}
+        </div>
+      </div>
+    </div>
+  </yv-tabbed-collage>
+</div>
+
+{% stylesheet %}
+  .yv-tabbed-collage {
+    --yv-tc-rule: rgb(var(--color-foreground-rgb) / 0.1);
+    --yv-tc-gap: 20px;
+  }
+
+  .yv-tabbed-collage__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  /* Media column: every row's media stacked, the open row's on top. */
+  .yv-tabbed-collage__media {
+    position: relative;
+    min-width: 0;
+    height: var(--yv-tc-height-mobile, 500px);
+    overflow: hidden;
+    border-radius: var(--yv-tc-radius-mobile, 0);
+    background: var(--yv-image-bg, #f3efec);
+    isolation: isolate;
+  }
+
+  .yv-tabbed-collage__slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.4s ease, visibility 0s linear 0.4s;
+  }
+
+  .yv-tabbed-collage__slide.is-active {
+    z-index: 1;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.4s ease, visibility 0s linear 0s;
+  }
+
+  .yv-tabbed-collage__image,
+  .yv-tabbed-collage__video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-tabbed-collage__content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    padding-block: 30px 0;
+  }
+
+  .yv-tabbed-collage--full .yv-tabbed-collage__content {
+    padding-inline: var(--page-margin, 20px);
+  }
+
+  .yv-tabbed-collage__inner {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .yv-tabbed-collage__heading {
+    --yv-heading-gap: 12px;
+    margin-block-end: 32px;
+  }
+
+  .yv-tabbed-collage__heading .yv-heading__description {
+    margin-block-start: 4px;
+  }
+
+  .yv-tabbed-collage__items {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .yv-tabbed-collage__items:empty {
+    display: none;
+  }
+
+  /* Row */
+  .yv-tabbed-collage__item {
+    min-width: 0;
+  }
+
+  .yv-tabbed-collage__item-heading {
+    margin: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: none;
+  }
+
+  .yv-tabbed-collage__trigger {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 15px 0;
+    margin: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .yv-tabbed-collage__trigger:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  .yv-tabbed-collage__icon {
+    display: flex;
+    flex: none;
+    margin-inline-end: 15px;
+    color: var(--yv-heading-color, currentColor);
+  }
+
+  .yv-tabbed-collage__titles {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .yv-tabbed-collage__title {
+    display: block;
+    margin: 0;
+    color: var(--yv-heading-color, currentColor);
+    overflow-wrap: anywhere;
+  }
+
+  .yv-tabbed-collage__subtitle {
+    display: block;
+    font-size: var(--yv-text-md, 13.44px);
+    line-height: 1.4;
+  }
+
+  .yv-tabbed-collage__toggle {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 31px;
+    height: 31px;
+    margin-inline-start: 15px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, opacity 0.3s ease;
+  }
+
+  .yv-tabbed-collage__toggle svg {
+    display: block;
+    transition: transform 0.3s ease;
+  }
+
+  /* Panel: animates its height with a 0fr -> 1fr row. */
+  .yv-tabbed-collage__panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    visibility: hidden;
+    transition: grid-template-rows 0.3s ease, visibility 0s linear 0.3s;
+  }
+
+  .yv-tabbed-collage__item.is-open .yv-tabbed-collage__panel {
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition: grid-template-rows 0.3s ease, visibility 0s linear 0s;
+  }
+
+  .yv-tabbed-collage__panel-inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .yv-tabbed-collage__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding-block: 0 20px;
+  }
+
+  .yv-tabbed-collage__description {
+    font-size: var(--yv-text-md, 13.44px);
+    line-height: 1.6;
+  }
+
+  .yv-tabbed-collage__description > :first-child {
+    margin-block-start: 0;
+  }
+
+  .yv-tabbed-collage__description > :last-child {
+    margin-block-end: 0;
+  }
+
+  .yv-tabbed-collage__price .price {
+    font-weight: 700;
+  }
+
+  /* List rows (click): hairlines and a round chevron toggle. */
+  .yv-tabbed-collage--click .yv-tabbed-collage__item,
+  .yv-tabbed-collage--hover .yv-tabbed-collage__item {
+    border-block-end: 1px solid var(--yv-tc-rule);
+  }
+
+  .yv-tabbed-collage--click .yv-tabbed-collage__toggle {
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.3);
+    color: rgb(var(--color-foreground-rgb) / 0.6);
+  }
+
+  .yv-tabbed-collage--click .yv-tabbed-collage__item.is-open .yv-tabbed-collage__toggle {
+    border-color: var(--color-foreground);
+    background: var(--color-foreground);
+    color: var(--color-background);
+  }
+
+  .yv-tabbed-collage--click .yv-tabbed-collage__item.is-open .yv-tabbed-collage__toggle svg {
+    transform: rotate(90deg);
+  }
+
+  /* List rows (hover): "»" marker, always visible on touch / small screens. */
+  .yv-tabbed-collage--hover .yv-tabbed-collage__trigger::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block-start: 50%;
+    width: 7px;
+    height: 7px;
+    margin-block-start: -3.5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .yv-tabbed-collage--hover .yv-tabbed-collage__titles {
+    transition: translate 0.3s ease;
+  }
+
+  /* Cards ("Show blocks background"). */
+  .yv-tabbed-collage--cards .yv-tabbed-collage__items {
+    gap: 12px;
+    width: 90%;
+    margin-inline: auto;
+    padding-block: 20px;
+  }
+
+  .yv-tabbed-collage--cards .yv-tabbed-collage__item {
+    padding-block: 20px;
+    border-radius: 40px;
+    background: var(--yv-card-bg, #fff);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .yv-tabbed-collage--cards .yv-tabbed-collage__trigger {
+    padding: 5px 20px;
+  }
+
+  .yv-tabbed-collage--cards .yv-tabbed-collage__toggle {
+    border: 1px solid var(--yv-card-bg, #fff);
+    background: var(--color-foreground);
+    color: var(--yv-card-bg, #fff);
+  }
+
+  .yv-tabbed-collage--cards .yv-tabbed-collage__item.is-open .yv-tabbed-collage__toggle svg {
+    transform: rotate(45deg);
+  }
+
+  .yv-tabbed-collage--cards .yv-tabbed-collage__body {
+    padding: 10px 20px 0;
+  }
+
+  .yv-tabbed-collage--cards .yv-tabbed-collage__item:has(.yv-tabbed-collage__icon) .yv-tabbed-collage__body {
+    padding-inline-start: calc(20px + 24px + 15px);
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-tabbed-collage--full .yv-tabbed-collage__media {
+      border-radius: var(--yv-tc-radius-mobile, 0);
+    }
+
+    .yv-tabbed-collage--cards .yv-tabbed-collage__content {
+      padding-block-start: 0;
+    }
+
+    .yv-tabbed-collage--hover .yv-tabbed-collage__toggle {
+      opacity: 1;
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-tabbed-collage__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: var(--yv-tc-gap);
+      align-items: stretch;
+    }
+
+    .yv-tabbed-collage__media {
+      align-self: center;
+      height: var(--yv-tc-height, 700px);
+      border-radius: var(--yv-tc-radius, 0);
+    }
+
+    .yv-tabbed-collage--media-right .yv-tabbed-collage__media {
+      order: 2;
+    }
+
+    .yv-tabbed-collage__content {
+      padding-block: 20px;
+    }
+
+    /* Full width: the media half bleeds to the viewport edge, the content half lines up with the page. */
+    .yv-tabbed-collage--full {
+      grid-template-columns:
+        var(--full-page-grid-margin) repeat(2, calc(var(--full-page-grid-central-column-width) / 2))
+        var(--full-page-grid-margin);
+      column-gap: 0;
+    }
+
+    .yv-tabbed-collage--full.yv-tabbed-collage--media-right .yv-tabbed-collage__media {
+      grid-column: 3 / 5;
+      grid-row: 1;
+    }
+
+    .yv-tabbed-collage--full.yv-tabbed-collage--media-right .yv-tabbed-collage__content {
+      grid-column: 2;
+      grid-row: 1;
+      padding-inline: 0 50px;
+    }
+
+    .yv-tabbed-collage--full.yv-tabbed-collage--media-left .yv-tabbed-collage__media {
+      grid-column: 1 / 3;
+      grid-row: 1;
+    }
+
+    .yv-tabbed-collage--full.yv-tabbed-collage--media-left .yv-tabbed-collage__content {
+      grid-column: 3;
+      grid-row: 1;
+      padding-inline: 50px 0;
+    }
+
+    .yv-tabbed-collage--full .yv-tabbed-collage__inner {
+      max-width: 90%;
+    }
+
+    .yv-tabbed-collage--full.yv-tabbed-collage--media-left .yv-tabbed-collage__inner {
+      margin-inline-start: auto;
+      max-width: 100%;
+    }
+
+    .yv-tabbed-collage__trigger {
+      padding-block: 22px;
+    }
+
+    .yv-tabbed-collage__icon {
+      margin-inline-end: 25px;
+    }
+
+    .yv-tabbed-collage--cards .yv-tabbed-collage__item {
+      padding-block: 35px;
+    }
+
+    .yv-tabbed-collage--cards .yv-tabbed-collage__trigger {
+      padding: 5px 30px;
+    }
+
+    .yv-tabbed-collage--cards .yv-tabbed-collage__body {
+      padding: 10px 30px 0;
+    }
+
+    .yv-tabbed-collage--cards .yv-tabbed-collage__item:has(.yv-tabbed-collage__icon) .yv-tabbed-collage__body {
+      padding-inline-start: calc(30px + 24px + 25px);
+    }
+
+    /* Hover rows: dimmed until active; the active label slides right after a dot. */
+    .yv-tabbed-collage--hover .yv-tabbed-collage__item {
+      opacity: 0.5;
+      transition: opacity 0.5s ease;
+    }
+
+    .yv-tabbed-collage--hover .yv-tabbed-collage__item.is-open {
+      opacity: 1;
+    }
+
+    .yv-tabbed-collage--hover .yv-tabbed-collage__toggle {
+      opacity: 0;
+    }
+
+    .yv-tabbed-collage--hover .yv-tabbed-collage__item.is-open .yv-tabbed-collage__toggle,
+    .yv-tabbed-collage--hover .yv-tabbed-collage__item.is-open .yv-tabbed-collage__trigger::before {
+      opacity: 1;
+    }
+
+    .yv-tabbed-collage--hover .yv-tabbed-collage__item.is-open .yv-tabbed-collage__titles {
+      translate: 20px 0;
+    }
+  }
+
+  @media (hover: hover) and (min-width: 1025px) {
+    .yv-tabbed-collage--cards .yv-tabbed-collage__item:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 7px rgb(0 0 0 / 0.08);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yv-tabbed-collage__slide,
+    .yv-tabbed-collage__panel,
+    .yv-tabbed-collage__item,
+    .yv-tabbed-collage__titles,
+    .yv-tabbed-collage__toggle svg {
+      transition: none;
+    }
+
+    .yv-tabbed-collage--cards .yv-tabbed-collage__item:hover {
+      transform: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.tabbed_collage",
+  "tag": "section",
+  "class": "yv-tabbed-collage-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 6,
+  "blocks": [
+    {
+      "type": "_yv-collage-media"
+    },
+    {
+      "type": "_yv-collage-product"
+    }
+  ],
+  "settings": [
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "container",
+      "label": "t:yv.common.settings.container",
+      "options": [
+        {
+          "value": "page",
+          "label": "t:yv.common.options.page"
+        },
+        {
+          "value": "md",
+          "label": "t:yv.common.options.container_md"
+        },
+        {
+          "value": "sm",
+          "label": "t:yv.common.options.container_sm"
+        }
+      ],
+      "default": "page",
+      "visible_if": "{{ section.settings.full_width == false }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.draw_icon.header"
+    },
+    {
+      "type": "checkbox",
+      "id": "draw_icon_show",
+      "label": "t:yv.draw_icon.show",
+      "info": "t:yv.draw_icon.show_info",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "draw_icon",
+      "label": "t:yv.draw_icon.icon",
+      "options": [
+        {
+          "value": "sparkle",
+          "label": "t:yv.draw_icon.options.sparkle"
+        },
+        {
+          "value": "star",
+          "label": "t:yv.draw_icon.options.star"
+        },
+        {
+          "value": "heart",
+          "label": "t:yv.draw_icon.options.heart"
+        },
+        {
+          "value": "swirl",
+          "label": "t:yv.draw_icon.options.swirl"
+        },
+        {
+          "value": "arrow",
+          "label": "t:yv.draw_icon.options.arrow"
+        },
+        {
+          "value": "circle",
+          "label": "t:yv.draw_icon.options.circle"
+        },
+        {
+          "value": "underline",
+          "label": "t:yv.draw_icon.options.underline"
+        },
+        {
+          "value": "flower",
+          "label": "t:yv.draw_icon.options.flower"
+        }
+      ],
+      "default": "star",
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.draw_icon.position_header"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_x_desktop",
+      "label": "t:yv.draw_icon.x_desktop",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 50,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_y_desktop",
+      "label": "t:yv.draw_icon.y_desktop",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 50,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_x_mobile",
+      "label": "t:yv.draw_icon.x_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 90,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_y_mobile",
+      "label": "t:yv.draw_icon.y_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 5,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "color",
+      "id": "draw_icon_color",
+      "label": "t:yv.draw_icon.color",
+      "default": "#000000",
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.text"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        },
+        {
+          "value": "extra_large",
+          "label": "t:options.extra_large"
+        }
+      ],
+      "default": "large"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "select",
+      "id": "open_on",
+      "label": "t:yv.tabbed_collage.settings.open_on",
+      "options": [
+        {
+          "value": "click",
+          "label": "t:yv.tabbed_collage.options.click"
+        },
+        {
+          "value": "hover",
+          "label": "t:yv.tabbed_collage.options.hover"
+        }
+      ],
+      "default": "click",
+      "info": "t:yv.tabbed_collage.settings.open_on_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.media"
+    },
+    {
+      "type": "select",
+      "id": "media_alignment",
+      "label": "t:yv.tabbed_collage.settings.media_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "select",
+      "id": "height_desktop",
+      "label": "t:yv.common.settings.desktop_height",
+      "options": [
+        {
+          "value": "500",
+          "label": "t:yv.tabbed_collage.options.px_500"
+        },
+        {
+          "value": "600",
+          "label": "t:yv.tabbed_collage.options.px_600"
+        },
+        {
+          "value": "700",
+          "label": "t:yv.tabbed_collage.options.px_700"
+        },
+        {
+          "value": "800",
+          "label": "t:yv.tabbed_collage.options.px_800"
+        },
+        {
+          "value": "full",
+          "label": "t:yv.tabbed_collage.options.full_screen"
+        }
+      ],
+      "default": "700"
+    },
+    {
+      "type": "select",
+      "id": "height_mobile",
+      "label": "t:yv.common.settings.mobile_height",
+      "options": [
+        {
+          "value": "300",
+          "label": "t:yv.tabbed_collage.options.px_300"
+        },
+        {
+          "value": "400",
+          "label": "t:yv.tabbed_collage.options.px_400"
+        },
+        {
+          "value": "500",
+          "label": "t:yv.tabbed_collage.options.px_500"
+        },
+        {
+          "value": "600",
+          "label": "t:yv.tabbed_collage.options.px_600"
+        }
+      ],
+      "default": "500"
+    },
+    {
+      "type": "range",
+      "id": "radius_desktop",
+      "label": "t:yv.tabbed_collage.settings.radius_desktop",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "radius_mobile",
+      "label": "t:yv.tabbed_collage.settings.radius_mobile",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "checkbox",
+      "id": "blocks_background",
+      "label": "t:yv.tabbed_collage.settings.blocks_background",
+      "info": "t:yv.tabbed_collage.settings.blocks_background_info",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "secondary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.tabbed_collage",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "full_width": false,
+        "container": "sm",
+        "open_on": "click",
+        "media_alignment": "right",
+        "height_desktop": "600",
+        "height_mobile": "500",
+        "radius_desktop": 20,
+        "radius_mobile": 10,
+        "blocks_background": true,
+        "color_set": "quaternary",
+        "spacing_top_desktop": 72,
+        "spacing_bottom_desktop": 72,
+        "spacing_top_mobile": 32,
+        "spacing_bottom_mobile": 32
+      },
+      "blocks": {
+        "row_1": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "icon": "heart",
+            "heading": "t:yv.tabbed_collage.defaults.card_1_heading",
+            "subheading": "t:yv.tabbed_collage.defaults.card_1_subheading",
+            "description": "t:yv.tabbed_collage.defaults.card_1_text"
+          }
+        },
+        "row_2": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "icon": "phone",
+            "heading": "t:yv.tabbed_collage.defaults.card_2_heading",
+            "subheading": "t:yv.tabbed_collage.defaults.card_2_subheading",
+            "description": "t:yv.tabbed_collage.defaults.card_2_text"
+          }
+        },
+        "row_3": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "icon": "smile",
+            "heading": "t:yv.tabbed_collage.defaults.card_3_heading",
+            "subheading": "t:yv.tabbed_collage.defaults.card_3_subheading",
+            "description": "t:yv.tabbed_collage.defaults.card_3_text"
+          }
+        },
+        "row_4": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "icon": "leaf",
+            "heading": "t:yv.tabbed_collage.defaults.card_4_heading",
+            "subheading": "t:yv.tabbed_collage.defaults.card_4_subheading",
+            "description": "t:yv.tabbed_collage.defaults.card_4_text"
+          }
+        }
+      },
+      "block_order": ["row_1", "row_2", "row_3", "row_4"]
+    },
+    {
+      "name": "t:yv.tabbed_collage.presets.hover_list",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "full_width": true,
+        "open_on": "hover",
+        "media_alignment": "right",
+        "height_desktop": "800",
+        "height_mobile": "500",
+        "blocks_background": false,
+        "subheading": "t:yv.tabbed_collage.defaults.hover_subheading",
+        "heading": "t:yv.tabbed_collage.defaults.hover_heading",
+        "heading_size": "extra_large",
+        "description": "t:yv.tabbed_collage.defaults.hover_text",
+        "color_set": "secondary",
+        "spacing_top_desktop": 0,
+        "spacing_bottom_desktop": 0,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 32
+      },
+      "blocks": {
+        "row_1": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "heading": "t:yv.tabbed_collage.defaults.hover_1"
+          }
+        },
+        "row_2": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "heading": "t:yv.tabbed_collage.defaults.hover_2"
+          }
+        },
+        "row_3": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "heading": "t:yv.tabbed_collage.defaults.hover_3"
+          }
+        },
+        "row_4": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "heading": "t:yv.tabbed_collage.defaults.hover_4"
+          }
+        }
+      },
+      "block_order": ["row_1", "row_2", "row_3", "row_4"]
+    },
+    {
+      "name": "t:yv.tabbed_collage.presets.accordion",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "full_width": true,
+        "open_on": "click",
+        "media_alignment": "right",
+        "height_desktop": "800",
+        "height_mobile": "600",
+        "blocks_background": false,
+        "heading": "t:yv.tabbed_collage.defaults.accordion_heading",
+        "heading_size": "extra_large",
+        "description": "t:yv.tabbed_collage.defaults.accordion_text",
+        "color_set": "quaternary",
+        "spacing_top_desktop": 0,
+        "spacing_bottom_desktop": 0,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 32
+      },
+      "blocks": {
+        "row_1": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "icon": "smile",
+            "heading": "t:yv.tabbed_collage.defaults.accordion_1",
+            "description": "t:yv.tabbed_collage.defaults.accordion_1_text"
+          }
+        },
+        "row_2": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "icon": "star",
+            "heading": "t:yv.tabbed_collage.defaults.accordion_2",
+            "description": "t:yv.tabbed_collage.defaults.accordion_2_text"
+          }
+        },
+        "row_3": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "icon": "heart",
+            "heading": "t:yv.tabbed_collage.defaults.accordion_3",
+            "description": "t:yv.tabbed_collage.defaults.accordion_3_text"
+          }
+        },
+        "row_4": {
+          "type": "_yv-collage-media",
+          "settings": {
+            "icon": "globe",
+            "heading": "t:yv.tabbed_collage.defaults.accordion_4",
+            "description": "t:yv.tabbed_collage.defaults.accordion_4_text"
+          }
+        }
+      },
+      "block_order": ["row_1", "row_2", "row_3", "row_4"]
+    }
+  ]
+}
+{% endschema %}

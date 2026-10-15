@@ -1,0 +1,150 @@
+{%- doc -%}
+  Media of the Yuva featured product section (static, private; reads the section's settings):
+  every product media item in a fade slider inside a frame, small thumbnails over the top-left corner
+  (desktop), 26px arrows at the bottom-right and the optional vertical side heading / marquee strip.
+  Starts on the selected variant's media; the whole section re-renders on variant change.
+  Heights: 600/700/800 (desktop) and 400/500/600 (mobile) fix the media box (contain), Auto follows
+  the first media item's ratio.
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign ss = section.settings
+  assign media_count = product_resource.media.size
+  assign start_index = 0
+  assign selected_media = product_resource.selected_or_first_available_variant.featured_media
+  if selected_media
+    for media in product_resource.media
+      if media.id == selected_media.id
+        assign start_index = forloop.index0
+        break
+      endif
+    endfor
+  endif
+
+  assign ratio = product_resource.media.first.preview_image.aspect_ratio | default: 0.8
+  assign height_desktop = ss.image_height_desktop | default: 'auto'
+  assign height_mobile = ss.image_height_mobile | default: 'auto'
+  assign edge = 'left'
+  if ss.image_position == 'right'
+    assign edge = 'right'
+  endif
+-%}
+
+<script
+  src="{{ 'yv-product.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+<yv-featured-media-component
+  class="yv-fp-media yv-fp-media--{{ edge }}{% if ss.side_heading != blank %} yv-fp-media--has-side{% if ss.side_heading_marquee %} yv-fp-media--side-marquee{% endif %}{% endif %}"
+  data-index="{{ start_index }}"
+  style="--yv-fp-ratio: {{ ratio }};{% if height_desktop != 'auto' %} --yv-fp-height: {{ height_desktop }}px;{% endif %}{% if height_mobile != 'auto' %} --yv-fp-height-mobile: {{ height_mobile }}px;{% endif %}"
+  {{ block.shopify_attributes }}
+>
+  <div class="yv-fp-media__frame">
+    {%- if ss.side_heading != blank -%}
+      {% render 'yv-side-heading',
+        text: ss.side_heading,
+        marquee: ss.side_heading_marquee,
+        speed: ss.side_heading_speed,
+        position: edge
+      %}
+    {%- endif -%}
+
+    <div
+      class="yv-fp-media__stage{% if height_desktop != 'auto' %} yv-fp-media__stage--fixed{% endif %}{% if height_mobile != 'auto' %} yv-fp-media__stage--fixed-mobile{% endif %}"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="{{ product_resource.title | default: section.settings.side_heading | escape }}"
+    >
+      {%- if media_count > 0 -%}
+        {%- for media in product_resource.media -%}
+          <div
+            class="yv-fp-media__slide{% if forloop.index0 == start_index %} is-active{% endif %}"
+            ref="slides[]"
+            role="group"
+            aria-roledescription="slide"
+            aria-label="{{ 'yv.carousel.slide_label' | t: index: forloop.index, count: media_count }}"
+            {% unless forloop.index0 == start_index %}
+              aria-hidden="true"
+              inert
+            {% endunless %}
+          >
+            {%- liquid
+              assign loading = 'lazy'
+              if forloop.index0 == start_index and section.index <= 2
+                assign loading = 'eager'
+              endif
+            -%}
+            {% render 'product-media',
+              media: media,
+              sizes: '(min-width: 990px) 485px, (min-width: 750px) 45vw, 100vw',
+              widths: '400, 600, 800, 1000, 1200',
+              loading: loading,
+              is_main_product_media: false
+            %}
+          </div>
+        {%- endfor -%}
+      {%- else -%}
+        <div class="yv-fp-media__slide is-active">
+          {{ 'product-apparel-1' | placeholder_svg_tag: 'yv-fp-media__placeholder yv-placeholder' }}
+        </div>
+      {%- endif -%}
+    </div>
+
+    {%- if media_count > 1 -%}
+      <div
+        class="yv-fp-media__thumbs"
+        role="group"
+        aria-label="{{ 'yv.carousel.choose_slide' | t }}"
+      >
+        {%- for media in product_resource.media limit: 4 -%}
+          <button
+            type="button"
+            class="yv-fp-media__thumb{% if forloop.index0 == start_index %} is-active{% endif %}"
+            ref="thumbs[]"
+            on:click="/select/{{ forloop.index0 }}"
+            aria-label="{{ 'yv.carousel.go_to_slide' | t: index: forloop.index }}"
+            {% if forloop.index0 == start_index %}
+              aria-current="true"
+            {% endif %}
+          >
+            {{
+              media.preview_image
+              | image_url: width: 120
+              | image_tag: loading: 'lazy', alt: '', class: 'yv-fp-media__thumb-image', widths: '80, 120', sizes: '40px'
+            }}
+          </button>
+        {%- endfor -%}
+      </div>
+      <div class="yv-fp-media__arrows">
+        <button
+          type="button"
+          class="yv-fp-media__arrow yv-fp-media__arrow--prev"
+          on:click="/previous"
+          aria-label="{{ 'yv.carousel.previous' | t }}"
+        >
+          {%- render 'yv-icon', name: 'chevron-left', size: 12, stroke: 2 -%}
+        </button>
+        <button
+          type="button"
+          class="yv-fp-media__arrow yv-fp-media__arrow--next"
+          on:click="/next"
+          aria-label="{{ 'yv.carousel.next' | t }}"
+        >
+          {%- render 'yv-icon', name: 'chevron-right', size: 12, stroke: 2 -%}
+        </button>
+      </div>
+    {%- endif -%}
+  </div>
+</yv-featured-media-component>
+
+{% schema %}
+{
+  "name": "t:yv.names.featured_product_media",
+  "tag": null,
+  "settings": []
+}
+{% endschema %}

@@ -1,0 +1,544 @@
+{% comment %}
+  Section contract: yv-product-comparison
+  Yuva "Product comparison grid" (docs part 4, KB): 2–4 Compare product columns side by side.
+  Each column is a card whose eight rows (image, title, description, price, buttons, feature image,
+  feature heading, feature content) line up across the cards through CSS subgrid. Below 750px the
+  cards become a horizontal scroll row at 80% width. Highlight heading + description above.
+  Shared settings: highlight heading, colour set, button sizes, visibility, spacing.
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+  assign column_count = section.blocks.size | at_least: 1
+  assign alignment = section.settings.text_alignment | default: 'center'
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+>
+  <div class="yv-container yv-container--page">
+    <div class="yv-compare yv-compare--{{ section.settings.content_width | default: 'large' }}">
+      {% render 'yv-heading',
+        text: section.settings.heading,
+        tag: section.settings.heading_tag,
+        size: section.settings.heading_size_level,
+        highlight_font: section.settings.highlight_font,
+        highlight_color: section.settings.highlight_color,
+        rotating_text: section.settings.rotating_text,
+        description: section.settings.description,
+        alignment: alignment,
+        class: 'yv-compare__header'
+      %}
+
+      <div
+        class="yv-compare__grid"
+        style="--yv-compare-columns: {{ column_count }};"
+      >
+        {% content_for 'blocks' %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-compare {
+    margin-inline: auto;
+    max-width: 1270px;
+  }
+
+  .yv-compare--small {
+    max-width: 800px;
+  }
+
+  .yv-compare--medium {
+    max-width: 1000px;
+  }
+
+  .yv-compare__header {
+    margin-block-end: 40px;
+  }
+
+  .yv-compare__grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 80%;
+    grid-template-rows: repeat(8, auto);
+    column-gap: 15px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding-block-end: 2px;
+  }
+
+  .yv-compare__grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .yv-compare__card {
+    display: grid;
+    grid-row: span 8;
+    grid-template-rows: subgrid;
+    row-gap: 12px;
+    min-width: 0;
+    padding: 20px;
+    border: 1px solid var(--yv-border-color, rgb(0 0 0 / 0.1));
+    border-radius: var(--yv-radius, 10px);
+    background: var(--yv-card-bg, var(--color-background));
+    scroll-snap-align: start;
+  }
+
+  .yv-compare__cell {
+    min-width: 0;
+  }
+
+  .yv-compare__cell:empty {
+    min-height: 0;
+  }
+
+  .yv-compare__media {
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: calc(var(--yv-radius, 10px) - 4px);
+    background: var(--yv-image-bg, #f3efec);
+  }
+
+  .yv-compare__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-compare__title {
+    margin: 0;
+  }
+
+  .yv-compare__title a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .yv-compare__title a:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .yv-compare__description p {
+    margin: 0;
+  }
+
+  .yv-compare__price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+  }
+
+  .yv-compare__price-current {
+    font-family: var(--yv-price-font-family, var(--font-body--family));
+    font-weight: 700;
+    font-size: var(--yv-text-lg, 1rem);
+  }
+
+  .yv-compare__price-compare {
+    opacity: 0.7;
+    font-size: var(--yv-text-sm, 0.75rem);
+  }
+
+  .yv-compare__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .yv-compare__actions > * {
+    flex: 1 1 auto;
+  }
+
+  .yv-compare__feature-image {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+  }
+
+  .yv-compare__feature-heading {
+    margin: 0;
+  }
+
+  .yv-compare__feature-content > :first-child {
+    margin-block-start: 0;
+  }
+
+  .yv-compare__feature-content > :last-child {
+    margin-block-end: 0;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-compare__grid {
+      grid-auto-flow: row;
+      grid-template-columns: repeat(var(--yv-compare-columns, 3), minmax(0, 1fr));
+      grid-auto-columns: auto;
+      column-gap: 20px;
+      overflow: visible;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.product_comparison",
+  "tag": "section",
+  "class": "yv-product-comparison-section",
+  "max_blocks": 4,
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-compare-product"
+    }
+  ],
+  "settings": [
+    {
+      "type": "select",
+      "id": "content_width",
+      "label": "t:yv.product.settings.content_width",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "large"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "Compare our <strong>bestsellers</strong>"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size_level",
+      "label": "t:yv.product.settings.heading_size_level",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        }
+      ],
+      "default": "h2"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:yv.common.settings.text_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.common.settings.button_size_desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.common.settings.button_size_mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.product_comparison",
+      "category": "t:yv.categories.products",
+      "blocks": {
+        "compare_1": {
+          "type": "_yv-compare-product",
+          "settings": {
+            "feature_heading": "Comfort",
+            "feature_content": "<p>Supportive memory foam that keeps its shape night after night.</p>"
+          }
+        },
+        "compare_2": {
+          "type": "_yv-compare-product",
+          "settings": {
+            "feature_heading": "Easy care",
+            "feature_content": "<p>Removable, machine-washable cover for everyday freshness.</p>"
+          }
+        },
+        "compare_3": {
+          "type": "_yv-compare-product",
+          "settings": {
+            "feature_heading": "Built to last",
+            "feature_content": "<p>Durable materials chosen to look good for years.</p>"
+          }
+        }
+      },
+      "block_order": ["compare_1", "compare_2", "compare_3"]
+    }
+  ]
+}
+{% endschema %}

@@ -1,6 +1,58 @@
-<script type="application/ld+json">
-  {{ closest.product | structured_data }}
-</script>
+{%- comment -%}
+  yv: Yuva look of the product page lives in assets/yv-product.css (grid gallery, sticky info column,
+  option pills, swatches, quantity, buttons, sticky bar). Section-level Yuva options: sticky add to
+  cart position (sticky_atc_position) and the mobile dividers between the gallery and the blocks
+  (mobile_dividers), written as scoped styles below. SEO > Disable microdata schema skips the JSON-LD.
+{%- endcomment -%}
+{{ 'yv-product.css' | asset_url | stylesheet_tag }}
+{%- if request.page_type == 'product' and closest.product.id == product.id -%}
+  {%- comment -%} yv: remembered for the Recently viewed section (assets/yv-product.js). {%- endcomment -%}
+  <script type="application/json" data-yv-recently-viewed>
+    { "id": {{ product.id | json }}, "handle": {{ product.handle | json }} }
+  </script>
+  <script
+    src="{{ 'yv-product.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}
+{%- unless settings.yv_disable_microdata -%}
+  <script type="application/ld+json">
+    {{ closest.product | structured_data }}
+  </script>
+{%- endunless -%}
+
+{%- if section.settings.mobile_dividers != blank and section.settings.mobile_dividers != 'none' -%}
+  {% style %}
+    @media screen and (max-width: 749px) {
+      #shopify-section-{{ section.id }} .product-details > .group-block > .group-block-content > :not(.view-product-title, .view-product-title + *)::before,
+      #shopify-section-{{ section.id }} .product-information__media::after {
+        content: '';
+        display: block;
+        {%- case section.settings.mobile_dividers -%}
+          {%- when 'small' -%}
+            height: 1px;
+            margin-block-end: var(--yv-pdp-block-gap, 20px);
+            background: var(--yv-border-color, rgb(0 0 0 / 0.1));
+          {%- when 'medium' -%}
+            height: 4px;
+            margin-inline: calc(var(--page-margin, 20px) * -1);
+            margin-block-end: var(--yv-pdp-block-gap, 20px);
+            background: rgb(var(--color-foreground-rgb) / 0.1);
+          {%- else -%}
+            height: 8px;
+            margin-inline: calc(var(--page-margin, 20px) * -1);
+            margin-block-end: var(--yv-pdp-block-gap, 20px);
+            background: rgb(var(--color-foreground-rgb) / 0.1);
+        {%- endcase -%}
+      }
+
+      #shopify-section-{{ section.id }} .product-information__media::after {
+        margin-block: 20px 0;
+      }
+    }
+  {% endstyle %}
+{%- endif -%}
 
 {% capture media_gallery %}
   {%- content_for 'block',
@@ -34,8 +86,9 @@
     assign initial_quantity = current_variant.quantity_rule.min | default: 1
   %}
 
+  {%- comment -%} yv: Yuva full-width bar, at the bottom or top of the viewport (sticky_atc_position). {%- endcomment -%}
   <sticky-add-to-cart
-    class="sticky-add-to-cart"
+    class="sticky-add-to-cart yv-sticky-atc yv-sticky-atc--{{ section.settings.sticky_atc_position | default: 'bottom' }}"
     data-variant-available="{{ current_variant.available }}"
     data-product-id="{{ product.id }}"
     data-current-variant-id="{{ current_variant.id }}"
@@ -449,6 +502,47 @@
       "id": "enable_sticky_add_to_cart",
       "label": "t:settings.enable_sticky_add_to_cart",
       "default": true
+    },
+    {
+      "type": "select",
+      "id": "sticky_atc_position",
+      "label": "t:yv.product.settings.sticky_atc_position",
+      "options": [
+        {
+          "value": "bottom",
+          "label": "t:yv.common.options.bottom"
+        },
+        {
+          "value": "top",
+          "label": "t:yv.common.options.top"
+        }
+      ],
+      "default": "bottom",
+      "visible_if": "{{ section.settings.enable_sticky_add_to_cart }}"
+    },
+    {
+      "type": "select",
+      "id": "mobile_dividers",
+      "label": "t:yv.product.settings.mobile_dividers",
+      "options": [
+        {
+          "value": "none",
+          "label": "t:yv.common.options.none"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "none"
     },
     {
       "type": "color",

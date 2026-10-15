@@ -4,12 +4,40 @@
   endif
 %}
 
+{%- comment -%}
+  yv: b-catalog — Yuva search header: heading, pill input with the "Search" button inside it (full
+  width below on mobile), "N results found for “q”", Products / Articles / Pages tabs (?type=…; the
+  article and page tabs follow Theme settings > Search) and the "No results found." box. The Yuva
+  form replaces Horizon's _search-input block, which has no submit button.
+{%- endcomment -%}
+{{ 'yv-collection.css' | asset_url | stylesheet_tag }}
+<script
+  src="{{ 'search-page-input.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+{%- liquid
+  assign yv_type = 'product'
+  if search.types.size == 1
+    assign yv_type = search.types.first
+  endif
+  assign yv_terms = search.terms | url_encode
+  assign yv_tab_articles = settings.yv_search_articles | default: false
+  if settings.yv_search_articles == nil
+    assign yv_tab_articles = true
+  endif
+  assign yv_tab_pages = settings.yv_search_pages | default: false
+  if settings.yv_search_pages == nil
+    assign yv_tab_pages = true
+  endif
+-%}
+
 <div
   class="section-background{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
 ></div>
 <div class="section section--page-width{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}">
   <div
-    class="spacing-style search-page__header"
+    class="spacing-style search-page__header yv-search-header"
     style="
       --horizontal-alignment: {{ section.settings.alignment }};
       {% render 'spacing-style', settings: section.settings %}
@@ -26,7 +54,105 @@
     {% endcapture %}
 
     {% content_for 'block', id: 'heading', type: '_heading', text: heading_text %}
-    {% content_for 'block', id: 'search', type: '_search-input' %}
+
+    <form
+      action="{{ routes.search_url }}"
+      method="get"
+      role="search"
+      class="yv-search-form"
+    >
+      <search-page-input-component class="yv-search-form__field">
+        <label
+          for="YvSearchInput-{{ section.id }}"
+          class="visually-hidden"
+        >
+          {{- 'content.search_input_label' | t -}}
+        </label>
+        <input
+          type="hidden"
+          name="type"
+          value="{{ yv_type }}"
+        >
+        <input
+          type="hidden"
+          name="options[prefix]"
+          value="last"
+        >
+        <input
+          class="yv-search-form__input"
+          id="YvSearchInput-{{ section.id }}"
+          type="search"
+          name="q"
+          ref="searchPageInput"
+          on:keydown="/handleKeyDown"
+          value="{{ search.terms | escape }}"
+          placeholder="{{ 'content.search_input_placeholder' | t }}"
+          autocomplete="off"
+        >
+        <button
+          type="submit"
+          class="button yv-search-form__submit"
+        >
+          {{- 'yv.search_page.submit' | t -}}
+        </button>
+      </search-page-input-component>
+    </form>
+
+    {%- if search.performed -%}
+      {%- if section.settings.show_count -%}
+        <p
+          class="yv-search-count h6"
+          role="status"
+        >
+          {{- 'yv.search_page.results_found' | t: count: search.results_count, terms: search.terms -}}
+        </p>
+      {%- endif -%}
+
+      {%- if section.settings.show_tabs -%}
+        <nav
+          class="yv-search-tabs"
+          aria-label="{{ 'yv.search_page.tabs_label' | t }}"
+        >
+          <a
+            class="yv-search-tabs__tab{% if yv_type == 'product' %} yv-search-tabs__tab--active{% endif %}"
+            href="{{ routes.search_url }}?q={{ yv_terms }}&type=product&options%5Bprefix%5D=last"
+            {% if yv_type == 'product' %}
+              aria-current="page"
+            {% endif %}
+          >
+            {{- 'yv.search_page.products' | t -}}
+          </a>
+          {%- if yv_tab_articles -%}
+            <a
+              class="yv-search-tabs__tab{% if yv_type == 'article' %} yv-search-tabs__tab--active{% endif %}"
+              href="{{ routes.search_url }}?q={{ yv_terms }}&type=article&options%5Bprefix%5D=last"
+              {% if yv_type == 'article' %}
+                aria-current="page"
+              {% endif %}
+            >
+              {{- 'yv.search_page.articles' | t -}}
+            </a>
+          {%- endif -%}
+          {%- if yv_tab_pages -%}
+            <a
+              class="yv-search-tabs__tab{% if yv_type == 'page' %} yv-search-tabs__tab--active{% endif %}"
+              href="{{ routes.search_url }}?q={{ yv_terms }}&type=page&options%5Bprefix%5D=last"
+              {% if yv_type == 'page' %}
+                aria-current="page"
+              {% endif %}
+            >
+              {{- 'yv.search_page.pages' | t -}}
+            </a>
+          {%- endif -%}
+        </nav>
+      {%- endif -%}
+
+      {%- if search.results_count == 0 -%}
+        <div class="yv-search-empty">
+          <p class="yv-search-empty__title h5">{{ 'yv.search_page.no_results' | t }}</p>
+        </div>
+      {%- endif -%}
+    {%- endif -%}
   </div>
 </div>
 
@@ -53,6 +179,19 @@
         }
       ],
       "default": "flex-start"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_count",
+      "label": "t:yv.search_page.settings.show_count",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_tabs",
+      "label": "t:yv.search_page.settings.show_tabs",
+      "info": "t:yv.search_page.settings.show_tabs_info",
+      "default": true
     },
     {
       "type": "color",

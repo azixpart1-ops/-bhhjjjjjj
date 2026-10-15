@@ -6,6 +6,9 @@
   @param {string} [data_header_drawer_type] - The type of header drawer to render
   @param {object} [block] - The block that can be used to provide settings
   @param {object} [section] - The section that can be used to provide settings
+  @param {string} [yv_links] - yv: Yuva quick links markup listed after the menu
+  @param {string} [yv_catalog] - yv: Yuva catalog markup shown in the drawer's second tab
+  @param {string} [yv_catalog_label] - yv: label of the catalog tab (defaults to the menu block's setting)
 
   @example
   {% render 'header-drawer', linklist: section.settings.menu, class: 'header-drawer--mobile' %}
@@ -41,6 +44,16 @@
   if block_settings.background_color != blank or block_settings.text_color != blank
     render 'contrast-override', background_color: block_settings.background_color, text_color: block_settings.text_color, section_id: block.id
   endif
+
+  # yv: Yuva drawer tabs ("Menu" / "View catalog"), quick links, account link and social icons.
+  assign yv_catalog = yv_catalog | strip
+  assign yv_links = yv_links | strip
+  assign yv_show_tabs = false
+  if data_header_drawer_type == 'mobile-drawer' and block_settings.drawer_catalog_tab and yv_catalog != blank
+    assign yv_show_tabs = true
+  endif
+  assign yv_catalog_label = yv_catalog_label | default: block_settings.drawer_catalog_label
+  assign yv_badge_blocks = section.blocks | where: 'type', '_yv-menu-badge'
 %}
 
 <script
@@ -66,7 +79,19 @@
       on:click="/toggle"
     >
       <span class="svg-wrapper header-drawer-icon header-drawer-icon--open">
-        {{- 'icon-menu.svg' | inline_asset_content -}}
+        {%- comment -%} yv: Yuva hamburger (three bars, the middle one shorter). {%- endcomment -%}
+        <svg
+          class="yv-hamburger"
+          aria-hidden="true"
+          focusable="false"
+          width="20"
+          height="14"
+          viewBox="0 0 20 14"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M0 1H20M0 7H14M0 13H20" stroke="currentColor" stroke-width="2"/>
+        </svg>
       </span>
       <span class="svg-wrapper header-drawer-icon header-drawer-icon--close">
         {{- 'icon-close-menu.svg' | inline_asset_content -}}
@@ -91,6 +116,37 @@
           {{- 'icon-close-menu.svg' | inline_asset_content -}}
         </span>
       </button>
+      {%- if yv_show_tabs -%}
+        <div
+          class="yv-drawer-tabs"
+          role="tablist"
+          aria-label="{{ 'accessibility.header_navigation_label' | t }}"
+        >
+          <button
+            type="button"
+            class="yv-drawer-tabs__tab"
+            role="tab"
+            id="YvDrawerTab-menu"
+            aria-controls="YvDrawerPanel-menu"
+            aria-selected="true"
+            data-yv-drawer-tab="menu"
+          >
+            {{- 'yv.header.menu' | t -}}
+          </button>
+          <button
+            type="button"
+            class="yv-drawer-tabs__tab"
+            role="tab"
+            id="YvDrawerTab-catalog"
+            aria-controls="YvDrawerPanel-catalog"
+            aria-selected="false"
+            tabindex="-1"
+            data-yv-drawer-tab="catalog"
+          >
+            {{- yv_catalog_label | escape -}}
+          </button>
+        </div>
+      {%- endif -%}
       <nav
         class="menu-drawer__navigation"
         style="
@@ -98,6 +154,11 @@
           {%- render 'submenu-font-styles', settings: block_settings %}
         "
         aria-label="{{ 'accessibility.header_navigation_label' | t }}"
+        {% if yv_show_tabs %}
+          role="tabpanel"
+          id="YvDrawerPanel-menu"
+          aria-labelledby="YvDrawerTab-menu"
+        {% endif %}
       >
         <ul
           class="menu-drawer__menu has-submenu"
@@ -135,6 +196,7 @@
                         class="menu-drawer__menu-item menu-drawer__menu-item--mainlist menu-drawer__animated-element"
                       >
                         <span class="menu-drawer__menu-item-text wrap-text">{{ link.title | escape }}</span>
+                        {%- render 'yv-menu-badge', link: link, badges: yv_badge_blocks -%}
                         <span class="svg-wrapper icon-plus">
                           {{- 'icon-plus.svg' | inline_asset_content -}}
                         </span>
@@ -199,6 +261,7 @@
                     {% endif %}
                   >
                     <span class="menu-drawer__menu-item-text wrap-text">{{ link.title | escape }}</span>
+                        {%- render 'yv-menu-badge', link: link, badges: yv_badge_blocks -%}
                   </a>
                   {% liquid
                     assign render_link_image = false
@@ -253,6 +316,7 @@
                     {% endif %}
                   >
                     <span class="menu-drawer__menu-item-text wrap-text">{{ link.title | escape }}</span>
+                        {%- render 'yv-menu-badge', link: link, badges: yv_badge_blocks -%}
                   </a>
                 {% endif %}
               </li>
@@ -282,6 +346,7 @@
                       on:click="header-drawer/open/submenu"
                     >
                       <span class="menu-drawer__menu-item-text wrap-text">{{ link.title | escape }}</span>
+                        {%- render 'yv-menu-badge', link: link, badges: yv_badge_blocks -%}
                       <span class="svg-wrapper icon-caret icon-caret--forward">
                         {{- 'icon-caret.svg' | inline_asset_content -}}
                       </span>
@@ -311,6 +376,7 @@
                             {% endif %}
                           >
                             <span class="menu-drawer__menu-item-text wrap-text">{{ link.title | escape }}</span>
+                        {%- render 'yv-menu-badge', link: link, badges: yv_badge_blocks -%}
                           </a>
                           <button
                             class="button button-unstyled close-button menu-drawer__close-button focus-inset"
@@ -582,17 +648,42 @@
                     {% endif %}
                   >
                     <span class="menu-drawer__menu-item-text wrap-text">{{ link.title | escape }}</span>
+                        {%- render 'yv-menu-badge', link: link, badges: yv_badge_blocks -%}
                   </a>
                 {%- endif -%}
               </li>
             {%- endfor -%}
           {% endif %}
         </ul>
+        {%- if yv_links != blank and data_header_drawer_type == 'mobile-drawer' -%}
+          <div class="yv-drawer-links menu-drawer__animated-element">
+            {{ yv_links }}
+          </div>
+        {%- endif -%}
       </nav>
+      {%- if yv_show_tabs -%}
+        <div
+          class="yv-drawer-catalog-panel"
+          role="tabpanel"
+          id="YvDrawerPanel-catalog"
+          aria-labelledby="YvDrawerTab-catalog"
+          hidden
+        >
+          {{ yv_catalog }}
+        </div>
+      {%- endif -%}
       <div
         class="menu-drawer__utility-links menu-drawer__animated-element"
         style="--menu-drawer-animation-index: {{ linklist.links.size }};"
       >
+        {%- if data_header_drawer_type == 'mobile-drawer' and block_settings.drawer_show_account and shop.customer_accounts_enabled -%}
+          <a
+            href="{{ routes.account_url }}"
+            class="yv-drawer-account"
+          >
+            {{- 'yv.header.my_account' | t -}}
+          </a>
+        {%- endif -%}
         {% liquid
           assign show_language = section.settings.show_language
           if localization.available_languages.size <= 1
@@ -719,6 +810,11 @@
               </details>
             </drawer-localization-component>
           {% endif %}
+        {%- endif -%}
+        {%- if data_header_drawer_type == 'mobile-drawer' and block_settings.drawer_show_social -%}
+          <div class="yv-drawer-social">
+            {% render 'yv-social-icons', style: 'plain', size: 16 %}
+          </div>
         {%- endif -%}
       </div>
 

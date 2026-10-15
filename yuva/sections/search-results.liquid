@@ -12,29 +12,90 @@
 
 {% render 'collection-wrapper-styles' %}
 
+{%- comment -%}
+  yv: b-catalog — Yuva search results: the collection toolbar/sidebar look (assets/yv-collection.css),
+  pagination type, products per page 8–25, default desktop columns, and article/page results for the
+  Articles / Pages tabs of the Yuva search header (?type=article|page).
+{%- endcomment -%}
+{{ 'yv-collection.css' | asset_url | stylesheet_tag }}
+{%- liquid
+  assign yv_infinite = false
+  if section.settings.pagination_type == 'infinite'
+    assign yv_infinite = true
+  endif
+  assign yv_type = 'product'
+  if search.types.size == 1
+    assign yv_type = search.types.first
+  endif
+  assign yv_row_gap_mobile = section.settings.columns_gap_vertical | times: 0.75 | round | at_most: 30
+  assign yv_col_gap_mobile = section.settings.columns_gap_horizontal | at_most: 14
+-%}
+
 <div
   class="section-background{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
 ></div>
 
 <results-list
-  class="section product-grid-container spacing-style{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
-  style="--padding-block-start: {{ section.settings.padding-block-start }}px; --padding-block-end: {{ section.settings.padding-block-end }}px;"
+  class="section product-grid-container spacing-style yv-collection yv-collection--search{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
+  style="--padding-block-start: {{ section.settings.padding-block-start }}px; --padding-block-end: {{ section.settings.padding-block-end }}px; --yv-grid-columns-default: {{ section.settings.columns_desktop | default: 4 }}; --yv-grid-gap-mobile: {{ yv_row_gap_mobile }}px {{ yv_col_gap_mobile }}px;"
   section-id="{{ section.id }}"
-  infinite-scroll="{{ section.settings.enable_infinite_scroll }}"
+  infinite-scroll="{% if yv_type == 'product' %}{{ yv_infinite }}{% else %}false{% endif %}"
 >
   {% render 'skip-to-content-link', href: '#ResultsList', text: 'accessibility.skip_to_results_list' %}
 
   <div
     class="collection-wrapper grid gap-style"
   >
-    {% assign products_per_page = 24 %}
-
-    {% if section.settings.enable_infinite_scroll == false %}
-      {% assign products_per_page = section.settings.products_per_page %}
-    {% endif %}
+    {% assign products_per_page = section.settings.products_per_page | default: 12 %}
 
     {% paginate search.results by products_per_page %}
-      {% if search.results_count > 0 %}
+      {%- comment -%} yv: Articles / Pages tab results {%- endcomment -%}
+      {% if yv_type == 'article' or yv_type == 'page' %}
+        {% if search.results_count > 0 %}
+          <div class="yv-search-resources">
+            <ul
+              class="yv-search-resources__list list-unstyled"
+              role="list"
+            >
+              {%- for item in search.results -%}
+                <li class="yv-search-resources__item">
+                  <a
+                    class="yv-search-resource"
+                    href="{{ item.url }}"
+                  >
+                    {%- if item.object_type == 'article' -%}
+                      <span class="yv-search-resource__media yv-media">
+                        {%- if item.image != blank -%}
+                          {{
+                            item.image
+                            | image_url: width: 900
+                            | image_tag:
+                              widths: '300, 450, 600, 900',
+                              sizes: '(min-width: 990px) 25vw, (min-width: 750px) 33vw, 100vw',
+                              loading: 'lazy',
+                              alt: item.title
+                          }}
+                        {%- else -%}
+                          {{ 'blog-apparel-1' | placeholder_svg_tag: 'yv-placeholder' }}
+                        {%- endif -%}
+                      </span>
+                      <span class="yv-search-resource__date">
+                        {{- item.published_at | time_tag: format: 'date' -}}
+                      </span>
+                    {%- endif -%}
+                    <span class="yv-search-resource__title h6">{{ item.title | escape }}</span>
+                    {%- assign excerpt = item.excerpt | default: item.content | strip_html | truncatewords: 18 -%}
+                    {%- if excerpt != blank -%}
+                      <span class="yv-search-resource__excerpt">{{ excerpt }}</span>
+                    {%- endif -%}
+                  </a>
+                </li>
+              {%- endfor -%}
+            </ul>
+            {% render 'pagination-controls', paginate: paginate %}
+          </div>
+        {% endif %}
+      {% elsif search.results_count > 0 %}
         {% content_for 'block', type: 'filters', id: 'filters', results: search, results_size: search.results_count %}
         {% assign products = search.results | where: 'object_type', 'product' %}
       {% else %}
@@ -44,6 +105,7 @@
         {% assign products = collection.products %}
       {% endif %}
 
+      {% unless yv_type == 'article' or yv_type == 'page' %}
       {% capture children %}
         {% for product in products %}
           <li
@@ -68,9 +130,10 @@
         children: children,
         products: products,
         paginate: paginate,
-        enable_infinite_scroll: section.settings.enable_infinite_scroll,
+        enable_infinite_scroll: yv_infinite,
         title: title
       %}
+      {% endunless %}
     {% endpaginate %}
   </div>
 </results-list>
@@ -122,6 +185,17 @@
         }
       ],
       "default": "medium",
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "t:yv.catalog.settings.columns_desktop",
+      "info": "t:yv.catalog.settings.columns_desktop_info",
+      "min": 2,
+      "max": 5,
+      "step": 1,
+      "default": 4,
       "visible_if": "{{ section.settings.layout_type == 'grid' }}"
     },
     {
@@ -144,17 +218,34 @@
       "type": "checkbox",
       "id": "enable_infinite_scroll",
       "label": "t:settings.auto_load_products",
-      "default": true
+      "default": false,
+      "visible_if": "{{ false }}"
+    },
+    {
+      "type": "select",
+      "id": "pagination_type",
+      "label": "t:yv.catalog.settings.pagination_type",
+      "options": [
+        {
+          "value": "paged",
+          "label": "t:yv.catalog.options.paged"
+        },
+        {
+          "value": "infinite",
+          "label": "t:yv.catalog.options.infinite"
+        }
+      ],
+      "default": "paged"
     },
     {
       "type": "range",
       "id": "products_per_page",
       "label": "t:settings.products_per_page",
+      "info": "t:yv.catalog.settings.products_per_page_info",
       "min": 8,
-      "max": 36,
-      "step": 4,
-      "default": 24,
-      "visible_if": "{{ section.settings.enable_infinite_scroll == false }}"
+      "max": 25,
+      "step": 1,
+      "default": 12
     },
     {
       "type": "header",

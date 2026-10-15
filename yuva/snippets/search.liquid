@@ -1,7 +1,7 @@
 {%- doc -%}
   Renders the search action button.
 
-  @param {string} [style] - The style of the search action.
+  @param {string} [style] - The style of the search action ('modal', 'none', or yv: 'bar' for Yuva's inline search bar that opens the search modal).
   @param {string} [class] - Additional classes for the search action.
   @param {string} [display_style] - The display style ('icon' or 'text').
 
@@ -9,7 +9,29 @@
   {% render 'search', style: 'default', class: 'custom-class', display_style: 'icon' %}
 {%- enddoc -%}
 
-{% unless style == 'none' %}
+{% if style == 'bar' %}
+  {%- comment -%}
+    yv: Yuva "Full width header with searchbar": an input-styled button that opens the search modal
+    (one predictive-search-component per page), with a square submit-style icon.
+  {%- endcomment -%}
+  <search-button class="search-action yv-search-bar{% if class != blank %} {{ class | strip }}{% endif %}">
+    <button
+      type="button"
+      on:click="#search-modal/showDialog"
+      class="yv-search-bar__field"
+      aria-label="{{ 'content.search_input_label' | t }}"
+      aria-haspopup="dialog"
+    >
+      <span class="yv-search-bar__placeholder">{{ 'content.search_input_placeholder' | t }}</span>
+      <span
+        class="yv-search-bar__icon"
+        aria-hidden="true"
+      >
+        {{- 'icon-search.svg' | inline_asset_content -}}
+      </span>
+    </button>
+  </search-button>
+{% elsif style != 'none' %}
   <search-button
     class="search-action{% if display_style == 'text' %} search-action--text{% endif %}{% if class != blank %} {{ class | strip }}{% endif %}"
   >
@@ -24,11 +46,12 @@
       </span>
 
       <span class="svg-wrapper {% if display_style != 'icon' %}desktop:hidden{% endif %}">
-        {{ 'icon-search.svg' | inline_asset_content }}
+        {%- comment -%} yv: Yuva line icon, sized like the other header icons. {%- endcomment -%}
+        {%- render 'yv-icon', name: 'search', size: 22, class: 'yv-header-icon' -%}
       </span>
     </button>
   </search-button>
-{% endunless %}
+{% endif %}
 
 {% stylesheet %}
   .search-action {

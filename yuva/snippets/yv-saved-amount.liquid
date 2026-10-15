@@ -1,0 +1,53 @@
+{%- doc -%}
+  Yuva "You saved" pill for the selected variant, shown after the price on the product page, in quick
+  view and in the featured product (Theme settings > Product > Show saved amount / Saved amount style).
+  Hidden inside product cards by CSS (cards show the pill on the image instead, see yv-badges).
+
+  The wrapper is a <yv-variant-sync> element, so it re-renders from the variant HTML when the
+  shopper picks another variant. It is always output (empty when there is no saving) so a later
+  variant with a compare-at price can fill it.
+
+  @param {object} product - The product.
+  @param {string} block_id - The price block id (unique sync id).
+
+  @example
+  {% render 'yv-saved-amount', product: product_resource, block_id: block.id %}
+{%- enddoc -%}
+
+{%- liquid
+  assign variant = product.selected_or_first_available_variant
+  assign show_saved = settings.yv_show_saved_amount
+  if show_saved == nil
+    assign show_saved = true
+  endif
+  assign saving = 0
+  if variant.compare_at_price > variant.price
+    assign saving = variant.compare_at_price | minus: variant.price
+  endif
+-%}
+
+{%- if show_saved and product != blank -%}
+  <script
+    src="{{ 'yv-product.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  <yv-variant-sync
+    class="yv-saved"
+    data-sync-id="yv-saved-{{ block_id }}"
+    data-product-id="{{ product.id }}"
+  >
+    {%- if saving > 0 -%}
+      {%- liquid
+        if settings.yv_saved_amount_style == 'percentage'
+          assign saved_value = saving | times: 100.0 | divided_by: variant.compare_at_price | round | append: '%'
+        elsif settings.currency_code_enabled_product_pages
+          assign saved_value = saving | money_with_currency
+        else
+          assign saved_value = saving | money
+        endif
+      -%}
+      <span class="yv-saved__pill">{{ 'yv.product.saved' | t: amount: saved_value }}</span>
+    {%- endif -%}
+  </yv-variant-sync>
+{%- endif -%}

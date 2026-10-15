@@ -6,6 +6,41 @@
   endif
 %}
 
+{%- comment -%}
+  yv: b-catalog — Yuva collections list page: "Content overlay" tiles (image, centred title, hover
+  glass bar with an arrow; list rows on small phones) in assets/yv-collection.css, collections per
+  page with pagination, All / Selected collections and six sort orders (docs part 4).
+  Shopify caps how many collections a template can read outside pagination; sorts other than A-Z
+  read that list first, then paginate only to get the page offset.
+{%- endcomment -%}
+{{ 'yv-collection.css' | asset_url | stylesheet_tag }}
+{%- liquid
+  assign yv_per_page = section.settings.per_page | default: 16
+  assign yv_selected = false
+  if section.settings.show_collections == 'selected' and section.settings.collection_list != blank
+    assign yv_selected = true
+  endif
+
+  assign yv_sorted = collections
+  case section.settings.sort_by
+    when 'alpha_desc'
+      assign yv_sorted = collections | sort_natural: 'title' | reverse
+    when 'date_desc'
+      assign yv_sorted = collections | sort: 'published_at' | reverse
+    when 'date_asc'
+      assign yv_sorted = collections | sort: 'published_at'
+    when 'count_desc'
+      assign yv_sorted = collections | sort: 'products_count' | reverse
+    when 'count_asc'
+      assign yv_sorted = collections | sort: 'products_count'
+  endcase
+
+  assign yv_rows = false
+  if section.settings.mobile_columns == '1' and section.settings.layout_type == 'grid' and section.settings.carousel_on_mobile == false
+    assign yv_rows = true
+  endif
+-%}
+
 <div
   class="section-background{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
 ></div>
@@ -18,6 +53,9 @@
     section-resource-list
     spacing-style
     gap-style
+    yv-collection-list
+    yv-collection-list--{{ section.settings.card_style | default: 'overlay' }}
+    {% if yv_rows %}yv-collection-list--rows{% endif %}
   "
   style="
     {% render 'spacing-style', settings: section.settings %}
@@ -36,31 +74,63 @@
     {% assign section_collections = section_collections | split: ',' %}
   {% endif %}
 
-  {% capture list_items %}
-    {% for collection in section_collections limit: max_items %}
-      <div class="resource-list__item">
-        {% content_for 'block', type: '_collection-card', id: 'static-collection-card', closest.collection: collection %}
-      </div>
-      {% unless forloop.last %}
-        <!--@list/split-->
-      {% endunless %}
-    {% endfor %}
-  {% endcapture %}
+  {%- comment -%} yv: Yuva collection source, sort order and pagination {%- endcomment -%}
+  {% paginate collections by yv_per_page %}
+    {% liquid
+      if yv_selected
+        assign section_collections = section.settings.collection_list
+        assign yv_offset = 0
+        assign yv_limit = 50
+      elsif collections.size > 0
+        assign section_collections = yv_sorted
+        assign yv_offset = paginate.current_offset
+        assign yv_limit = yv_per_page
+        if section.settings.sort_by == 'alpha_asc' or section.settings.sort_by == blank
+          assign section_collections = collections
+          assign yv_offset = 0
+        endif
+      else
+        assign yv_offset = 0
+        assign yv_limit = max_items
+      endif
+      assign yv_count = 0
+    %}
 
-  {% liquid
-    # Create an array from the list items to be used for different layout types
-    assign list_items_array = list_items | strip | split: '<!--@list/split-->'
-  %}
+    {% capture list_items %}
+      {% for collection in section_collections offset: yv_offset limit: yv_limit %}
+        {% assign yv_count = yv_count | plus: 1 %}
+        <div class="resource-list__item">
+          {% content_for 'block', type: '_collection-card', id: 'static-collection-card', closest.collection: collection %}
+        </div>
+        {% unless forloop.last %}
+          <!--@list/split-->
+        {% endunless %}
+      {% endfor %}
+    {% endcapture %}
 
-  {% render 'resource-list',
-    list_items: list_items,
-    list_items_array: list_items_array,
-    settings: section.settings,
-    carousel_ref: 'mainCollectionList',
-    slide_count: max_items,
-    content_type: 'collections',
-    test_id: 'collections-list-grid'
-  %}
+    {% liquid
+      # Create an array from the list items to be used for different layout types
+      assign list_items_array = list_items | strip | split: '<!--@list/split-->'
+    %}
+
+    {% if yv_count > 0 %}
+      {% render 'resource-list',
+        list_items: list_items,
+        list_items_array: list_items_array,
+        settings: section.settings,
+        carousel_ref: 'mainCollectionList',
+        slide_count: yv_count,
+        content_type: 'collections',
+        test_id: 'collections-list-grid'
+      %}
+    {% else %}
+      <p class="yv-collection-list__empty">{{ 'yv.collection_list.empty' | t }}</p>
+    {% endif %}
+
+    {% unless yv_selected %}
+      {% render 'pagination-controls', paginate: paginate %}
+    {% endunless %}
+  {% endpaginate %}
 </div>
 
 {% schema %}
@@ -106,6 +176,88 @@
     {
       "type": "header",
       "content": "t:content.cards_layout"
+    },
+    {
+      "type": "select",
+      "id": "card_style",
+      "label": "t:yv.collection_list.settings.card_style",
+      "options": [
+        {
+          "value": "overlay",
+          "label": "t:yv.collection_list.options.overlay"
+        },
+        {
+          "value": "below",
+          "label": "t:yv.collection_list.options.below"
+        }
+      ],
+      "default": "overlay"
+    },
+    {
+      "type": "range",
+      "id": "per_page",
+      "label": "t:yv.collection_list.settings.per_page",
+      "info": "t:yv.collection_list.settings.per_page_info",
+      "min": 4,
+      "max": 48,
+      "step": 4,
+      "default": 16
+    },
+    {
+      "type": "select",
+      "id": "show_collections",
+      "label": "t:yv.collection_list.settings.show_collections",
+      "options": [
+        {
+          "value": "all",
+          "label": "t:yv.collection_list.options.all"
+        },
+        {
+          "value": "selected",
+          "label": "t:yv.collection_list.options.selected"
+        }
+      ],
+      "default": "all"
+    },
+    {
+      "type": "collection_list",
+      "id": "collection_list",
+      "label": "t:yv.collection_list.settings.collections",
+      "info": "t:yv.collection_list.settings.collections_info",
+      "limit": 50
+    },
+    {
+      "type": "select",
+      "id": "sort_by",
+      "label": "t:yv.collection_list.settings.sort_by",
+      "options": [
+        {
+          "value": "alpha_asc",
+          "label": "t:yv.collection_list.options.alpha_asc"
+        },
+        {
+          "value": "alpha_desc",
+          "label": "t:yv.collection_list.options.alpha_desc"
+        },
+        {
+          "value": "date_desc",
+          "label": "t:yv.collection_list.options.date_desc"
+        },
+        {
+          "value": "date_asc",
+          "label": "t:yv.collection_list.options.date_asc"
+        },
+        {
+          "value": "count_desc",
+          "label": "t:yv.collection_list.options.count_desc"
+        },
+        {
+          "value": "count_asc",
+          "label": "t:yv.collection_list.options.count_asc"
+        }
+      ],
+      "default": "alpha_asc",
+      "visible_if": "{{ section.settings.show_collections != 'selected' }}"
     },
     {
       "type": "select",

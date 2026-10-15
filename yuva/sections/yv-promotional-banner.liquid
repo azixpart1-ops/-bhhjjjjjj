@@ -1,0 +1,530 @@
+{% comment %}
+  Section contract: yv-promotional-banner
+  Yuva "Promotional banner": an optional deal bar (heading, short description and a small button in a
+  rounded box of the section's background colour) above a row of animated statistic counters
+  (private blocks `_yv-counter`, counting up once when they scroll into view). Counters share the width
+  equally, divided by hairlines (stacked with horizontal hairlines on phones). The optional hand-drawn
+  "Icon over section" draws itself the first time the section is in view.
+  Colours are the section's own (text, background, button), not a colour set.
+  Shared settings: visibility, spacing, icon over section.
+  @example
+  Theme editor > Add section > Promotional > "Promotional banner"
+{% endcomment %}
+
+{%- liquid
+  render 'contrast-override', background_color: section.settings.color_background, text_color: section.settings.color_text, section_id: section.id
+
+  assign has_bar = false
+  if section.settings.heading != blank or section.settings.description != blank
+    assign has_bar = true
+  endif
+  if section.settings.button_text != blank and section.settings.button_link != blank
+    assign has_bar = true
+  endif
+
+  assign counter_count = section.blocks.size | at_least: 1 | at_most: 4
+
+  case section.settings.number_size
+    when 'small'
+      assign number_size = 60
+    when 'large'
+      assign number_size = 100
+    else
+      assign number_size = 80
+  endcase
+
+  assign container_class = 'yv-container yv-container--page'
+  if section.settings.full_width
+    assign container_class = 'yv-container yv-container--full yv-promotional-banner__inner--full'
+  endif
+-%}
+
+{%- comment -%} The section sits on the page background; the deal bar takes the section's background colour. {%- endcomment -%}
+<div class="section-background{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing yv-promotional-banner color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-promotional-banner-radius: {% if section.settings.full_width %}0{% else %}{{ section.settings.border_radius }}{% endif %}px; --yv-promotional-banner-number-size: {{ number_size }}px;"
+  data-testid="yv-promotional-banner"
+>
+  <div class="{{ container_class }} yv-draw-icon-host yv-promotional-banner__inner">
+    {% render 'yv-draw-icon', icon_settings: section.settings %}
+
+    {%- if has_bar -%}
+      <div class="yv-promotional-banner__bar">
+        {%- if section.settings.heading != blank -%}
+          <p class="yv-promotional-banner__heading h5">{{ section.settings.heading | escape }}</p>
+        {%- endif -%}
+        {%- if section.settings.description != blank -%}
+          <p class="yv-promotional-banner__text">{{ section.settings.description | escape }}</p>
+        {%- endif -%}
+        {%- if section.settings.button_text != blank and section.settings.button_link != blank -%}
+          <div class="yv-promotional-banner__action">
+            {% render 'yv-button',
+              label: section.settings.button_text,
+              link: section.settings.button_link,
+              size_desktop: 'small',
+              size_mobile: 'small',
+              bg: section.settings.color_button_bg,
+              text: section.settings.color_button_text,
+              border: section.settings.color_button_border
+            %}
+          </div>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    {%- if section.blocks.size > 0 -%}
+      <script
+        src="{{ 'yv-counter.js' | asset_url }}"
+        type="module"
+        fetchpriority="low"
+      ></script>
+      <div
+        class="yv-promotional-banner__counters{% if has_bar %} yv-promotional-banner__counters--spaced{% endif %}"
+        style="--yv-promotional-banner-columns: {{ counter_count }};"
+      >
+        {%- content_for 'blocks' -%}
+      </div>
+    {%- else -%}
+      {%- content_for 'blocks' -%}
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-promotional-banner {
+    --yv-heading-color: var(--color-foreground);
+
+    color: var(--color-foreground);
+  }
+
+  .yv-promotional-banner__inner--full .yv-promotional-banner__counters {
+    padding-inline: var(--page-margin, 20px);
+  }
+
+  .yv-promotional-banner__bar {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 20px;
+    padding: 16px 24px;
+    text-align: center;
+    background-color: var(--color-background);
+    border-radius: var(--yv-promotional-banner-radius, 10px);
+  }
+
+  .yv-promotional-banner__heading,
+  .yv-promotional-banner__text {
+    margin: 0;
+    min-width: 0;
+  }
+
+  .yv-promotional-banner__text {
+    font-size: var(--yv-text-md, 0.84rem);
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-promotional-banner__text,
+    .yv-promotional-banner__action {
+      flex: 0 0 100%;
+    }
+
+    .yv-promotional-banner__action {
+      display: flex;
+      justify-content: center;
+    }
+  }
+
+  .yv-promotional-banner__counters {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yv-promotional-banner__counters--spaced {
+    margin-block-start: 30px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-promotional-banner__counters {
+      grid-template-columns: repeat(var(--yv-promotional-banner-columns, 3), minmax(0, 1fr));
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.promotional_banner",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-counter"
+    }
+  ],
+  "max_blocks": 4,
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "t:yv.promotional_banner.settings.border_radius",
+      "info": "t:yv.promotional_banner.settings.border_radius_info",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 10,
+      "visible_if": "{{ section.settings.full_width == false }}"
+    },
+    {
+      "type": "select",
+      "id": "number_size",
+      "label": "t:yv.promotional_banner.settings.number_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.text"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading"
+    },
+    {
+      "type": "text",
+      "id": "description",
+      "label": "t:yv.common.settings.description",
+      "info": "t:yv.promotional_banner.settings.description_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text",
+      "info": "t:yv.common.settings.button_info"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.button_link"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_background",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_button_text",
+      "label": "t:yv.common.settings.button_text_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_button_bg",
+      "label": "t:yv.common.settings.button_background",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_button_border",
+      "label": "t:yv.common.settings.button_border",
+      "default": "#000000"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.draw_icon.header"
+    },
+    {
+      "type": "checkbox",
+      "id": "draw_icon_show",
+      "label": "t:yv.draw_icon.show",
+      "info": "t:yv.draw_icon.show_info",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "draw_icon",
+      "label": "t:yv.draw_icon.icon",
+      "options": [
+        {
+          "value": "sparkle",
+          "label": "t:yv.draw_icon.options.sparkle"
+        },
+        {
+          "value": "star",
+          "label": "t:yv.draw_icon.options.star"
+        },
+        {
+          "value": "heart",
+          "label": "t:yv.draw_icon.options.heart"
+        },
+        {
+          "value": "swirl",
+          "label": "t:yv.draw_icon.options.swirl"
+        },
+        {
+          "value": "arrow",
+          "label": "t:yv.draw_icon.options.arrow"
+        },
+        {
+          "value": "circle",
+          "label": "t:yv.draw_icon.options.circle"
+        },
+        {
+          "value": "underline",
+          "label": "t:yv.draw_icon.options.underline"
+        },
+        {
+          "value": "flower",
+          "label": "t:yv.draw_icon.options.flower"
+        }
+      ],
+      "default": "sparkle",
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.draw_icon.position_header"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_x_desktop",
+      "label": "t:yv.draw_icon.x_desktop",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 0,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_y_desktop",
+      "label": "t:yv.draw_icon.y_desktop",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 0,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_x_mobile",
+      "label": "t:yv.draw_icon.x_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 2,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "range",
+      "id": "draw_icon_y_mobile",
+      "label": "t:yv.draw_icon.y_mobile",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 2,
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "color",
+      "id": "draw_icon_color",
+      "label": "t:yv.draw_icon.color",
+      "default": "#012921",
+      "visible_if": "{{ section.settings.draw_icon_show }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.promotional_banner",
+      "category": "t:yv.categories.promotional",
+      "settings": {
+        "draw_icon_show": true
+      },
+      "blocks": {
+        "counter_1": {
+          "type": "_yv-counter",
+          "settings": {
+            "number": 50,
+            "unit": "K+",
+            "heading": "Happy customers",
+            "description": "Trusted by thousands of satisfied shoppers."
+          }
+        },
+        "counter_2": {
+          "type": "_yv-counter",
+          "settings": {
+            "number": 500,
+            "unit": "+",
+            "heading": "Premium products",
+            "description": "Carefully selected products built to impress."
+          }
+        },
+        "counter_3": {
+          "type": "_yv-counter",
+          "settings": {
+            "number": 88,
+            "unit": "%",
+            "heading": "Repeat customers",
+            "description": "A shopping experience customers love to revisit."
+          }
+        }
+      },
+      "block_order": ["counter_1", "counter_2", "counter_3"]
+    },
+    {
+      "name": "t:yv.names.promotional_banner_deal",
+      "category": "t:yv.categories.promotional",
+      "settings": {
+        "heading": "Unbelievable deals",
+        "description": "Winter sales up to 50%",
+        "button_text": "Shop now",
+        "button_link": "shopify://collections/all",
+        "color_background": "#F6F1EA",
+        "spacing_top_desktop": 40,
+        "spacing_top_mobile": 32
+      },
+      "blocks": {
+        "counter_1": {
+          "type": "_yv-counter",
+          "settings": {
+            "number": 50,
+            "unit": "K+",
+            "heading": "Happy customers",
+            "description": "Trusted by thousands of satisfied shoppers."
+          }
+        },
+        "counter_2": {
+          "type": "_yv-counter",
+          "settings": {
+            "number": 500,
+            "unit": "+",
+            "heading": "Premium products",
+            "description": "Carefully selected products built to impress."
+          }
+        },
+        "counter_3": {
+          "type": "_yv-counter",
+          "settings": {
+            "number": 88,
+            "unit": "%",
+            "heading": "Repeat customers",
+            "description": "A shopping experience customers love to revisit."
+          }
+        }
+      },
+      "block_order": ["counter_1", "counter_2", "counter_3"]
+    }
+  ]
+}
+{% endschema %}

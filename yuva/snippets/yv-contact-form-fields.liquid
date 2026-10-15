@@ -1,0 +1,349 @@
+{%- doc -%}
+  Yuva contact form fields (docs part 3 "Contact form"; field structure adapted from Horizon
+  blocks/contact-form.liquid). A Shopify contact form with Name and Email (side by side when the
+  form is at least 600px wide), an optional Phone number, a Message textarea and a submit button.
+  Labels are uppercase above each field on desktop and visually hidden on phones (placeholders
+  remain). After a submit Shopify reloads the page at #form_id; the success message or the list of
+  errors shows above the fields, which keep their values.
+
+  @param {string} form_id - Unique form id on the page, e.g. 'yv-contact-' | append: section.id.
+  @param {string} [button_label] - Submit button text. Default: translated "Send message".
+  @param {boolean} [show_labels] - Show the field labels on desktop. Default: false (visually hidden).
+  @param {boolean} [show_phone] - Add the Phone number field. Default: false
+  @param {boolean} [button_full_width] - Stretch the submit button to the form width. Default: false
+  @param {string} [class] - Extra classes on the form.
+
+  @example
+  {%- assign form_id = 'yv-contact-' | append: section.id -%}
+  {% render 'yv-contact-form-fields', form_id: form_id, button_label: section.settings.button_text, show_labels: true %}
+{%- enddoc -%}
+
+{%- liquid
+  assign submit_label = button_label | default: ''
+  if submit_label == blank
+    assign submit_label = 'yv.contact_form.send' | t
+  endif
+
+  assign form_class = 'yv-contact-form-fields'
+  if show_labels
+    assign form_class = form_class | append: ' yv-contact-form-fields--labels'
+  endif
+  if class != blank
+    assign form_class = form_class | append: ' ' | append: class
+  endif
+
+  assign name_id = form_id | append: '-name'
+  assign email_id = form_id | append: '-email'
+  assign phone_id = form_id | append: '-phone'
+  assign body_id = form_id | append: '-body'
+
+  assign button_class = 'button yv-button yv-contact-form-fields__submit'
+  if button_full_width
+    assign button_class = button_class | append: ' yv-button--full'
+  endif
+-%}
+
+{%- form 'contact', id: form_id, class: form_class -%}
+  <input
+    name="contact[id]"
+    type="hidden"
+    value="{{ form_id }}"
+  >
+
+  {%- liquid
+    assign form_matches = false
+    if form.id == form_id or form.id == blank
+      assign form_matches = true
+    endif
+  -%}
+
+  {%- if form.errors and form_matches -%}
+    <div
+      id="{{ form_id }}-errors"
+      class="yv-contact-form-fields__message yv-contact-form-fields__message--error"
+      role="alert"
+      tabindex="-1"
+      autofocus
+    >
+      {%- render 'yv-icon', name: 'alert', size: 18 -%}
+      <div>
+        <p class="yv-contact-form-fields__message-title">{{ 'blocks.contact_form.error_heading' | t }}</p>
+        <ul class="yv-contact-form-fields__errors">
+          {%- for field in form.errors -%}
+            <li>
+              {%- if field == 'form' -%}
+                {{- form.errors.messages[field] -}}
+              {%- else -%}
+                {{- form.errors.translated_fields[field] | capitalize }}
+                {{ form.errors.messages[field] -}}
+              {%- endif -%}
+            </li>
+          {%- endfor -%}
+        </ul>
+      </div>
+    </div>
+  {%- endif -%}
+
+  {%- if form.posted_successfully? and form_matches -%}
+    <div
+      class="yv-contact-form-fields__message yv-contact-form-fields__message--success"
+      role="status"
+      tabindex="-1"
+      autofocus
+    >
+      {%- render 'yv-icon', name: 'check-circle', size: 18 -%}
+      <p>{{ 'blocks.contact_form.post_success' | t }}</p>
+    </div>
+  {%- endif -%}
+
+  <div class="yv-contact-form-fields__row">
+    <div class="yv-contact-form-fields__field">
+      <label
+        class="yv-contact-form-fields__label"
+        for="{{ name_id }}"
+      >
+        {{- 'blocks.contact_form.name' | t -}}
+      </label>
+      <input
+        type="text"
+        id="{{ name_id }}"
+        class="yv-input yv-contact-form-fields__input"
+        autocomplete="name"
+        name="contact[name]"
+        value="{% if form.name %}{{ form.name }}{% elsif customer %}{{ customer.name }}{% endif %}"
+        placeholder="{{ 'blocks.contact_form.name' | t }}"
+      >
+    </div>
+
+    <div class="yv-contact-form-fields__field">
+      <label
+        class="yv-contact-form-fields__label"
+        for="{{ email_id }}"
+      >
+        {{- 'blocks.contact_form.email' | t -}}
+        <span aria-hidden="true">*</span>
+      </label>
+      <input
+        type="email"
+        id="{{ email_id }}"
+        class="yv-input yv-contact-form-fields__input"
+        autocomplete="email"
+        name="contact[email]"
+        spellcheck="false"
+        autocapitalize="off"
+        value="{% if form.email %}{{ form.email }}{% elsif customer %}{{ customer.email }}{% endif %}"
+        required
+        aria-required="true"
+        {% if form.errors contains 'email' and form_matches %}
+          aria-invalid="true"
+          aria-describedby="{{ form_id }}-errors"
+        {% endif %}
+        placeholder="{{ 'blocks.contact_form.email' | t }}"
+      >
+    </div>
+  </div>
+
+  {%- if show_phone -%}
+    <div class="yv-contact-form-fields__field">
+      <label
+        class="yv-contact-form-fields__label"
+        for="{{ phone_id }}"
+      >
+        {{- 'blocks.contact_form.phone' | t -}}
+      </label>
+      <input
+        type="tel"
+        id="{{ phone_id }}"
+        class="yv-input yv-contact-form-fields__input"
+        autocomplete="tel"
+        name="contact[phone]"
+        pattern="[0-9\-+ ()]*"
+        value="{% if form.phone %}{{ form.phone }}{% elsif customer %}{{ customer.phone }}{% endif %}"
+        placeholder="{{ 'blocks.contact_form.phone' | t }}"
+      >
+    </div>
+  {%- endif -%}
+
+  <div class="yv-contact-form-fields__field">
+    <label
+      class="yv-contact-form-fields__label"
+      for="{{ body_id }}"
+    >
+      {{- 'yv.contact_form.message' | t -}}
+    </label>
+    <textarea
+      rows="3"
+      id="{{ body_id }}"
+      class="yv-input yv-contact-form-fields__input yv-contact-form-fields__input--textarea"
+      name="contact[body]"
+      placeholder="{{ 'yv.contact_form.message' | t }}"
+    >
+      {{- form.body -}}
+    </textarea>
+  </div>
+
+  <button
+    type="submit"
+    class="{{ button_class }}"
+  >
+    {{- submit_label | escape -}}
+  </button>
+{%- endform -%}
+
+{% stylesheet %}
+  .yv-contact-form-fields {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .yv-contact-form-fields > *,
+  .yv-contact-form-fields__row {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .yv-contact-form-fields__row {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  @container (min-width: 600px) {
+    .yv-contact-form-fields__row {
+      flex-direction: row;
+    }
+
+    .yv-contact-form-fields__row > * {
+      flex: 1 1 0;
+    }
+  }
+
+  .yv-contact-form-fields__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  /* Labels: visually hidden by default and always on phones (placeholders stay visible). */
+  .yv-contact-form-fields__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-contact-form-fields {
+      gap: 20px;
+    }
+
+    .yv-contact-form-fields__row {
+      gap: 20px;
+    }
+
+    .yv-contact-form-fields--labels .yv-contact-form-fields__label {
+      position: static;
+      width: auto;
+      height: auto;
+      margin: 0;
+      overflow: visible;
+      clip: auto;
+      white-space: normal;
+      font-family: var(--font-heading--family);
+      font-style: var(--font-heading--style);
+      font-weight: 400;
+      font-size: var(--font-paragraph--size);
+      line-height: var(--font-paragraph--line-height);
+      letter-spacing: normal;
+      text-transform: uppercase;
+    }
+  }
+
+  .yv-contact-form-fields__input {
+    display: block;
+    text-overflow: ellipsis;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .yv-contact-form-fields__input::placeholder {
+    color: rgb(var(--color-input-text-rgb, var(--color-foreground-rgb)) / 0.55);
+    opacity: 1;
+  }
+
+  .yv-contact-form-fields__input:focus {
+    box-shadow: 0 0 0 var(--input-box-shadow-width, 1px) var(--color-input-text, var(--color-foreground));
+  }
+
+  .yv-contact-form-fields__input--textarea {
+    min-height: 74px;
+    resize: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-contact-form-fields__input {
+      padding-block: 7px;
+    }
+
+    .yv-contact-form-fields__input--textarea {
+      min-height: 76px;
+      padding-block: 12px;
+    }
+  }
+
+  .yv-contact-form-fields__submit {
+    margin-block-start: 0;
+  }
+
+  .yv-contact-form-fields__message {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--yv-radius-sm, 6px);
+    font-size: var(--font-paragraph--size);
+    line-height: var(--font-paragraph--line-height);
+  }
+
+  .yv-contact-form-fields__message:focus {
+    outline: none;
+  }
+
+  .yv-contact-form-fields__message p {
+    margin: 0;
+  }
+
+  .yv-contact-form-fields__message svg {
+    flex: none;
+    margin-block-start: 1px;
+  }
+
+  .yv-contact-form-fields__message--success {
+    color: var(--yv-success, #6cad61);
+    background-color: rgb(108 173 97 / 0.1);
+  }
+
+  .yv-contact-form-fields__message--error {
+    color: var(--color-error, #ec7c7c);
+    background-color: rgb(236 124 124 / 0.1);
+  }
+
+  .yv-contact-form-fields__message-title {
+    font-weight: 600;
+  }
+
+  .yv-contact-form-fields__errors {
+    margin: 4px 0 0;
+    padding-inline-start: 18px;
+  }
+{% endstylesheet %}

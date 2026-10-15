@@ -61,6 +61,9 @@
   ></script>
 {%- endif -%}
 
+{% # A first-section collage offsets top-placed tile text by the transparent header (`--header-height`) at first paint %}
+{%- if section.index == 1 -%}{% render 'measure-header-heights' %}{%- endif -%}
+
 <div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
 <div
   class="section {{ section_width }} yv-section-spacing disable-section-top-offset color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
@@ -90,17 +93,22 @@
     display: none;
   }
 
-  /* Full width keeps the image gap as the outer gutter (Yuva "space around"). */
+  /* Full width keeps the image gap as the outer gutter on every side (Yuva "space around"). */
   .yv-collage--full {
     --yv-collage-gutter: var(--yv-collage-gap);
 
-    padding-inline: var(--yv-collage-gutter);
+    padding: var(--yv-collage-gutter);
+  }
+
+  /* First section under a transparent header: top-placed tile text clears the header. */
+  main > .shopify-section:first-child .yv-collage {
+    --yv-collage-header-offset: calc(var(--header-height, 0px) * var(--transparent-header-offset-boolean, 0));
   }
 
   @media screen and (max-width: 749px) {
     /* Mobile: one horizontal swipe strip; every tile is 80% wide so the next one peeks in. */
     .yv-collage {
-      --yv-collage-gutter: var(--yv-collage-gap-mobile);
+      --yv-collage-gutter: 0px;
 
       flex-wrap: nowrap;
       gap: var(--yv-collage-gap-mobile);
@@ -114,6 +122,12 @@
 
     .yv-collage::-webkit-scrollbar {
       display: none;
+    }
+
+    .yv-collage--full {
+      --yv-collage-gutter: var(--yv-collage-gap-mobile);
+
+      padding-block: var(--yv-collage-gap-mobile);
     }
 
     /* A page-width collage bleeds to the screen edges so the strip can be swiped edge to edge. */
@@ -135,7 +149,10 @@
   "tag": "section",
   "class": "yv-collage-section",
   "disabled_on": {
-    "groups": ["header", "footer"]
+    "groups": [
+      "header",
+      "footer"
+    ]
   },
   "max_blocks": 12,
   "blocks": [
@@ -398,9 +415,9 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "50",
-            "heading": "Live Smarter, Connected Every Day",
+            "heading": "t:yv.collage.presets.hero_1_heading",
             "heading_shadow": true,
-            "subheading": "Discover smart technology designed to enhance everyday life.",
+            "subheading": "t:yv.collage.presets.hero_1_subheading",
             "link": "shopify://collections/all",
             "heading_size_desktop": "large",
             "content_width_desktop": "small",
@@ -418,9 +435,9 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "50",
-            "heading": "Immerse in Better Sound Quality",
+            "heading": "t:yv.collage.presets.hero_2_heading",
             "heading_shadow": true,
-            "subheading": "Experience richer sound and exceptional clarity.",
+            "subheading": "t:yv.collage.presets.hero_2_subheading",
             "link": "shopify://collections/all",
             "heading_size_desktop": "large",
             "content_width_desktop": "small",
@@ -438,10 +455,10 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "25",
-            "heading": "Earbuds",
-            "subheading": "Earbuds for a Smarter Connected",
+            "heading": "t:yv.collage.presets.hero_3_heading",
+            "subheading": "t:yv.collage.presets.hero_3_subheading",
             "link": "shopify://collections/all",
-            "button_text": "Shop Now",
+            "button_text": "t:yv.collage.presets.shop_now_link",
             "button_as_link": true,
             "heading_size_desktop": "small",
             "content_width_desktop": "medium",
@@ -458,10 +475,10 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "25",
-            "heading": "Innovation",
-            "subheading": "Comfort Meets Advanced Innovation",
+            "heading": "t:yv.collage.presets.hero_4_heading",
+            "subheading": "t:yv.collage.presets.hero_4_subheading",
             "link": "shopify://collections/all",
-            "button_text": "Shop Now",
+            "button_text": "t:yv.collage.presets.shop_now_link",
             "button_as_link": true,
             "heading_size_desktop": "small",
             "content_width_desktop": "medium",
@@ -478,10 +495,10 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "25",
-            "heading": "Speaker",
-            "subheading": "Music Systems for Modern Living",
+            "heading": "t:yv.collage.presets.hero_5_heading",
+            "subheading": "t:yv.collage.presets.hero_5_subheading",
             "link": "shopify://collections/all",
-            "button_text": "Shop Now",
+            "button_text": "t:yv.collage.presets.shop_now_link",
             "button_as_link": true,
             "heading_size_desktop": "small",
             "content_width_desktop": "medium",
@@ -498,10 +515,10 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "25",
-            "heading": "Technology",
-            "subheading": "Lives Through Smart Technology",
+            "heading": "t:yv.collage.presets.hero_6_heading",
+            "subheading": "t:yv.collage.presets.hero_6_subheading",
             "link": "shopify://collections/all",
-            "button_text": "Shop Now",
+            "button_text": "t:yv.collage.presets.shop_now_link",
             "button_as_link": true,
             "heading_size_desktop": "small",
             "content_width_desktop": "medium",
@@ -515,7 +532,14 @@
           }
         }
       },
-      "block_order": ["tile_1", "tile_2", "tile_3", "tile_4", "tile_5", "tile_6"]
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3",
+        "tile_4",
+        "tile_5",
+        "tile_6"
+      ]
     },
     {
       "name": "t:yv.collage.presets.six_tiles",
@@ -539,7 +563,7 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "50",
-            "heading": "Smooth, Soft, & Stunning Skin",
+            "heading": "t:yv.collage.presets.mosaic_1_heading",
             "heading_tag": "h2",
             "heading_size_desktop": "large",
             "heading_size_mobile": "large",
@@ -556,7 +580,7 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "25",
-            "heading": "Nourish Your Skin",
+            "heading": "t:yv.collage.presets.mosaic_2_heading",
             "heading_size_desktop": "large",
             "heading_size_mobile": "large",
             "content_width_desktop": "medium",
@@ -572,7 +596,7 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "25",
-            "heading": "The Skin Saver Sale",
+            "heading": "t:yv.collage.presets.mosaic_3_heading",
             "heading_size_desktop": "large",
             "heading_size_mobile": "large",
             "content_width_desktop": "medium",
@@ -588,7 +612,7 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "25",
-            "heading": "Glow Up Sale",
+            "heading": "t:yv.collage.presets.mosaic_4_heading",
             "heading_size_desktop": "large",
             "heading_size_mobile": "large",
             "content_width_desktop": "medium",
@@ -604,7 +628,7 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "25",
-            "heading": "Your Daily Dose",
+            "heading": "t:yv.collage.presets.mosaic_5_heading",
             "heading_size_desktop": "large",
             "heading_size_mobile": "large",
             "content_width_desktop": "medium",
@@ -620,7 +644,7 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "50",
-            "heading": "Treat Your Skin Like Royalty",
+            "heading": "t:yv.collage.presets.mosaic_6_heading",
             "heading_size_desktop": "large",
             "heading_size_mobile": "large",
             "content_width_desktop": "medium",
@@ -633,7 +657,14 @@
           }
         }
       },
-      "block_order": ["tile_1", "tile_2", "tile_3", "tile_4", "tile_5", "tile_6"]
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3",
+        "tile_4",
+        "tile_5",
+        "tile_6"
+      ]
     },
     {
       "name": "t:yv.collage.presets.three_tiles",
@@ -656,7 +687,7 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "33",
-            "heading": "Experience Motiorise Now",
+            "heading": "t:yv.collage.presets.trio_1_heading",
             "heading_size_desktop": "large",
             "heading_size_mobile": "large",
             "content_width_desktop": "medium",
@@ -672,7 +703,7 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "33",
-            "heading": "Beyond Cleanse, Nourish",
+            "heading": "t:yv.collage.presets.trio_2_heading",
             "heading_size_desktop": "large",
             "heading_size_mobile": "large",
             "content_width_desktop": "medium",
@@ -688,7 +719,7 @@
           "type": "_yv-collage-item",
           "settings": {
             "width": "33",
-            "heading": "Say Goodbye to Dry Skin",
+            "heading": "t:yv.collage.presets.trio_3_heading",
             "heading_size_desktop": "large",
             "heading_size_mobile": "large",
             "content_width_desktop": "medium",
@@ -701,7 +732,11 @@
           }
         }
       },
-      "block_order": ["tile_1", "tile_2", "tile_3"]
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3"
+      ]
     }
   ]
 }

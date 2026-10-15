@@ -1,0 +1,445 @@
+{% comment %}
+  Section contract: yv-recently-viewed
+  "Recently viewed products" (docs part 4): the products this visitor viewed most recently, as Yuva
+  product cards in a carousel (5 per view at 990px+, 3 on tablets, a swipe row with a peek on phones).
+  Product pages remember each view (assets/yv-product.js, localStorage "yvRecentlyViewed", newest
+  first, 12 max); the current product is left out. Each card is rendered by the helper section
+  yv-recently-viewed-item on that product's URL, so the section works on every template. Hidden while
+  nothing was viewed; the theme editor shows placeholder cards from the static card tree.
+  Shared settings: highlight heading, colour set, visibility, spacing.
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+  assign carousel_id = 'YvRecentlyViewed-' | append: section.id
+  assign heading_id = 'YvRecentlyViewedHeading-' | append: section.id
+  assign carousel_label = section.settings.heading | strip_html
+  if carousel_label == blank
+    assign carousel_label = 'yv.product.recently_viewed' | t
+  endif
+  assign current_id = ''
+  if request.page_type == 'product'
+    assign current_id = product.id
+  endif
+-%}
+
+<script
+  src="{{ 'yv-product.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<yv-recently-viewed-component
+  class="section section--page-width yv-section-spacing yv-recently-viewed color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-grid-radius: {{ section.settings.grid_radius_desktop }}px; --yv-grid-radius-mobile: {{ section.settings.grid_radius_mobile }}px;"
+  data-item-section="yv-recently-viewed-item"
+  data-current-product="{{ current_id }}"
+  data-limit="10"
+  {% if request.design_mode %}
+    data-design-mode
+  {% else %}
+    hidden
+  {% endif %}
+>
+  <div class="yv-container yv-container--page yv-recently-viewed__inner">
+    {% render 'yv-heading',
+      text: section.settings.heading,
+      tag: section.settings.heading_tag,
+      size: section.settings.heading_size,
+      highlight_font: section.settings.highlight_font,
+      highlight_color: section.settings.highlight_color,
+      rotating_text: section.settings.rotating_text,
+      alignment: 'center',
+      id: heading_id,
+      class: 'yv-recently-viewed__heading'
+    %}
+
+    {%- capture slides -%}
+      {%- if request.design_mode -%}
+        {%- for i in (1..5) -%}
+          <div class="yv-recently-viewed__item">
+            {% content_for 'block', type: '_product-card', id: 'static-product-card', closest.product: null %}
+          </div>
+        {%- endfor -%}
+      {%- endif -%}
+    {%- endcapture -%}
+
+    {% render 'yv-carousel',
+      id: carousel_id,
+      slides: slides,
+      label: carousel_label,
+      per_view: 5,
+      per_view_tablet: 3,
+      per_view_mobile: 2.4,
+      gap: section.settings.grid_gap_desktop,
+      gap_mobile: section.settings.grid_gap_mobile,
+      arrows: 'sides-outside',
+      arrows_mobile: 'none',
+      dots: false,
+      class: 'yv-recently-viewed__carousel'
+    %}
+  </div>
+</yv-recently-viewed-component>
+
+{% stylesheet %}
+  .yv-recently-viewed[hidden] {
+    display: none;
+  }
+
+  .yv-recently-viewed__heading {
+    margin-block-end: 30px;
+  }
+
+  .yv-recently-viewed__item {
+    min-width: 0;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-recently-viewed__heading {
+      margin-block-end: 20px;
+    }
+
+    .yv-recently-viewed .product-card {
+      --yv-grid-radius: var(--yv-grid-radius-mobile);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.recently_viewed",
+  "tag": "section",
+  "class": "yv-recently-viewed-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "Recently <strong>viewed</strong>"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent",
+      "info": "t:yv.product.info.highlight_font"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "large"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.product.content.grid"
+    },
+    {
+      "type": "range",
+      "id": "grid_radius_desktop",
+      "label": "t:yv.common.settings.grid_radius_desktop",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "grid_radius_mobile",
+      "label": "t:yv.common.settings.grid_radius_mobile",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "grid_gap_desktop",
+      "label": "t:yv.common.settings.grid_gap_desktop",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "grid_gap_mobile",
+      "label": "t:yv.common.settings.grid_gap_mobile",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.recently_viewed",
+      "category": "t:yv.categories.products",
+      "blocks": {
+        "static-product-card": {
+          "type": "_product-card",
+          "static": true,
+          "settings": {
+            "product_card_gap": 5,
+            "border": "none",
+            "border_radius": 0,
+            "padding-block-start": 0,
+            "padding-block-end": 0,
+            "padding-inline-start": 0,
+            "padding-inline-end": 0
+          },
+          "blocks": {
+            "product-card-gallery": {
+              "type": "_product-card-gallery",
+              "settings": {
+                "image_ratio": "square",
+                "border": "none",
+                "border_radius": 0
+              }
+            },
+            "card-vendor": {
+              "type": "_yv-card-vendor",
+              "settings": {}
+            },
+            "product-title": {
+              "type": "product-title",
+              "settings": {
+                "width": "100%",
+                "max_width": "none",
+                "alignment": "left",
+                "type_preset": "paragraph",
+                "font": "var(--font-body--family)",
+                "font_size": "1rem",
+                "line_height": "normal",
+                "letter_spacing": "normal",
+                "case": "none",
+                "wrap": "pretty",
+                "background": false
+              }
+            },
+            "price": {
+              "type": "price",
+              "settings": {
+                "show_sale_price_first": true,
+                "show_from_price": true,
+                "show_installments": false,
+                "show_tax_info": false,
+                "type_preset": "paragraph",
+                "width": "100%",
+                "alignment": "left"
+              }
+            },
+            "swatches": {
+              "type": "swatches",
+              "settings": {
+                "product_swatches_alignment": "flex-start",
+                "product_swatches_alignment_mobile": "flex-start",
+                "hide_padding": false,
+                "product_swatches_padding_top": 1,
+                "product_swatches_padding_bottom": 0,
+                "product_swatches_padding_left": 0,
+                "product_swatches_padding_right": 0
+              }
+            },
+            "card-extras": {
+              "type": "_yv-card-extras",
+              "settings": {}
+            }
+          },
+          "block_order": ["product-card-gallery", "card-vendor", "product-title", "price", "swatches", "card-extras"]
+        }
+      },
+      "block_order": []
+    }
+  ]
+}
+{% endschema %}

@@ -3,7 +3,24 @@
 
   @param {string} [accelerated_checkout_buttons_layout] - { 'vertical' } Forced layout of the additional checkout buttons, instead of relying on platform's layout.
   @param {string} [section_id] - The section ID for cart discount component.
+  @param {boolean} [show_cart_note] - yv: overrides Theme settings > Enable cart note when not nil (cart page setting "Show cart note").
+  @param {boolean} [note_open] - yv: open the cart note by default (cart page). Defaults to the theme setting.
+  @param {boolean} [gift_wrap] - yv: render the Yuva gift-wrap row above the checkout button (cart page).
+  @param {boolean} [show_payment_icons] - yv: render the enabled payment icons under the checkout buttons (cart page).
+  @param {boolean} [view_cart_link] - yv: render Yuva's underlined "View cart" link under the checkout button (drawer).
 {%- enddoc -%}
+
+{%- liquid
+  # yv: page-level "Show cart note" wins over the theme setting when given (false must be honoured).
+  assign yv_show_note = settings.show_cart_note
+  if show_cart_note != nil
+    assign yv_show_note = show_cart_note
+  endif
+  assign yv_note_open = settings.cart_note_open_by_default
+  if note_open != nil
+    assign yv_note_open = note_open
+  endif
+-%}
 
 {% render 'text-component-shimmer-styles' %}
 {% render 'cart-typography-styles' %}
@@ -41,19 +58,21 @@
     {%- endif -%}
   </div>
 
-  {% if settings.show_cart_note or settings.show_add_discount_code %}
+  {% if yv_show_note or settings.show_add_discount_code %}
     <div class="cart-actions">
-      {% if settings.show_cart_note %}
+      {% if yv_show_note %}
         <cart-note style="display: flex;">
           {% capture cart_note_accordion_children %}
             <details
-              {% if settings.cart_note_open_by_default %}
+              {% if yv_note_open %}
                 open
               {% endif %}
             >
               <summary class="cart-note__summary">
+                {%- comment -%} yv: Yuva note bar: note icon and "Leave a note with order". {%- endcomment -%}
                 <span class="cart-note__label cart-primary-typography">
-                  {{ 'content.seller_note' | t }}
+                  <span class="yv-cart-note__icon">{{- 'yv-icon-note.svg' | inline_asset_content -}}</span>
+                  {{ 'yv.cart.note_label' | t }}
                 </span>
 
                 <span class="cart-totals__icon">
@@ -74,6 +93,7 @@
                   id="cart-note"
                   class="cart-note__instructions"
                   name="note"
+                  placeholder="{{ 'yv.cart.note_placeholder' | t }}"
                   data-skip-node-update
                 >{{ cart.note }}</textarea>
               </div>
@@ -82,12 +102,12 @@
           {% render 'accordion-custom-component',
             children: cart_note_accordion_children,
             class: 'cart-note',
-            open_by_default_on_desktop: settings.cart_note_open_by_default,
-            open_by_default_on_mobile: settings.cart_note_open_by_default
+            open_by_default_on_desktop: yv_note_open,
+            open_by_default_on_mobile: yv_note_open
           %}
         </cart-note>
       {% endif %}
-      {% if settings.show_cart_note and settings.show_add_discount_code %}
+      {% if yv_show_note and settings.show_add_discount_code %}
         <div class="cart-actions__divider"></div>
       {% endif %}
       {% if settings.show_add_discount_code %}
@@ -118,7 +138,11 @@
             {% endif %}
           >
             <summary class="cart-discount__summary">
-              <span class="cart-discount__label cart-primary-typography">{{ 'content.discount' | t }}</span>
+              <span class="cart-discount__label cart-primary-typography">
+                {%- comment -%} yv: tag icon, matching the note bar. {%- endcomment -%}
+                <span class="yv-cart-note__icon">{% render 'yv-icon', name: 'tag', size: 17 %}</span>
+                {{- 'content.discount' | t -}}
+              </span>
 
               <span class="cart-totals__icon">
                 {{- 'icon-plus.svg' | inline_asset_content -}}
@@ -227,7 +251,8 @@
       class="cart-totals__item cart-totals__total"
       role="status"
     >
-      <span class="cart-totals__total-label cart-primary-typography">{{ 'content.cart_estimated_total' | t }}</span>
+      {%- comment -%} yv: Yuva wording "Total". {%- endcomment -%}
+      <span class="cart-totals__total-label cart-primary-typography">{{ 'yv.cart.total' | t }}</span>
       <text-component
         ref="cartTotal"
         value="{{ total_price | strip_html }}"
@@ -252,6 +277,11 @@
   </div>
 </div>
 
+{%- if gift_wrap -%}
+  {%- comment -%} yv: gift-wrap row above the checkout button (cart page). {%- endcomment -%}
+  {% render 'yv-gift-wrap', context: 'page' %}
+{%- endif -%}
+
 <div class="cart__ctas">
   <button
     type="submit"
@@ -263,6 +293,8 @@
     {% endif %}
     form="cart-form"
   >
+    {%- comment -%} yv: Yuva bag icon before the label. {%- endcomment -%}
+    <span class="yv-checkout__icon">{% render 'yv-icon', name: 'bag', size: 20 %}</span>
     <span class="button-text">
       {{ 'content.checkout' | t }}
     </span>
@@ -278,7 +310,29 @@
       {{ content_for_additional_checkout_buttons }}
     </div>
   {% endif %}
+
+  {%- if view_cart_link -%}
+    {%- comment -%} yv: underlined "View cart" link (drawer). {%- endcomment -%}
+    <a
+      class="yv-cart-view-link"
+      href="{{ routes.cart_url }}"
+    >
+      {{- 'content.view_cart' | t -}}
+    </a>
+  {%- endif -%}
 </div>
+
+{%- if show_payment_icons and shop.enabled_payment_types.size > 0 -%}
+  {%- comment -%} yv: enabled payment icons (cart page "Show payment icons"). {%- endcomment -%}
+  <ul
+    class="yv-payment-icons"
+    role="list"
+  >
+    {%- for type in shop.enabled_payment_types -%}
+      <li class="yv-payment-icons__item">{{ type | payment_type_svg_tag: class: 'yv-payment-icon' }}</li>
+    {%- endfor -%}
+  </ul>
+{%- endif -%}
 
 {% stylesheet %}
   .cart-actions {

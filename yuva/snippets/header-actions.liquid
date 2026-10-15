@@ -31,7 +31,12 @@
       class="svg-wrapper {% if display_style != 'icon' %}desktop:hidden{% endif %}"
       aria-hidden="true"
     >
-      {{ 'icon-cart.svg' | inline_asset_content }}
+      {%- comment -%} yv: Yuva "Cart icon" setting (cart trolley or bag). {%- endcomment -%}
+      {%- if section.settings.cart_icon == 'bag' or section.settings.cart_icon == 'cart' -%}
+        {%- render 'yv-icon', name: section.settings.cart_icon, size: 22, class: 'yv-header-icon' -%}
+      {%- else -%}
+        {{ 'icon-cart.svg' | inline_asset_content }}
+      {%- endif -%}
     </span>
 
     {% render 'cart-bubble', limit: 100 %}
@@ -63,7 +68,135 @@
   {% endif %}
   {{- block.shopify_attributes -}}
 >
-  {% if shop.customer_accounts_enabled %}
+  {%- liquid
+    # yv: Yuva "Account type": page (link), dropdown (Horizon's shopify-account popover) or popup (login dialog).
+    assign yv_account_type = section.settings.account_type | default: 'dropdown'
+    assign yv_new_accounts = false
+    if routes.account_login_url contains 'customer_authentication'
+      assign yv_new_accounts = true
+    endif
+    if yv_account_type == 'popup' and yv_new_accounts or yv_account_type == 'popup' and customer
+      assign yv_account_type = 'page'
+    endif
+  -%}
+  {% if shop.customer_accounts_enabled and yv_account_type == 'page' %}
+    <a
+      href="{{ routes.account_url }}"
+      class="account-button header-actions__action yv-account-link{% if display_style == 'text' %} account-button--text header-actions__text-style{% endif %}"
+      aria-label="{{ 'yv.header.account' | t }}"
+    >
+      <span class="{% if display_style == 'icon' %}hidden{% else %}mobile:hidden{% endif %}">
+        {{- 'content.account_title' | t -}}
+      </span>
+      <span
+        class="svg-wrapper {% if display_style != 'icon' %}desktop:hidden{% endif %}"
+        aria-hidden="true"
+      >
+        {{- account_icon -}}
+      </span>
+    </a>
+  {% elsif shop.customer_accounts_enabled and yv_account_type == 'popup' %}
+    <button
+      type="button"
+      class="account-button header-actions__action button-unstyled yv-account-link{% if display_style == 'text' %} account-button--text header-actions__text-style{% endif %}"
+      aria-haspopup="dialog"
+      aria-controls="YvAccountPopup"
+      aria-label="{{ 'yv.header.account' | t }}"
+      on:click="#YvAccountPopup/showDialog"
+    >
+      <span class="{% if display_style == 'icon' %}hidden{% else %}mobile:hidden{% endif %}">
+        {{- 'content.account_title' | t -}}
+      </span>
+      <span
+        class="svg-wrapper {% if display_style != 'icon' %}desktop:hidden{% endif %}"
+        aria-hidden="true"
+      >
+        {{- account_icon -}}
+      </span>
+    </button>
+    {% render 'dialog-styles' %}
+    <dialog-component
+      id="YvAccountPopup"
+      class="yv-account-popup"
+    >
+      <dialog
+        ref="dialog"
+        class="dialog-modal yv-account-popup__dialog color-custom-popover"
+        on:click="/closeDialogOnClickOutside"
+        on:keydown="/closeDialogOnEscapePress"
+        scroll-lock
+        aria-labelledby="YvAccountPopupTitle"
+      >
+        <button
+          type="button"
+          class="button button-unstyled close-button yv-account-popup__close"
+          aria-label="{{ 'accessibility.close_dialog' | t }}"
+          on:click="/closeDialog"
+        >
+          {%- render 'yv-icon', name: 'close', size: 16 -%}
+        </button>
+        <h2
+          id="YvAccountPopupTitle"
+          class="yv-account-popup__title h4"
+        >
+          {{- 'yv.header.login' | t -}}
+        </h2>
+        {%- form 'customer_login', class: 'yv-account-popup__form' -%}
+          {{ form.errors | default_errors }}
+          <label
+            class="visually-hidden"
+            for="YvAccountPopupEmail"
+          >
+            {{- 'yv.header.email' | t -}}
+          </label>
+          <input
+            type="email"
+            id="YvAccountPopupEmail"
+            class="yv-input"
+            name="customer[email]"
+            autocomplete="email"
+            autocorrect="off"
+            autocapitalize="off"
+            placeholder="{{ 'yv.header.email' | t }}"
+            required
+          >
+          <label
+            class="visually-hidden"
+            for="YvAccountPopupPassword"
+          >
+            {{- 'yv.header.password' | t -}}
+          </label>
+          <input
+            type="password"
+            id="YvAccountPopupPassword"
+            class="yv-input"
+            name="customer[password]"
+            autocomplete="current-password"
+            placeholder="{{ 'yv.header.password' | t }}"
+            required
+          >
+          <a
+            href="{{ routes.account_recover_url }}"
+            class="yv-account-popup__link"
+          >
+            {{- 'yv.header.forgot_password' | t -}}
+          </a>
+          <button
+            type="submit"
+            class="button yv-button yv-account-popup__submit"
+          >
+            {{- 'yv.header.sign_in' | t -}}
+          </button>
+          <a
+            href="{{ routes.account_register_url }}"
+            class="yv-account-popup__link yv-account-popup__link--center"
+          >
+            {{- 'yv.header.create_account' | t -}}
+          </a>
+        {%- endform -%}
+      </dialog>
+    </dialog-component>
+  {% elsif shop.customer_accounts_enabled %}
     {% liquid
       assign account_actions_style = ''
       if display_style == 'text' and section

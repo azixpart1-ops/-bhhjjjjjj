@@ -1,0 +1,201 @@
+{% comment %}
+  Section contract: yv-breadcrumbs
+  The Yuva breadcrumb strip ("Home / Collection / Product") under the header, rendered by
+  snippets/yv-breadcrumbs.liquid (trail + BreadcrumbList JSON-LD). Place it at the top of a template
+  (product, collection, page, blog, article, search). It renders nothing on the storefront when
+  Theme settings > Breadcrumbs > Enable breadcrumbs is off; in the theme editor it then shows a notice.
+  Shared settings: colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Layout > "Breadcrumbs"
+{% endcomment %}
+
+{%- liquid
+  capture trail
+    render 'yv-breadcrumbs', force: request.design_mode
+  endcapture
+  assign trail = trail | strip
+-%}
+
+{%- if trail != blank or request.design_mode -%}
+  {%- render 'yv-color-set', set: section.settings.color_set, section_id: section.id -%}
+  <div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+  <div
+    class="section section--page-width yv-section-spacing color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+    style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  >
+    <div class="yv-container yv-container--page yv-breadcrumbs-strip yv-breadcrumbs-strip--{{ section.settings.alignment }}">
+      {%- if trail != blank -%}
+        {{ trail }}
+      {%- else -%}
+        <p class="yv-breadcrumbs-strip__notice">{{ 'yv.breadcrumbs.disabled_notice' | t }}</p>
+      {%- endif -%}
+    </div>
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-breadcrumbs-strip .yv-breadcrumbs {
+    padding-block: 0;
+  }
+
+  .yv-breadcrumbs-strip .yv-breadcrumbs__link,
+  .yv-breadcrumbs-strip .yv-breadcrumbs__current {
+    padding-block: 7px;
+  }
+
+  .yv-breadcrumbs-strip--center .yv-breadcrumbs__list {
+    justify-content: center;
+  }
+
+  .yv-breadcrumbs-strip--right .yv-breadcrumbs__list {
+    justify-content: flex-end;
+  }
+
+  .yv-breadcrumbs-strip__notice {
+    margin: 0;
+    padding-block: 7px;
+    font-size: var(--font-paragraph--size);
+    opacity: 0.6;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.breadcrumbs",
+  "tag": "section",
+  "class": "yv-breadcrumbs-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "t:yv.breadcrumbs.settings.info"
+    },
+    {
+      "type": "select",
+      "id": "alignment",
+      "label": "t:yv.common.settings.alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 8
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.breadcrumbs",
+      "category": "t:yv.categories.layout"
+    }
+  ]
+}
+{% endschema %}

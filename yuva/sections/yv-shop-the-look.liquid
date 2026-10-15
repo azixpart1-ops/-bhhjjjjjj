@@ -1,0 +1,330 @@
+{% comment %}
+  Section contract: yv-shop-the-look
+  A large lifestyle image with clickable hotspots. Private blocks: `_yv-look-product` (a product card
+  popover) and `_yv-look-media` (an icon, image or video card with a heading, description and link).
+  The image box keeps the image's own ratio so hotspot positions hold at every width. Hotspots are the
+  shared `yv-hotspot` (marker look with pulse; hover or click opens the card on desktop, a tap opens
+  quick view or a bottom sheet on mobile; Escape and outside clicks close it; the theme editor opens
+  the selected block's card).
+  Shared settings: colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Products > "Shop the look"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign full_width = section.settings.full_width
+  assign width_class = 'section--page-width'
+  if full_width
+    assign width_class = 'section--full-width'
+  endif
+
+  assign stl_image = section.settings.image
+  assign stl_ratio = stl_image.aspect_ratio | default: 1.7778
+
+  assign image_loading = 'lazy'
+  assign image_priority = 'auto'
+  if section.index == 1
+    assign image_loading = 'eager'
+    assign image_priority = 'high'
+  endif
+
+  assign image_sizes = '(min-width: 1440px) 1300px, 100vw'
+  if full_width
+    assign image_sizes = '100vw'
+  endif
+-%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section {{ width_class }} yv-section-spacing yv-shop-the-look color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% if full_width %} yv-shop-the-look--full{% endif %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-shop-the-look"
+>
+  <div
+    class="yv-shop-the-look__frame"
+    style="--yv-stl-ratio: {{ stl_ratio }};"
+    data-yv-hotspot-container
+  >
+    <div class="yv-shop-the-look__media">
+      {%- if stl_image != blank -%}
+        {{
+          stl_image
+          | image_url: width: 2400
+          | image_tag:
+            widths: '600, 900, 1200, 1500, 1920, 2400',
+            sizes: image_sizes,
+            loading: image_loading,
+            fetchpriority: image_priority,
+            class: 'yv-shop-the-look__image'
+        }}
+      {%- else -%}
+        {{ 'hero-apparel-1' | placeholder_svg_tag: 'yv-shop-the-look__image yv-placeholder' }}
+      {%- endif -%}
+    </div>
+    {%- content_for 'blocks' -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-shop-the-look__frame {
+    position: relative;
+    min-width: 0;
+    aspect-ratio: var(--yv-stl-ratio, 16 / 9);
+  }
+
+  .yv-shop-the-look__media {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: var(--yv-layout-radius, 0);
+    background: var(--yv-image-bg, #f3efec);
+  }
+
+  .yv-shop-the-look--full .yv-shop-the-look__media {
+    border-radius: 0;
+  }
+
+  .yv-shop-the-look__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* "Media with text" hotspot card. */
+  .yv-look-media {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .yv-look-media__media {
+    display: block;
+    overflow: hidden;
+    border-radius: var(--yv-radius-sm, 6px);
+    background: var(--yv-image-bg, #f3efec);
+  }
+
+  .yv-look-media__media--video {
+    aspect-ratio: 16 / 9;
+  }
+
+  .yv-look-media__image,
+  .yv-look-media__video {
+    display: block;
+    width: 100%;
+    max-height: 160px;
+    object-fit: cover;
+  }
+
+  .yv-look-media__media--video .yv-look-media__video {
+    height: 100%;
+    max-height: none;
+  }
+
+  .yv-look-media__icon {
+    display: flex;
+    color: var(--yv-heading-color, currentColor);
+  }
+
+  .yv-look-media__heading {
+    font-family: var(--font-heading--family);
+    font-weight: 600;
+    font-size: var(--yv-text-lg, 15.36px);
+    line-height: 1.3;
+  }
+
+  .yv-look-media__text {
+    font-size: var(--yv-text-md, 13.44px);
+    line-height: 1.4;
+  }
+
+  .yv-look-media__text > * {
+    margin: 0;
+  }
+
+  a.yv-look-media:hover .yv-look-media__heading {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-hotspot__content .yv-look-media {
+      width: 248px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.shop_the_look",
+  "tag": "section",
+  "class": "yv-shop-the-look-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 10,
+  "blocks": [
+    {
+      "type": "_yv-look-product"
+    },
+    {
+      "type": "_yv-look-media"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.shop_the_look.settings.full_width",
+      "default": false
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:settings.image",
+      "info": "t:yv.shop_the_look.settings.image_size_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.shop_the_look",
+      "category": "t:yv.categories.products",
+      "settings": {
+        "full_width": false
+      },
+      "blocks": {
+        "look_1": {
+          "type": "_yv-look-product",
+          "settings": {
+            "pos_x": 28,
+            "pos_y": 58
+          }
+        },
+        "look_2": {
+          "type": "_yv-look-product",
+          "settings": {
+            "layout": "vertical",
+            "pos_x": 52,
+            "pos_y": 36
+          }
+        },
+        "detail": {
+          "type": "_yv-look-media",
+          "settings": {
+            "icon": "star",
+            "heading": "t:yv.shop_the_look.defaults.heading",
+            "description": "t:yv.shop_the_look.defaults.description",
+            "pos_x": 76,
+            "pos_y": 64
+          }
+        }
+      },
+      "block_order": ["look_1", "look_2", "detail"]
+    }
+  ]
+}
+{% endschema %}

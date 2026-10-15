@@ -12,6 +12,11 @@
   @param {string} [localization] - Captured HTML for language/country selector
   @param {string} [search] - Captured HTML for search input
   @param {string} [drawer_search] - Captured HTML for drawer-based search
+  @param {string} [category] - yv: Captured HTML for the Yuva category (catalog) button
+  @param {string} [utility_primary] - yv: Captured HTML for the first Yuva utility link row (browse links)
+  @param {string} [utility_secondary] - yv: Captured HTML for the second Yuva utility link row (quick links)
+  @param {string} [trust_badge] - yv: Captured HTML for the Yuva trust badge
+  @param {string} [overrides] - yv: Comma-separated 'item:column:row' placements that win over the settings (Yuva navigation types); column 'none' hides the item
 {% enddoc %}
 
 {%- liquid
@@ -19,6 +24,7 @@
   assign left = ''
   assign center = ''
   assign right = ''
+  assign override_list = overrides | default: '' | split: ','
 
   if first != blank
     assign left = 'first '
@@ -30,12 +36,37 @@
     assign item_row = settings[row_key] | default: 'top'
     assign item_column = settings[column_key] | default: 'left'
 
+    # yv: placements forced by the Yuva navigation type
+    for override in override_list
+      assign override_parts = override | split: ':'
+      if override_parts[0] == item
+        assign item_column = override_parts[1]
+        assign item_row = override_parts[2] | default: item_row
+      endif
+    endfor
+
     case item
       when 'actions'
         assign item_column = 'right'
+      when 'category'
+        if category == blank
+          assign item_column = 'none'
+        endif
+      when 'utility_primary'
+        if utility_primary == blank
+          assign item_column = 'none'
+        endif
+      when 'utility_secondary'
+        if utility_secondary == blank
+          assign item_column = 'none'
+        endif
+      when 'trust_badge'
+        if trust_badge == blank
+          assign item_column = 'none'
+        endif
     endcase
 
-    if item_row == row
+    if item_row == row and item_column != 'none'
       case item_column
         when 'left'
           assign left = left | append: item | append: ' '
@@ -86,6 +117,14 @@
               {{ drawer_search }}
             {% when 'actions' %}
               {{ actions }}
+            {% when 'category' %}
+              {{ category }}
+            {% when 'utility_primary' %}
+              {{ utility_primary }}
+            {% when 'utility_secondary' %}
+              {{ utility_secondary }}
+            {% when 'trust_badge' %}
+              {{ trust_badge }}
           {% endcase %}
         {% endunless %}
       {% endfor %}

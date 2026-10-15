@@ -1,0 +1,196 @@
+{%- doc -%}
+  Cart upsells (Theme settings > Cart drawer > Product upsells).
+
+  part 'shell' renders the container that `assets/yv-cart.js` fills: in the drawer a vertical
+  marquee tab on the drawer's inline-start edge that slides out a 320px panel (990px and up only);
+  on the cart page a heading and a 4-column grid (2 on mobile). The products are fetched from
+  `/recommendations/products?section_id=yv-cart-upsells` (`sections/yv-cart-upsells.liquid`), for the
+  first cart line's product, and refetched after every cart change; the shell stays hidden until
+  there is at least one product to show.
+
+  part 'items' renders the product rows (used by the rendering section): 70px image, title, price
+  and an "Add" button. Single-variant products are added directly; others open Quick view.
+  Products already in the cart and the gift-wrap product are skipped; the list stops at
+  Number of products.
+
+  @param {string} part - 'shell' or 'items'
+  @param {string} [context] - shell only: 'drawer' (default) or 'page'
+  @param {object[]} [products] - items only: the candidate products
+
+  @example
+  {% render 'yv-cart-upsells', part: 'shell', context: 'drawer' %}
+  {% render 'yv-cart-upsells', part: 'items', products: recommendations.products %}
+{%- enddoc -%}
+
+{%- liquid
+  assign upsell_count = settings.yv_upsell_count | default: 4
+  assign heading = settings.yv_upsell_heading | default: ''
+-%}
+
+{%- if part == 'shell' -%}
+  {%- if settings.yv_upsell_enable -%}
+    {%- liquid
+      assign context = context | default: 'drawer'
+      assign first_product_id = ''
+      for item in cart.items
+        if item.product_id != settings.yv_gift_wrap_product.id
+          assign first_product_id = item.product_id
+          break
+        endif
+      endfor
+      assign request_limit = cart.items.size | plus: upsell_count | at_most: 10
+      assign panel_id = 'YvCartUpsells-' | append: context
+    -%}
+    <yv-cart-upsells-component
+      class="yv-cart-upsells yv-cart-upsells--{{ context }}"
+      data-url="{{ routes.product_recommendations_url }}"
+      data-cart-url="{{ routes.cart_url }}"
+      data-intent="{{ settings.yv_upsell_source | default: 'related' }}"
+      data-limit="{{ request_limit }}"
+      data-count="{{ upsell_count }}"
+      data-product-id="{{ first_product_id }}"
+      data-gift-product-id="{{ settings.yv_gift_wrap_product.id }}"
+      data-context="{{ context }}"
+      hidden
+    >
+      {%- if context == 'drawer' -%}
+        <div class="yv-cart-upsells__clip">
+          <div class="yv-cart-upsells__slider">
+            <button
+              type="button"
+              class="yv-cart-upsells__tab"
+              aria-expanded="false"
+              aria-controls="{{ panel_id }}"
+              on:click="/toggle"
+              ref="tab"
+            >
+              <span class="visually-hidden">{{ heading | escape }}</span>
+              <span
+                class="yv-cart-upsells__marquee"
+                aria-hidden="true"
+              >
+                {%- for i in (1..2) -%}
+                  <span class="yv-cart-upsells__marquee-run">
+                    {%- for j in (1..4) -%}
+                      <span>{{ heading | escape }}</span><span class="yv-cart-upsells__dot">&bull;</span>
+                    {%- endfor -%}
+                  </span>
+                {%- endfor -%}
+              </span>
+            </button>
+            <div
+              class="yv-cart-upsells__panel"
+              id="{{ panel_id }}"
+              role="region"
+              aria-label="{{ heading | escape }}"
+              ref="panel"
+              inert
+            >
+              <p class="yv-cart-upsells__heading h5">{{ heading | escape }}</p>
+              <ul
+                class="yv-cart-upsells__list"
+                role="list"
+                ref="list"
+              ></ul>
+            </div>
+          </div>
+        </div>
+      {%- else -%}
+        <div class="yv-cart-upsells__inner">
+          {%- if heading != blank -%}
+            <h2 class="yv-cart-upsells__heading h4">{{ heading | escape }}</h2>
+          {%- endif -%}
+          <ul
+            class="yv-cart-upsells__list yv-cart-upsells__list--grid"
+            role="list"
+            ref="list"
+          ></ul>
+        </div>
+      {%- endif -%}
+    </yv-cart-upsells-component>
+  {%- endif -%}
+{%- elsif part == 'items' -%}
+  {%- liquid
+    assign in_cart = ','
+    for item in cart.items
+      assign in_cart = in_cart | append: item.product_id | append: ','
+    endfor
+    assign gift_id = settings.yv_gift_wrap_product.id | default: 0
+    assign shown = 0
+  -%}
+  {%- for product in products -%}
+    {%- liquid
+      assign needle = ',' | append: product.id | append: ','
+      if in_cart contains needle or product.id == gift_id or product.available == false
+        continue
+      endif
+      if shown >= upsell_count
+        break
+      endif
+      assign shown = shown | plus: 1
+      assign variant = product.selected_or_first_available_variant
+      assign single = false
+      if product.has_only_default_variant and product.requires_selling_plan == false
+        assign single = true
+      endif
+    -%}
+    <li
+      class="yv-upsell"
+      data-product-id="{{ product.id }}"
+    >
+      <a
+        class="yv-upsell__media"
+        href="{{ product.url }}"
+        tabindex="-1"
+        aria-hidden="true"
+      >
+        {%- if product.featured_media != blank -%}
+          {{-
+            product.featured_media
+            | image_url: width: 300
+            | image_tag: widths: '140, 210, 300', sizes: '(min-width: 990px) 70px, 50vw', loading: 'lazy', alt: ''
+          -}}
+        {%- else -%}
+          {{- 'product-1' | placeholder_svg_tag: 'yv-placeholder' -}}
+        {%- endif -%}
+      </a>
+      <div class="yv-upsell__info">
+        <a
+          class="yv-upsell__title"
+          href="{{ product.url }}"
+        >
+          {{- product.title | escape -}}
+        </a>
+        <p class="yv-upsell__price">
+          {%- assign price_money = product.price | money -%}
+          <span class="yv-upsell__amount">
+            {%- if product.price_varies -%}
+              {{- 'content.price_from' | t: price: price_money -}}
+            {%- else -%}
+              {{- price_money -}}
+            {%- endif -%}
+          </span>
+          {%- if product.compare_at_price > product.price and product.price_varies == false -%}
+            <s class="yv-upsell__compare">{{ product.compare_at_price | money }}</s>
+          {%- endif -%}
+        </p>
+      </div>
+      <div class="yv-upsell__action">
+        {%- if single -%}
+          <button
+            type="button"
+            class="button yv-upsell__add"
+            data-variant-id="{{ variant.id }}"
+            aria-label="{{ 'yv.cart.upsell_add_label' | t: title: product.title | escape }}"
+            on:click="/add"
+          >
+            <span class="yv-upsell__add-text">{{ 'yv.cart.upsell_add' | t }}</span>
+          </button>
+        {%- else -%}
+          {%- assign options_label = 'yv.cart.upsell_add' | t -%}
+          {% render 'yv-quick-view-button', product: product, label: options_label, class: 'button yv-upsell__add' %}
+        {%- endif -%}
+      </div>
+    </li>
+  {%- endfor -%}
+{%- endif -%}

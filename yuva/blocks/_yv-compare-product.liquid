@@ -1,0 +1,186 @@
+{%- doc -%}
+  One column of the Yuva product comparison grid (sections/yv-product-comparison.liquid). Eight rows
+  that line up across columns through CSS subgrid: image, title, description, price, buttons
+  (quick view + view details, shared button sizes from the section), feature image, feature heading,
+  feature content. Empty cells stay as empty rows. The product falls back to closest.product
+  (the page's product on a product template); with no product, placeholders show.
+{%- enddoc -%}
+
+{%- liquid
+  assign item = block.settings.product | default: closest.product
+  assign bs = block.settings
+  assign ss = section.settings
+  assign variant = item.selected_or_first_available_variant
+  assign saving = 0
+  if variant.compare_at_price > variant.price
+    assign saving = variant.compare_at_price | minus: variant.price
+  endif
+  assign view_label = 'yv.product.view_details' | t
+  assign quick_label = 'yv.product.quick_view' | t
+-%}
+
+<div
+  class="yv-compare__card"
+  {{ block.shopify_attributes }}
+>
+  <div class="yv-compare__cell yv-compare__media">
+    {%- if item != blank and item.featured_image -%}
+      {{
+        item.featured_image
+        | image_url: width: 800
+        | image_tag:
+          loading: 'lazy',
+          widths: '300, 400, 600, 800',
+          sizes: '(min-width: 990px) 320px, (min-width: 750px) 33vw, 80vw',
+          class: 'yv-compare__image',
+          alt: item.featured_image.alt | default: item.title
+      }}
+    {%- else -%}
+      {{ 'product-1' | placeholder_svg_tag: 'yv-compare__image yv-placeholder' }}
+    {%- endif -%}
+  </div>
+
+  <div class="yv-compare__cell yv-compare__title-cell">
+    {%- if bs.show_title -%}
+      <h3 class="yv-compare__title h5">
+        {%- if item == blank -%}
+          {{ 'placeholders.product_title' | t }}
+        {%- elsif bs.enable_link -%}
+          <a href="{{ item.url }}">{{ item.title | escape }}</a>
+        {%- else -%}
+          {{ item.title | escape }}
+        {%- endif -%}
+      </h3>
+    {%- endif -%}
+  </div>
+
+  <div class="yv-compare__cell yv-compare__description">
+    {%- if bs.show_description and item.description != blank -%}
+      <p>{{ item.description | strip_html | truncatewords: 25 }}</p>
+    {%- endif -%}
+  </div>
+
+  <div class="yv-compare__cell yv-compare__price">
+    {%- if bs.show_price -%}
+      {%- if item == blank -%}
+        <span class="yv-compare__price-current">{{ 1999 | money }}</span>
+      {%- else -%}
+        <span class="yv-compare__price-current">{{ variant.price | money }}</span>
+        {%- if saving > 0 -%}
+          <s class="yv-compare__price-compare">{{ variant.compare_at_price | money }}</s>
+          {%- if settings.yv_show_saved_amount -%}
+            {%- liquid
+              if settings.yv_saved_amount_style == 'percentage'
+                assign saved_value = saving | times: 100.0 | divided_by: variant.compare_at_price | round | append: '%'
+              else
+                assign saved_value = saving | money
+              endif
+            -%}
+            <span class="yv-saved__pill">{{ 'yv.product.saved' | t: amount: saved_value }}</span>
+          {%- endif -%}
+        {%- endif -%}
+      {%- endif -%}
+    {%- endif -%}
+  </div>
+
+  <div class="yv-compare__cell yv-compare__actions">
+    {%- if item != blank and bs.enable_quick_view -%}
+      {%- capture quick_class -%}button-secondary yv-button yv-button--d-{{ ss.button_size_desktop | default: 'default' }} yv-button--m-{{ ss.button_size_mobile | default: 'default' }}{%- endcapture -%}
+      {% render 'yv-quick-view-button', product: item, label: quick_label, class: quick_class %}
+    {%- endif -%}
+    {%- if item != blank and bs.enable_link -%}
+      {% render 'yv-button',
+        label: view_label,
+        link: item.url,
+        variant: 'primary',
+        size_desktop: ss.button_size_desktop,
+        size_mobile: ss.button_size_mobile
+      %}
+    {%- endif -%}
+  </div>
+
+  <div class="yv-compare__cell yv-compare__feature-media">
+    {%- if bs.feature_image != blank -%}
+      {{
+        bs.feature_image
+        | image_url: width: 120
+        | image_tag: loading: 'lazy', widths: '48, 96, 120', sizes: '48px', class: 'yv-compare__feature-image'
+      }}
+    {%- endif -%}
+  </div>
+
+  <div class="yv-compare__cell yv-compare__feature-heading-cell">
+    {%- if bs.feature_heading != blank -%}
+      <h4 class="yv-compare__feature-heading h6">{{ bs.feature_heading | escape }}</h4>
+    {%- endif -%}
+  </div>
+
+  <div class="yv-compare__cell yv-compare__feature-content rte">
+    {{- bs.feature_content -}}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "t:yv.names.compare_product",
+  "tag": null,
+  "settings": [
+    {
+      "type": "product",
+      "id": "product",
+      "label": "t:yv.common.settings.product",
+      "info": "t:yv.product.info.compare_product"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_title",
+      "label": "t:yv.product.settings.show_title",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "label": "t:yv.product.settings.show_description_short",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_price",
+      "label": "t:yv.product.settings.show_price",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_quick_view",
+      "label": "t:yv.product.settings.enable_quick_view",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_link",
+      "label": "t:yv.product.settings.enable_link",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:yv.product.content.custom_content",
+      "info": "t:yv.product.info.compare_custom"
+    },
+    {
+      "type": "image_picker",
+      "id": "feature_image",
+      "label": "t:yv.common.settings.image"
+    },
+    {
+      "type": "text",
+      "id": "feature_heading",
+      "label": "t:yv.common.settings.heading"
+    },
+    {
+      "type": "richtext",
+      "id": "feature_content",
+      "label": "t:yv.product.settings.feature_content"
+    }
+  ]
+}
+{% endschema %}

@@ -1,3 +1,16 @@
+{%- comment -%}
+  yv: Yuva cart page. assets/yv-cart.css gives the two-column layout (items table + sticky
+  "Price Details" card) and the empty state; the extras come from Theme settings > Cart drawer
+  (shipping bar, gift wrap, upsells) and from this section's Yuva settings (cart note, payment
+  icons, shipping estimator). All Yuva additions are marked with `yv:` comments.
+{%- endcomment -%}
+{{ 'yv-cart.css' | asset_url | stylesheet_tag }}
+<script
+  type="module"
+  src="{{ 'yv-cart.js' | asset_url }}"
+  fetchpriority="low"
+></script>
+
 {% liquid
   assign custom_color = false
   if section.settings.background_color != blank or section.settings.text_color != blank
@@ -19,9 +32,11 @@
       class="section{% if custom_color %} color-custom-{{ section.id }}{% endif %} section--{{ section.settings.section_width }}"
     >
       <div
-        class="cart-page spacing-style{% if cart.empty? %} cart-page--empty{% endif %}"
+        class="cart-page yv-cart-page spacing-style{% if cart.empty? %} cart-page--empty{% endif %}"
         style="{% render 'spacing-style', settings: section.settings %}"
       >
+        {%- comment -%} yv: line-art empty cart icon. {%- endcomment -%}
+        <span class="yv-cart-empty__icon">{{- 'yv-icon-cart-empty.svg' | inline_asset_content -}}</span>
         <div class="cart-page__title">
           {%- content_for 'block', id: 'cart-page-title', type: '_cart-title', force_empty: true %}
         </div>
@@ -38,20 +53,61 @@
     class="section{% if custom_color %} color-custom-{{ section.id }}{% endif %} section--{{ section.settings.section_width }}"
   >
     <div
-      class="cart-page spacing-style{% if cart.empty? %} cart-page--empty{% endif %}"
+      class="cart-page yv-cart-page spacing-style{% if cart.empty? %} cart-page--empty{% endif %}"
       style="{% render 'spacing-style', settings: section.settings %}"
     >
+      {%- if cart.empty? -%}
+        {%- comment -%} yv: line-art empty cart icon. {%- endcomment -%}
+        <span class="yv-cart-empty__icon">{{- 'yv-icon-cart-empty.svg' | inline_asset_content -}}</span>
+      {%- endif -%}
       <div class="cart-page__title">
         {%- content_for 'block', id: 'cart-page-title', type: '_cart-title' %}
+        {%- unless cart.empty? -%}
+          {%- comment -%} yv: "In your bag N items" on the right of the title row. {%- endcomment -%}
+          <p class="yv-cart-page__count">{{ 'yv.cart.bag_count_html' | t: count: cart.item_count }}</p>
+        {%- endunless -%}
       </div>
 
       <div class="cart-page__items">
+        {%- unless cart.empty? -%}
+          {%- comment -%} yv: free-shipping box above the items. {%- endcomment -%}
+          {% render 'yv-shipping-bar', context: 'page' %}
+        {%- endunless -%}
+
         {%- content_for 'block', id: 'cart-page-items', type: '_cart-products' %}
+
+        {%- if section.settings.show_shipping_estimator and cart.empty? == false and cart.requires_shipping -%}
+          {%- comment -%} yv: "Get estimate shipping for your order" box under the items. {%- endcomment -%}
+          {% render 'yv-shipping-estimator', section_id: section.id %}
+        {%- endif -%}
       </div>
 
       {%- unless cart.empty? -%}
         <div class="cart-page__summary">
-          {%- content_for 'block', id: 'cart-page-summary', type: '_cart-summary' -%}
+          {%- comment -%}
+            yv: outlined "Continue shopping" pill at the top of the summary column, then the summary
+            card with Yuva's title, page-level cart note, gift wrap and payment icons.
+          {%- endcomment -%}
+          <a
+            class="yv-cart-continue"
+            href="{{ settings.empty_cart_button_link | default: routes.all_products_collection_url }}"
+          >
+            <span class="yv-cart-continue__label">{{ 'actions.continue_shopping' | t }}</span>
+            <span
+              class="yv-cart-continue__arrow"
+              aria-hidden="true"
+            >
+              {%- render 'yv-icon', name: 'arrow-right', size: 16 -%}
+            </span>
+          </a>
+          {%- assign yv_summary_title = 'yv.cart.price_details' | t -%}
+          {%- content_for 'block',
+            id: 'cart-page-summary',
+            type: '_cart-summary',
+            summary_title: yv_summary_title,
+            show_cart_note: section.settings.show_cart_note,
+            show_payment_icons: section.settings.show_payment_icons
+          -%}
         </div>
       {%- endunless -%}
 
@@ -60,6 +116,16 @@
   </div>
 {% endcapture %}
 {% render 'cart-items-component', children: cart_items_children, section_id: section.id %}
+
+{%- if settings.yv_upsell_enable -%}
+  {%- comment -%}
+    yv: upsell grid (Theme settings > Cart drawer > Product upsells). Outside cart-items-component so
+    the section's morph after a cart change keeps the fetched products; yv-cart.js refreshes them.
+  {%- endcomment -%}
+  <div class="section section--{{ section.settings.section_width }} yv-cart-page__upsells">
+    {% render 'yv-cart-upsells', part: 'shell', context: 'page' %}
+  </div>
+{%- endif -%}
 
 {% stylesheet %}
   .cart-page {
@@ -171,6 +237,27 @@
     }
   ],
   "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_cart_note",
+      "label": "t:yv.cart_page.settings.show_cart_note",
+      "info": "t:yv.cart_page.settings.show_cart_note_info",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_payment_icons",
+      "label": "t:yv.cart_page.settings.show_payment_icons",
+      "info": "t:yv.cart_page.settings.show_payment_icons_info",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_shipping_estimator",
+      "label": "t:yv.cart_page.settings.show_shipping_estimator",
+      "info": "t:yv.cart_page.settings.show_shipping_estimator_info",
+      "default": true
+    },
     {
       "type": "select",
       "id": "section_width",

@@ -1,0 +1,260 @@
+{%- doc -%}
+  One Yuva announcement: an optional icon, a message (inline rich text), an optional sale
+  countdown (DD/MM/YYYY) and an optional small button. Rendered by sections/yv-announcement-bar.liquid
+  as a carousel slide or as a marquee item; the button colours come from the section.
+
+  An expired countdown hides the whole announcement on the storefront (the theme editor keeps it
+  visible with a notice so it can still be edited).
+{%- enddoc -%}
+
+{%- liquid
+  assign icon_name = block.settings.icon | default: 'none'
+  if icon_name == 'lightning_bolt'
+    assign icon_name = 'lightning'
+  endif
+
+  assign countdown_status = 'blank'
+  if block.settings.countdown_date != blank
+    capture countdown_status
+      render 'yv-countdown-timer', end_date: block.settings.countdown_date, date_format: 'dmy', output: 'status'
+    endcapture
+    assign countdown_status = countdown_status | strip
+  endif
+
+  assign show_button = false
+  if block.settings.button_text != blank and block.settings.button_link != blank
+    assign show_button = true
+  endif
+-%}
+
+<div
+  class="yv-announcement"
+  data-yv-countdown-block
+  {% if countdown_status == 'expired' and request.design_mode == false %}
+    hidden
+  {% endif %}
+  {{ block.shopify_attributes }}
+>
+  <div class="yv-announcement__inner">
+    {%- if icon_name != 'none' -%}
+      <span class="yv-announcement__icon">{% render 'yv-icon', name: icon_name, size: 16 %}</span>
+    {%- endif -%}
+
+    {%- if block.settings.heading != blank -%}
+      <p class="yv-announcement__text">{{ block.settings.heading }}</p>
+    {%- endif -%}
+
+    {%- if block.settings.countdown_date != blank -%}
+      {% render 'yv-countdown-timer',
+        end_date: block.settings.countdown_date,
+        date_format: 'dmy',
+        variant: 'inline',
+        size: 'small',
+        on_expire: 'hide_block',
+        class: 'yv-announcement__countdown'
+      %}
+    {%- endif -%}
+
+    {%- if show_button -%}
+      <a
+        href="{{ block.settings.button_link }}"
+        class="yv-announcement__button"
+      >
+        {{- block.settings.button_text | escape -}}
+      </a>
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-announcement {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .yv-announcement[hidden] {
+    display: none;
+  }
+
+  .yv-announcement__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 4px 8px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .yv-announcement__icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: currentColor;
+  }
+
+  .yv-announcement__icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .yv-announcement__text {
+    margin: 0;
+    padding-block: 3px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .yv-announcement__text a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .yv-announcement__countdown {
+    --yv-countdown-digit-color: currentColor;
+    --yv-countdown-label-color: currentColor;
+
+    font-variant-numeric: tabular-nums;
+  }
+
+  .yv-announcement__button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 4px 12px;
+    border: 1px solid var(--yv-announcement-button-border, currentColor);
+    border-radius: var(--style-border-radius-buttons-primary, 2px);
+    background: var(--yv-announcement-button-bg, transparent);
+    color: var(--yv-announcement-button-text, currentColor);
+    font-size: 11px;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: opacity var(--animation-speed, 0.2s) var(--animation-easing, ease);
+  }
+
+  .yv-announcement__button:hover {
+    opacity: 0.85;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.announcement",
+  "tag": null,
+  "settings": [
+    {
+      "type": "select",
+      "id": "icon",
+      "label": "t:yv.announcement_bar.settings.icon",
+      "options": [
+        {
+          "value": "none",
+          "label": "t:yv.common.options.none"
+        },
+        {
+          "value": "truck",
+          "label": "t:yv.announcement_bar.options.truck"
+        },
+        {
+          "value": "price_tag",
+          "label": "t:yv.announcement_bar.options.price_tag"
+        },
+        {
+          "value": "star",
+          "label": "t:yv.announcement_bar.options.star"
+        },
+        {
+          "value": "fire",
+          "label": "t:yv.announcement_bar.options.fire"
+        },
+        {
+          "value": "lightning_bolt",
+          "label": "t:yv.announcement_bar.options.lightning_bolt"
+        },
+        {
+          "value": "stopwatch",
+          "label": "t:yv.announcement_bar.options.stopwatch"
+        },
+        {
+          "value": "heart",
+          "label": "t:yv.announcement_bar.options.heart"
+        },
+        {
+          "value": "chat_bubble",
+          "label": "t:yv.announcement_bar.options.chat_bubble"
+        },
+        {
+          "value": "map_pin",
+          "label": "t:yv.announcement_bar.options.map_pin"
+        },
+        {
+          "value": "plane",
+          "label": "t:yv.announcement_bar.options.plane"
+        },
+        {
+          "value": "return",
+          "label": "t:yv.announcement_bar.options.return"
+        },
+        {
+          "value": "lock",
+          "label": "t:yv.announcement_bar.options.lock"
+        },
+        {
+          "value": "box",
+          "label": "t:yv.announcement_bar.options.box"
+        },
+        {
+          "value": "check_box",
+          "label": "t:yv.announcement_bar.options.check_box"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.text"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "t:yv.announcement_bar.defaults.heading"
+    },
+    {
+      "type": "text",
+      "id": "countdown_date",
+      "label": "t:yv.announcement_bar.settings.countdown_date",
+      "info": "t:yv.announcement_bar.settings.countdown_date_info",
+      "placeholder": "DD/MM/YYYY"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.text"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.link",
+      "info": "t:yv.common.settings.button_info"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.announcement",
+      "settings": {
+        "heading": "t:yv.announcement_bar.defaults.heading"
+      }
+    }
+  ]
+}
+{% endschema %}

@@ -2,11 +2,102 @@
   Renders the grid density controls.
 
   @param {string} viewport - The viewport to render the controls for, either 'mobile' or 'desktop'.
+  @param {boolean} [yuva] - yv: render the Yuva "display options" column switcher (2/3/4/5 columns ≥990px, 2/3 at 750–989px) instead of Horizon's density toggle. Default: false
+  @param {number} [default_columns] - yv: columns checked by default at 990px and up (2–5). Default: 4
 
   @example
   {% render 'grid-density-controls', viewport: 'desktop' %}
+  {% render 'grid-density-controls', viewport: 'desktop', yuva: true, default_columns: 4 %}
 {%- enddoc -%}
 
+{%- comment -%}
+  yv: Yuva column switcher (b-catalog). The radios keep their checked state across Section Rendering
+  API morphs (data-skip-node-update); assets/yv-collection.css maps the checked radio to
+  --yv-grid-columns, assets/yv-grid-columns.js stores the choice in localStorage['yvGridColumns'].
+{%- endcomment -%}
+{%- if yuva -%}
+  {%- liquid
+    assign yv_default = default_columns | default: 4 | at_least: 2 | at_most: 5
+    assign yv_label = 'yv.catalog.display_options' | t
+  -%}
+  <script
+    src="{{ 'yv-grid-columns.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  <yv-grid-columns-component
+    class="yv-grid-columns"
+    data-design-mode="{{ request.design_mode }}"
+  >
+    {%- for band in (1..2) -%}
+      {%- liquid
+        if band == 1
+          assign band_name = 'desktop'
+          assign first_value = 2
+          assign last_value = 5
+          assign checked_value = yv_default
+        else
+          assign band_name = 'tablet'
+          assign first_value = 2
+          assign last_value = 3
+          assign checked_value = 3
+        endif
+      -%}
+      <fieldset class="yv-grid-columns__set yv-grid-columns__set--{{ band_name }}">
+        <legend class="visually-hidden">{{ yv_label }}</legend>
+        {%- for value in (first_value..last_value) -%}
+          <label class="yv-grid-columns__option">
+            <input
+              type="radio"
+              class="yv-grid-columns__input"
+              name="yv-grid-columns-{{ band_name }}"
+              value="{{ value }}"
+              data-band="{{ band_name }}"
+              aria-label="{{ 'yv.catalog.columns_label' | t: count: value }}"
+              {% if value == checked_value %}
+                checked
+              {% endif %}
+              data-skip-node-update
+            >
+            <span
+              class="yv-grid-columns__icon"
+              aria-hidden="true"
+            >
+              {%- assign icon_width = value | times: 6 | minus: 4 -%}
+              <svg
+                width="{{ icon_width }}"
+                height="16"
+                viewBox="0 0 {{ icon_width }} 16"
+                focusable="false"
+              >
+                {%- for bar in (1..value) -%}
+                  {%- assign bar_x = bar | minus: 1 | times: 6 -%}
+                  <rect x="{{ bar_x }}" y="0" width="2" height="16" rx="1" fill="currentColor"/>
+                {%- endfor -%}
+              </svg>
+            </span>
+          </label>
+        {%- endfor -%}
+      </fieldset>
+    {%- endfor -%}
+    {%- unless request.design_mode -%}
+      <script>
+        (() => {
+          const root = document.currentScript && document.currentScript.parentElement;
+          if (!root) return;
+          try {
+            const store = JSON.parse(localStorage.getItem('yvGridColumns') || '{}') || {};
+            for (const band of ['desktop', 'tablet']) {
+              if (!store[band]) continue;
+              const input = root.querySelector('input[name="yv-grid-columns-' + band + '"][value="' + store[band] + '"]');
+              if (input) input.checked = true;
+            }
+          } catch (error) {}
+        })();
+      </script>
+    {%- endunless -%}
+  </yv-grid-columns-component>
+{%- else -%}
 <div class="column-options-wrapper">
   <fieldset class="column-options">
     <legend class="column-options__legend visually-hidden">
@@ -79,6 +170,7 @@
     {% endif %}
   </fieldset>
 </div>
+{%- endif -%}
 
 {% stylesheet %}
   .column-options-wrapper {

@@ -1,0 +1,908 @@
+{% comment %}
+  Section contract: yv-countdown-with-images
+  Yuva "Countdown with images": a deal block with a live countdown (Days / Hours / Minutes / Seconds
+  boxes), heading, subheading, description and button.
+  - Banner layout (default): one large image (rounded, or edge to edge) with the content in a
+    translucent box placed by "Banner content position". On phones the image sits on top and the box
+    below it, as one card.
+  - Image layout: left image, centred content, right image (22% / 56% / 22%); on phones only the
+    mobile (or left) image shows, above the content.
+  The timer counts down to midnight at the start of the end date (DD/MM/YYYY) in the visitor's time
+  zone. With "Hide section when date is passed" the section renders nothing on the storefront once the
+  date has passed (and hides itself when the timer reaches zero on an open page).
+  Colours are the section's own (no colour set): background, text, overlays, timer, button.
+  Shared settings: visibility, spacing, highlight heading, button sizes.
+  @example
+  Theme editor > Add section > Promotional > "Countdown with images"
+{% endcomment %}
+
+{%- liquid
+  capture countdown_status
+    render 'yv-countdown-timer', end_date: section.settings.end_date, output: 'status'
+  endcapture
+  assign countdown_status = countdown_status | strip
+
+  assign hide_section = false
+  if section.settings.hide_when_expired and countdown_status == 'expired' and request.design_mode == false
+    assign hide_section = true
+  endif
+
+  assign expire_mode = 'keep'
+  if section.settings.hide_when_expired
+    assign expire_mode = 'hide_section'
+  endif
+
+  assign media_loading = 'lazy'
+  assign media_priority = 'auto'
+  if section.index == 1
+    assign media_loading = 'eager'
+    assign media_priority = 'high'
+  endif
+  if settings.yv_enable_lazyload == false
+    assign media_loading = 'eager'
+  endif
+
+  assign mobile_image = section.settings.image_mobile | default: section.settings.image_left
+  assign mobile_ratio = 1.75
+  if mobile_image != blank
+    assign mobile_ratio = mobile_image.aspect_ratio
+  endif
+
+  assign banner_ratio = 'auto'
+  if section.settings.image_left != blank
+    assign banner_ratio = section.settings.image_left.aspect_ratio
+  endif
+-%}
+
+{%- unless hide_section -%}
+  {%- render 'contrast-override', background_color: section.settings.color_background, text_color: section.settings.color_text, section_id: section.id -%}
+
+  {%- capture content -%}
+    <div class="yv-countdown-with-images__content">
+      {% render 'yv-heading',
+        text: section.settings.heading,
+        tag: section.settings.heading_tag,
+        size: section.settings.heading_size,
+        highlight_font: section.settings.highlight_font,
+        highlight_color: section.settings.highlight_color,
+        rotating_text: section.settings.rotating_text,
+        alignment: 'center',
+        class: 'yv-countdown-with-images__heading',
+        reveal: true
+      %}
+      {% render 'yv-countdown-timer',
+        end_date: section.settings.end_date,
+        variant: 'boxes',
+        on_expire: expire_mode,
+        class: 'yv-countdown-with-images__timer'
+      %}
+      {%- if section.settings.subheading != blank -%}
+        <p class="yv-countdown-with-images__subheading h5">{{ section.settings.subheading | escape }}</p>
+      {%- endif -%}
+      {%- if section.settings.description != blank -%}
+        <p class="yv-countdown-with-images__text">{{ section.settings.description | escape | newline_to_br }}</p>
+      {%- endif -%}
+      {% render 'yv-button',
+        label: section.settings.button_text,
+        link: section.settings.button_link,
+        size_desktop: section.settings.button_size_desktop,
+        size_mobile: section.settings.button_size_mobile,
+        bg: section.settings.color_button_bg,
+        text: section.settings.color_button_text,
+        border: section.settings.color_button_border,
+        class: 'yv-countdown-with-images__button'
+      %}
+    </div>
+  {%- endcapture -%}
+
+  <div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+  <div
+    class="section section--page-width yv-section-spacing yv-countdown-with-images color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% if section.settings.fullwidth_content %} yv-countdown-with-images--wide-content{% endif %}"
+    style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-countdown-with-images-box-bg: color-mix(in srgb, {{ section.settings.color_overlay }} {{ section.settings.overlay_opacity }}%, transparent); --yv-countdown-with-images-text: {{ section.settings.color_text }}; --yv-countdown-digit-color: {{ section.settings.color_timer_text }}; --yv-countdown-box-bg: {{ section.settings.color_timer_bg }}; --yv-countdown-label-color: {{ section.settings.color_text }}; --yv-countdown-separator-color: {{ section.settings.color_text }}; --yv-countdown-with-images-ratio: {{ banner_ratio }}; --yv-countdown-with-images-mobile-ratio: {{ mobile_ratio }};"
+    data-testid="yv-countdown-with-images"
+  >
+    {%- if section.settings.show_as_banner -%}
+      <div class="yv-countdown-with-images__banner{% if section.settings.fullwidth_banner %} yv-countdown-with-images__banner--full yv-container--full{% endif %}">
+        <div class="yv-countdown-with-images__media">
+          <div
+            class="yv-countdown-with-images__media-inner"
+            data-yv-reveal="zoom-out"
+          >
+            {%- if section.settings.image_left != blank -%}
+              {{
+                section.settings.image_left
+                | image_url: width: 2600
+                | image_tag:
+                  widths: '750, 1100, 1500, 1920, 2600',
+                  sizes: '(min-width: 1400px) 1300px, 100vw',
+                  loading: media_loading,
+                  fetchpriority: media_priority,
+                  class: 'yv-countdown-with-images__image yv-countdown-with-images__image--desktop'
+              }}
+            {%- else -%}
+              {{ 'lifestyle-2' | placeholder_svg_tag: 'yv-countdown-with-images__image yv-countdown-with-images__image--desktop yv-placeholder' }}
+            {%- endif -%}
+            {%- if mobile_image != blank -%}
+              {{
+                mobile_image
+                | image_url: width: 1000
+                | image_tag:
+                  widths: '390, 600, 800, 1000',
+                  sizes: '100vw',
+                  loading: media_loading,
+                  class: 'yv-countdown-with-images__image yv-countdown-with-images__image--mobile'
+              }}
+            {%- else -%}
+              {{ 'lifestyle-2' | placeholder_svg_tag: 'yv-countdown-with-images__image yv-countdown-with-images__image--mobile yv-placeholder' }}
+            {%- endif -%}
+          </div>
+          <div
+            class="yv-overlay"
+            style="--yv-overlay-color: {{ section.settings.color_image_overlay }}; --yv-overlay-opacity: {{ section.settings.image_overlay_opacity }};"
+          ></div>
+        </div>
+        <div class="yv-countdown-with-images__stage yv-pos-d--{{ section.settings.content_position }}">
+          <div class="yv-countdown-with-images__box">{{ content }}</div>
+        </div>
+      </div>
+    {%- else -%}
+      <div class="yv-countdown-with-images__columns">
+        <div class="yv-countdown-with-images__side">
+          <div class="yv-countdown-with-images__frame">
+            {%- if section.settings.image_left != blank -%}
+              {{
+                section.settings.image_left
+                | image_url: width: 900
+                | image_tag:
+                  widths: '300, 450, 600, 900',
+                  sizes: '(min-width: 1400px) 290px, 22vw',
+                  loading: media_loading,
+                  class: 'yv-countdown-with-images__image'
+              }}
+            {%- else -%}
+              {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-countdown-with-images__image yv-placeholder' }}
+            {%- endif -%}
+          </div>
+        </div>
+        <div class="yv-countdown-with-images__main">
+          <div class="yv-countdown-with-images__mobile-media">
+            {%- if mobile_image != blank -%}
+              {{
+                mobile_image
+                | image_url: width: 1000
+                | image_tag:
+                  widths: '390, 600, 800, 1000',
+                  sizes: '100vw',
+                  loading: media_loading,
+                  class: 'yv-countdown-with-images__image'
+              }}
+            {%- else -%}
+              {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-countdown-with-images__image yv-placeholder' }}
+            {%- endif -%}
+          </div>
+          <div class="yv-countdown-with-images__plain">{{ content }}</div>
+        </div>
+        <div class="yv-countdown-with-images__side">
+          <div class="yv-countdown-with-images__frame">
+            {%- if section.settings.image_right != blank -%}
+              {{
+                section.settings.image_right
+                | image_url: width: 900
+                | image_tag:
+                  widths: '300, 450, 600, 900',
+                  sizes: '(min-width: 1400px) 290px, 22vw',
+                  loading: media_loading,
+                  class: 'yv-countdown-with-images__image'
+              }}
+            {%- else -%}
+              {{ 'lifestyle-2' | placeholder_svg_tag: 'yv-countdown-with-images__image yv-placeholder' }}
+            {%- endif -%}
+          </div>
+        </div>
+      </div>
+    {%- endif -%}
+  </div>
+{%- endunless -%}
+
+{% stylesheet %}
+  .yv-countdown-with-images {
+    --yv-heading-color: var(--yv-countdown-with-images-text, var(--color-foreground));
+    --yv-countdown-digit-size: 36px;
+    --yv-countdown-digit-size-mobile: 25px;
+    --yv-countdown-box-min-width: 64px;
+    --yv-countdown-box-min-width-mobile: 52px;
+    --yv-countdown-gap: 6px;
+    --yv-countdown-gap-mobile: 4px;
+  }
+
+  /* Content (shared by both layouts). */
+  .yv-countdown-with-images__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    text-align: center;
+    color: var(--yv-countdown-with-images-text, var(--color-foreground));
+  }
+
+  .yv-countdown-with-images__content > * {
+    max-width: 100%;
+  }
+
+  .yv-countdown-with-images__heading {
+    margin-block-end: 30px;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-countdown-with-images__heading {
+      margin-block-end: 20px;
+    }
+  }
+
+  .yv-countdown-with-images__timer {
+    margin-block-end: 25px;
+  }
+
+  .yv-countdown-with-images__timer .yv-countdown__value {
+    font-weight: 700;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-countdown-with-images__timer .yv-countdown__value {
+      padding: 12px 13px;
+    }
+  }
+
+  .yv-countdown-with-images__timer .yv-countdown__label {
+    margin-block-start: 8px;
+    font-weight: 700;
+  }
+
+  .yv-countdown-with-images__subheading {
+    margin: 0 0 14px;
+  }
+
+  .yv-countdown-with-images__text {
+    max-width: 460px;
+    margin: 0 0 20px;
+    padding-inline: 15px;
+    font-size: var(--yv-text-md, 0.96rem);
+    line-height: var(--line-height--body-loose, 1.6);
+  }
+
+  .yv-countdown-with-images__content > .yv-countdown-with-images__button {
+    margin-block-start: 0;
+  }
+
+  /* Banner layout. */
+  .yv-countdown-with-images__banner {
+    position: relative;
+    isolation: isolate;
+    min-width: 0;
+    border-radius: calc(var(--yv-layout-radius, 10px) * 2);
+    box-shadow: 0 1px 9px rgb(0 0 0 / 0.3);
+    overflow: hidden;
+  }
+
+  .yv-countdown-with-images__banner--full {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .yv-countdown-with-images__media {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: var(--yv-countdown-with-images-mobile-ratio, 1.75);
+    background-color: var(--yv-image-bg);
+  }
+
+  .yv-countdown-with-images__media-inner {
+    position: absolute;
+    inset: 0;
+  }
+
+  .yv-countdown-with-images__media > .yv-overlay {
+    z-index: 1;
+  }
+
+  .yv-countdown-with-images__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-countdown-with-images__media-inner > .yv-countdown-with-images__image {
+    position: absolute;
+    inset: 0;
+  }
+
+  .yv-countdown-with-images__image--desktop {
+    display: none;
+  }
+
+  .yv-countdown-with-images__box {
+    width: 100%;
+    padding: 30px 25px;
+    background: var(--yv-countdown-with-images-box-bg, rgb(0 0 0 / 0.7));
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-countdown-with-images__banner {
+      min-height: 600px;
+      aspect-ratio: var(--yv-countdown-with-images-ratio, auto);
+      box-shadow: none;
+    }
+
+    .yv-countdown-with-images__media {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      aspect-ratio: auto;
+    }
+
+    .yv-countdown-with-images__image--desktop {
+      display: block;
+    }
+
+    .yv-countdown-with-images__image--mobile {
+      display: none;
+    }
+
+    .yv-countdown-with-images__stage {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      padding: 40px;
+    }
+
+    .yv-countdown-with-images__box {
+      max-width: 500px;
+      padding: 30px;
+      border-radius: calc(var(--yv-layout-radius, 10px) * 2);
+      box-shadow: 0 0 40px rgb(0 0 0 / 0.07);
+    }
+
+    .yv-countdown-with-images--wide-content .yv-countdown-with-images__box {
+      max-width: none;
+    }
+
+    .yv-countdown-with-images__stage:is(.yv-pos-d--top_center, .yv-pos-d--center, .yv-pos-d--bottom_center) .yv-countdown-with-images__box {
+      margin-inline: auto;
+    }
+  }
+
+  @media screen and (min-width: 990px) {
+    .yv-countdown-with-images__stage {
+      padding-inline: 60px;
+    }
+  }
+
+  /* Image layout: left image, content, right image. */
+  .yv-countdown-with-images__columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+    align-items: center;
+  }
+
+  .yv-countdown-with-images__side {
+    display: none;
+  }
+
+  .yv-countdown-with-images__frame,
+  .yv-countdown-with-images__mobile-media {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--yv-image-bg);
+    border-radius: var(--yv-layout-radius, 10px);
+  }
+
+  .yv-countdown-with-images__frame {
+    aspect-ratio: 410 / 450;
+  }
+
+  .yv-countdown-with-images__mobile-media {
+    margin-block-end: 30px;
+    aspect-ratio: var(--yv-countdown-with-images-mobile-ratio, 1.75);
+  }
+
+  .yv-countdown-with-images__frame > .yv-countdown-with-images__image,
+  .yv-countdown-with-images__mobile-media > .yv-countdown-with-images__image {
+    position: absolute;
+    inset: 0;
+  }
+
+  .yv-countdown-with-images__frame::after,
+  .yv-countdown-with-images__mobile-media::after {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border: 2px solid rgb(255 255 255 / 0.9);
+    border-radius: calc(var(--yv-layout-radius, 10px) * 0.6);
+    pointer-events: none;
+  }
+
+  .yv-countdown-with-images__plain {
+    width: 100%;
+    max-width: 520px;
+    margin-inline: auto;
+  }
+
+  .yv-countdown-with-images--wide-content .yv-countdown-with-images__plain {
+    max-width: none;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-countdown-with-images__columns {
+      grid-template-columns: 22fr 56fr 22fr;
+    }
+
+    .yv-countdown-with-images__side {
+      display: block;
+    }
+
+    .yv-countdown-with-images__mobile-media {
+      display: none;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.countdown_with_images",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_as_banner",
+      "label": "t:yv.countdown_with_images.settings.show_as_banner",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "fullwidth_banner",
+      "label": "t:yv.countdown_with_images.settings.fullwidth_banner",
+      "info": "t:yv.countdown_with_images.settings.fullwidth_banner_info",
+      "default": false,
+      "visible_if": "{{ section.settings.show_as_banner }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "fullwidth_content",
+      "label": "t:yv.countdown_with_images.settings.fullwidth_content",
+      "default": false
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "Deal of the day"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "color_background",
+      "id": "highlight_color",
+      "label": "t:yv.common.settings.highlight_color",
+      "default": "linear-gradient(90deg, #A678C8 0%, #718CC7 48.08%, #639A47 100%)",
+      "info": "t:yv.common.settings.highlight_color_info"
+    },
+    {
+      "type": "text",
+      "id": "rotating_text",
+      "label": "t:yv.common.settings.rotating_text",
+      "info": "t:yv.common.settings.rotating_text_info"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading",
+      "default": "Season sale"
+    },
+    {
+      "type": "textarea",
+      "id": "description",
+      "label": "t:yv.common.settings.description",
+      "default": "Great savings on all your favourites. Irresistible deals on your very own labels."
+    },
+    {
+      "type": "text",
+      "id": "end_date",
+      "label": "t:yv.countdown_with_images.settings.end_date",
+      "info": "t:yv.countdown_with_images.settings.end_date_info",
+      "placeholder": "DD/MM/YYYY"
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_when_expired",
+      "label": "t:yv.countdown_with_images.settings.hide_when_expired",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "content_position",
+      "label": "t:yv.countdown_with_images.settings.content_position",
+      "options": [
+        {
+          "value": "top_left",
+          "label": "t:yv.common.options.top_left"
+        },
+        {
+          "value": "top_center",
+          "label": "t:yv.common.options.top_center"
+        },
+        {
+          "value": "top_right",
+          "label": "t:yv.common.options.top_right"
+        },
+        {
+          "value": "center_left",
+          "label": "t:yv.common.options.center_left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "center_right",
+          "label": "t:yv.common.options.center_right"
+        },
+        {
+          "value": "bottom_left",
+          "label": "t:yv.common.options.bottom_left"
+        },
+        {
+          "value": "bottom_center",
+          "label": "t:yv.common.options.bottom_center"
+        },
+        {
+          "value": "bottom_right",
+          "label": "t:yv.common.options.bottom_right"
+        }
+      ],
+      "default": "center",
+      "visible_if": "{{ section.settings.show_as_banner }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.text",
+      "info": "t:yv.common.settings.button_info",
+      "default": "Buy now"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.link"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.common.settings.button_size_desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.common.settings.button_size_mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.media"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_left",
+      "label": "t:yv.countdown_with_images.settings.image_left",
+      "info": "t:yv.countdown_with_images.settings.image_left_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_right",
+      "label": "t:yv.countdown_with_images.settings.image_right",
+      "info": "t:yv.countdown_with_images.settings.image_right_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_mobile",
+      "label": "t:yv.common.settings.mobile_image",
+      "info": "t:yv.countdown_with_images.settings.image_mobile_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_overlay",
+      "label": "t:yv.countdown_with_images.settings.color_overlay",
+      "info": "t:yv.countdown_with_images.settings.banner_only_info",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_image_overlay",
+      "label": "t:yv.countdown_with_images.settings.color_image_overlay",
+      "info": "t:yv.countdown_with_images.settings.banner_only_info",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.common.settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 70
+    },
+    {
+      "type": "range",
+      "id": "image_overlay_opacity",
+      "label": "t:yv.countdown_with_images.settings.image_overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 0
+    },
+    {
+      "type": "color",
+      "id": "color_background",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_timer_text",
+      "label": "t:yv.countdown_with_images.settings.color_timer_text",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_timer_bg",
+      "label": "t:yv.countdown_with_images.settings.color_timer_bg",
+      "default": "#2B2B2B"
+    },
+    {
+      "type": "color",
+      "id": "color_button_text",
+      "label": "t:yv.common.settings.button_text_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_button_bg",
+      "label": "t:yv.common.settings.button_background",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_button_border",
+      "label": "t:yv.common.settings.button_border",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.countdown_with_images",
+      "category": "t:yv.categories.promotional",
+      "settings": {
+        "heading": "Seasonal Offers",
+        "subheading": "Your Favorite Brands—On Sale",
+        "description": "Shop top-rated brands at unbeatable sale prices—limited time only!",
+        "end_date": "31/12/2026",
+        "button_link": "shopify://collections/all",
+        "spacing_top_desktop": 40,
+        "spacing_bottom_desktop": 40
+      }
+    },
+    {
+      "name": "t:yv.names.countdown_two_images",
+      "category": "t:yv.categories.promotional",
+      "settings": {
+        "show_as_banner": false,
+        "end_date": "31/12/2026",
+        "button_link": "shopify://collections/all",
+        "color_text": "#000000",
+        "color_button_bg": "#000000",
+        "color_button_text": "#FFFFFF",
+        "color_button_border": "#000000",
+        "spacing_top_desktop": 60,
+        "spacing_bottom_desktop": 60
+      }
+    }
+  ]
+}
+{% endschema %}

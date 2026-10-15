@@ -1,0 +1,945 @@
+{%- doc -%}
+  One tile of sections/yv-collage.liquid: an image (separate mobile image) or a Shopify-hosted
+  video, a colour overlay, and overlay text (heading, subheading, button or text link) placed on
+  the nine-position grid separately for desktop and mobile.
+
+  The tile's natural height is its media ratio (desktop image / video, mobile image below 750px);
+  the section's flex rows stretch every tile to the tallest one in its row. With a link and no
+  button text the whole tile is the link. Sizes left on "None"/"Default" follow the section's
+  Heading size / Button size. Reads the parent section's `heading_size` and `button_size`.
+{%- enddoc -%}
+
+{%- liquid
+  assign block_index = section.blocks | find_index: 'id', block.id
+  assign width = block.settings.width | default: '50'
+  case width
+    when '33'
+      assign width_value = '33.3333'
+    when '66'
+      assign width_value = '66.6667'
+    else
+      assign width_value = width
+  endcase
+
+  assign desktop_image = block.settings.image | default: block.settings.image_mobile
+  assign mobile_image = block.settings.image_mobile
+  assign video = block.settings.video
+
+  # Natural ratios (width / height). Placeholders: 16:10, 1.85:1 for quarter tiles, 1.14:1 for thirds, 3:4 on mobile.
+  assign ratio = 1.6
+  if width == '25'
+    assign ratio = 1.85
+  elsif width == '33'
+    assign ratio = 1.14
+  endif
+  assign ratio_mobile = 0.75
+  if video != blank
+    assign ratio = video.aspect_ratio | default: 1.7778
+    assign ratio_mobile = ratio
+  elsif desktop_image != blank
+    assign ratio = desktop_image.aspect_ratio | default: 1.6
+    assign ratio_mobile = ratio
+  endif
+  if mobile_image != blank and video == blank
+    assign ratio_mobile = mobile_image.aspect_ratio | default: ratio
+  endif
+
+  # Loading: the first two tiles of a first section are the LCP candidates.
+  assign media_loading = 'lazy'
+  assign media_priority = 'auto'
+  if section.index == 1 and block_index < 2
+    assign media_loading = 'eager'
+    assign media_priority = 'high'
+  elsif section.index == 1 or section.index == 2
+    if block_index < 4
+      assign media_loading = 'eager'
+    endif
+  endif
+
+  assign sizes = '(min-width: 750px) calc(' | append: width_value | append: 'vw - 12px), 80vw'
+
+  # Heading sizes: None = the section's size. Desktop small/medium/large = h5/h4/h3; mobile h6/h4/h3.
+  assign size_desktop = block.settings.heading_size_desktop
+  if size_desktop == 'none' or size_desktop == blank
+    assign size_desktop = section.settings.heading_size | default: 'medium'
+  endif
+  assign size_mobile = block.settings.heading_size_mobile
+  if size_mobile == 'none' or size_mobile == blank
+    assign size_mobile = section.settings.heading_size | default: 'medium'
+  endif
+  case size_desktop
+    when 'small'
+      assign heading_level_desktop = 'h5'
+    when 'large'
+      assign heading_level_desktop = 'h3'
+    else
+      assign heading_level_desktop = 'h4'
+  endcase
+  case size_mobile
+    when 'small'
+      assign heading_level_mobile = 'h6'
+    when 'large'
+      assign heading_level_mobile = 'h3'
+    else
+      assign heading_level_mobile = 'h4'
+  endcase
+
+  # Button sizes: Default = the section's Button size.
+  assign button_size_desktop = block.settings.button_size_desktop
+  if button_size_desktop == 'default' or button_size_desktop == blank
+    assign button_size_desktop = section.settings.button_size | default: 'default'
+  endif
+  assign button_size_mobile = block.settings.button_size_mobile
+  if button_size_mobile == 'default' or button_size_mobile == blank
+    assign button_size_mobile = section.settings.button_size | default: 'default'
+  endif
+
+  case block.settings.content_width_desktop
+    when 'small'
+      assign content_width_desktop = '36%'
+    when 'large'
+      assign content_width_desktop = '90%'
+    else
+      assign content_width_desktop = '60%'
+  endcase
+  case block.settings.content_width_mobile
+    when 'small'
+      assign content_width_mobile = '50%'
+    when 'medium'
+      assign content_width_mobile = '75%'
+    else
+      assign content_width_mobile = '100%'
+  endcase
+
+  assign heading_tag = block.settings.heading_tag | default: 'h2'
+  assign heading_text = block.settings.heading | escape
+  assign link = block.settings.link
+  assign button_text = block.settings.button_text
+
+  assign tile_is_link = false
+  if link != blank and button_text == blank
+    assign tile_is_link = true
+  endif
+
+  assign button_variant = 'primary'
+  if block.settings.button_as_link
+    assign button_variant = 'link'
+  elsif block.settings.button_outline
+    assign button_variant = 'outline'
+  endif
+
+  assign position_desktop = block.settings.position_desktop | default: 'bottom_left'
+  assign position_mobile = block.settings.position_mobile | default: 'bottom_left'
+
+  assign tile_tag = 'div'
+  if tile_is_link
+    assign tile_tag = 'a'
+  endif
+
+  assign reveal_delay = block_index | times: 75 | at_most: 900
+-%}
+
+<{{ tile_tag }}
+  class="yv-collage-item yv-hover-zoom{% if heading_text == blank and block.settings.subheading == blank and button_text == blank %} yv-collage-item--no-content{% endif %}"
+  {% if tile_is_link %}
+    href="{{ link }}"
+    {% if heading_text != blank %}
+      aria-label="{{ heading_text }}"
+    {% endif %}
+  {% endif %}
+  style="
+    --yv-collage-w: {{ width_value }};
+    --yv-collage-ratio: {{ ratio }};
+    --yv-collage-ratio-mobile: {{ ratio_mobile }};
+    --yv-collage-heading-d: var(--font-{{ heading_level_desktop }}--size);
+    --yv-collage-heading-m: var(--font-{{ heading_level_mobile }}--size);
+    --yv-collage-content-d: {{ content_width_desktop }};
+    --yv-collage-content-m: {{ content_width_mobile }};
+    --yv-collage-text: {{ block.settings.color_text }};
+    --yv-collage-shadow: {{ block.settings.color_heading_shadow }};
+    --yv-overlay-color: {{ block.settings.color_overlay }};
+    --yv-overlay-opacity: {{ block.settings.overlay_opacity }};
+    --yv-btn-bg: {{ block.settings.color_button_bg }};
+    --yv-btn-text: {{ block.settings.color_button_text }};
+    --yv-btn-border: {{ block.settings.color_button_border }};
+    --yv-reveal-delay: {{ reveal_delay }}ms;
+  "
+  data-yv-reveal
+  {{ block.shopify_attributes }}
+>
+  <div class="yv-collage-item__media">
+    {%- if video != blank -%}
+      {%- liquid
+        assign poster = block.settings.image | default: video.preview_image
+      -%}
+      <yv-autoplay-video-component class="yv-collage-item__video">
+        <video
+          ref="video"
+          muted
+          loop
+          playsinline
+          preload="none"
+          aria-hidden="true"
+          {% if poster != blank %}
+            poster="{{ poster | image_url: width: 1600 }}"
+          {% endif %}
+        >
+          {%- for source in video.sources -%}
+            <source
+              data-src="{{ source.url }}"
+              type="{{ source.mime_type }}"
+            >
+          {%- endfor -%}
+        </video>
+      </yv-autoplay-video-component>
+    {%- elsif desktop_image != blank -%}
+      <picture>
+        {%- if mobile_image != blank and block.settings.image != blank -%}
+          <source
+            media="(max-width: 749px)"
+            srcset="
+              {{ mobile_image | image_url: width: 400 }} 400w,
+              {{ mobile_image | image_url: width: 600 }} 600w,
+              {{ mobile_image | image_url: width: 800 }} 800w,
+              {{ mobile_image | image_url: width: 1100 }} 1100w,
+              {{ mobile_image | image_url: width: 1500 }} 1500w
+            "
+            sizes="80vw"
+            width="{{ mobile_image.width }}"
+            height="{{ mobile_image.height }}"
+          >
+        {%- endif -%}
+        {{
+          desktop_image
+          | image_url: width: 3000
+          | image_tag:
+            widths: '400, 600, 800, 1100, 1500, 2000, 2500, 3000',
+            sizes: sizes,
+            loading: media_loading,
+            fetchpriority: media_priority,
+            class: 'yv-collage-item__image'
+        }}
+      </picture>
+    {%- else -%}
+      {%- liquid
+        assign placeholder_index = block_index | modulo: 3 | plus: 1
+        assign placeholder_name = 'hero-apparel-' | append: placeholder_index
+      -%}
+      {{ placeholder_name | placeholder_svg_tag: 'yv-collage-item__image yv-placeholder' }}
+    {%- endif -%}
+  </div>
+
+  <div class="yv-overlay"></div>
+  <span class="yv-collage-item__frame" aria-hidden="true"></span>
+
+  {%- if heading_text != blank or block.settings.subheading != blank or button_text != blank -%}
+    <div class="yv-collage-item__content-wrap yv-pos-d--{{ position_desktop }} yv-pos-m--{{ position_mobile }}">
+      <div class="yv-collage-item__content">
+        {%- if heading_text != blank -%}
+          <{{ heading_tag }} class="yv-collage-item__heading{% if block.settings.heading_shadow %} yv-collage-item__heading--shadow{% endif %}">
+            {{- heading_text -}}
+          </{{ heading_tag }}>
+        {%- endif -%}
+        {%- if block.settings.subheading != blank -%}
+          <p class="yv-collage-item__subheading">{{ block.settings.subheading | escape }}</p>
+        {%- endif -%}
+        {%- unless tile_is_link -%}
+          {%- liquid
+            assign button_aria = ''
+            if heading_text != blank
+              assign button_aria = button_text | append: ': ' | append: block.settings.heading
+            endif
+          -%}
+          {% render 'yv-button',
+            label: button_text,
+            link: link,
+            variant: button_variant,
+            size_desktop: button_size_desktop,
+            size_mobile: button_size_mobile,
+            class: 'yv-collage-item__button yv-button--custom',
+            aria_label: button_aria
+          %}
+        {%- endunless -%}
+      </div>
+    </div>
+  {%- endif -%}
+</{{ tile_tag }}>
+
+{% stylesheet %}
+  .yv-collage-item {
+    position: relative;
+    display: block;
+    flex: 0 0 calc(var(--yv-collage-w) * 1% - var(--yv-collage-gap) * (1 - var(--yv-collage-w) / 100));
+    min-width: 0;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: var(--yv-collage-radius, 0);
+    background-color: var(--yv-image-bg);
+    color: var(--yv-collage-text, #fff);
+    text-decoration: none;
+  }
+
+  /* The ratio spacer gives the tile its natural height; flex rows stretch it to the tallest tile. */
+  .yv-collage-item::before {
+    content: '';
+    display: block;
+    padding-block-start: calc(100% / var(--yv-collage-ratio, 1.6));
+  }
+
+  .yv-collage-item__media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .yv-collage-item__media :is(picture, .yv-collage-item__video) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .yv-collage-item__media :is(img, video, svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-collage-item__media svg {
+    background-color: var(--yv-image-bg);
+    color: rgb(var(--color-foreground-rgb) / 0.35);
+  }
+
+  .yv-collage-item .yv-overlay {
+    z-index: 1;
+  }
+
+  /* Yuva zoom: 1.1 over 1s, clipped by the tile. */
+  .yv-collage--zoom .yv-collage-item {
+    --yv-zoom-scale: 1.1;
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .yv-collage-item.yv-hover-zoom :is(img, video, .yv-collage-item__media > svg) {
+      transition: transform 1s ease;
+    }
+
+    .yv-collage--zoom .yv-collage-item.yv-hover-zoom:hover .yv-collage-item__media > svg {
+      transform: scale(var(--yv-zoom-scale, 1.1));
+    }
+  }
+
+  .yv-collage:not(.yv-collage--zoom) .yv-collage-item.yv-hover-zoom :is(img, video) {
+    transform: none;
+  }
+
+  /* Frame lines (section "Enable hover effect"): a 1px rectangle inset 20px draws from the centre. */
+  .yv-collage-item__frame {
+    display: none;
+  }
+
+  .yv-collage--frame .yv-collage-item__frame {
+    position: absolute;
+    inset: 20px;
+    z-index: 2;
+    display: block;
+    pointer-events: none;
+  }
+
+  .yv-collage--frame .yv-collage-item__frame::before,
+  .yv-collage--frame .yv-collage-item__frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    border-color: var(--yv-collage-text, #fff);
+    border-style: solid;
+    border-width: 0;
+  }
+
+  .yv-collage--frame .yv-collage-item__frame::before {
+    border-block-width: 1px;
+    transform: scaleX(0);
+  }
+
+  .yv-collage--frame .yv-collage-item__frame::after {
+    border-inline-width: 1px;
+    transform: scaleY(0);
+  }
+
+  @media (hover: hover) {
+    .yv-collage--frame .yv-collage-item:hover .yv-collage-item__frame::before,
+    .yv-collage--frame .yv-collage-item:hover .yv-collage-item__frame::after {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-collage--frame .yv-collage-item__frame::before,
+    .yv-collage--frame .yv-collage-item__frame::after {
+      transition: transform 0.35s ease, opacity 0.35s ease;
+    }
+  }
+
+  /* Overlay content: placed by the nine-position utility, 30px from the edges plus 20px inner padding. */
+  .yv-collage-item__content-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    padding: 30px 15px;
+    pointer-events: none;
+  }
+
+  /* Top-placed text clears a transparent header when the collage is the first section. */
+  @media screen and (min-width: 750px) {
+    .yv-collage-item__content-wrap:is(.yv-pos-d--top_left, .yv-pos-d--top_center, .yv-pos-d--top_right) {
+      padding-block-start: calc(30px + var(--yv-collage-header-offset, 0px));
+    }
+  }
+
+  .yv-collage-item__content {
+    display: flex;
+    flex-direction: column;
+    align-items: var(--yv-pos-x, flex-start);
+    max-width: var(--yv-collage-content-d, 60%);
+    max-height: 80%;
+    padding-inline: 20px;
+    overflow: auto;
+    scrollbar-width: none;
+    color: var(--yv-collage-text, #fff);
+    pointer-events: auto;
+  }
+
+  .yv-collage-item__content::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Three classes: beats the colour-set heading rule (.yv-section :is(h1…h6, .h1…)). */
+  .yv-collage-item .yv-collage-item__content .yv-collage-item__heading {
+    margin: 0 0 5px;
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: var(--font-heading--weight);
+    font-size: var(--yv-collage-heading-d);
+    line-height: var(--font-h3--line-height);
+    letter-spacing: var(--font-h3--letter-spacing);
+    text-transform: var(--font-h3--case);
+    color: var(--yv-collage-text, #fff);
+    overflow-wrap: break-word;
+  }
+
+  .yv-collage-item__heading--shadow {
+    text-shadow: 1px 1px 4px var(--yv-collage-shadow, rgb(0 0 0 / 0.15));
+  }
+
+  .yv-collage-item__subheading {
+    margin: 0;
+    font-size: var(--font-paragraph--size);
+    line-height: var(--font-paragraph--line-height);
+    color: var(--yv-collage-text, #fff);
+  }
+
+  .yv-collage-item__content .yv-collage-item__button {
+    margin-block-start: 12px;
+  }
+
+  /* "Shop Now" text link: sentence case, white, underline offset 3px. */
+  .yv-collage-item__content .yv-button--link {
+    --yv-btn-font-size: var(--font-paragraph--size);
+
+    color: var(--yv-collage-text, #fff);
+    text-transform: none;
+    text-underline-offset: 3px;
+  }
+
+  .yv-collage-item__content .yv-button--outline {
+    --button-background-color: transparent;
+    --button-color: var(--yv-btn-text);
+    --button-border-color: var(--yv-btn-border);
+    --yv-btn-fill: var(--yv-btn-border);
+    --yv-btn-label: var(--yv-btn-text);
+    --yv-btn-rest-bg: transparent;
+    --yv-btn-rest-border: var(--yv-btn-border);
+  }
+
+  .yv-collage-item__content .yv-button--outline:hover {
+    --button-background-color: var(--yv-btn-border);
+    --button-color: var(--yv-btn-text);
+    --button-border-color: var(--yv-btn-border);
+  }
+
+  .yv-collage-item:focus-visible {
+    outline: var(--focus-outline-width, 2px) solid currentColor;
+    outline-offset: calc(var(--focus-outline-width, 2px) * -2);
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-collage-item {
+      flex: 0 0 80%;
+      border-radius: var(--yv-collage-radius-mobile, 0);
+      scroll-snap-align: start;
+    }
+
+    .yv-collage-item::before {
+      padding-block-start: calc(100% / var(--yv-collage-ratio-mobile, 0.75));
+    }
+
+    .yv-collage--frame .yv-collage-item__frame {
+      inset: 10px;
+    }
+
+    .yv-collage-item__content-wrap {
+      padding: 17px;
+    }
+
+    .yv-collage-item__content-wrap:is(.yv-pos-m--top_left, .yv-pos-m--top_center, .yv-pos-m--top_right) {
+      padding-block-start: calc(17px + var(--yv-collage-header-offset, 0px));
+    }
+
+    .yv-collage-item__content {
+      max-width: var(--yv-collage-content-m, 100%);
+      padding-inline: 0;
+    }
+
+    .yv-collage-item .yv-collage-item__content .yv-collage-item__heading {
+      font-size: var(--yv-collage-heading-m);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.collage_item",
+  "tag": null,
+  "settings": [
+    {
+      "type": "select",
+      "id": "width",
+      "label": "t:yv.collage.settings.width",
+      "options": [
+        {
+          "value": "25",
+          "label": "t:yv.collage.options.w25"
+        },
+        {
+          "value": "33",
+          "label": "t:yv.collage.options.w33"
+        },
+        {
+          "value": "50",
+          "label": "t:yv.collage.options.w50"
+        },
+        {
+          "value": "66",
+          "label": "t:yv.collage.options.w66"
+        },
+        {
+          "value": "75",
+          "label": "t:yv.collage.options.w75"
+        },
+        {
+          "value": "100",
+          "label": "t:yv.collage.options.w100"
+        }
+      ],
+      "default": "50"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_mobile",
+      "label": "t:yv.common.settings.mobile_image"
+    },
+    {
+      "type": "video",
+      "id": "video",
+      "label": "t:yv.collage.settings.video",
+      "info": "t:yv.collage.settings.video_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.text"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "t:yv.collage.defaults.heading"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "checkbox",
+      "id": "heading_shadow",
+      "label": "t:yv.collage.settings.heading_shadow",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "t:yv.common.settings.subheading"
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "t:yv.common.settings.link",
+      "info": "t:yv.collage.settings.link_info"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text"
+    },
+    {
+      "type": "checkbox",
+      "id": "button_outline",
+      "label": "t:yv.collage.settings.button_outline",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "button_as_link",
+      "label": "t:yv.common.settings.button_as_link",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.desktop"
+    },
+    {
+      "type": "select",
+      "id": "heading_size_desktop",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "none",
+          "label": "t:yv.common.options.none"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.collage.settings.button_size",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "content_width_desktop",
+      "label": "t:yv.collage.settings.content_width",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.mobile"
+    },
+    {
+      "type": "select",
+      "id": "heading_size_mobile",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "none",
+          "label": "t:yv.common.options.none"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.collage.settings.button_size",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "content_width_mobile",
+      "label": "t:yv.collage.settings.content_width",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "large"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.collage.content.overlay_opacity"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.common.settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 10
+    },
+    {
+      "type": "header",
+      "content": "t:yv.collage.content.overlay_content_position"
+    },
+    {
+      "type": "select",
+      "id": "position_desktop",
+      "label": "t:yv.common.content.desktop",
+      "options": [
+        {
+          "value": "top_left",
+          "label": "t:yv.common.options.top_left"
+        },
+        {
+          "value": "top_center",
+          "label": "t:yv.common.options.top_center"
+        },
+        {
+          "value": "top_right",
+          "label": "t:yv.common.options.top_right"
+        },
+        {
+          "value": "center_left",
+          "label": "t:yv.common.options.center_left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "center_right",
+          "label": "t:yv.common.options.center_right"
+        },
+        {
+          "value": "bottom_left",
+          "label": "t:yv.common.options.bottom_left"
+        },
+        {
+          "value": "bottom_center",
+          "label": "t:yv.common.options.bottom_center"
+        },
+        {
+          "value": "bottom_right",
+          "label": "t:yv.common.options.bottom_right"
+        }
+      ],
+      "default": "bottom_left"
+    },
+    {
+      "type": "select",
+      "id": "position_mobile",
+      "label": "t:yv.common.content.mobile",
+      "options": [
+        {
+          "value": "top_left",
+          "label": "t:yv.common.options.top_left"
+        },
+        {
+          "value": "top_center",
+          "label": "t:yv.common.options.top_center"
+        },
+        {
+          "value": "top_right",
+          "label": "t:yv.common.options.top_right"
+        },
+        {
+          "value": "center_left",
+          "label": "t:yv.common.options.center_left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "center_right",
+          "label": "t:yv.common.options.center_right"
+        },
+        {
+          "value": "bottom_left",
+          "label": "t:yv.common.options.bottom_left"
+        },
+        {
+          "value": "bottom_center",
+          "label": "t:yv.common.options.bottom_center"
+        },
+        {
+          "value": "bottom_right",
+          "label": "t:yv.common.options.bottom_right"
+        }
+      ],
+      "default": "bottom_left"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_overlay",
+      "label": "t:yv.collage.settings.color_overlay",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_heading_shadow",
+      "label": "t:yv.collage.settings.heading_shadow_color",
+      "alpha": true,
+      "default": "#000000",
+      "visible_if": "{{ block.settings.heading_shadow }}"
+    },
+    {
+      "type": "color",
+      "id": "color_button_text",
+      "label": "t:yv.common.settings.button_text_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_button_bg",
+      "label": "t:yv.common.settings.button_background",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_button_border",
+      "label": "t:yv.common.settings.button_border",
+      "default": "#FFFFFF"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.collage_item"
+    }
+  ]
+}
+{% endschema %}

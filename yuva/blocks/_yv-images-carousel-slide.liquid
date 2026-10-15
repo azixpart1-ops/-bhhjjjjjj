@@ -1,0 +1,137 @@
+{%- doc -%}
+  One slide of the Images carousel (sections/yv-images-carousel.liquid): a wide rounded image card
+  with a heading and a short description laid over it. The whole card links when a link is set.
+  Text position, image zoom and the overlay come from the section; colours are per slide.
+{%- enddoc -%}
+
+{%- liquid
+  assign image = block.settings.image
+  assign link = block.settings.link
+  assign position_desktop = section.settings.content_position_desktop | default: 'bottom_left'
+  assign position_mobile = section.settings.content_position_mobile | default: 'bottom_left'
+
+  assign image_loading = 'lazy'
+  if section.index == 1 or settings.yv_enable_lazyload == false
+    assign image_loading = 'eager'
+  endif
+
+  assign placeholder_index = 1
+  for item in section.blocks
+    if item.id == block.id
+      assign placeholder_index = forloop.index0 | modulo: 2 | plus: 1
+      break
+    endif
+  endfor
+  assign placeholder_name = 'lifestyle-' | append: placeholder_index
+
+  assign card_tag = 'div'
+  if link != blank
+    assign card_tag = 'a'
+  endif
+
+  assign card_class = 'yv-images-carousel-slide__card yv-media'
+  if section.settings.image_zoom
+    assign card_class = card_class | append: ' yv-images-carousel-slide__card--zoom'
+  endif
+  if image == blank
+    assign card_class = card_class | append: ' yv-images-carousel-slide__card--placeholder'
+  endif
+-%}
+
+<div
+  class="yv-images-carousel-slide"
+  style="--yv-images-carousel-heading: {{ block.settings.heading_color }}; --yv-images-carousel-text: {{ block.settings.text_color }};"
+  {{ block.shopify_attributes }}
+>
+  <{{ card_tag }}
+    class="{{ card_class }}"
+    {% if link != blank %}
+      href="{{ link }}"
+    {% endif %}
+  >
+    {%- if image != blank -%}
+      {{
+        image
+        | image_url: width: 2000
+        | image_tag:
+          widths: '400, 600, 800, 1000, 1300, 1600, 2000',
+          sizes: '(min-width: 750px) 60vw, 85vw',
+          loading: image_loading,
+          class: 'yv-images-carousel-slide__image'
+      }}
+    {%- else -%}
+      {{ placeholder_name | placeholder_svg_tag: 'yv-images-carousel-slide__image yv-placeholder' }}
+    {%- endif -%}
+    {%- if section.settings.overlay_opacity > 0 -%}
+      <span
+        class="yv-overlay"
+        style="--yv-overlay-color: {{ section.settings.overlay_color }}; --yv-overlay-opacity: {{ section.settings.overlay_opacity }};"
+      ></span>
+    {%- endif -%}
+    {%- if block.settings.heading != blank or block.settings.description != blank -%}
+      <span class="yv-images-carousel-slide__content yv-pos-d--{{ position_desktop }} yv-pos-m--{{ position_mobile }}">
+        <span class="yv-images-carousel-slide__text">
+          {%- if block.settings.heading != blank -%}
+            <span class="yv-images-carousel-slide__heading h2">{{ block.settings.heading | escape }}</span>
+          {%- endif -%}
+          {%- if block.settings.description != blank -%}
+            <span class="yv-images-carousel-slide__description">{{ block.settings.description | escape }}</span>
+          {%- endif -%}
+        </span>
+      </span>
+    {%- endif -%}
+  </{{ card_tag }}>
+</div>
+
+{% schema %}
+{
+  "name": "t:yv.names.images_carousel_slide",
+  "tag": null,
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image",
+      "info": "t:yv.images_carousel.settings.image_info"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "Smart Watch"
+    },
+    {
+      "type": "textarea",
+      "id": "description",
+      "label": "t:yv.common.settings.description",
+      "default": "Sleek smartwatch combining health tracking, connectivity, and modern design."
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "t:yv.common.settings.link"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "t:yv.common.settings.heading_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#FFFFFF"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.images_carousel_slide"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,151 @@
+{%- doc -%}
+  Yuva complementary products (docs part 4 product page > Complementary Products): Shopify's
+  complementary recommendations (Search & Discovery app) as compact rows (foundation
+  yv-product-list-card: thumbnail, title, price, quick view), three rows per slide with arrows
+  beside the heading. Loaded by Horizon's <product-recommendations> (assets/product-recommendations.js),
+  which re-renders this section with intent=complementary and hydrates this block. Hidden when there
+  are no recommendations. Product page only (hidden in quick view).
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign count = block.settings.products_count | default: 4
+  assign products = recommendations.products
+  assign has_products = false
+  if recommendations.performed and recommendations.products_count > 0
+    assign has_products = true
+  endif
+  assign carousel_id = 'YvComplementary-' | append: block.id
+-%}
+
+<script
+  src="{{ 'product-recommendations.js' | asset_url }}"
+  type="module"
+></script>
+
+<product-recommendations
+  id="yv-complementary-{{ block.id }}"
+  class="yv-complementary yv-pdp-only"
+  data-url="{{ routes.product_recommendations_url }}?limit={{ count }}"
+  data-section-id="{{ section.id }}"
+  data-product-id="{{ product_resource.id }}"
+  data-intent="complementary"
+  data-recommendations-performed="{{ recommendations.performed }}"
+  data-hydration-key="yv-complementary-{{ block.id }}"
+  {{ block.shopify_attributes }}
+>
+  {%- if has_products -%}
+    {%- capture slides -%}
+      {%- for item in products limit: count -%}
+        {%- if forloop.index0 == 0 or forloop.index0 == 3 or forloop.index0 == 6 or forloop.index0 == 9 -%}
+          <div class="yv-complementary__slide">
+        {%- endif -%}
+        {% render 'yv-product-list-card', product: item, section_id: section.id, view_context: 'recommendation', class: 'yv-complementary__item' %}
+        {%- if forloop.last or forloop.index == 3 or forloop.index == 6 or forloop.index == 9 -%}
+          </div>
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endcapture -%}
+
+    <div class="yv-complementary__header">
+      {%- if block.settings.heading != blank -%}
+        <p class="yv-complementary__heading">{{ block.settings.heading | escape }}</p>
+      {%- endif -%}
+      {%- if products.size > 3 and count > 3 -%}
+        {% render 'yv-carousel-controls', carousel_id: carousel_id, outside: true, class: 'yv-complementary__controls' %}
+      {%- endif -%}
+    </div>
+
+    {%- if products.size > 3 and count > 3 -%}
+      {%- assign carousel_label = block.settings.heading | default: product_resource.title -%}
+      {% render 'yv-carousel',
+        id: carousel_id,
+        slides: slides,
+        label: carousel_label,
+        per_view: 1,
+        per_view_tablet: 1,
+        per_view_mobile: 1,
+        gap: 20,
+        gap_mobile: 10,
+        arrows: 'none',
+        arrows_mobile: 'none',
+        drag: true
+      %}
+    {%- else -%}
+      <div class="yv-complementary__list">{{ slides }}</div>
+    {%- endif -%}
+  {%- endif -%}
+</product-recommendations>
+
+{% stylesheet %}
+  .yv-complementary {
+    display: block;
+  }
+
+  .yv-complementary:not(:has(.yv-complementary__item)) {
+    display: none;
+  }
+
+  .yv-complementary__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-block-end: 15px;
+  }
+
+  .yv-complementary__heading {
+    margin: 0;
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: var(--font-heading--weight);
+    font-size: var(--yv-text-lg, 1rem);
+  }
+
+  .yv-complementary__controls {
+    --yv-carousel-arrow-size: 28px;
+    --yv-carousel-arrow-size-mobile: 28px;
+  }
+
+  .yv-complementary__slide,
+  .yv-complementary__list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .yv-complementary__item {
+    --yv-product-row-thumb: 80px;
+    --yv-product-row-thumb-mobile: 80px;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.complementary_products",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.product.info.complementary",
+      "default": "Pairs well with"
+    },
+    {
+      "type": "range",
+      "id": "products_count",
+      "label": "t:yv.product.settings.products_count",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "default": 4
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.complementary_products",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

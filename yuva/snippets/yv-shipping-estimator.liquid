@@ -1,0 +1,133 @@
+{%- doc -%}
+  Cart page shipping-rate estimator ("Get estimate shipping for your order"), shown when the cart
+  page setting "Enable shipping estimations" is on. Country, province (only for countries that have
+  provinces) and zip code, then a button that asks Shopify for the rates
+  (`/cart/prepare_shipping_rates.json`, then `/cart/async_shipping_rates.json`, see
+  assets/yv-shipping-estimator.js). Results and errors appear in a strip above the fields.
+
+  @param {string} section_id - The cart section id (keeps the field ids unique).
+
+  @example
+  {% render 'yv-shipping-estimator', section_id: section.id %}
+{%- enddoc -%}
+
+{%- liquid
+  assign field_id = 'YvShippingEstimator-' | append: section_id
+  assign default_country = localization.country.name | default: shop.address.country
+-%}
+
+<script
+  type="module"
+  src="{{ 'yv-shipping-estimator.js' | asset_url }}"
+  fetchpriority="low"
+></script>
+
+<yv-shipping-estimator-component
+  class="yv-estimator"
+  data-cart-url="{{ routes.cart_url }}"
+  data-money-format="{{ shop.money_format | strip_html | escape }}"
+  data-currency="{{ cart.currency.iso_code }}"
+  data-default-country="{{ default_country | escape }}"
+  data-text-one="{{ 'yv.cart.estimator.one_rate' | t | escape }}"
+  data-text-many="{{ 'yv.cart.estimator.many_rates' | t | escape }}"
+  data-text-none="{{ 'yv.cart.estimator.no_rates' | t | escape }}"
+  data-text-error="{{ 'yv.cart.estimator.error' | t | escape }}"
+  data-text-free="{{ 'yv.cart.estimator.free' | t | escape }}"
+  data-text-loading="{{ 'yv.cart.estimator.loading' | t | escape }}"
+>
+  <h2 class="yv-estimator__heading h6">{{ 'yv.cart.estimator.heading' | t }}</h2>
+
+  <div
+    class="yv-estimator__results"
+    role="status"
+    aria-live="polite"
+    ref="results"
+    hidden
+  ></div>
+
+  <form
+    class="yv-estimator__form"
+    action="{{ routes.cart_url }}"
+    novalidate
+    on:submit="/estimate"
+  >
+    <div class="yv-estimator__field">
+      <label
+        class="yv-estimator__label"
+        for="{{ field_id }}-country"
+      >
+        {{- 'yv.cart.estimator.country' | t -}}
+      </label>
+      <div class="yv-estimator__select">
+        <select
+          id="{{ field_id }}-country"
+          class="yv-input yv-estimator__input"
+          name="shipping_address[country]"
+          autocomplete="country-name"
+          on:change="/onCountryChange"
+          ref="country"
+        >
+          {%- capture country_options -%}{{ country_option_tags }}{%- endcapture -%}
+          {%- if country_options != blank -%}
+            {{ country_options }}
+          {%- else -%}
+            {%- for country in localization.available_countries -%}
+              <option value="{{ country.name | escape }}">{{ country.name | escape }}</option>
+            {%- endfor -%}
+          {%- endif -%}
+        </select>
+        <span class="yv-estimator__chevron">{% render 'yv-icon', name: 'chevron-down', size: 12 %}</span>
+      </div>
+    </div>
+
+    <div
+      class="yv-estimator__field"
+      ref="provinceField"
+    >
+      <label
+        class="yv-estimator__label"
+        for="{{ field_id }}-province"
+      >
+        {{- 'yv.cart.estimator.province' | t -}}
+      </label>
+      <div class="yv-estimator__select">
+        <select
+          id="{{ field_id }}-province"
+          class="yv-input yv-estimator__input"
+          name="shipping_address[province]"
+          autocomplete="address-level1"
+          ref="province"
+        ></select>
+        <span class="yv-estimator__chevron">{% render 'yv-icon', name: 'chevron-down', size: 12 %}</span>
+      </div>
+    </div>
+
+    <div class="yv-estimator__field">
+      <label
+        class="yv-estimator__label"
+        for="{{ field_id }}-zip"
+      >
+        {{- 'yv.cart.estimator.zip' | t -}}
+      </label>
+      <input
+        id="{{ field_id }}-zip"
+        class="yv-input yv-estimator__input"
+        type="text"
+        name="shipping_address[zip]"
+        autocomplete="postal-code"
+        placeholder="{{ 'yv.cart.estimator.zip_placeholder' | t }}"
+        ref="zip"
+      >
+    </div>
+
+    <div class="yv-estimator__field yv-estimator__field--submit">
+      <button
+        type="submit"
+        class="button yv-estimator__submit"
+        ref="submit"
+      >
+        {{- 'yv.cart.estimator.submit' | t -}}
+      </button>
+    </div>
+  </form>
+</yv-shipping-estimator-component>

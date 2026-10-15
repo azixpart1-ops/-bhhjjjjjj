@@ -1,0 +1,110 @@
+{%- doc -%}
+  Yuva blog card (visual spec "Shared component B"): image at the Post ratio (Theme settings > Images)
+  with a white date pill over its bottom-left corner, comments count, title, 2-line excerpt, article
+  tags and an outlined "Read more" pill. Used by the blog grid (sections/main-blog.liquid) and the
+  related posts on the article page (sections/main-blog-post.liquid).
+
+  @param {object} article - The article.
+  @param {boolean} [show_date] - Show the published date. Default: true
+  @param {string} [date_format] - strftime format for the date. Default: '%B %d, %Y'
+  @param {boolean} [show_comments] - Show "N comments" (only when the blog has comments on and the article has some). Default: true
+  @param {boolean} [show_excerpt] - Show the excerpt (or the start of the content). Default: true
+  @param {boolean} [show_tags] - Show the article tags. Default: false
+  @param {boolean} [show_button] - Show the "Read more" pill. Default: true
+  @param {string} [heading_tag] - Title element: 'h2' (default) or 'h3'.
+  @param {string} [image_sizes] - sizes attribute for the image. Default: grid sizes
+  @param {string} [loading] - 'lazy' (default) or 'eager'.
+
+  @example
+  {% render 'yv-article-card', article: article, show_tags: section.settings.show_tags %}
+{%- enddoc -%}
+
+{%- liquid
+  assign show_date = show_date | default: true, allow_false: true
+  assign date_format = date_format | default: '%B %d, %Y'
+  assign show_comments = show_comments | default: true, allow_false: true
+  assign show_excerpt = show_excerpt | default: true, allow_false: true
+  assign show_tags = show_tags | default: false, allow_false: true
+  assign show_button = show_button | default: true, allow_false: true
+  assign heading_tag = heading_tag | default: 'h2'
+  unless heading_tag == 'h3'
+    assign heading_tag = 'h2'
+  endunless
+  assign image_sizes = image_sizes | default: '(min-width: 1200px) 370px, (min-width: 990px) calc((100vw - 120px) / 3), (min-width: 750px) calc((100vw - 70px) / 2), calc(100vw - 40px)'
+  assign loading = loading | default: 'lazy'
+
+  assign excerpt = ''
+  if show_excerpt
+    if article.excerpt != blank
+      assign excerpt = article.excerpt | strip_html | strip
+    else
+      assign excerpt = article.content | strip_html | truncatewords: 30 | strip
+    endif
+  endif
+-%}
+
+<article class="yv-article-card{% if article.image == blank %} yv-article-card--no-image{% endif %}">
+  {%- if article.image != blank -%}
+    <a
+      class="yv-article-card__media yv-hover-zoom"
+      href="{{ article.url }}"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      {{-
+        article.image
+        | image_url: width: 1100
+        | image_tag:
+          widths: '370, 550, 740, 1100',
+          sizes: image_sizes,
+          loading: loading,
+          class: 'yv-article-card__image',
+          alt: ''
+      -}}
+      {%- if show_date -%}
+        <span class="yv-article-card__date">{{ article.published_at | time_tag: date_format }}</span>
+      {%- endif -%}
+    </a>
+  {%- elsif show_date -%}
+    <p class="yv-article-card__date yv-article-card__date--plain">{{ article.published_at | time_tag: date_format }}</p>
+  {%- endif -%}
+
+  <div class="yv-article-card__body">
+    {%- if show_comments and blog.comments_enabled? and article.comments_count > 0 -%}
+      <p class="yv-article-card__comments">{{ 'blogs.article.comments_heading' | t: count: article.comments_count }}</p>
+    {%- endif -%}
+
+    <{{ heading_tag }} class="yv-article-card__title h6">
+      <a
+        class="yv-article-card__link"
+        href="{{ article.url }}"
+      >
+        {{- article.title | escape -}}
+      </a>
+    </{{ heading_tag }}>
+
+    {%- if excerpt != blank -%}
+      <p class="yv-article-card__excerpt">{{ excerpt }}</p>
+    {%- endif -%}
+
+    {%- if show_tags and article.tags.size > 0 -%}
+      <p class="yv-article-card__tags">
+        <span>{{ 'yv.blog.tags_label' | t }}</span>
+        {% for tag in article.tags -%}
+          <a href="{{ blog.url }}/tagged/{{ tag | handleize }}">{{ tag | escape }}</a>
+          {%- unless forloop.last %}, {% endunless -%}
+        {%- endfor %}
+      </p>
+    {%- endif -%}
+
+    {%- if show_button -%}
+      <a
+        class="button-secondary yv-article-card__button"
+        href="{{ article.url }}"
+        aria-label="{{ 'yv.blog.read_more_label' | t: title: article.title | escape }}"
+      >
+        {{- 'yv.blog.read_more' | t -}}
+      </a>
+    {%- endif -%}
+  </div>
+</article>

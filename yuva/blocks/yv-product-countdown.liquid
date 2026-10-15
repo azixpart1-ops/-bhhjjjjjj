@@ -1,0 +1,90 @@
+{%- doc -%}
+  Yuva product countdown (docs part 2 Featured product > Countdown; part 4 product page). The heading
+  then Days / Hours / Minutes / Seconds boxes (foundation yv-countdown-timer) counting down to the
+  start of the sale end date, written MM/DD/YYYY. Invalid dates render nothing (an editor notice in
+  the theme editor); the block hides itself once the sale has ended.
+{%- enddoc -%}
+
+{%- liquid
+  assign end_date = block.settings.end_date | strip
+  assign status = 'blank'
+  if end_date != blank
+    capture status
+      render 'yv-countdown-timer', end_date: end_date, date_format: 'mdy', output: 'status'
+    endcapture
+    assign status = status | strip
+  endif
+-%}
+
+{%- if status == 'active' or request.design_mode -%}
+  <div
+    class="yv-product-countdown"
+    data-yv-countdown-block
+    {{ block.shopify_attributes }}
+  >
+    {%- if block.settings.heading != blank -%}
+      <p class="yv-product-countdown__heading">{{ block.settings.heading | escape }}</p>
+    {%- endif -%}
+    {%- if end_date != blank -%}
+      {% render 'yv-countdown-timer',
+        end_date: end_date,
+        date_format: 'mdy',
+        variant: 'boxes',
+        size: 'small',
+        on_expire: 'hide_block',
+        class: 'yv-product-countdown__timer'
+      %}
+    {%- else -%}
+      <p class="yv-product-countdown__notice">{{ 'yv.product.countdown_notice' | t }}</p>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-product-countdown__heading {
+    margin: 0 0 10px;
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: var(--font-heading--weight);
+    font-size: var(--yv-text-lg, 1rem);
+  }
+
+  .yv-product-countdown__timer {
+    --yv-countdown-digit-size: 24px;
+    --yv-countdown-digit-size-mobile: 20px;
+  }
+
+  .yv-product-countdown__notice {
+    margin: 0;
+    font-size: var(--yv-text-sm, 0.75rem);
+    opacity: 0.6;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.product_countdown",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "end_date",
+      "label": "t:yv.product.settings.end_date",
+      "placeholder": "MM/DD/YYYY",
+      "info": "t:yv.product.info.end_date"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "Hurry! Sale ends in"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.product_countdown",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

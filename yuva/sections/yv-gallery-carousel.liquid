@@ -1,0 +1,1237 @@
+{% comment %}
+  Section contract: yv-gallery-carousel
+  Yuva "Gallery carousel": a row of linked images (category icons, round lifestyle photos, logos),
+  each with a heading and an optional bold subheading (private blocks `_yv-gallery-item`). Three
+  styles: "Swipe" (a draggable strip, assets/yv-drag-scroll.js), "Stacked" (a centred wrapping row
+  that can turn into a swipe strip on phones) and "Auto slide" (a seamless CSS ticker that pauses
+  on hover; the repeated copies are inert and hidden from assistive technology). Square, circle or
+  no-crop boxes in five sizes, actual-size (contained) images, an image background tile, a lift and
+  zoom hover, and hairline dividers between items. When an item has no image it can show an
+  original line icon instead (snippets/yv-gallery-icon.liquid), which is how the Yuva icon strip is
+  built without demo images.
+  Shared settings: section border, heading (tag, size), colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Media > "Gallery carousel"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign gallery_style = section.settings.gallery_style | default: 'swipe'
+  assign image_style = section.settings.image_style | default: 'square'
+  assign image_size = section.settings.image_size | default: 'medium'
+  assign text_alignment = section.settings.text_alignment | default: 'center'
+
+  assign size_shape = 'square'
+  if image_style == 'circle'
+    assign size_shape = 'circle'
+  endif
+
+  assign section_class = 'yv-gallery-carousel yv-gallery-carousel--' | append: gallery_style
+  assign section_class = section_class | append: ' yv-gallery-carousel--' | append: image_style
+  assign section_class = section_class | append: ' yv-gallery-carousel--' | append: size_shape | append: '-' | append: image_size
+  assign section_class = section_class | append: ' yv-gallery-carousel--align-' | append: text_alignment
+  if section.settings.show_divider and gallery_style != 'auto_slide'
+    assign section_class = section_class | append: ' yv-gallery-carousel--divider'
+  endif
+  if section.settings.image_hover_animation
+    assign section_class = section_class | append: ' yv-gallery-carousel--hover'
+  endif
+  if section.settings.image_background
+    assign section_class = section_class | append: ' yv-gallery-carousel--image-bg'
+  endif
+  if section.settings.mobile_swipe or gallery_style == 'swipe'
+    assign section_class = section_class | append: ' yv-gallery-carousel--mobile-swipe'
+  endif
+  if section.settings.background_image != blank
+    assign section_class = section_class | append: ' yv-gallery-carousel--has-bg'
+  endif
+
+  assign list_container = 'page'
+  if section.settings.full_width
+    assign list_container = 'full'
+  endif
+
+  capture items
+    content_for 'blocks'
+  endcapture
+
+  assign item_count = section.blocks.size
+
+  # Auto slide: enough copies of the items to cover a 2560px screen, then the same set again
+  # (the second half) so a -50% translation loops seamlessly. 2.25s per item ≈ Yuva's 27s for 12 icons.
+  if gallery_style == 'auto_slide' and item_count > 0
+    case image_size
+      when 'large'
+        assign item_width = 350
+        if size_shape == 'circle'
+          assign item_width = 280
+        endif
+      when 'medium'
+        assign item_width = 300
+        if size_shape == 'circle'
+          assign item_width = 230
+        endif
+      when 'small'
+        assign item_width = 200
+        if size_shape == 'circle'
+          assign item_width = 180
+        endif
+      when 'xsmall'
+        assign item_width = 170
+      else
+        assign item_width = 120
+        if size_shape == 'circle'
+          assign item_width = 150
+        endif
+    endcase
+    if image_style == 'no_crop'
+      assign item_width = 200
+    endif
+    assign set_width = item_count | times: item_width
+    assign copies = 2560 | divided_by: set_width | plus: 1
+    if copies > 8
+      assign copies = 8
+    endif
+    assign marquee_duration = item_count | times: copies | times: 2.25
+    if marquee_duration < 20
+      assign marquee_duration = 20
+    endif
+    assign items_copy = items | replace: 'data-shopify-editor-block', 'data-yv-copy'
+    assign marquee_direction = 'normal'
+    if section.settings.slide_direction == 'left_to_right'
+      assign marquee_direction = 'reverse'
+    endif
+  endif
+
+  assign bg_loading = 'lazy'
+  if section.index <= 2
+    assign bg_loading = 'eager'
+  endif
+-%}
+
+{%- if gallery_style != 'auto_slide' -%}
+  <script
+    src="{{ 'yv-drag-scroll.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}
+
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--page-width yv-section-spacing {{ section_class }} color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %}"
+  data-testid="yv-gallery-carousel"
+>
+  {%- if section.settings.background_image != blank -%}
+    <div
+      class="yv-gallery-carousel__bg"
+      aria-hidden="true"
+    >
+      {{
+        section.settings.background_image
+        | image_url: width: 3000
+        | image_tag:
+          widths: '750, 1100, 1500, 1920, 2400, 3000',
+          sizes: '100vw',
+          loading: bg_loading,
+          alt: ''
+      }}
+    </div>
+  {%- endif -%}
+
+  {%- if section.settings.heading != blank -%}
+    <div class="yv-container yv-container--page yv-gallery-carousel__header">
+      {% render 'yv-heading',
+        text: section.settings.heading,
+        tag: section.settings.heading_tag,
+        size: section.settings.heading_size,
+        highlight_font: 'accent',
+        alignment: text_alignment,
+        reveal: true
+      %}
+    </div>
+  {%- endif -%}
+
+  {%- if item_count > 0 -%}
+    <div
+      class="yv-container yv-container--{{ list_container }} yv-gallery-carousel__body"
+      data-yv-reveal
+    >
+      {%- if gallery_style == 'auto_slide' -%}
+        <div
+          class="yv-gallery-carousel__marquee"
+          style="--yv-gallery-marquee-duration: {{ marquee_duration }}s;"
+        >
+          <div
+            class="yv-gallery-carousel__marquee-track"
+            data-direction="{{ marquee_direction }}"
+          >
+            <div class="yv-gallery-carousel__set">{{ items }}</div>
+            {%- for i in (2..copies) -%}
+              <div
+                class="yv-gallery-carousel__set"
+                aria-hidden="true"
+                inert
+              >
+                {{ items_copy }}
+              </div>
+            {%- endfor -%}
+            {%- for i in (1..copies) -%}
+              <div
+                class="yv-gallery-carousel__set yv-gallery-carousel__set--loop"
+                aria-hidden="true"
+                inert
+              >
+                {{ items_copy }}
+              </div>
+            {%- endfor -%}
+          </div>
+        </div>
+      {%- else -%}
+        <yv-drag-scroll
+          class="yv-drag-scroll yv-gallery-carousel__list"
+          data-snap="proximity"
+        >
+          {{- items -}}
+        </yv-drag-scroll>
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .yv-gallery-carousel {
+    --yv-gallery-item-width: 300px;
+    --yv-gallery-box-height: 250px;
+    --yv-gallery-item-pad: 15px;
+    --yv-gallery-icon-size: 40px;
+    --yv-gallery-divider: #d9d9d9;
+    --yv-gallery-align: center;
+    --yv-gallery-text-align: center;
+
+    position: relative;
+  }
+
+  .yv-gallery-carousel--align-left {
+    --yv-gallery-align: flex-start;
+    --yv-gallery-text-align: start;
+  }
+
+  .yv-gallery-carousel--align-right {
+    --yv-gallery-align: flex-end;
+    --yv-gallery-text-align: end;
+  }
+
+  /* Item width / image box height for each shape and size (desktop). */
+  .yv-gallery-carousel--square-large {
+    --yv-gallery-item-width: 350px;
+    --yv-gallery-box-height: 300px;
+  }
+
+  .yv-gallery-carousel--square-small {
+    --yv-gallery-item-width: 200px;
+    --yv-gallery-box-height: 200px;
+  }
+
+  .yv-gallery-carousel--square-xsmall {
+    --yv-gallery-item-width: 170px;
+    --yv-gallery-box-height: 140px;
+  }
+
+  .yv-gallery-carousel--square-xxsmall {
+    --yv-gallery-item-width: 120px;
+    --yv-gallery-box-height: 70px;
+    --yv-gallery-item-pad: 7px;
+  }
+
+  .yv-gallery-carousel--circle-large {
+    --yv-gallery-item-width: 280px;
+    --yv-gallery-box-height: 250px;
+  }
+
+  .yv-gallery-carousel--circle-medium {
+    --yv-gallery-item-width: 230px;
+    --yv-gallery-box-height: 200px;
+  }
+
+  .yv-gallery-carousel--circle-small {
+    --yv-gallery-item-width: 180px;
+    --yv-gallery-box-height: 150px;
+  }
+
+  .yv-gallery-carousel--circle-xsmall {
+    --yv-gallery-item-width: 170px;
+    --yv-gallery-box-height: 110px;
+  }
+
+  .yv-gallery-carousel--circle-xxsmall {
+    --yv-gallery-item-width: 150px;
+    --yv-gallery-box-height: 80px;
+  }
+
+  .yv-gallery-carousel--no_crop {
+    --yv-gallery-item-width: 200px;
+  }
+
+  @media screen and (min-width: 1441px) {
+    .yv-gallery-carousel--square-xxsmall {
+      --yv-gallery-box-height: 80px;
+    }
+  }
+
+  @media screen and (min-width: 750px) and (max-width: 1199px) {
+    .yv-gallery-carousel--square-xxsmall {
+      --yv-gallery-item-width: 110px;
+    }
+  }
+
+  @media screen and (min-width: 750px) and (max-width: 989px) {
+    .yv-gallery-carousel--square-xxsmall {
+      --yv-gallery-item-width: 100px;
+    }
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-gallery-carousel {
+      --yv-gallery-item-width: 210px;
+      --yv-gallery-box-height: 175px;
+      --yv-gallery-item-pad: 5px;
+      --yv-gallery-icon-size: 30px;
+    }
+
+    .yv-gallery-carousel--square-large {
+      --yv-gallery-item-width: 245px;
+      --yv-gallery-box-height: 210px;
+    }
+
+    .yv-gallery-carousel--square-small {
+      --yv-gallery-item-width: 175px;
+      --yv-gallery-box-height: 120px;
+    }
+
+    .yv-gallery-carousel--square-xsmall {
+      --yv-gallery-item-width: 130px;
+      --yv-gallery-box-height: 100px;
+    }
+
+    .yv-gallery-carousel--square-xxsmall {
+      --yv-gallery-item-width: 90px;
+      --yv-gallery-box-height: 50px;
+      --yv-gallery-item-pad: 7px;
+    }
+
+    .yv-gallery-carousel--circle-large {
+      --yv-gallery-item-width: 180px;
+      --yv-gallery-box-height: 150px;
+    }
+
+    .yv-gallery-carousel--circle-medium {
+      --yv-gallery-item-width: 150px;
+      --yv-gallery-box-height: 120px;
+    }
+
+    .yv-gallery-carousel--circle-small {
+      --yv-gallery-item-width: 120px;
+      --yv-gallery-box-height: 90px;
+    }
+
+    .yv-gallery-carousel--circle-xsmall {
+      --yv-gallery-item-width: 110px;
+      --yv-gallery-box-height: 80px;
+    }
+
+    .yv-gallery-carousel--circle-xxsmall {
+      --yv-gallery-item-width: 100px;
+      --yv-gallery-box-height: 60px;
+    }
+
+    .yv-gallery-carousel--no_crop {
+      --yv-gallery-item-width: 140px;
+    }
+  }
+
+  /* Optional background image behind everything. */
+  .yv-gallery-carousel__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .yv-gallery-carousel__bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-gallery-carousel--has-bg .yv-gallery-carousel__header,
+  .yv-gallery-carousel--has-bg .yv-gallery-carousel__body {
+    position: relative;
+    z-index: 1;
+  }
+
+  .yv-gallery-carousel__header {
+    margin-block-end: 30px;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-gallery-carousel__header {
+      margin-block-end: 20px;
+    }
+  }
+
+  /* Swipe and stacked lists (both are a yv-drag-scroll strip; stacked wraps on desktop). */
+  .yv-gallery-carousel__list {
+    --yv-drag-scroll-gap: 0px;
+
+    justify-content: safe center;
+  }
+
+  .yv-gallery-carousel--hover .yv-gallery-carousel__list {
+    padding-block: 12px 24px;
+    margin-block: -12px -24px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-gallery-carousel--stacked .yv-gallery-carousel__list {
+      flex-wrap: wrap;
+      row-gap: 14px;
+      overflow: visible;
+      cursor: auto;
+    }
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-gallery-carousel--stacked:not(.yv-gallery-carousel--mobile-swipe) .yv-gallery-carousel__list {
+      flex-wrap: wrap;
+      row-gap: 14px;
+      overflow: visible;
+      cursor: auto;
+    }
+  }
+
+  /* Items. */
+  .yv-gallery-item {
+    position: relative;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: var(--yv-gallery-item-width);
+    min-width: 0;
+    padding-inline: var(--yv-gallery-item-pad);
+  }
+
+  .yv-gallery-item__link {
+    display: flex;
+    flex-direction: column;
+    align-items: var(--yv-gallery-align);
+    gap: 10px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .yv-gallery-item__box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 100%;
+    height: var(--yv-gallery-box-height);
+    overflow: hidden;
+    border-radius: var(--yv-layout-radius, 10px);
+    color: var(--color-foreground);
+  }
+
+  .yv-gallery-carousel--circle .yv-gallery-item__box {
+    width: var(--yv-gallery-box-height);
+    max-width: 100%;
+    border: 1px solid var(--yv-border-color, #d9d9d9);
+    border-radius: 50%;
+  }
+
+  .yv-gallery-carousel--image-bg .yv-gallery-item__box {
+    background-color: var(--yv-image-bg);
+  }
+
+  .yv-gallery-carousel--image-bg .yv-gallery-item__box--contain {
+    padding: 12%;
+  }
+
+  .yv-gallery-item__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-gallery-item__box--contain .yv-gallery-item__image {
+    object-fit: contain;
+  }
+
+  svg.yv-gallery-item__image {
+    background-color: var(--yv-image-bg);
+  }
+
+  .yv-gallery-item__icon {
+    flex: none;
+    width: var(--yv-gallery-icon-size);
+    height: var(--yv-gallery-icon-size);
+  }
+
+  .yv-gallery-item__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    min-width: 0;
+    text-align: var(--yv-gallery-text-align);
+  }
+
+  .yv-gallery-item__heading {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: var(--yv-text-md, 0.84rem);
+    line-height: 1.4;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
+  }
+
+  .yv-gallery-item__subheading {
+    font-size: var(--yv-text-lg, 0.96rem);
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .yv-gallery-item__link:focus-visible {
+    outline: none;
+  }
+
+  .yv-gallery-item__link:focus-visible .yv-gallery-item__box {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  /* Hairline divider after every item but the last (stacked and swipe). */
+  .yv-gallery-carousel--divider .yv-gallery-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    inset-block: 30px;
+    inset-inline-end: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--yv-gallery-divider), transparent);
+    pointer-events: none;
+  }
+
+  /* Hover: the box lifts with a soft shadow and the image zooms. */
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .yv-gallery-carousel--hover .yv-gallery-item__box {
+      transition:
+        transform 0.3s ease,
+        box-shadow 0.3s ease;
+    }
+
+    .yv-gallery-carousel--hover .yv-gallery-item__box > :is(img, svg) {
+      transition: transform 1s ease;
+    }
+
+    .yv-gallery-carousel--hover .yv-gallery-item__link:hover .yv-gallery-item__box {
+      transform: translateY(-10px);
+      box-shadow: 6px 15px 15px rgb(36 40 53 / 0.15);
+    }
+
+    .yv-gallery-carousel--hover .yv-gallery-item__link:hover .yv-gallery-item__box > :is(img, svg) {
+      transform: scale(1.1);
+    }
+  }
+
+  /* Auto slide ticker. */
+  .yv-gallery-carousel__marquee {
+    --yv-gallery-marquee-shift: -50%;
+
+    overflow: hidden;
+  }
+
+  [dir='rtl'] .yv-gallery-carousel__marquee {
+    --yv-gallery-marquee-shift: 50%;
+  }
+
+  .yv-gallery-carousel--hover .yv-gallery-carousel__marquee {
+    padding-block: 12px 24px;
+    margin-block: -12px -24px;
+  }
+
+  .yv-gallery-carousel__marquee-track {
+    display: flex;
+    width: max-content;
+  }
+
+  .yv-gallery-carousel__set {
+    display: flex;
+    flex: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-gallery-carousel__marquee-track {
+      animation: yv-gallery-marquee var(--yv-gallery-marquee-duration, 27s) linear infinite;
+    }
+
+    .yv-gallery-carousel__marquee-track[data-direction='reverse'] {
+      animation-direction: reverse;
+    }
+
+    .yv-gallery-carousel__marquee:hover .yv-gallery-carousel__marquee-track,
+    .yv-gallery-carousel__marquee:focus-within .yv-gallery-carousel__marquee-track {
+      animation-play-state: paused;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .yv-gallery-carousel__marquee {
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .yv-gallery-carousel__set[aria-hidden='true'] {
+      display: none;
+    }
+  }
+
+  @keyframes yv-gallery-marquee {
+    to {
+      transform: translateX(var(--yv-gallery-marquee-shift, -50%));
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.gallery_carousel",
+  "class": "yv-gallery-carousel-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "blocks": [
+    {
+      "type": "_yv-gallery-item"
+    }
+  ],
+  "max_blocks": 20,
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.gallery_carousel.settings.full_width",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.layout"
+    },
+    {
+      "type": "select",
+      "id": "gallery_style",
+      "label": "t:yv.gallery_carousel.settings.gallery_style",
+      "options": [
+        {
+          "value": "auto_slide",
+          "label": "t:yv.gallery_carousel.options.auto_slide"
+        },
+        {
+          "value": "stacked",
+          "label": "t:yv.gallery_carousel.options.stacked"
+        },
+        {
+          "value": "swipe",
+          "label": "t:yv.gallery_carousel.options.swipe"
+        }
+      ],
+      "default": "swipe"
+    },
+    {
+      "type": "select",
+      "id": "slide_direction",
+      "label": "t:yv.gallery_carousel.settings.slide_direction",
+      "options": [
+        {
+          "value": "left_to_right",
+          "label": "t:yv.common.options.left_to_right"
+        },
+        {
+          "value": "right_to_left",
+          "label": "t:yv.common.options.right_to_left"
+        }
+      ],
+      "default": "right_to_left",
+      "visible_if": "{{ section.settings.gallery_style == 'auto_slide' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "mobile_swipe",
+      "label": "t:yv.gallery_carousel.settings.mobile_swipe",
+      "default": true,
+      "visible_if": "{{ section.settings.gallery_style == 'stacked' }}"
+    },
+    {
+      "type": "select",
+      "id": "image_style",
+      "label": "t:yv.gallery_carousel.settings.image_style",
+      "options": [
+        {
+          "value": "circle",
+          "label": "t:yv.gallery_carousel.options.circle"
+        },
+        {
+          "value": "square",
+          "label": "t:yv.gallery_carousel.options.square"
+        },
+        {
+          "value": "no_crop",
+          "label": "t:yv.gallery_carousel.options.no_crop"
+        }
+      ],
+      "default": "square"
+    },
+    {
+      "type": "select",
+      "id": "image_size",
+      "label": "t:yv.gallery_carousel.settings.image_size",
+      "options": [
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "xsmall",
+          "label": "t:yv.gallery_carousel.options.xsmall"
+        },
+        {
+          "value": "xxsmall",
+          "label": "t:yv.gallery_carousel.options.xxsmall"
+        }
+      ],
+      "default": "medium"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "t:yv.common.settings.text_alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "checkbox",
+      "id": "image_hover_animation",
+      "label": "t:yv.gallery_carousel.settings.image_hover_animation",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "actual_size",
+      "label": "t:yv.gallery_carousel.settings.actual_size",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "image_background",
+      "label": "t:yv.gallery_carousel.settings.image_background",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_divider",
+      "label": "t:yv.gallery_carousel.settings.show_divider",
+      "info": "t:yv.gallery_carousel.settings.show_divider_info",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "primary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "background_image",
+      "label": "t:yv.gallery_carousel.settings.background_image"
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.gallery_carousel",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "full_width": true,
+        "gallery_style": "swipe",
+        "image_style": "square",
+        "image_size": "xxsmall",
+        "text_alignment": "center",
+        "image_hover_animation": false,
+        "actual_size": true,
+        "image_background": false,
+        "show_divider": true,
+        "color_set": "secondary",
+        "spacing_top_desktop": 20,
+        "spacing_bottom_desktop": 36,
+        "spacing_top_mobile": 20,
+        "spacing_bottom_mobile": 20
+      },
+      "blocks": {
+        "item_mobile": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Mobile",
+            "icon": "smartphone",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_watches": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Watches",
+            "icon": "watch",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_earbuds": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Earbuds",
+            "icon": "earbuds",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_microphone": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Microphone",
+            "icon": "microphone",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_mouse": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Mouse",
+            "icon": "mouse",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_speakers": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Speakers",
+            "icon": "speaker",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_charger": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Charger",
+            "icon": "charger",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_camera": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Camera",
+            "icon": "camera",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_drone": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Drone",
+            "icon": "drone",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_printer": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Printer",
+            "icon": "printer",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_vacuum": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Vacuum",
+            "icon": "vacuum",
+            "link": "shopify://collections/all"
+          }
+        },
+        "item_household": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Household",
+            "icon": "household",
+            "link": "shopify://collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "item_mobile",
+        "item_watches",
+        "item_earbuds",
+        "item_microphone",
+        "item_mouse",
+        "item_speakers",
+        "item_charger",
+        "item_camera",
+        "item_drone",
+        "item_printer",
+        "item_vacuum",
+        "item_household"
+      ]
+    },
+    {
+      "name": "t:yv.names.gallery_circles",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "heading": "Gadget <strong>Deals</strong>",
+        "heading_size": "large",
+        "gallery_style": "stacked",
+        "mobile_swipe": true,
+        "image_style": "circle",
+        "image_size": "small",
+        "text_alignment": "center",
+        "image_hover_animation": true,
+        "show_divider": false,
+        "spacing_top_desktop": 44,
+        "spacing_bottom_desktop": 44,
+        "spacing_top_mobile": 36,
+        "spacing_bottom_mobile": 36
+      },
+      "blocks": {
+        "deal_1": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Smart Watches",
+            "subheading": "40% OFF",
+            "link": "shopify://collections/all"
+          }
+        },
+        "deal_2": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Seasonal Sale",
+            "subheading": "60% OFF",
+            "link": "shopify://collections/all"
+          }
+        },
+        "deal_3": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Weekend Specials",
+            "subheading": "30% OFF",
+            "link": "shopify://collections/all"
+          }
+        },
+        "deal_4": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Audio Gear",
+            "subheading": "30% OFF",
+            "link": "shopify://collections/all"
+          }
+        },
+        "deal_5": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Smart Home",
+            "subheading": "20% OFF",
+            "link": "shopify://collections/all"
+          }
+        },
+        "deal_6": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Accessories",
+            "subheading": "50% OFF",
+            "link": "shopify://collections/all"
+          }
+        }
+      },
+      "block_order": ["deal_1", "deal_2", "deal_3", "deal_4", "deal_5", "deal_6"]
+    },
+    {
+      "name": "t:yv.names.gallery_tiles",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "gallery_style": "stacked",
+        "mobile_swipe": false,
+        "image_style": "square",
+        "image_size": "small",
+        "text_alignment": "center",
+        "image_hover_animation": true,
+        "actual_size": true,
+        "image_background": true,
+        "show_divider": false,
+        "spacing_top_desktop": 20,
+        "spacing_bottom_desktop": 100,
+        "spacing_top_mobile": 20,
+        "spacing_bottom_mobile": 48
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Puppy Care",
+            "link": "shopify://collections/all"
+          }
+        },
+        "tile_2": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Kitty Essentials",
+            "link": "shopify://collections/all"
+          }
+        },
+        "tile_3": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Pet Food",
+            "link": "shopify://collections/all"
+          }
+        },
+        "tile_4": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Cozy Sleep",
+            "link": "shopify://collections/all"
+          }
+        },
+        "tile_5": {
+          "type": "_yv-gallery-item",
+          "settings": {
+            "heading": "Pet Accessories",
+            "link": "shopify://collections/all"
+          }
+        }
+      },
+      "block_order": ["tile_1", "tile_2", "tile_3", "tile_4", "tile_5"]
+    }
+  ]
+}
+{% endschema %}

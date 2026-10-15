@@ -1,0 +1,751 @@
+{% comment %}
+  Section contract: yv-media-banner
+  A full-bleed image or Shopify-hosted video banner (the video wins; the image is its poster) with
+  an optional parallax media layer (assets/yv-parallax.js). Height per device: fixed px, full
+  screen or adapt to the image. A content box (highlight heading with per-device px sizes,
+  description, one button) is placed on the nine-position grid, over a colour overlay.
+  When the section is first, media runs under a transparent header and top-placed content clears
+  it. Shared: visibility.
+  @example
+  Theme editor > Add section > Media > "Media banner"
+{% endcomment %}
+
+{%- liquid
+  assign image = section.settings.image
+  assign video = section.settings.video
+
+  assign media_ratio = 2.2588
+  if video != blank
+    assign media_ratio = video.aspect_ratio | default: 1.7778
+  elsif image != blank
+    assign media_ratio = image.aspect_ratio | default: 2.2588
+  endif
+
+  case section.settings.height_desktop
+    when 'adapt'
+      assign height_desktop = 'auto'
+    when 'full'
+      assign height_desktop = '100svh'
+    else
+      assign height_desktop = section.settings.height_desktop | append: 'px'
+  endcase
+  case section.settings.height_mobile
+    when 'adapt'
+      assign height_mobile = 'auto'
+    else
+      assign height_mobile = section.settings.height_mobile | append: 'px'
+  endcase
+
+  assign parallax = false
+  if section.settings.parallax and section.settings.height_desktop != 'adapt' and section.settings.height_mobile != 'adapt'
+    assign parallax = true
+  endif
+
+  assign media_loading = 'lazy'
+  assign media_priority = 'auto'
+  if section.index == 1
+    assign media_loading = 'eager'
+    assign media_priority = 'high'
+  elsif section.index == 2 or section.index == 3
+    assign media_loading = 'eager'
+  endif
+
+  assign position = section.settings.content_position | default: 'center'
+  assign banner_classes = 'yv-media-banner'
+  if section.settings.height_desktop == 'adapt'
+    assign banner_classes = banner_classes | append: ' yv-media-banner--adapt-d'
+  endif
+  if section.settings.height_desktop == 'full'
+    assign banner_classes = banner_classes | append: ' yv-media-banner--full-d'
+  endif
+  if section.settings.height_mobile == 'adapt'
+    assign banner_classes = banner_classes | append: ' yv-media-banner--adapt-m'
+  endif
+-%}
+
+<script
+  src="{{ 'yv-parallax.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+{%- if video != blank -%}
+  <script
+    src="{{ 'yv-autoplay-video.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{%- endif -%}
+
+{% # A first-section banner sizes "full screen" and clears a transparent header with the measured header heights at first paint %}
+{%- if section.index == 1 -%}{% render 'measure-header-heights' %}{%- endif -%}
+
+<div class="section-background{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section section--full-width disable-section-top-offset{% render 'yv-section-classes', settings: section.settings %}"
+  {% if request.visual_preview_mode %}
+    data-shopify-visual-preview
+  {% endif %}
+  data-testid="yv-media-banner"
+>
+  <yv-parallax
+    class="{{ banner_classes }}"
+    data-parallax="{{ parallax }}"
+    style="
+      --yv-media-banner-h-d: {{ height_desktop }};
+      --yv-media-banner-h-m: {{ height_mobile }};
+      --yv-media-banner-ratio: {{ media_ratio }};
+      --yv-media-banner-heading-d: {{ section.settings.heading_size_desktop }}px;
+      --yv-media-banner-heading-m: {{ section.settings.heading_size_mobile }}px;
+      --yv-heading-color: {{ section.settings.color_heading }};
+      --yv-media-banner-description: {{ section.settings.color_description }};
+    "
+  >
+    <div class="yv-media-banner__layer" ref="layer">
+      {%- if video != blank -%}
+        {%- assign poster = image | default: video.preview_image -%}
+        <yv-autoplay-video-component class="yv-media-banner__video">
+          <video
+            ref="video"
+            muted
+            loop
+            playsinline
+            preload="none"
+            aria-hidden="true"
+            {% if poster != blank %}
+              poster="{{ poster | image_url: width: 1920 }}"
+            {% endif %}
+          >
+            {%- for source in video.sources -%}
+              <source
+                data-src="{{ source.url }}"
+                type="{{ source.mime_type }}"
+              >
+            {%- endfor -%}
+          </video>
+        </yv-autoplay-video-component>
+      {%- elsif image != blank -%}
+        {{
+          image
+          | image_url: width: 3840
+          | image_tag:
+            widths: '750, 1100, 1500, 1920, 2560, 3840',
+            sizes: '100vw',
+            loading: media_loading,
+            fetchpriority: media_priority,
+            class: 'yv-media-banner__image'
+        }}
+      {%- else -%}
+        {{ 'hero-apparel-2' | placeholder_svg_tag: 'yv-media-banner__image yv-placeholder' }}
+      {%- endif -%}
+    </div>
+
+    <div
+      class="yv-overlay"
+      style="--yv-overlay-color: {{ section.settings.color_overlay }}; --yv-overlay-opacity: {{ section.settings.overlay_opacity }};"
+    ></div>
+
+    {%- capture button -%}
+      {%- render 'yv-button',
+        label: section.settings.button_text,
+        link: section.settings.button_link,
+        size_desktop: section.settings.button_size_desktop,
+        size_mobile: section.settings.button_size_mobile,
+        bg: section.settings.color_button_bg,
+        text: section.settings.color_button_text,
+        border: section.settings.color_button_border,
+        class: 'yv-media-banner__button'
+      -%}
+    {%- endcapture -%}
+    {%- assign button = button | strip -%}
+
+    {%- if section.settings.heading != blank or section.settings.description != blank or button != blank -%}
+      <div class="yv-media-banner__content-wrap yv-pos-d--{{ position }} yv-pos-m--{{ position }}">
+        <div class="yv-media-banner__content" data-yv-reveal>
+          {% render 'yv-heading',
+            text: section.settings.heading,
+            tag: section.settings.heading_tag,
+            size: '',
+            highlight_font: section.settings.highlight_font,
+            alignment: 'center',
+            class: 'yv-media-banner__heading-wrap',
+            title_class: 'yv-media-banner__heading'
+          %}
+          {%- if section.settings.description != blank -%}
+            <div class="yv-media-banner__description rte">{{ section.settings.description }}</div>
+          {%- endif -%}
+          {{ button }}
+        </div>
+      </div>
+    {%- endif -%}
+  </yv-parallax>
+</div>
+
+{% stylesheet %}
+  .yv-media-banner {
+    position: relative;
+    display: block;
+    grid-column: 1 / -1;
+    isolation: isolate;
+    overflow: hidden;
+    height: var(--yv-media-banner-h-m, 550px);
+    background-color: var(--yv-image-bg);
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-media-banner {
+      height: var(--yv-media-banner-h-d, 750px);
+    }
+  }
+
+  /* "Full screen" fills the viewport below the header group (a transparent header overlaps it). */
+  main > .shopify-section:first-child .yv-media-banner--full-d {
+    --yv-media-banner-h-d: calc(100svh - var(--header-group-height, 0px));
+  }
+
+  main > .shopify-section:first-child .yv-media-banner {
+    --yv-media-banner-header-offset: calc(var(--header-height, 0px) * var(--transparent-header-offset-boolean, 0));
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-media-banner--adapt-m {
+      height: auto;
+      aspect-ratio: var(--yv-media-banner-ratio);
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-media-banner--adapt-d {
+      height: auto;
+      aspect-ratio: var(--yv-media-banner-ratio);
+    }
+  }
+
+  .yv-media-banner[data-shopify-visual-preview],
+  [data-shopify-visual-preview] .yv-media-banner {
+    height: 600px;
+  }
+
+  .yv-media-banner__layer {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    will-change: auto;
+  }
+
+  /* Parallax: the layer is 120% of the box, offset −10%, and moved by assets/yv-parallax.js. */
+  .yv-media-banner[data-parallax-active] .yv-media-banner__layer {
+    inset: -10% 0;
+    will-change: transform;
+  }
+
+  .yv-media-banner__layer :is(.yv-media-banner__image, .yv-media-banner__video, video) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .yv-media-banner__layer svg.yv-media-banner__image {
+    color: rgb(var(--color-foreground-rgb) / 0.35);
+  }
+
+  .yv-media-banner .yv-overlay {
+    z-index: 1;
+  }
+
+  /* Content: 60px padding (24px mobile), max 640px, nine-position placement. */
+  .yv-media-banner__content-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    padding: calc(24px + var(--yv-media-banner-header-offset, 0px)) 24px 24px;
+    pointer-events: none;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-media-banner__content-wrap {
+      padding: calc(60px + var(--yv-media-banner-header-offset, 0px)) max(60px, var(--util-page-margin-offset, 60px)) 60px;
+    }
+  }
+
+  .yv-media-banner__content {
+    display: flex;
+    flex-direction: column;
+    align-items: var(--yv-pos-x, center);
+    max-width: min(100%, 640px);
+    pointer-events: auto;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-media-banner__content {
+      max-width: min(100%, 700px);
+    }
+  }
+
+  .yv-media-banner__content > * {
+    max-width: 100%;
+  }
+
+  .yv-media-banner .yv-media-banner__heading-wrap {
+    --yv-heading-gap: 0;
+
+    width: 100%;
+    text-align: inherit;
+  }
+
+  /* Three classes: beats the colour-set heading rule (.yv-section :is(h1…h6, .h1…)). */
+  .yv-media-banner .yv-media-banner__heading-wrap .yv-media-banner__heading {
+    margin: 0;
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: var(--font-heading--weight);
+    font-size: var(--yv-media-banner-heading-m);
+    line-height: var(--font-h1--line-height);
+    letter-spacing: var(--font-h1--letter-spacing);
+    text-transform: var(--font-h1--case);
+    color: var(--yv-heading-color, #fff);
+    text-align: inherit;
+    overflow-wrap: break-word;
+    text-wrap: balance;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-media-banner .yv-media-banner__heading-wrap .yv-media-banner__heading {
+      font-size: calc(var(--yv-media-banner-heading-d) * 0.65);
+    }
+  }
+
+  @media screen and (min-width: 1200px) {
+    .yv-media-banner .yv-media-banner__heading-wrap .yv-media-banner__heading {
+      font-size: calc(var(--yv-media-banner-heading-d) * 0.85);
+    }
+  }
+
+  @media screen and (min-width: 1441px) {
+    .yv-media-banner .yv-media-banner__heading-wrap .yv-media-banner__heading {
+      font-size: var(--yv-media-banner-heading-d);
+    }
+  }
+
+  .yv-media-banner__description {
+    margin-block-start: 16px;
+    color: var(--yv-media-banner-description, #fff);
+    font-size: var(--font-paragraph--size);
+    line-height: 1.6;
+  }
+
+  .yv-media-banner__description > :first-child {
+    margin-block-start: 0;
+  }
+
+  .yv-media-banner__description > :last-child {
+    margin-block-end: 0;
+  }
+
+  .yv-media-banner__content .yv-media-banner__button {
+    margin-block-start: 24px;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.media_banner",
+  "tag": "section",
+  "class": "yv-media-banner-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "parallax",
+      "label": "t:yv.media_banner.settings.parallax",
+      "info": "t:yv.media_banner.settings.parallax_info",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:yv.common.settings.image",
+      "info": "t:yv.media_banner.settings.image_info"
+    },
+    {
+      "type": "video",
+      "id": "video",
+      "label": "t:yv.media_banner.settings.video",
+      "info": "t:yv.media_banner.settings.video_info"
+    },
+    {
+      "type": "select",
+      "id": "height_desktop",
+      "label": "t:yv.common.settings.desktop_height",
+      "options": [
+        {
+          "value": "550",
+          "label": "t:yv.slideshow.options.h550"
+        },
+        {
+          "value": "650",
+          "label": "t:yv.slideshow.options.h650"
+        },
+        {
+          "value": "750",
+          "label": "t:yv.slideshow.options.h750"
+        },
+        {
+          "value": "850",
+          "label": "t:yv.slideshow.options.h850"
+        },
+        {
+          "value": "full",
+          "label": "t:yv.media_banner.options.full_screen"
+        },
+        {
+          "value": "adapt",
+          "label": "t:yv.media_banner.options.adapt"
+        }
+      ],
+      "default": "750"
+    },
+    {
+      "type": "select",
+      "id": "height_mobile",
+      "label": "t:yv.common.settings.mobile_height",
+      "options": [
+        {
+          "value": "450",
+          "label": "t:yv.slideshow.options.h450"
+        },
+        {
+          "value": "550",
+          "label": "t:yv.slideshow.options.h550"
+        },
+        {
+          "value": "650",
+          "label": "t:yv.slideshow.options.h650"
+        },
+        {
+          "value": "adapt",
+          "label": "t:yv.media_banner.options.adapt"
+        }
+      ],
+      "default": "550"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.text"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.common.settings.heading_info",
+      "default": "t:yv.media_banner.defaults.heading"
+    },
+    {
+      "type": "select",
+      "id": "highlight_font",
+      "label": "t:yv.common.settings.highlight_font",
+      "options": [
+        {
+          "value": "heading",
+          "label": "t:yv.common.options.heading"
+        },
+        {
+          "value": "body",
+          "label": "t:yv.common.options.body"
+        },
+        {
+          "value": "accent",
+          "label": "t:yv.common.options.accent"
+        }
+      ],
+      "default": "accent"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h2",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "range",
+      "id": "heading_size_desktop",
+      "label": "t:yv.slideshow.settings.heading_size_desktop",
+      "min": 24,
+      "max": 90,
+      "step": 2,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "heading_size_mobile",
+      "label": "t:yv.slideshow.settings.heading_size_mobile",
+      "min": 18,
+      "max": 48,
+      "step": 1,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "t:yv.common.settings.description"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.text",
+      "default": "t:yv.slideshow.defaults.button"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.link",
+      "info": "t:yv.common.settings.button_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.slideshow.content.button_size"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.common.content.desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.common.content.mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "content_position",
+      "label": "t:yv.media_banner.settings.content_position",
+      "options": [
+        {
+          "value": "top_left",
+          "label": "t:yv.common.options.top_left"
+        },
+        {
+          "value": "top_center",
+          "label": "t:yv.common.options.top_center"
+        },
+        {
+          "value": "top_right",
+          "label": "t:yv.common.options.top_right"
+        },
+        {
+          "value": "center_left",
+          "label": "t:yv.common.options.center_left"
+        },
+        {
+          "value": "center",
+          "label": "t:yv.common.options.center"
+        },
+        {
+          "value": "center_right",
+          "label": "t:yv.common.options.center_right"
+        },
+        {
+          "value": "bottom_left",
+          "label": "t:yv.common.options.bottom_left"
+        },
+        {
+          "value": "bottom_center",
+          "label": "t:yv.common.options.bottom_center"
+        },
+        {
+          "value": "bottom_right",
+          "label": "t:yv.common.options.bottom_right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_heading",
+      "label": "t:yv.common.settings.heading_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_description",
+      "label": "t:yv.common.settings.description",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_button_bg",
+      "label": "t:yv.common.settings.button_background",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_button_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_button_border",
+      "label": "t:yv.common.settings.button_border",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_overlay",
+      "label": "t:yv.collage.settings.color_overlay",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "t:yv.common.settings.overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 30
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.media_banner",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "parallax": true,
+        "height_desktop": "750",
+        "height_mobile": "550",
+        "heading": "t:yv.media_banner.presets.heading",
+        "highlight_font": "accent",
+        "heading_size_desktop": 70,
+        "heading_size_mobile": 36,
+        "description": "t:yv.media_banner.presets.description",
+        "button_text": "t:yv.slideshow.defaults.button",
+        "button_link": "shopify://collections/all",
+        "button_size_desktop": "small",
+        "button_size_mobile": "small",
+        "content_position": "center",
+        "overlay_opacity": 25
+      }
+    },
+    {
+      "name": "t:yv.media_banner.presets.full_name",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "parallax": false,
+        "height_desktop": "full",
+        "height_mobile": "650",
+        "heading": "t:yv.media_banner.defaults.heading",
+        "highlight_font": "accent",
+        "heading_size_desktop": 80,
+        "heading_size_mobile": 36,
+        "button_text": "t:yv.slideshow.defaults.button",
+        "button_link": "shopify://collections/all",
+        "content_position": "bottom_left",
+        "overlay_opacity": 20
+      }
+    }
+  ]
+}
+{% endschema %}

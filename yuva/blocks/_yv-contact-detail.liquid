@@ -1,0 +1,211 @@
+{% doc %}
+  Yuva contact detail (Contact form section, "Support" column of the Yuva contact page): a line
+  icon beside a label and a value. The value can link as a phone number (tel:) or an email
+  address (mailto:). Details after the first one are separated by a hairline rule.
+
+  @example
+  {% content_for 'blocks' %}
+{% enddoc %}
+
+{%- liquid
+  assign detail_value = block.settings.text | strip
+  assign detail_href = ''
+  if detail_value != blank
+    case block.settings.link_type
+      when 'phone'
+        assign phone_digits = detail_value | strip_newlines | remove: ' ' | remove: '(' | remove: ')' | remove: '-' | remove: '.'
+        assign detail_href = 'tel:' | append: phone_digits
+      when 'email'
+        assign detail_href = 'mailto:' | append: detail_value | strip_newlines | remove: ' '
+    endcase
+  endif
+-%}
+
+<div
+  class="yv-contact-detail{% if block.settings.icon == 'none' %} yv-contact-detail--no-icon{% endif %}"
+  {{ block.shopify_attributes }}
+>
+  {%- if block.settings.icon != 'none' -%}
+    <span class="yv-contact-detail__icon">
+      {%- render 'yv-icon', name: block.settings.icon, size: 30, stroke: 1.2 -%}
+    </span>
+  {%- endif -%}
+  <div class="yv-contact-detail__text">
+    {%- if block.settings.label != blank -%}
+      <span class="yv-contact-detail__label">{{ block.settings.label | escape }}</span>
+    {%- endif -%}
+    {%- if detail_value != blank -%}
+      {%- if detail_href != blank -%}
+        <a
+          class="yv-contact-detail__value yv-contact-detail__value--link"
+          href="{{ detail_href | escape }}"
+        >
+          {{- detail_value | escape -}}
+        </a>
+      {%- else -%}
+        <span class="yv-contact-detail__value">{{ detail_value | escape | newline_to_br }}</span>
+      {%- endif -%}
+    {%- endif -%}
+  </div>
+</div>
+
+{% stylesheet %}
+  .yv-contact-detail {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .yv-contact-detail:not(:last-child) {
+    padding-block-end: 15px;
+    margin-block-end: 15px;
+    border-block-end: 1px solid rgb(var(--color-foreground-rgb) / 0.1);
+  }
+
+  .yv-contact-detail__icon {
+    display: inline-flex;
+    flex: none;
+    width: 24px;
+    height: 24px;
+    margin-block-start: 2px;
+    color: var(--color-foreground);
+  }
+
+  .yv-contact-detail__icon svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .yv-contact-detail__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .yv-contact-detail__label {
+    font-family: var(--font-heading--family);
+    font-style: var(--font-heading--style);
+    font-weight: 400;
+    font-size: var(--yv-text-lg, 15.36px);
+    line-height: 1.4;
+  }
+
+  .yv-contact-detail__value {
+    font-size: var(--yv-text-lg, 15.36px);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .yv-contact-detail__value--link {
+    color: var(--yv-theme-color, currentColor);
+    text-decoration: none;
+  }
+
+  .yv-contact-detail__value--link:hover {
+    color: var(--yv-theme-color, currentColor);
+    text-decoration: none;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-contact-detail:not(:last-child) {
+      padding-block-end: 30px;
+      margin-block-end: 30px;
+    }
+
+    .yv-contact-detail__icon {
+      width: 30px;
+      height: 30px;
+    }
+
+    .yv-contact-detail__value {
+      font-size: var(--yv-text-xl, 17.28px);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.contact_detail",
+  "tag": null,
+  "settings": [
+    {
+      "type": "select",
+      "id": "icon",
+      "label": "t:yv.contact_form.settings.icon",
+      "options": [
+        {
+          "value": "phone",
+          "label": "t:yv.contact_form.options.phone"
+        },
+        {
+          "value": "mail",
+          "label": "t:yv.contact_form.options.email"
+        },
+        {
+          "value": "map_pin",
+          "label": "t:yv.contact_form.options.map_pin"
+        },
+        {
+          "value": "clock",
+          "label": "t:yv.contact_form.options.clock"
+        },
+        {
+          "value": "chat",
+          "label": "t:yv.contact_form.options.chat"
+        },
+        {
+          "value": "headset",
+          "label": "t:yv.contact_form.options.headset"
+        },
+        {
+          "value": "store",
+          "label": "t:yv.contact_form.options.store"
+        },
+        {
+          "value": "globe",
+          "label": "t:yv.contact_form.options.globe"
+        },
+        {
+          "value": "none",
+          "label": "t:yv.common.options.none"
+        }
+      ],
+      "default": "phone"
+    },
+    {
+      "type": "text",
+      "id": "label",
+      "label": "t:yv.contact_form.settings.label",
+      "default": "Phone"
+    },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "t:yv.contact_form.settings.value",
+      "default": "+1234567890"
+    },
+    {
+      "type": "select",
+      "id": "link_type",
+      "label": "t:yv.contact_form.settings.link_type",
+      "options": [
+        {
+          "value": "none",
+          "label": "t:yv.common.options.none"
+        },
+        {
+          "value": "phone",
+          "label": "t:yv.contact_form.options.phone_link"
+        },
+        {
+          "value": "email",
+          "label": "t:yv.contact_form.options.email_link"
+        }
+      ],
+      "default": "phone",
+      "info": "t:yv.contact_form.settings.link_type_info"
+    }
+  ]
+}
+{% endschema %}

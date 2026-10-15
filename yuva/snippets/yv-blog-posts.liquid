@@ -1,0 +1,95 @@
+{%- doc -%}
+  Yuva blog grid for sections/main-blog.liquid (layout "Grid"): optional tags filter pills, a
+  3 / 2 / 1 column grid of Yuva blog cards (snippets/yv-article-card.liquid) and Horizon's
+  pagination controls. Render it inside `{% paginate blog.articles by … %}`.
+
+  @param {object} blog - The blog.
+  @param {object} paginate - The paginate object.
+  @param {object} section_settings - main-blog's settings (show_tags_filter, show_date, show_tags, show_excerpt, show_comments_count).
+
+  @example
+  {% paginate blog.articles by 9 %}
+    {% render 'yv-blog-posts', blog: blog, paginate: paginate, section_settings: section.settings %}
+  {% endpaginate %}
+{%- enddoc -%}
+
+{%- liquid
+  assign current_tag = current_tags.first
+-%}
+
+<div class="yv-blog">
+  {%- if section_settings.show_tags_filter and blog.all_tags.size > 0 -%}
+    <nav
+      class="yv-blog__tags"
+      aria-label="{{ 'yv.blog.filter_label' | t }}"
+    >
+      <ul
+        class="yv-blog__tag-list"
+        role="list"
+      >
+        <li>
+          <a
+            class="yv-blog__tag{% if current_tag == blank %} yv-blog__tag--active{% endif %}"
+            href="{{ blog.url }}"
+            {% if current_tag == blank %}
+              aria-current="page"
+            {% endif %}
+          >
+            {{- 'yv.blog.all' | t -}}
+          </a>
+        </li>
+        {%- for tag in blog.all_tags -%}
+          {%- assign is_current = false -%}
+          {%- if current_tags contains tag -%}
+            {%- assign is_current = true -%}
+          {%- endif -%}
+          <li>
+            <a
+              class="yv-blog__tag{% if is_current %} yv-blog__tag--active{% endif %}"
+              href="{{ blog.url }}/tagged/{{ tag | handleize }}"
+              {% if is_current %}
+                aria-current="page"
+              {% endif %}
+            >
+              {{- tag | escape -}}
+            </a>
+          </li>
+        {%- endfor -%}
+      </ul>
+    </nav>
+  {%- endif -%}
+
+  {%- if blog.articles.size > 0 -%}
+    <ul
+      class="yv-blog__grid"
+      role="list"
+    >
+      {%- for article in blog.articles -%}
+        {%- liquid
+          assign card_loading = 'lazy'
+          if forloop.index <= 3
+            assign card_loading = 'eager'
+          endif
+        -%}
+        <li
+          class="yv-blog__item"
+          data-yv-reveal
+          style="--yv-reveal-delay: {{ forloop.index0 | modulo: 3 | times: 100 }}ms;"
+        >
+          {% render 'yv-article-card',
+            article: article,
+            show_date: section_settings.show_date,
+            show_comments: section_settings.show_comments_count,
+            show_excerpt: section_settings.show_excerpt,
+            show_tags: section_settings.show_tags,
+            loading: card_loading
+          %}
+        </li>
+      {%- endfor -%}
+    </ul>
+
+    {% render 'pagination-controls', paginate: paginate %}
+  {%- else -%}
+    <p class="yv-blog__empty">{{ 'yv.blog.empty' | t }}</p>
+  {%- endif -%}
+</div>

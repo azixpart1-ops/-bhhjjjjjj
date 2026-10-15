@@ -1,62 +1,288 @@
+{%- comment -%}
+  yv: Yuva article page (Template – Default blog post). Full-bleed featured image strip, the article
+  in a card that overlaps it (title, "Posted By … on …", the content blocks, tags, share icons,
+  comments and the comment form) and a "Related Posts" card on the side. Every Yuva part is
+  switchable from the section settings; the content still comes from Horizon's article blocks.
+  Styles: assets/yv-blog.css.
+{%- endcomment -%}
+{{ 'yv-blog.css' | asset_url | stylesheet_tag }}
+
 {% liquid
   if section.settings.background_color != blank
     render 'contrast-override', background_color: section.settings.background_color, section_id: section.id
   endif
+
+  # yv: hero, related articles (same blog, newest first: those sharing a tag, then the newest others).
+  assign show_hero = false
+  if section.settings.show_image and article.image != blank
+    assign show_hero = true
+  endif
+
+  assign related_count = section.settings.related_count | default: 2
+  assign related_total = 0
+  if section.settings.show_related
+    for candidate in blog.articles limit: 50
+      if candidate.id != article.id
+        assign related_total = related_total | plus: 1
+      endif
+    endfor
+  endif
+  assign related_total = related_total | at_most: related_count
 %}
 
 <div
   class="section-background{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
 ></div>
-<div class="section{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}">
+<div class="section{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %} yv-article{% if show_hero %} yv-article--hero{% endif %}">
+  {%- if show_hero -%}
+    {%- comment -%} yv: full-bleed featured image strip. {%- endcomment -%}
+    {%- assign hero_style = 'object-position: ' | append: article.image.presentation.focal_point | append: ';' -%}
+    <div class="yv-article__hero yv-article__hero--{{ section.settings.image_height | default: 'small' }}">
+      {{-
+        article.image
+        | image_url: width: 3000
+        | image_tag:
+          widths: '750, 1100, 1500, 2000, 3000',
+          sizes: '100vw',
+          loading: 'eager',
+          fetchpriority: 'high',
+          class: 'yv-article__hero-image',
+          style: hero_style,
+          alt: article.image.alt
+      -}}
+    </div>
+  {%- endif -%}
+
   <div
     class="
       spacing-style
-      layout-panel-flex
-      layout-panel-flex--column
-      section-content-wrapper
-      mobile-column
+      yv-article__layout
+      {% if related_total > 0 %} yv-article__layout--sidebar{% endif %}
     "
-    style="
-      {% render 'layout-panel-style', settings: section.settings %}
-      {% render 'spacing-style', settings: section.settings %}
-    "
+    style="{% render 'spacing-style', settings: section.settings %}"
   >
-    {% content_for 'blocks' %}
+    <article class="yv-article__card">
+      <header class="yv-article__header">
+        <h1 class="yv-article__title h2">{{ article.title | escape }}</h1>
+        {%- liquid
+          assign author_html = ''
+          assign date_html = ''
+          if section.settings.show_author and article.author != blank
+            assign author_html = '<span class="yv-article__author">' | append: article.author | append: '</span>'
+          endif
+          if section.settings.show_date
+            assign date_html = article.published_at | time_tag: '%B %Y'
+          endif
+        -%}
+        {%- if author_html != blank and date_html != blank -%}
+          <p class="yv-article__meta">{{ 'yv.article.posted_by_on_html' | t: author: author_html, date: date_html }}</p>
+        {%- elsif author_html != blank -%}
+          <p class="yv-article__meta">{{ 'yv.article.posted_by_html' | t: author: author_html }}</p>
+        {%- elsif date_html != blank -%}
+          <p class="yv-article__meta">{{ 'yv.article.posted_on_html' | t: date: date_html }}</p>
+        {%- endif -%}
+      </header>
 
-    {% if blog.comments_enabled? %}
-      <div class="blog-post-comments-container">
-        <h2 class="h3">{{- 'blogs.article.comments_heading' | t: count: article.comments_count -}}</h2>
-
-        <div class="blog-post-comments">
-          {% paginate article.comments by 10 %}
-            {% for comment in article.comments %}
-              <div class="blog-post-comment">
-                {{ comment.content }}
-                <div class="blog-post-comment__author">
-                  <span class="blog-post-comment__author-name">{{- comment.author -}}</span>
-                  <span>{{- 'blogs.article.comment_author_separator' | t -}}</span>
-                  <span class="blog-post-comment__date">
-                    {{- comment.created_at | time_tag: format: 'date' -}}
-                  </span>
-                </div>
-              </div>
-            {% endfor %}
-
-            <div class="blog-post-comments-pagination">
-              {{- paginate | default_pagination -}}
-            </div>
-          {% endpaginate %}
-        </div>
-
-        {% render 'blog-comment-form', article: article, section_id: section.id %}
+      <div
+        class="
+          layout-panel-flex
+          layout-panel-flex--column
+          section-content-wrapper
+          mobile-column
+          yv-article__blocks
+        "
+        style="{% render 'layout-panel-style', settings: section.settings %}"
+      >
+        {% content_for 'blocks' %}
       </div>
-    {% endif %}
+
+      {%- if section.settings.show_tags and article.tags.size > 0 -%}
+        <div class="yv-article__tags">
+          <span class="yv-article__tags-label">{{ 'yv.blog.tags_label' | t }}</span>
+          <ul
+            class="yv-article__tag-list"
+            role="list"
+          >
+            {%- for tag in article.tags -%}
+              <li>
+                <a
+                  class="yv-article__tag"
+                  href="{{ blog.url }}/tagged/{{ tag | handleize }}"
+                >
+                  {{- tag | escape -}}
+                </a>
+              </li>
+            {%- endfor -%}
+          </ul>
+        </div>
+      {%- endif -%}
+
+      {%- if section.settings.show_share -%}
+        {%- liquid
+          assign share_url = request.origin | append: article.url | url_encode
+          assign share_title = article.title | url_encode
+          assign share_media = ''
+          if article.image != blank
+            assign share_media = article.image | image_url: width: 1200 | prepend: 'https:' | url_encode
+          endif
+        -%}
+        <ul
+          class="yv-article__share"
+          role="list"
+          aria-label="{{ 'yv.article.share_label' | t }}"
+        >
+          <li>
+            <a
+              class="yv-article__share-link"
+              href="https://www.facebook.com/sharer/sharer.php?u={{ share_url }}"
+              target="_blank"
+              rel="noopener"
+              aria-label="{{ 'yv.quick_view.share_on' | t: network: 'Facebook' }} ({{ 'yv.common.opens_new_window' | t }})"
+            >
+              {%- render 'yv-icon', name: 'facebook', size: 14 -%}
+            </a>
+          </li>
+          <li>
+            <a
+              class="yv-article__share-link"
+              href="https://twitter.com/intent/tweet?text={{ share_title }}&url={{ share_url }}"
+              target="_blank"
+              rel="noopener"
+              aria-label="{{ 'yv.quick_view.share_on' | t: network: 'X' }} ({{ 'yv.common.opens_new_window' | t }})"
+            >
+              {%- render 'yv-icon', name: 'x', size: 14 -%}
+            </a>
+          </li>
+          <li>
+            <a
+              class="yv-article__share-link"
+              href="https://pinterest.com/pin/create/button/?url={{ share_url }}&media={{ share_media }}&description={{ share_title }}"
+              target="_blank"
+              rel="noopener"
+              aria-label="{{ 'yv.quick_view.share_on' | t: network: 'Pinterest' }} ({{ 'yv.common.opens_new_window' | t }})"
+            >
+              {%- render 'yv-icon', name: 'pinterest', size: 14 -%}
+            </a>
+          </li>
+        </ul>
+      {%- endif -%}
+
+      {% if blog.comments_enabled? %}
+        <div
+          class="blog-post-comments-container"
+          id="comments"
+        >
+          {%- if article.comments_count > 0 -%}
+            <h2 class="h6 yv-article__comments-heading">
+              {{- 'blogs.article.comments_heading' | t: count: article.comments_count -}}
+            </h2>
+          {%- endif -%}
+
+          <div class="blog-post-comments">
+            {% paginate article.comments by 10 %}
+              {% for comment in article.comments %}
+                <div class="blog-post-comment">
+                  {{ comment.content }}
+                  <div class="blog-post-comment__author">
+                    <span class="blog-post-comment__author-name">{{- comment.author -}}</span>
+                    <span class="blog-post-comment__separator">{{- 'blogs.article.comment_author_separator' | t -}}</span>
+                    <span class="blog-post-comment__date">
+                      {%- comment -%} yv: month and year, as Yuva shows it. {%- endcomment -%}
+                      {{- comment.created_at | time_tag: '%B %Y' -}}
+                    </span>
+                  </div>
+                </div>
+              {% endfor %}
+
+              {%- if paginate.pages > 1 -%}
+                <div class="blog-post-comments-pagination">
+                  {{- paginate | default_pagination -}}
+                </div>
+              {%- endif -%}
+            {% endpaginate %}
+          </div>
+
+          {%- comment -%} yv: Yuva heading for the comment form (Horizon's own is hidden in yv-blog.css). {%- endcomment -%}
+          <h2 class="h6 yv-article__form-heading">{{ 'yv.article.comment_heading' | t }}</h2>
+          {% render 'blog-comment-form', article: article, section_id: section.id %}
+        </div>
+      {% endif %}
+    </article>
+
+    {%- if related_total > 0 -%}
+      {%- comment -%} yv: "Related Posts" card. {%- endcomment -%}
+      <aside
+        class="yv-article__related"
+        aria-labelledby="YvRelated-{{ section.id }}"
+      >
+        <h2
+          class="yv-article__related-title h4"
+          id="YvRelated-{{ section.id }}"
+        >
+          {{- 'yv.article.related' | t -}}
+        </h2>
+        <ul
+          class="yv-article__related-list"
+          role="list"
+        >
+          {%- liquid
+            assign rendered = 0
+            assign rendered_ids = ','
+          -%}
+          {%- for candidate in blog.articles limit: 50 -%}
+            {%- if rendered >= related_total -%}{%- break -%}{%- endif -%}
+            {%- if candidate.id == article.id -%}{%- continue -%}{%- endif -%}
+            {%- liquid
+              assign shares_tag = false
+              for tag in candidate.tags
+                if article.tags contains tag
+                  assign shares_tag = true
+                  break
+                endif
+              endfor
+            -%}
+            {%- if shares_tag -%}
+              {%- assign rendered = rendered | plus: 1 -%}
+              {%- assign rendered_ids = rendered_ids | append: candidate.id | append: ',' -%}
+              <li>
+                {% render 'yv-article-card',
+                  article: candidate,
+                  date_format: '%B %Y',
+                  show_comments: false,
+                  heading_tag: 'h3',
+                  image_sizes: '(min-width: 990px) 310px, (min-width: 750px) 45vw, 100vw'
+                %}
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+          {%- for candidate in blog.articles limit: 50 -%}
+            {%- if rendered >= related_total -%}{%- break -%}{%- endif -%}
+            {%- if candidate.id == article.id -%}{%- continue -%}{%- endif -%}
+            {%- assign needle = ',' | append: candidate.id | append: ',' -%}
+            {%- if rendered_ids contains needle -%}{%- continue -%}{%- endif -%}
+            {%- assign rendered = rendered | plus: 1 -%}
+            <li>
+              {% render 'yv-article-card',
+                article: candidate,
+                date_format: '%B %Y',
+                show_comments: false,
+                heading_tag: 'h3',
+                image_sizes: '(min-width: 990px) 310px, (min-width: 750px) 45vw, 100vw'
+              %}
+            </li>
+          {%- endfor -%}
+        </ul>
+      </aside>
+    {%- endif -%}
   </div>
 </div>
 
-<script type="application/ld+json">
-  {{ article | structured_data }}
-</script>
+{%- comment -%} yv: Theme settings > SEO > Disable microdata schema. {%- endcomment -%}
+{%- unless settings.yv_disable_microdata -%}
+  <script type="application/ld+json">
+    {{ article | structured_data }}
+  </script>
+{%- endunless -%}
 
 {% stylesheet %}
   .blog-post-comments-container {
@@ -132,6 +358,74 @@
   ],
   "class": "section-wrapper",
   "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_image",
+      "label": "t:yv.article.settings.show_image",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "image_height",
+      "label": "t:yv.article.settings.image_height",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "small",
+      "visible_if": "{{ section.settings.show_image }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_date",
+      "label": "t:yv.article.settings.show_date",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_author",
+      "label": "t:yv.article.settings.show_author",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_share",
+      "label": "t:yv.article.settings.show_share",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_tags",
+      "label": "t:yv.article.settings.show_tags",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_related",
+      "label": "t:yv.article.settings.show_related",
+      "info": "t:yv.article.settings.show_related_info",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "related_count",
+      "label": "t:yv.article.settings.related_count",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 2,
+      "visible_if": "{{ section.settings.show_related }}"
+    },
     {
       "type": "select",
       "id": "content_direction",

@@ -1,0 +1,523 @@
+{% comment %}
+  Section contract: yv-store-locator
+  Yuva store locator (docs part 3 "Store locator"). A STATIC section rendered by layout/theme.liquid
+  after the footer: a floating vertical tab on the left or right screen edge opens a modal popup
+  that lists the merchant's stores (private blocks _yv-store) as radio cards, with a Google map of
+  their locations when Theme settings > Google Maps > Google Maps API key is set. Confirm saves the
+  store for the product card pickup line (localStorage "yvSelectedLocation") and dispatches
+  `yv:store-change`. Behaviour: assets/yv-store-locator.js (<yv-store-locator>, extends Horizon's
+  DialogComponent).
+  The section renders nothing (no tab, popup or script) while it has no Store blocks; that is how a
+  merchant turns it off. It is never rendered on the password and gift card templates.
+  @example
+  {% section 'yv-store-locator' %}
+{% endcomment %}
+
+{%- liquid
+  assign show_locator = true
+  if section.blocks.size == 0 or template.name == 'password' or template.name == 'gift_card'
+    assign show_locator = false
+  endif
+
+  assign api_key = settings.yv_google_maps_api_key | strip
+  assign has_locations = false
+  for block in section.blocks
+    if block.settings.location != blank
+      assign has_locations = true
+      break
+    endif
+  endfor
+  assign show_map = false
+  if api_key != blank and has_locations
+    assign show_map = true
+  endif
+
+  assign dialog_id = 'YvStoreLocator-' | append: section.id
+  assign heading = section.settings.heading | default: ''
+  if heading == blank
+    assign heading = 'yv.store_locator.heading' | t
+  endif
+  assign button_label = section.settings.button_text | default: ''
+  if button_label == blank
+    assign button_label = 'yv.store_locator.button' | t
+  endif
+  assign confirm_label = section.settings.confirm_text | default: ''
+  if confirm_label == blank
+    assign confirm_label = 'yv.store_locator.confirm' | t
+  endif
+
+  assign pin_url = ''
+  if section.settings.custom_pin != blank
+    assign pin_url = section.settings.custom_pin | image_url: width: 80
+  endif
+-%}
+
+{%- if show_locator -%}
+  <script
+    src="{{ 'yv-store-locator.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  {% render 'dialog-styles' %}
+
+  <yv-store-locator
+    class="yv-store-locator yv-store-locator--{{ section.settings.position_x }}"
+    style="--yv-store-locator-y: {{ section.settings.position_y }}%; --yv-store-locator-bg: {{ section.settings.color_button_bg }}; --yv-store-locator-text: {{ section.settings.color_button_text }};"
+    {% if show_map %}
+      data-api-key="{{ api_key | escape }}"
+      data-maps-module="{{ 'yv-map.js' | asset_url }}"
+      data-pin-url="{{ pin_url }}"
+    {% endif %}
+  >
+    <button
+      type="button"
+      class="yv-store-locator__toggle yv-edge-widget"
+      aria-haspopup="dialog"
+      aria-controls="{{ dialog_id }}"
+      on:click="/open"
+    >
+      <span class="yv-store-locator__icon">
+        {%- render 'yv-icon', name: 'map-pin', size: 16 -%}
+        <span
+          class="yv-store-locator__dot"
+          ref="dot"
+          hidden
+        ></span>
+      </span>
+      <span class="yv-store-locator__label">{{ button_label | escape }}</span>
+    </button>
+
+    <dialog
+      id="{{ dialog_id }}"
+      ref="dialog"
+      class="yv-store-locator__dialog dialog-modal color-custom-popover{% if show_map %} yv-store-locator__dialog--map{% endif %}"
+      scroll-lock
+      aria-labelledby="{{ dialog_id }}-title"
+    >
+      <div class="yv-store-locator__header">
+        <h2
+          id="{{ dialog_id }}-title"
+          class="yv-store-locator__title h4"
+        >
+          {{ heading | escape }}
+        </h2>
+        <button
+          type="button"
+          class="button button-unstyled yv-store-locator__close"
+          on:click="/closeDialog"
+          aria-label="{{ 'accessibility.close_dialog' | t }}"
+        >
+          {%- render 'yv-icon', name: 'close', size: 16 -%}
+        </button>
+      </div>
+
+      <div class="yv-store-locator__body">
+        <div class="yv-store-locator__stores">
+          <div
+            class="yv-store-locator__list"
+            role="radiogroup"
+            aria-labelledby="{{ dialog_id }}-title"
+            ref="list"
+          >
+            {%- content_for 'blocks' -%}
+          </div>
+
+          {%- if request.design_mode and api_key == blank -%}
+            <p class="yv-store-locator__notice">
+              {%- render 'yv-icon', name: 'info', size: 16 -%}
+              <span>{{ 'yv.store_locator.no_api_key' | t }}</span>
+            </p>
+          {%- endif -%}
+
+          <div class="yv-store-locator__footer">
+            <button
+              type="button"
+              class="button yv-button yv-button--full yv-store-locator__confirm"
+              ref="confirmButton"
+              on:click="/confirm"
+              disabled
+            >
+              {{- confirm_label | escape -}}
+            </button>
+          </div>
+        </div>
+
+        {%- if show_map -%}
+          <div class="yv-store-locator__map-wrap">
+            <div
+              class="yv-store-locator__map"
+              ref="map"
+              role="region"
+              aria-label="{{ 'yv.store_locator.map_label' | t }}"
+            ></div>
+          </div>
+        {%- endif -%}
+      </div>
+    </dialog>
+  </yv-store-locator>
+{%- endif -%}
+
+{% stylesheet %}
+  /* Floating edge tab (docs part 3 §0.5 item 9). */
+  .yv-store-locator__toggle {
+    position: fixed;
+    inset-block-end: var(--yv-store-locator-y, 30%);
+    inset-inline-end: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 44px;
+    padding: 14px 0;
+    border: 0;
+    border-radius: 8px 0 0 8px;
+    background-color: var(--yv-store-locator-bg, #000);
+    color: var(--yv-store-locator-text, #fff);
+    font-family: var(--font-body--family);
+    font-size: var(--yv-text-sm, 12px);
+    line-height: 1;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgb(0 0 0 / 0.15);
+    transition: padding 0.3s var(--yv-ease, ease);
+  }
+
+  .yv-store-locator--left .yv-store-locator__toggle {
+    inset-inline-start: 0;
+    inset-inline-end: auto;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .yv-store-locator__toggle:focus-visible {
+    outline: var(--focus-outline-width, 2px) solid var(--yv-store-locator-bg, #000);
+    outline-offset: 2px;
+  }
+
+  @media (hover: hover) {
+    .yv-store-locator__toggle:hover {
+      padding-block: 18px;
+    }
+  }
+
+  .yv-store-locator__icon {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .yv-store-locator__dot {
+    position: absolute;
+    inset-block-start: -2px;
+    inset-inline-end: -5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+  }
+
+  .yv-store-locator__dot[hidden] {
+    display: none;
+  }
+
+  .yv-store-locator__label {
+    writing-mode: vertical-rl;
+    white-space: nowrap;
+  }
+
+  .yv-store-locator--left .yv-store-locator__label {
+    transform: rotate(180deg);
+  }
+
+  /* Popup */
+  .yv-store-locator__dialog {
+    --yv-store-locator-pad: 20px;
+
+    display: none;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    color: var(--color-foreground);
+    background-color: var(--color-background);
+  }
+
+  .yv-store-locator__dialog[open] {
+    display: flex;
+    margin: auto;
+    animation: none;
+  }
+
+  .yv-store-locator__dialog.dialog-closing {
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yv-store-locator__dialog[open] {
+      animation: yvStoreLocatorIn var(--animation-speed, 0.2s) var(--animation-easing, ease) forwards;
+    }
+
+    .yv-store-locator__dialog.dialog-closing {
+      animation: yvStoreLocatorOut var(--animation-speed, 0.2s) var(--animation-easing, ease) forwards;
+    }
+  }
+
+  @keyframes yvStoreLocatorIn {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes yvStoreLocatorOut {
+    from {
+      opacity: 1;
+      transform: none;
+    }
+
+    to {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+  }
+
+  .yv-store-locator__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex: none;
+    padding: 18px var(--yv-store-locator-pad);
+    border-block-end: 1px solid rgb(var(--color-foreground-rgb) / 0.1);
+  }
+
+  .yv-store-locator__title {
+    margin: 0;
+    min-width: 0;
+  }
+
+  .yv-store-locator__close {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background-color: rgb(var(--color-foreground-rgb) / 0.08);
+    color: var(--color-foreground);
+    transition: background-color 0.2s ease;
+  }
+
+  .yv-store-locator__close:hover {
+    background-color: rgb(var(--color-foreground-rgb) / 0.16);
+  }
+
+  .yv-store-locator__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .yv-store-locator__stores {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .yv-store-locator__list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--yv-store-locator-pad);
+  }
+
+  .yv-store-locator__notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0 var(--yv-store-locator-pad) 12px;
+    padding: 10px 14px;
+    border-radius: var(--yv-radius-sm, 6px);
+    background-color: rgb(var(--color-foreground-rgb) / 0.06);
+    font-size: var(--yv-text-sm, 12px);
+    line-height: 1.4;
+  }
+
+  .yv-store-locator__notice svg {
+    flex: none;
+  }
+
+  .yv-store-locator__footer {
+    flex: none;
+    padding: 16px var(--yv-store-locator-pad) max(20px, var(--safe-area-inset-bottom, 0px));
+    border-block-start: 1px solid rgb(var(--color-foreground-rgb) / 0.1);
+    background-color: var(--color-background);
+  }
+
+  .yv-store-locator__confirm:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .yv-store-locator__map-wrap {
+    position: relative;
+    flex: none;
+    order: -1;
+    height: 40vh;
+    background-color: var(--yv-image-bg);
+  }
+
+  .yv-store-locator__map {
+    position: absolute;
+    inset: 0;
+  }
+
+  yv-store-locator[data-map-state='error'] .yv-store-locator__map-wrap {
+    display: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-store-locator__dialog.dialog-modal {
+      padding: var(--safe-area-inset-top, 0px) var(--safe-area-inset-right, 0px) 0 var(--safe-area-inset-left, 0px);
+    }
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-store-locator__dialog {
+      --yv-store-locator-pad: 30px;
+
+      width: min(560px, 94vw);
+      max-width: min(560px, 94vw);
+      max-height: min(640px, 90vh);
+      border-radius: var(--yv-layout-radius, 10px);
+    }
+
+    .yv-store-locator__dialog--map {
+      width: min(1000px, 94vw);
+      max-width: min(1000px, 94vw);
+      height: min(640px, 90vh);
+    }
+
+    .yv-store-locator__dialog--map .yv-store-locator__body {
+      flex-direction: row;
+    }
+
+    .yv-store-locator__dialog--map .yv-store-locator__stores {
+      flex: 0 0 40%;
+      border-inline-end: 1px solid rgb(var(--color-foreground-rgb) / 0.1);
+    }
+
+    .yv-store-locator__dialog--map .yv-store-locator__map-wrap {
+      flex: 1 1 60%;
+      order: 0;
+      height: auto;
+    }
+
+    yv-store-locator[data-map-state='error'] .yv-store-locator__stores {
+      flex-basis: 100%;
+      border-inline-end: 0;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.store_locator",
+  "tag": "section",
+  "max_blocks": 25,
+  "blocks": [
+    {
+      "type": "_yv-store"
+    }
+  ],
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "t:yv.store_locator.settings.paragraph"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "default": "Select your store"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "t:yv.common.settings.button_text",
+      "default": "Store locator"
+    },
+    {
+      "type": "text",
+      "id": "confirm_text",
+      "label": "t:yv.store_locator.settings.confirm_text",
+      "default": "Confirm"
+    },
+    {
+      "type": "image_picker",
+      "id": "custom_pin",
+      "label": "t:yv.store_locator.settings.custom_pin",
+      "info": "t:yv.store_locator.settings.custom_pin_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.store_locator.content.position"
+    },
+    {
+      "type": "select",
+      "id": "position_x",
+      "label": "t:yv.store_locator.settings.position_x",
+      "options": [
+        {
+          "value": "left",
+          "label": "t:yv.common.options.left"
+        },
+        {
+          "value": "right",
+          "label": "t:yv.common.options.right"
+        }
+      ],
+      "default": "right"
+    },
+    {
+      "type": "range",
+      "id": "position_y",
+      "label": "t:yv.store_locator.settings.position_y",
+      "info": "t:yv.store_locator.settings.position_y_info",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 30
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.colors"
+    },
+    {
+      "type": "color",
+      "id": "color_button_bg",
+      "label": "t:yv.common.settings.background_color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "color_button_text",
+      "label": "t:yv.common.settings.text_color",
+      "default": "#FFFFFF"
+    }
+  ]
+}
+{% endschema %}

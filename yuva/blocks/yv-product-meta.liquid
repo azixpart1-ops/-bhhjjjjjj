@@ -1,0 +1,247 @@
+{%- doc -%}
+  Yuva product meta / "Specifications" (docs part 4 product page > Product meta). A heading then rows
+  "Vendor:", "Product type:", "Collections:", "Availability:", "SKU:", "Tags:" with a 150px label
+  column and links in the accent colour. Availability and SKU follow the selected variant
+  (<yv-variant-sync>). "Show as tab/accordion" turns the block into a collapsible item styled like the
+  product tabs accordion.
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign variant = product_resource.selected_or_first_available_variant
+  assign heading = block.settings.heading
+  assign as_item = false
+  if block.settings.show_as_tab and heading != blank
+    assign as_item = true
+  endif
+-%}
+
+{%- capture rows -%}
+  {%- if block.settings.show_vendor and product_resource.vendor != blank -%}
+    <div class="yv-meta__row">
+      <dt class="yv-meta__label">{{ 'yv.product.meta.vendor' | t }}</dt>
+      <dd class="yv-meta__value">
+        <a href="{{ routes.collections_url }}/vendors?q={{ product_resource.vendor | url_encode }}">
+          {{- product_resource.vendor | escape -}}
+        </a>
+      </dd>
+    </div>
+  {%- endif -%}
+  {%- if block.settings.show_type and product_resource.type != blank -%}
+    <div class="yv-meta__row">
+      <dt class="yv-meta__label">{{ 'yv.product.meta.type' | t }}</dt>
+      <dd class="yv-meta__value">
+        <a href="{{ routes.collections_url }}/types?q={{ product_resource.type | url_encode }}">
+          {{- product_resource.type | escape -}}
+        </a>
+      </dd>
+    </div>
+  {%- endif -%}
+  {%- if block.settings.show_collections and product_resource.collections.size > 0 -%}
+    <div class="yv-meta__row">
+      <dt class="yv-meta__label">{{ 'yv.product.meta.collections' | t }}</dt>
+      <dd class="yv-meta__value">
+        {%- for collection in product_resource.collections -%}
+          <a href="{{ collection.url }}">{{ collection.title | escape }}</a>
+          {%- unless forloop.last %}, {% endunless -%}
+        {%- endfor -%}
+      </dd>
+    </div>
+  {%- endif -%}
+  {%- if block.settings.show_availability and product_resource != blank -%}
+    <div class="yv-meta__row">
+      <dt class="yv-meta__label">{{ 'yv.product.meta.availability' | t }}</dt>
+      <dd class="yv-meta__value yv-meta__value--plain">
+        {%- if variant.available -%}
+          {{ 'yv.product.in_stock' | t }}
+        {%- else -%}
+          {{ 'yv.product.out_of_stock' | t }}
+        {%- endif -%}
+      </dd>
+    </div>
+  {%- endif -%}
+  {%- if block.settings.show_sku and variant.sku != blank -%}
+    <div class="yv-meta__row">
+      <dt class="yv-meta__label">{{ 'yv.product.meta.sku' | t }}</dt>
+      <dd class="yv-meta__value yv-meta__value--plain">{{ variant.sku | escape }}</dd>
+    </div>
+  {%- endif -%}
+  {%- if block.settings.show_tags and product_resource.tags.size > 0 -%}
+    <div class="yv-meta__row">
+      <dt class="yv-meta__label">{{ 'yv.product.meta.tags' | t }}</dt>
+      <dd class="yv-meta__value">
+        {%- for tag in product_resource.tags -%}
+          <a href="{{ routes.all_products_collection_url }}/{{ tag | handleize }}">{{ tag | escape }}</a>
+          {%- unless forloop.last %}, {% endunless -%}
+        {%- endfor -%}
+      </dd>
+    </div>
+  {%- endif -%}
+  {%- if product_resource == blank and request.design_mode -%}
+    <div class="yv-meta__row">
+      <dt class="yv-meta__label">{{ 'yv.product.meta.vendor' | t }}</dt>
+      <dd class="yv-meta__value">{{ shop.name | escape }}</dd>
+    </div>
+  {%- endif -%}
+{%- endcapture -%}
+
+{%- if rows != blank -%}
+  <script
+    src="{{ 'yv-product.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  {%- if as_item -%}
+    <details
+      class="yv-meta yv-meta--item yv-accordion__item"
+      {{ block.shopify_attributes }}
+    >
+      <summary class="yv-accordion__summary">
+        <span class="yv-accordion__title">{{ heading | escape }}</span>
+        <span
+          class="yv-accordion__icon"
+          aria-hidden="true"
+        ></span>
+      </summary>
+      <div class="yv-accordion__content">
+        <yv-variant-sync
+          data-sync-id="yv-meta-{{ block.id }}"
+          data-product-id="{{ product_resource.id }}"
+        >
+          <dl class="yv-meta__list">{{ rows }}</dl>
+        </yv-variant-sync>
+      </div>
+    </details>
+  {%- else -%}
+    <div
+      class="yv-meta"
+      {{ block.shopify_attributes }}
+    >
+      {%- if heading != blank -%}
+        <h3 class="yv-meta__heading h6">{{ heading | escape }}</h3>
+      {%- endif -%}
+      <yv-variant-sync
+        data-sync-id="yv-meta-{{ block.id }}"
+        data-product-id="{{ product_resource.id }}"
+      >
+        <dl class="yv-meta__list">{{ rows }}</dl>
+      </yv-variant-sync>
+    </div>
+  {%- endif -%}
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-meta__heading {
+    margin: 0 0 10px;
+  }
+
+  .yv-meta yv-variant-sync {
+    display: block;
+  }
+
+  .yv-meta__list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+  }
+
+  .yv-meta__row {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+  }
+
+  .yv-meta__label {
+    flex: 0 0 auto;
+    min-width: 150px;
+    padding-inline-end: 10px;
+  }
+
+  .yv-meta__value {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .yv-meta__value a {
+    color: var(--yv-theme-color, currentColor);
+    text-decoration: none;
+  }
+
+  .yv-meta__value a:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  @media screen and (max-width: 749px) {
+    .yv-meta__label {
+      min-width: 150px;
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.product_meta",
+  "tag": null,
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_as_tab",
+      "label": "t:yv.product.settings.show_as_tab",
+      "info": "t:yv.product.info.show_as_tab",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:yv.common.settings.heading",
+      "info": "t:yv.product.info.meta_heading",
+      "default": "Specifications"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_availability",
+      "label": "t:yv.product.settings.show_availability",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_sku",
+      "label": "t:yv.product.settings.show_sku",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_vendor",
+      "label": "t:yv.product.settings.show_vendor",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_type",
+      "label": "t:yv.product.settings.show_type",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_collections",
+      "label": "t:yv.product.settings.show_collections",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_tags",
+      "label": "t:yv.product.settings.show_tags",
+      "default": false
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.product_meta",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

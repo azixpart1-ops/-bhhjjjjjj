@@ -1,0 +1,584 @@
+{% comment %}
+  Section contract: yv-color-based-collections
+  "Shop by colour": each private block `_yv-color-collection` is a collection with a representative
+  colour. A strip of colour bars (vertical at the image's edge on desktop, horizontal under the image
+  on mobile) switches the active collection: its image card sweeps in from the left while zooming out
+  (0.8s) over the previous one, and its product rows (yv-product-list-card with Quick view) replace the
+  list. The bars are tabs (arrow keys move between them); the theme editor activates a selected block.
+  Behaviour lives in assets/yv-color-collections.js (<yv-color-collections>).
+  Shared settings: section border, colour set, visibility, spacing.
+  @example
+  Theme editor > Add section > Collections > "Color based collections"
+{% endcomment %}
+
+{%- liquid
+  render 'yv-color-set', set: section.settings.color_set, section_id: section.id
+
+  assign width_class = 'section--page-width'
+  if section.settings.full_width
+    assign width_class = 'section--full-width'
+  endif
+
+  assign panel_count = 0
+  for child in section.blocks
+    if child.settings.collection != blank or request.design_mode
+      assign panel_count = panel_count | plus: 1
+    endif
+  endfor
+
+  assign tablist_label = 'yv.color_collections.label' | t
+  assign placeholder_title = 'placeholders.collection_title' | t
+-%}
+
+{%- if panel_count > 0 or request.design_mode -%}
+<div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
+<div
+  class="section {{ width_class }} yv-section-spacing yv-color-collections color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% if section.settings.full_width %} yv-color-collections--full{% endif %}"
+  style="{% render 'yv-section-spacing-style', settings: section.settings %} --yv-cc-height: {{ section.settings.image_height_desktop }}px; --yv-cc-height-mobile: {{ section.settings.image_height_mobile }}px;"
+  data-testid="yv-color-based-collections"
+>
+  {%- if panel_count > 0 -%}
+    <script
+      src="{{ 'yv-color-collections.js' | asset_url }}"
+      type="module"
+      fetchpriority="low"
+    ></script>
+    <yv-color-collections class="yv-color-collections__layout">
+      <div
+        class="yv-color-collections__bars"
+        role="tablist"
+        aria-label="{{ tablist_label | escape }}"
+        on:keydown="yv-color-collections/onKeydown"
+      >
+        {%- assign bar_index = 0 -%}
+        {%- for child in section.blocks -%}
+          {%- if child.settings.collection == blank and request.design_mode == false -%}
+            {%- continue -%}
+          {%- endif -%}
+          {%- liquid
+            assign bar_title = child.settings.custom_title | default: child.settings.collection.title | default: placeholder_title
+            assign bar_label = 'yv.color_collections.show' | t: title: bar_title
+          -%}
+          <button
+            type="button"
+            class="yv-color-collections__bar{% if bar_index == 0 %} is-active{% endif %}"
+            role="tab"
+            id="YvColorTab-{{ child.id }}"
+            aria-controls="YvColorPanel-{{ child.id }}"
+            aria-selected="{% if bar_index == 0 %}true{% else %}false{% endif %}"
+            tabindex="{% if bar_index == 0 %}0{% else %}-1{% endif %}"
+            aria-label="{{ bar_label | strip_html | escape }}"
+            style="--yv-cc-swatch: {{ child.settings.swatch_color }};"
+            ref="bars[]"
+            on:click="yv-color-collections/select/{{ bar_index }}"
+          ></button>
+          {%- assign bar_index = bar_index | plus: 1 -%}
+        {%- endfor -%}
+      </div>
+
+      {%- content_for 'blocks' -%}
+    </yv-color-collections>
+  {%- elsif request.design_mode -%}
+    <div class="yv-color-collections__layout yv-color-collections__layout--empty">
+      <div class="yv-color-collection is-active">
+        <div class="yv-color-collection__stage">
+          {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-color-collection__image yv-placeholder' }}
+        </div>
+        <div class="yv-color-collection__list">
+          <ul
+            class="yv-color-collection__rows"
+            role="list"
+          >
+            {%- for i in (1..3) -%}
+              <li class="yv-color-collection__row">
+                {% render 'yv-product-list-card', product: null %}
+              </li>
+            {%- endfor -%}
+          </ul>
+        </div>
+      </div>
+    </div>
+  {%- endif -%}
+</div>
+{%- endif -%}
+
+{% stylesheet %}
+  .yv-color-collections {
+    --yv-cc-radius: var(--yv-card-radius, 25px);
+    --yv-cc-radius-mobile: min(var(--yv-card-radius, 25px), 20px);
+    --yv-cc-bar-size: 16px;
+    --yv-cc-bar-length: 90px;
+    --yv-cc-bar-gap: 2px;
+    --yv-cc-stage-gap: 5px;
+    --yv-cc-bar-radius: min(var(--yv-layout-radius, 10px), 6px);
+  }
+
+  .yv-color-collections--full {
+    padding-inline: var(--yv-page-gutter, 20px);
+  }
+
+  /* Bars and every panel share one grid cell, so the outgoing image can sit under the incoming one. */
+  .yv-color-collections__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .yv-color-collections__layout > * {
+    grid-area: 1 / 1;
+    min-width: 0;
+  }
+
+  .yv-color-collections__bars {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    gap: var(--yv-cc-bar-gap);
+    align-self: start;
+    margin-block-start: calc(var(--yv-cc-height-mobile, 350px) + 10px);
+    pointer-events: none;
+  }
+
+  .yv-color-collections__bar {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    height: var(--yv-cc-bar-size);
+    padding: 0;
+    border: 0;
+    border-radius: var(--yv-cc-bar-radius);
+    background: var(--yv-cc-swatch, #c8b6a6);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: height 0.3s ease, width 0.3s ease;
+  }
+
+  .yv-color-collections__bar::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 100%;
+    inset-inline-start: 50%;
+    translate: -50% 0;
+    border-block-start: 6px solid var(--yv-cc-swatch, #c8b6a6);
+    border-inline: 13px solid transparent;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .yv-color-collections__bar.is-active {
+    height: calc(var(--yv-cc-bar-size) * 1.5);
+  }
+
+  .yv-color-collections__bar.is-active::after {
+    opacity: 1;
+  }
+
+  .yv-color-collections__bar:focus-visible {
+    outline: 2px solid var(--color-foreground);
+    outline-offset: 2px;
+  }
+
+  .yv-color-collections .yv-color-collection__list {
+    margin-block-start: 60px;
+  }
+
+  .yv-color-collections__layout--empty .yv-color-collection__list {
+    margin-block-start: 20px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .yv-color-collections--full {
+      padding-inline: 40px;
+    }
+
+    .yv-color-collections .yv-color-collection {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+    }
+
+    .yv-color-collections .yv-color-collection__stage {
+      position: sticky;
+      inset-block-start: 20px;
+      margin-inline-end: calc(var(--yv-cc-bar-size) + var(--yv-cc-stage-gap));
+    }
+
+    .yv-color-collections .yv-color-collection__list {
+      margin-block-start: 0;
+    }
+
+    .yv-color-collections__layout--empty .yv-color-collection__list {
+      margin-block-start: 0;
+    }
+
+    .yv-color-collections__bars {
+      position: sticky;
+      inset-block-start: 20px;
+      flex-direction: column;
+      align-items: flex-start;
+      width: max-content;
+      margin-block-start: 0;
+      margin-inline-start: calc(50% - var(--yv-cc-bar-size));
+    }
+
+    .yv-color-collections__bar {
+      flex: none;
+      width: var(--yv-cc-bar-size);
+      height: var(--yv-cc-bar-length);
+    }
+
+    .yv-color-collections__bar.is-active {
+      width: calc(var(--yv-cc-bar-size) * 1.4);
+      height: var(--yv-cc-bar-length);
+    }
+
+    .yv-color-collections__bar::after {
+      inset-block-start: 50%;
+      inset-inline-start: 100%;
+      translate: 0 -50%;
+      border-block: 13px solid transparent;
+      border-inline: 0;
+      border-inline-start: 6px solid var(--yv-cc-swatch, #c8b6a6);
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:yv.names.color_collections",
+  "tag": "section",
+  "class": "yv-color-collections-section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "max_blocks": 6,
+  "blocks": [
+    {
+      "type": "_yv-color-collection"
+    }
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "full_width",
+      "label": "t:yv.common.settings.full_width",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "section_visibility",
+      "label": "t:yv.common.settings.section_visibility",
+      "options": [
+        {
+          "value": "always",
+          "label": "t:yv.common.options.always"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small_devices"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large_devices"
+        }
+      ],
+      "default": "always",
+      "info": "t:yv.common.settings.section_visibility_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_border"
+    },
+    {
+      "type": "checkbox",
+      "id": "border_top",
+      "label": "t:yv.common.settings.border_top",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "border_bottom",
+      "label": "t:yv.common.settings.border_bottom",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "border_style",
+      "label": "t:yv.common.settings.border_style",
+      "options": [
+        {
+          "value": "solid",
+          "label": "t:yv.common.options.solid"
+        },
+        {
+          "value": "dashed",
+          "label": "t:yv.common.options.dashed"
+        }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.border_top or section.settings.border_bottom }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.color_collections.content.collection_image"
+    },
+    {
+      "type": "select",
+      "id": "image_height_desktop",
+      "label": "t:yv.common.settings.desktop_height",
+      "options": [
+        {
+          "value": "550",
+          "label": "t:yv.color_collections.options.px_550"
+        },
+        {
+          "value": "650",
+          "label": "t:yv.color_collections.options.px_650"
+        },
+        {
+          "value": "750",
+          "label": "t:yv.color_collections.options.px_750"
+        },
+        {
+          "value": "850",
+          "label": "t:yv.color_collections.options.px_850"
+        }
+      ],
+      "default": "750"
+    },
+    {
+      "type": "select",
+      "id": "image_height_mobile",
+      "label": "t:yv.common.settings.mobile_height",
+      "options": [
+        {
+          "value": "300",
+          "label": "t:yv.color_collections.options.px_300"
+        },
+        {
+          "value": "350",
+          "label": "t:yv.color_collections.options.px_350"
+        },
+        {
+          "value": "400",
+          "label": "t:yv.color_collections.options.px_400"
+        },
+        {
+          "value": "450",
+          "label": "t:yv.color_collections.options.px_450"
+        }
+      ],
+      "default": "350"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:yv.common.settings.heading_tag",
+      "options": [
+        {
+          "value": "h1",
+          "label": "t:yv.common.options.h1"
+        },
+        {
+          "value": "h2",
+          "label": "t:yv.common.options.h2"
+        },
+        {
+          "value": "h3",
+          "label": "t:yv.common.options.h3"
+        },
+        {
+          "value": "h4",
+          "label": "t:yv.common.options.h4"
+        },
+        {
+          "value": "h5",
+          "label": "t:yv.common.options.h5"
+        },
+        {
+          "value": "h6",
+          "label": "t:yv.common.options.h6"
+        },
+        {
+          "value": "p",
+          "label": "t:yv.common.options.paragraph"
+        }
+      ],
+      "default": "h3",
+      "info": "t:yv.common.settings.heading_tag_info"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "t:yv.common.settings.heading_size",
+      "options": [
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        },
+        {
+          "value": "extra_large",
+          "label": "t:options.extra_large"
+        }
+      ],
+      "default": "extra_large"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.color"
+    },
+    {
+      "type": "select",
+      "id": "color_set",
+      "label": "t:yv.common.settings.color_set",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "t:yv.common.options.tertiary"
+        },
+        {
+          "value": "quaternary",
+          "label": "t:yv.common.options.quaternary"
+        },
+        {
+          "value": "gradient",
+          "label": "t:yv.common.options.gradient"
+        }
+      ],
+      "default": "secondary",
+      "info": "t:yv.common.settings.color_set_info"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.section_spacing"
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_desktop",
+      "label": "t:yv.common.settings.top_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_desktop",
+      "label": "t:yv.common.settings.bottom_spacing_desktop",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 80
+    },
+    {
+      "type": "range",
+      "id": "spacing_top_mobile",
+      "label": "t:yv.common.settings.top_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "spacing_bottom_mobile",
+      "label": "t:yv.common.settings.bottom_spacing_mobile",
+      "min": 0,
+      "max": 200,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.color_collections",
+      "category": "t:yv.categories.collections",
+      "settings": {
+        "color_set": "quaternary",
+        "image_height_desktop": "750",
+        "image_height_mobile": "350",
+        "heading_size": "extra_large",
+        "spacing_top_desktop": 16,
+        "spacing_bottom_desktop": 72,
+        "spacing_top_mobile": 0,
+        "spacing_bottom_mobile": 40
+      },
+      "blocks": {
+        "collection_1": {
+          "type": "_yv-color-collection",
+          "settings": {
+            "swatch_color": "#BEAEA1",
+            "custom_title": "t:yv.color_collections.defaults.title_1",
+            "custom_description": "t:yv.color_collections.defaults.description_1",
+            "overlay_opacity": 0
+          }
+        },
+        "collection_2": {
+          "type": "_yv-color-collection",
+          "settings": {
+            "swatch_color": "#363538",
+            "custom_title": "t:yv.color_collections.defaults.title_2",
+            "custom_description": "t:yv.color_collections.defaults.description_2",
+            "overlay_opacity": 0
+          }
+        }
+      },
+      "block_order": ["collection_1", "collection_2"]
+    },
+    {
+      "name": "t:yv.color_collections.presets.woofy",
+      "category": "t:yv.categories.collections",
+      "settings": {
+        "color_set": "primary",
+        "image_height_desktop": "750",
+        "image_height_mobile": "350",
+        "heading_size": "medium",
+        "spacing_top_desktop": 64,
+        "spacing_bottom_desktop": 64,
+        "spacing_top_mobile": 40,
+        "spacing_bottom_mobile": 20
+      },
+      "blocks": {
+        "collection_1": {
+          "type": "_yv-color-collection",
+          "settings": {
+            "swatch_color": "#FFA939",
+            "custom_title": "t:yv.color_collections.defaults.title_3",
+            "custom_description": "t:yv.color_collections.defaults.description_3",
+            "overlay_opacity": 10
+          }
+        },
+        "collection_2": {
+          "type": "_yv-color-collection",
+          "settings": {
+            "swatch_color": "#AE79D8",
+            "custom_title": "t:yv.color_collections.defaults.title_4",
+            "custom_description": "t:yv.color_collections.defaults.description_4",
+            "overlay_opacity": 10
+          }
+        }
+      },
+      "block_order": ["collection_1", "collection_2"]
+    }
+  ]
+}
+{% endschema %}

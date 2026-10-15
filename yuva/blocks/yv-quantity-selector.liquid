@@ -1,0 +1,76 @@
+{%- doc -%}
+  Yuva quantity selector (docs part 2 Featured product > Quantity selector; part 4 product page).
+  "Quantity" title then a pill stepper (− value +). It can sit anywhere in the details column: the
+  stepper is Horizon's quantity-selector-component, outside the product form, and assets/yv-product.js
+  mirrors every change into the buy buttons' own quantity selector (which assets/yv-product.css hides
+  while this block is present), so Horizon's quantity rules, max checks and sticky bar keep working.
+{%- enddoc -%}
+
+{%- liquid
+  assign product_resource = closest.product
+  assign label_id = 'YvQuantityLabel-' | append: block.id
+-%}
+
+{% render 'quantity-selector-styles' %}
+
+{%- if product_resource != blank -%}
+  <script
+    src="{{ 'yv-product.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  <yv-quantity-component
+    class="yv-quantity"
+    data-block-id="{{ block.id }}"
+    data-product-id="{{ product_resource.id }}"
+    role="group"
+    aria-labelledby="{{ label_id }}"
+    {{ block.shopify_attributes }}
+  >
+    <p
+      class="yv-option-title yv-quantity__label"
+      id="{{ label_id }}"
+    >
+      {{ 'products.product.quantity' | t }}
+    </p>
+    {% render 'quantity-selector', product: product_resource, class: 'yv-quantity__selector' %}
+  </yv-quantity-component>
+{%- else -%}
+  <div
+    class="yv-quantity"
+    {{ block.shopify_attributes }}
+  >
+    <p class="yv-option-title yv-quantity__label">{{ 'products.product.quantity' | t }}</p>
+    <div class="quantity-selector-wrapper">
+      <div class="quantity-selector yv-quantity__selector">
+        <span class="quantity-minus svg-wrapper">{{- 'icon-minus.svg' | inline_asset_content -}}</span>
+        <input
+          type="number"
+          value="1"
+          aria-label="{{ 'accessibility.quantity' | t }}"
+          disabled
+        >
+        <span class="quantity-plus svg-wrapper">{{- 'icon-plus.svg' | inline_asset_content -}}</span>
+      </div>
+    </div>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "t:yv.names.quantity_selector",
+  "tag": null,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "t:yv.product.info.quantity_selector"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:yv.names.quantity_selector",
+      "category": "t:categories.product"
+    }
+  ]
+}
+{% endschema %}

@@ -3,6 +3,12 @@
   type="module"
   fetchpriority="low"
 ></script>
+{%- comment -%}
+  yv: Yuva blog. Layout "Grid" (default) renders the Yuva title band (the title block), tags filter,
+  3-column card grid and pagination (snippets/yv-blog-posts.liquid, assets/yv-blog.css);
+  "Editorial" keeps Horizon's own layout below unchanged.
+{%- endcomment -%}
+{{ 'yv-blog.css' | asset_url | stylesheet_tag }}
 
 {% liquid
   if section.settings.background_color != blank
@@ -21,12 +27,19 @@
       blog-posts
       spacing-style
       size-style
+      {% if section.settings.layout != 'editorial' %}yv-blog-section{% endif %}
     "
     data-testid="blog-posts"
     style="{% render 'spacing-style', settings: section.settings %}"
   >
     {% content_for 'blocks' %}
 
+    {%- if section.settings.layout != 'editorial' -%}
+      {%- comment -%} yv: Yuva grid layout. {%- endcomment -%}
+      {%- paginate blog.articles by section.settings.posts_per_page -%}
+        {% render 'yv-blog-posts', blog: blog, paginate: paginate, section_settings: section.settings %}
+      {%- endpaginate -%}
+    {%- else -%}
     <div
       ref="grid"
       class="blog-posts-container"
@@ -160,6 +173,7 @@
         </div>
       {% endfor %}
     </div>
+    {%- endif -%}
   </div>
 </blog-posts-list>
 
@@ -248,6 +262,70 @@
     "groups": ["header"]
   },
   "settings": [
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "t:yv.blog.settings.layout",
+      "info": "t:yv.blog.settings.layout_info",
+      "options": [
+        {
+          "value": "grid",
+          "label": "t:yv.blog.options.grid"
+        },
+        {
+          "value": "editorial",
+          "label": "t:yv.blog.options.editorial"
+        }
+      ],
+      "default": "grid"
+    },
+    {
+      "type": "range",
+      "id": "posts_per_page",
+      "label": "t:yv.blog.settings.posts_per_page",
+      "min": 3,
+      "max": 24,
+      "step": 3,
+      "default": 9,
+      "visible_if": "{{ section.settings.layout != 'editorial' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_tags_filter",
+      "label": "t:yv.blog.settings.show_tags_filter",
+      "info": "t:yv.blog.settings.show_tags_filter_info",
+      "default": true,
+      "visible_if": "{{ section.settings.layout != 'editorial' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_date",
+      "label": "t:yv.blog.settings.show_date",
+      "default": true,
+      "visible_if": "{{ section.settings.layout != 'editorial' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_tags",
+      "label": "t:yv.blog.settings.show_tags",
+      "info": "t:yv.blog.settings.show_tags_info",
+      "default": false,
+      "visible_if": "{{ section.settings.layout != 'editorial' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_excerpt",
+      "label": "t:yv.blog.settings.show_excerpt",
+      "default": true,
+      "visible_if": "{{ section.settings.layout != 'editorial' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_comments_count",
+      "label": "t:yv.blog.settings.show_comments_count",
+      "default": true,
+      "visible_if": "{{ section.settings.layout != 'editorial' }}"
+    },
     {
       "type": "color",
       "id": "background_color",

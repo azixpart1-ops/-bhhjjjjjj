@@ -3,6 +3,9 @@
 
   @param {string} [variant] - What version of the menu to render. Defaults to header menu.
   @param {string} [transparent] - Show a transparent menu
+  @param {string} [yv_drawer_links] - yv: Yuva quick links markup listed after the menu in the drawer
+  @param {string} [yv_drawer_catalog] - yv: Yuva catalog markup for the drawer's second tab
+  @param {string} [yv_drawer_catalog_label] - yv: label of the drawer's catalog tab (defaults to the block setting)
 {%- enddoc -%}
 
 {% liquid
@@ -22,7 +25,10 @@
         linklist: block_settings.menu,
         data_header_drawer_type: 'mobile-drawer',
         block: block,
-        section: section
+        section: section,
+        yv_links: yv_drawer_links,
+        yv_catalog: yv_drawer_catalog,
+        yv_catalog_label: yv_drawer_catalog_label
       %}
     </div>
 
@@ -89,17 +95,62 @@
       elsif block_settings.menu_style == 'featured_products'
         assign ratio = block_settings.featured_products_aspect_ratio
       endif
+
+      # yv: Yuva floating panel submenus keep the header's own colours on the top-level links;
+      # the menu colours apply to the panels only.
+      assign yv_panel = false
+      if block_settings.submenu_style != 'full_width'
+        assign yv_panel = true
+      endif
+      assign overflow_color_classes = background_color_classes
+      if yv_panel
+        assign overflow_color_classes = ''
+      endif
+      assign yv_badge_blocks = section.blocks | where: 'type', '_yv-menu-badge'
     %}
 
     {% capture children %}
       {% for link in block_settings.menu.links %}
+        {%- liquid
+          # yv: Yuva mega menu and badge blocks of the header, matched by the item's title.
+          assign yv_link_key = link.title | strip | downcase
+          assign yv_mega_block = null
+          for yv_block in section.blocks
+            unless yv_block.type contains '_yv-mega-menu'
+              continue
+            endunless
+            assign yv_block_key = yv_block.settings.menu_label | strip | downcase
+            if yv_block_key != blank and yv_block_key == yv_link_key
+              assign yv_mega_block = yv_block
+              break
+            endif
+          endfor
+
+          assign yv_item_class = ''
+          if yv_mega_block and link.links == blank
+            assign yv_item_class = ' yv-menu-item--mega-only'
+          endif
+          if yv_mega_block
+            assign yv_item_class = yv_item_class | append: ' yv-menu-item--mega'
+          elsif yv_panel and menu_content_type == 'text'
+            assign yv_item_class = yv_item_class | append: ' yv-menu-item--dropdown'
+          elsif yv_panel
+            assign yv_item_class = yv_item_class | append: ' yv-menu-item--panel'
+          endif
+          assign yv_has_submenu = false
+          if link.links != blank or yv_mega_block
+            assign yv_has_submenu = true
+          endif
+        -%}
         <li
-          class="menu-list__list-item"
+          class="menu-list__list-item{{ yv_item_class }}"
           on:blur="/deactivate"
-          on:pointerenter="/activate"
-          on:pointerleave="/deactivate"
+          {% unless block_settings.open_by == 'click' %}
+            on:pointerenter="/activate"
+            on:pointerleave="/deactivate"
+          {% endunless %}
         >
-          {%- if link.links != blank -%}
+          {%- if yv_has_submenu -%}
             <span class="menu-list__trigger">
           {%- endif -%}
           <a
@@ -111,9 +162,20 @@
             {% endif %}
             ref="menuitem"
           >
-            <span class="menu-list__link-title">{{- link.title -}}</span>
+            <span class="menu-list__link-title">
+              {{- link.title -}}
+              {%- render 'yv-menu-badge', link: link, badges: yv_badge_blocks -%}
+            </span>
+            {%- if yv_has_submenu -%}
+              <span
+                class="yv-menu-caret"
+                aria-hidden="true"
+              >
+                {%- render 'yv-icon', name: 'chevron-down', size: 10, stroke: 2 -%}
+              </span>
+            {%- endif -%}
           </a>
-          {%- if link.links != blank -%}
+          {%- if yv_has_submenu -%}
             <button
               type="button"
               class="menu-list__disclosure button-unstyled"
@@ -147,7 +209,7 @@
                 {% assign list_id = 'MegaMenuList-' | append: forloop.index %}
                 <div class="mega-menu section section--full-width-margin section--{{ section.settings.section_width }}">
                   <div
-                    class="mega-menu__grid"
+                    class="mega-menu__grid{% if yv_mega_block %} yv-mega-menu__grid{% endif %}"
                     data-menu-grid-id="{{ list_id }}"
                   >
                     {% render 'mega-menu-list',
@@ -159,7 +221,8 @@
                       grid_columns_count_collection_images: 8,
                       menu_content_type: menu_content_type,
                       content_aspect_ratio: ratio,
-                      image_border_radius: image_border_radius
+                      image_border_radius: image_border_radius,
+                      yv_mega_block: yv_mega_block
                     %}
                   </div>
                 </div>
@@ -191,10 +254,20 @@
 
     <header-menu
       ref="headerMenu"
-      class="header-menu"
+      class="header-menu{% if yv_panel %} yv-header-menu--panel{% endif %}"
       {{ block.shopify_attributes }}
       data-hydration-key="header-menu"
       data-skip-node-update
+      data-yv-open-by="{{ block_settings.open_by | default: 'hover' }}"
+      {% if yv_panel and block_settings.page_overlay %}
+        data-yv-overlay
+      {% endif %}
+      style="
+        --yv-submenu-hover: {{ block_settings.color_submenu_hover | default: 'var(--color-foreground)' }};
+        --yv-mega-radius: {{ block_settings.panel_radius }}px;
+        --yv-mega-inner-radius: {{ block_settings.panel_inner_radius }}px;
+        --yv-mega-alt-bg: {{ block_settings.panel_alternate_background }};
+      "
     >
       <div class="header-menu__inner">
         <nav
@@ -202,7 +275,7 @@
           aria-label="{{ 'accessibility.header_navigation_label' | t }}"
           style="{% render 'menu-font-styles', settings: block_settings, menu_type: 'mega_menu' %}"
         >
-          {% assign class = 'overflow-menu' | append: background_color_classes %}
+          {% assign class = 'overflow-menu' | append: overflow_color_classes %}
           {% render 'overflow-list',
             class: class,
             ref: 'overflowMenu',
@@ -826,6 +899,23 @@
       "default": "main-menu"
     },
     {
+      "type": "select",
+      "id": "open_by",
+      "label": "t:yv.header.settings.open_by",
+      "info": "t:yv.header.settings.open_by_info",
+      "options": [
+        {
+          "value": "hover",
+          "label": "t:yv.header.options.hover"
+        },
+        {
+          "value": "click",
+          "label": "t:yv.header.options.click"
+        }
+      ],
+      "default": "hover"
+    },
+    {
       "type": "header",
       "content": "t:content.appearance"
     },
@@ -863,12 +953,24 @@
           "label": "12px"
         },
         {
+          "value": "0.8125rem",
+          "label": "13px"
+        },
+        {
           "value": "0.875rem",
           "label": "14px"
         },
         {
+          "value": "0.9375rem",
+          "label": "15px"
+        },
+        {
           "value": "1rem",
           "label": "16px"
+        },
+        {
+          "value": "1.0625rem",
+          "label": "17px"
         },
         {
           "value": "1.125rem",
@@ -936,6 +1038,68 @@
         }
       ],
       "default": "none"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.header.content.submenu"
+    },
+    {
+      "type": "select",
+      "id": "submenu_style",
+      "label": "t:yv.header.settings.submenu_style",
+      "options": [
+        {
+          "value": "panel",
+          "label": "t:yv.header.options.floating_panel"
+        },
+        {
+          "value": "full_width",
+          "label": "t:yv.header.options.full_width"
+        }
+      ],
+      "default": "panel"
+    },
+    {
+      "type": "color",
+      "id": "color_submenu_hover",
+      "label": "t:yv.header.settings.submenu_hover",
+      "placeholder": "t:settings.default"
+    },
+    {
+      "type": "range",
+      "id": "panel_radius",
+      "label": "t:yv.header.settings.panel_radius",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 15,
+      "visible_if": "{{ block.settings.submenu_style != 'full_width' }}"
+    },
+    {
+      "type": "range",
+      "id": "panel_inner_radius",
+      "label": "t:yv.header.settings.panel_inner_radius",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 18,
+      "visible_if": "{{ block.settings.submenu_style != 'full_width' }}"
+    },
+    {
+      "type": "color",
+      "id": "panel_alternate_background",
+      "label": "t:yv.header.settings.panel_alternate_background",
+      "default": "#F2F2F2",
+      "visible_if": "{{ block.settings.submenu_style != 'full_width' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "page_overlay",
+      "label": "t:yv.header.settings.page_overlay",
+      "default": true,
+      "visible_if": "{{ block.settings.submenu_style != 'full_width' }}"
     },
     {
       "type": "header",
@@ -1060,6 +1224,33 @@
       "id": "drawer_dividers",
       "label": "t:settings.dividers",
       "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "drawer_catalog_tab",
+      "label": "t:yv.header.settings.drawer_catalog_tab",
+      "info": "t:yv.header.settings.drawer_catalog_tab_info",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "drawer_catalog_label",
+      "label": "t:yv.header.settings.drawer_catalog_label",
+      "default": "t:yv.header.defaults.drawer_catalog_label",
+      "visible_if": "{{ block.settings.drawer_catalog_tab }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "drawer_show_account",
+      "label": "t:yv.header.settings.drawer_show_account",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "drawer_show_social",
+      "label": "t:yv.common.settings.show_social",
+      "info": "t:yv.common.settings.show_social_info",
+      "default": true
     }
   ]
 }
