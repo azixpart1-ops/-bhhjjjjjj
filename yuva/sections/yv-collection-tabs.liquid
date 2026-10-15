@@ -129,7 +129,7 @@
 
       {%- if has_heading or show_tabs or arrows_top -%}
         <div
-          class="yv-collection-tabs__header yv-collection-tabs__header--{{ tabs_position }} yv-collection-tabs__header--{{ align }}{% if arrows_top %} yv-collection-tabs__header--arrows{% endif %}{% if show_tabs %} yv-collection-tabs__header--tabs{% endif %}"
+          class="yv-collection-tabs__header yv-collection-tabs__header--{{ tabs_position }} yv-collection-tabs__header--align-{{ align }}{% if arrows_top %} yv-collection-tabs__header--arrows{% endif %}{% if show_tabs %} yv-collection-tabs__header--tabs{% endif %}"
         >
           {%- if has_heading -%}
             {{ heading_markup }}
@@ -168,6 +168,7 @@
         </div>
       {%- endif -%}
 
+      {%- assign panel_index = -1 -%}
       {%- for child in section.blocks -%}
         {%- liquid
           assign child_collection = child.settings.collection
@@ -175,7 +176,8 @@
             continue
           endunless
 
-          assign panel_index = forloop.index0
+          # Position among the rendered panels (skipped tabs don't count), as the tab block does.
+          assign panel_index = panel_index | plus: 1
           assign tab_label = child.settings.tab_heading | strip
           if tab_label == blank
             if child_collection != blank
@@ -318,15 +320,15 @@
     display: none;
   }
 
-  .yv-collection-tabs__header--left .yv-collection-tabs__list {
+  .yv-collection-tabs__header--align-left .yv-collection-tabs__list {
     --yv-tabs-justify: flex-start;
   }
 
-  .yv-collection-tabs__header--center .yv-collection-tabs__list {
+  .yv-collection-tabs__header--align-center .yv-collection-tabs__list {
     --yv-tabs-justify: center;
   }
 
-  .yv-collection-tabs__header--right .yv-collection-tabs__list {
+  .yv-collection-tabs__header--align-right .yv-collection-tabs__list {
     --yv-tabs-justify: flex-end;
   }
 
@@ -367,7 +369,7 @@
       grid-template-areas: 'heading arrows' 'tabs arrows';
     }
 
-    .yv-collection-tabs__header--bottom.yv-collection-tabs__header--arrows.yv-collection-tabs__header--center {
+    .yv-collection-tabs__header--bottom.yv-collection-tabs__header--arrows.yv-collection-tabs__header--align-center {
       grid-template-columns: 78px minmax(0, 1fr) 78px;
       grid-template-areas: '. heading arrows' '. tabs arrows';
     }

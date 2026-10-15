@@ -6,8 +6,11 @@
   assets/yv-autoplay-video.js for Shopify video: lazy, paused off screen, never under reduced
   motion), no cover. Autoplay off: the cover image (or the YouTube thumbnail) with a round glass play
   button; clicking plays the video in place with sound and controls through Horizon's
-  <deferred-media> and hides the cover, overlay and text. Heading and subheading sit centred over
-  the video or above the box. "Cropped" uses the px heights; "Natural" keeps the video's ratio.
+  <deferred-media> and hides the cover, overlay and text. Heading (bold words in the accent font),
+  subheading and an optional button sit centred over the video or above the box; above the box they
+  use the colour set's colours unless the merchant picked non-white text colours. "Sticky headline"
+  (text above only) pins the text in a 70vh block with an optional radial glow while the video card
+  scrolls up over it (Amaze). "Cropped" uses the px heights; "Natural" keeps the video's ratio.
   A boxed banner can sit on a decorative pattern (snippets/yv-pattern).
   Shared: color set, visibility, spacing.
   @example
@@ -54,10 +57,37 @@
     assign media_loading = 'eager'
   endif
 
+  assign has_button = false
+  if section.settings.button_label != blank and section.settings.button_link != blank
+    assign has_button = true
+  endif
   assign has_text = false
-  if section.settings.heading != blank or section.settings.subheading != blank
+  if section.settings.heading != blank or section.settings.subheading != blank or has_button
     assign has_text = true
   endif
+
+  assign sticky = false
+  if section.settings.content_overlay == false and section.settings.sticky_text and has_text
+    assign sticky = true
+  endif
+
+  # Above the box the text uses the colour set's colours; a non-white pick (white is the overlay default) still applies.
+  capture above_heading_color
+    echo section.settings.color_heading
+  endcapture
+  assign above_heading_color = above_heading_color | strip | downcase
+  if above_heading_color == '#ffffff' or above_heading_color == '#fff'
+    assign above_heading_color = ''
+  endif
+  capture above_subheading_color
+    echo section.settings.color_subheading
+  endcapture
+  assign above_subheading_color = above_subheading_color | strip | downcase
+  if above_subheading_color == '#ffffff' or above_subheading_color == '#fff'
+    assign above_subheading_color = ''
+  endif
+
+  assign heading_plain = section.settings.heading | strip_html | strip
 
   assign heading_tag = section.settings.heading_tag | default: 'h2'
   assign video_title = 'yv.video_banner.video_title' | t
@@ -83,10 +113,20 @@
   {%- if has_text -%}
     <div class="yv-video-banner__text" data-yv-reveal>
       {%- if section.settings.heading != blank -%}
-        <{{ heading_tag }} class="yv-video-banner__heading">{{ section.settings.heading | escape }}</{{ heading_tag }}>
+        <{{ heading_tag }} class="yv-video-banner__heading">{{ section.settings.heading }}</{{ heading_tag }}>
       {%- endif -%}
       {%- if section.settings.subheading != blank -%}
         <p class="yv-video-banner__subheading">{{ section.settings.subheading | escape }}</p>
+      {%- endif -%}
+      {%- if has_button -%}
+        {% render 'yv-button',
+          label: section.settings.button_label,
+          link: section.settings.button_link,
+          variant: section.settings.button_style,
+          size_desktop: section.settings.button_size_desktop,
+          size_mobile: section.settings.button_size_mobile,
+          class: 'yv-video-banner__button'
+        %}
       {%- endif -%}
     </div>
   {%- endif -%}
@@ -103,7 +143,7 @@
   data-testid="yv-video-banner"
 >
   <div
-    class="yv-video-banner{% if show_pattern %} yv-video-banner--pattern{% endif %}"
+    class="yv-video-banner{% if show_pattern %} yv-video-banner--pattern{% endif %}{% if sticky %} yv-video-banner--sticky{% endif %}"
     style="
       --yv-video-banner-h-d: {{ section.settings.height_desktop }}px;
       --yv-video-banner-h-m: {{ section.settings.height_mobile }}px;
@@ -111,6 +151,9 @@
       --yv-video-banner-heading: {{ section.settings.color_heading }};
       --yv-video-banner-subheading: {{ section.settings.color_subheading }};
       --yv-video-banner-play: {{ section.settings.color_play }};
+      {%- if above_heading_color != blank %} --yv-video-banner-heading-above: {{ above_heading_color }};{% endif %}
+      {%- if above_subheading_color != blank %} --yv-video-banner-subheading-above: {{ above_subheading_color }};{% endif %}
+      {%- if section.settings.color_glow != blank %} --yv-video-banner-glow: {{ section.settings.color_glow }};{% endif %}
     "
   >
     {%- unless section.settings.content_overlay -%}
@@ -149,7 +192,7 @@
               url: video_link,
               poster: section.settings.cover_image,
               loading: media_loading,
-              title: section.settings.heading
+              title: heading_plain
             %}
           {%- elsif section.settings.cover_image != blank -%}
             {{
@@ -217,7 +260,7 @@
                   <iframe
                     class="yv-video-banner__player"
                     src="https://www.youtube-nocookie.com/embed/{{ link_id | url_encode }}?autoplay=1&rel=0&playsinline=1&modestbranding=1"
-                    title="{{ section.settings.heading | default: video_title | escape }}"
+                    title="{{ heading_plain | default: video_title | escape }}"
                     allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                     allowfullscreen
                     data-video-type="youtube"
@@ -226,7 +269,7 @@
                   <iframe
                     class="yv-video-banner__player"
                     src="https://player.vimeo.com/video/{{ link_id | url_encode }}?autoplay=1&dnt=1"
-                    title="{{ section.settings.heading | default: video_title | escape }}"
+                    title="{{ heading_plain | default: video_title | escape }}"
                     allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
                     allowfullscreen
                     data-video-type="vimeo"
@@ -470,6 +513,11 @@
     margin: 0;
   }
 
+  .yv-video-banner__text .yv-video-banner__button {
+    margin-block-start: 5px;
+    pointer-events: auto;
+  }
+
   /* Three classes: beats the colour-set heading rule (.yv-section :is(h1…h6, .h1…)). */
   .yv-video-banner .yv-video-banner__text .yv-video-banner__heading {
     font-family: var(--font-h1--family);
@@ -484,10 +532,55 @@
     text-wrap: balance;
   }
 
+  /* Bold words switch to the accent font (Amaze "BIGGEST SALE OF THE year!"). */
+  .yv-video-banner__heading :is(strong, b) {
+    font-family: var(--font-accent--family);
+    font-style: var(--font-accent--style);
+    font-weight: var(--font-accent--weight);
+    letter-spacing: var(--yv-accent-letter-spacing, 0.025em);
+  }
+
   .yv-video-banner__subheading {
     color: var(--yv-video-banner-subheading, #fff);
     font-size: var(--font-paragraph--size);
     line-height: var(--font-paragraph--line-height);
+  }
+
+  /* Above the box: the colour set's heading and text colours, unless non-white colours were picked. */
+  .yv-video-banner .yv-video-banner__above .yv-video-banner__heading {
+    color: var(--yv-video-banner-heading-above, var(--yv-heading-color, var(--color-foreground)));
+  }
+
+  .yv-video-banner__above .yv-video-banner__subheading {
+    color: var(--yv-video-banner-subheading-above, var(--color-foreground));
+  }
+
+  /* Sticky headline: the text block stays pinned under the header while the video card scrolls up over it. */
+  .yv-video-banner--sticky .yv-video-banner__above {
+    position: sticky;
+    inset-block-start: var(--header-height, 0px);
+    z-index: 0;
+    align-items: center;
+    min-height: 70vh;
+    margin-block-end: 0;
+    padding-inline: 20px;
+  }
+
+  .yv-video-banner--sticky .yv-video-banner__above::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(circle, var(--yv-video-banner-glow, transparent) 0%, transparent 58%);
+    pointer-events: none;
+  }
+
+  .yv-video-banner--sticky .yv-video-banner__text {
+    max-width: min(90%, 1000px);
+  }
+
+  .yv-video-banner--sticky .yv-video-banner__box {
+    z-index: 1;
   }
 {% endstylesheet %}
 
@@ -597,9 +690,10 @@
       "content": "t:yv.common.content.text"
     },
     {
-      "type": "text",
+      "type": "inline_richtext",
       "id": "heading",
       "label": "t:yv.common.settings.heading",
+      "info": "t:yv.video_banner.settings.heading_info",
       "default": "t:yv.video_banner.defaults.heading"
     },
     {
@@ -652,6 +746,101 @@
       "default": true
     },
     {
+      "type": "checkbox",
+      "id": "sticky_text",
+      "label": "t:yv.video_banner.settings.sticky_text",
+      "info": "t:yv.video_banner.settings.sticky_text_info",
+      "default": false,
+      "visible_if": "{{ section.settings.content_overlay == false }}"
+    },
+    {
+      "type": "header",
+      "content": "t:yv.common.content.button"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "t:yv.common.settings.button_label"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "t:yv.common.settings.button_link",
+      "info": "t:yv.common.settings.button_info"
+    },
+    {
+      "type": "select",
+      "id": "button_style",
+      "label": "t:yv.common.settings.button_style",
+      "options": [
+        {
+          "value": "primary",
+          "label": "t:yv.common.options.primary"
+        },
+        {
+          "value": "secondary",
+          "label": "t:yv.common.options.secondary"
+        },
+        {
+          "value": "outline",
+          "label": "t:yv.common.options.outline"
+        },
+        {
+          "value": "link",
+          "label": "t:yv.common.options.link"
+        }
+      ],
+      "default": "primary"
+    },
+    {
+      "type": "select",
+      "id": "button_size_desktop",
+      "label": "t:yv.common.settings.button_size_desktop",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "button_size_mobile",
+      "label": "t:yv.common.settings.button_size_mobile",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:yv.common.options.default"
+        },
+        {
+          "value": "small",
+          "label": "t:yv.common.options.small"
+        },
+        {
+          "value": "medium",
+          "label": "t:yv.common.options.medium"
+        },
+        {
+          "value": "large",
+          "label": "t:yv.common.options.large"
+        }
+      ],
+      "default": "default"
+    },
+    {
       "type": "header",
       "content": "t:yv.common.content.colors"
     },
@@ -665,7 +854,14 @@
       "type": "color",
       "id": "color_subheading",
       "label": "t:yv.common.settings.subheading",
+      "info": "t:yv.video_banner.settings.color_text_info",
       "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "color_glow",
+      "label": "t:yv.video_banner.settings.color_glow",
+      "visible_if": "{{ section.settings.content_overlay == false and section.settings.sticky_text }}"
     },
     {
       "type": "color",
@@ -838,6 +1034,33 @@
         "spacing_bottom_desktop": 60,
         "spacing_top_mobile": 40,
         "spacing_bottom_mobile": 40
+      }
+    },
+    {
+      "name": "t:yv.video_banner.presets.sticky_name",
+      "category": "t:yv.categories.media",
+      "settings": {
+        "full_width": false,
+        "height_desktop": 720,
+        "height_mobile": 350,
+        "autoplay": false,
+        "video_size": "cropped",
+        "heading": "t:yv.video_banner.presets.sticky_heading",
+        "heading_tag": "h2",
+        "subheading": "t:yv.video_banner.presets.sticky_subheading",
+        "content_overlay": false,
+        "sticky_text": true,
+        "button_label": "t:yv.video_banner.presets.sticky_button",
+        "button_link": "shopify://collections/all",
+        "button_style": "primary",
+        "button_size_desktop": "default",
+        "button_size_mobile": "small",
+        "color_glow": "#F9E6C4",
+        "overlay_opacity": 0,
+        "spacing_top_desktop": 60,
+        "spacing_bottom_desktop": 60,
+        "spacing_top_mobile": 60,
+        "spacing_bottom_mobile": 60
       }
     }
   ]

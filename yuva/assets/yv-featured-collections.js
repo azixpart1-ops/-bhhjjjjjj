@@ -14,7 +14,8 @@ import { prefersReducedMotion } from '@theme/utilities';
  * Hovering (mouse) or focusing a strip title activates its collection. On touch screens the first
  * tap on an inactive title activates it instead of following the link; the next tap follows it.
  * Selecting a block in the theme editor activates it. Videos play only while their layer is active
- * and the section is on screen (never under reduced motion; the poster shows instead).
+ * and the section is on screen (never under reduced motion; the poster shows instead). A video
+ * layered over a poster image gets `data-playing` once it plays, which fades it in over the image.
  * Emits a bubbling `yv-featured-collections:change` event with `detail.index`.
  *
  * @extends {Component}
@@ -25,6 +26,9 @@ class YvFeaturedCollections extends Component {
 
   /** @type {boolean} */
   #inView = false;
+
+  /** Strip title that a touch or pen press started on while it was inactive (-1 when none). */
+  #touchIndex = -1;
 
   /** @type {AbortController | null} */
   #controller = null;
@@ -94,9 +98,14 @@ class YvFeaturedCollections extends Component {
     const { signal } = this.#controller;
 
     this.addEventListener('pointerover', this.#handlePointerOver, { signal });
+    this.addEventListener('pointerdown', this.#handlePointerDown, { signal });
     this.addEventListener('focusin', this.#handleFocusIn, { signal });
     this.addEventListener('click', this.#handleClick, { signal });
     document.addEventListener('shopify:block:select', this.#handleBlockSelect, { signal });
+    // A video over a poster image (custom or collection image) fades in once it really plays.
+    this.querySelectorAll('[data-yv-fc-layer] video').forEach((video) => {
+      video.addEventListener('playing', () => video.setAttribute('data-playing', ''), { signal });
+    });
 
     this.#observer = new IntersectionObserver(
       ([entry]) => {
@@ -137,6 +146,17 @@ class YvFeaturedCollections extends Component {
     if (index > -1) this.activate(index);
   };
 
+  /**
+   * A touch or pen press focuses the link (which activates it) before the click arrives, so the
+   * click alone cannot tell a first tap from a second one. Remember whether the press began on an
+   * inactive title.
+   * @param {PointerEvent} event
+   */
+  #handlePointerDown = (event) => {
+    const index = event.pointerType === 'mouse' ? -1 : this.#linkIndex(event);
+    this.#touchIndex = index > -1 && index !== this.#index ? index : -1;
+  };
+
   /** @param {FocusEvent} event */
   #handleFocusIn = (event) => {
     const index = this.#linkIndex(event);
@@ -146,7 +166,9 @@ class YvFeaturedCollections extends Component {
   /** @param {MouseEvent} event */
   #handleClick = (event) => {
     const index = this.#linkIndex(event);
-    if (index < 0 || index === this.#index) return;
+    const firstTap = index > -1 && index === this.#touchIndex;
+    this.#touchIndex = -1;
+    if (index < 0 || (index === this.#index && !firstTap)) return;
     // Touch: the first tap shows the collection, the next one opens it.
     event.preventDefault();
     this.activate(index);

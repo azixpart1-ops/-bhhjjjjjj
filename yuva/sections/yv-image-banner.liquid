@@ -61,6 +61,9 @@
   endif
 -%}
 
+{% # A full-width first section runs under a transparent header; its copy clears the header (`--header-height`) at first paint %}
+{%- if section.index == 1 and section.settings.full_width -%}{% render 'measure-header-heights' %}{%- endif -%}
+
 <div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
 <div
   class="section section--page-width yv-section-spacing yv-image-banner color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% if section.settings.full_width %} disable-section-top-offset{% endif %}"
@@ -290,6 +293,12 @@
   .yv-image-banner__content-area {
     flex: 1 1 auto;
     min-width: 0;
+    padding-block-start: var(--yv-image-banner-header-offset, 0px);
+  }
+
+  /* First section, full width: the banner runs under a transparent header, so the copy starts below it. */
+  main > .shopify-section:first-child .yv-image-banner__box--full {
+    --yv-image-banner-header-offset: calc(var(--header-height, 0px) * var(--transparent-header-offset-boolean, 0));
   }
 
   .yv-image-banner__content {
@@ -417,7 +426,8 @@
       "type": "video",
       "id": "video",
       "label": "t:yv.image_banner.settings.video",
-      "info": "t:yv.image_banner.settings.video_info"
+      "info": "t:yv.image_banner.settings.video_info",
+      "visible_if": "{{ section.settings.media_type == 'video' }}"
     },
     {
       "type": "text",

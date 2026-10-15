@@ -70,12 +70,34 @@
             endif
             assign placeholder_art = forloop.index0 | modulo: 6 | plus: 1
             assign placeholder_name = 'collection-' | append: placeholder_art
+            assign has_video = false
+            if block.settings.custom_video != blank
+              assign has_video = true
+            endif
           -%}
           <div
-            class="yv-featured-collections__layer{% if forloop.first %} is-active{% endif %}"
+            class="yv-featured-collections__layer{% if has_video and layer_image != blank %} yv-featured-collections__layer--poster{% endif %}{% if forloop.first %} is-active{% endif %}"
             data-yv-fc-layer
           >
-            {%- if block.settings.custom_video != blank -%}
+            {%- comment -%}
+              The custom image or the collection image is the poster: it stays behind a custom video,
+              which fades in once it plays (it never plays under reduced motion).
+            {%- endcomment -%}
+            {%- if layer_image != blank -%}
+              {{
+                layer_image
+                | image_url: width: 3000
+                | image_tag:
+                  widths: '750, 1100, 1500, 1920, 2400, 3000',
+                  sizes: '100vw',
+                  loading: layer_loading,
+                  alt: '',
+                  class: 'yv-featured-collections__image'
+              }}
+            {%- elsif has_video == false -%}
+              {{ placeholder_name | placeholder_svg_tag: 'yv-featured-collections__image yv-placeholder' }}
+            {%- endif -%}
+            {%- if has_video -%}
               {{
                 block.settings.custom_video
                 | video_tag:
@@ -88,19 +110,6 @@
                   image_size: '1920x',
                   class: 'yv-featured-collections__video'
               }}
-            {%- elsif layer_image != blank -%}
-              {{
-                layer_image
-                | image_url: width: 3000
-                | image_tag:
-                  widths: '750, 1100, 1500, 1920, 2400, 3000',
-                  sizes: '100vw',
-                  loading: layer_loading,
-                  alt: '',
-                  class: 'yv-featured-collections__image'
-              }}
-            {%- else -%}
-              {{ placeholder_name | placeholder_svg_tag: 'yv-featured-collections__image yv-placeholder' }}
             {%- endif -%}
           </div>
         {%- else -%}
@@ -127,7 +136,8 @@
               endif
               assign item_description = block.settings.custom_description | strip
               if item_description == blank and collection != blank
-                assign item_description = collection.description | replace: '</p>', '</p> ' | replace: '<br>', ' ' | strip_html | strip
+                assign item_description = collection.description | replace: '</p>', ' ' | replace: '</li>', ' ' | replace: '</div>', ' ' | replace: '</blockquote>', ' ' | replace: '<br', ' <br'
+                assign item_description = item_description | replace: '</h1>', ' ' | replace: '</h2>', ' ' | replace: '</h3>', ' ' | replace: '</h4>', ' ' | replace: '</h5>', ' ' | replace: '</h6>', ' ' | strip_html | strip
               endif
               assign item_url = routes.collections_url
               if collection != blank
@@ -239,13 +249,24 @@
     transform: none;
   }
 
+  /* A custom video over its poster image: hidden until it plays. */
+  .yv-featured-collections__layer--poster > video {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+  }
+
+  .yv-featured-collections__layer--poster > video[data-playing] {
+    opacity: 1;
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     .yv-featured-collections__layer {
       transition: opacity 1s var(--yv-featured-collections-ease);
     }
 
     .yv-featured-collections__layer > :is(img, video, svg) {
-      transition: transform 1s var(--yv-featured-collections-ease);
+      transition: transform 1s var(--yv-featured-collections-ease), opacity 0.6s ease;
     }
   }
 

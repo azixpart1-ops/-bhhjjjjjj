@@ -255,7 +255,8 @@ export class YvSlideshowComponent extends Component {
       playButton.hidden = !this.autoplayInterval || this.slides.length < 2 || prefersReducedMotion();
       const label = running ? this.dataset.labelPause : this.dataset.labelPlay;
       if (label) playButton.setAttribute('aria-label', label);
-      playButton.setAttribute('aria-pressed', running ? 'false' : 'true');
+      // The label names the action (Pause/Play slideshow); no aria-pressed, so the two never contradict.
+      playButton.dataset.state = running ? 'playing' : 'paused';
     }
   }
 

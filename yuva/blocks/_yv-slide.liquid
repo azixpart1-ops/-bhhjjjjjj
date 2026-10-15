@@ -43,6 +43,44 @@
   assign position_mobile = block.settings.position_mobile | default: 'bottom_center'
 
   assign slide_label = 'yv.carousel.slide_label' | t: index: slide_number, count: slide_count
+
+  # Content below the image (mobile, section setting) sits on the section background: the white
+  # default mobile text colours give way to the colour set's, and the default white button to the
+  # theme's primary button. Colours the merchant changed still apply.
+  assign below_heading = 'var(--yv-heading-color, var(--color-foreground))'
+  assign below_subheading = 'var(--color-foreground)'
+  assign below_description = 'var(--color-foreground)'
+  capture m_color
+    echo block.settings.m_heading
+  endcapture
+  assign m_color = m_color | strip | downcase
+  if m_color != blank and m_color != '#ffffff'
+    assign below_heading = m_color
+  endif
+  capture m_color
+    echo block.settings.m_subheading
+  endcapture
+  assign m_color = m_color | strip | downcase
+  if m_color != blank and m_color != '#ffffff'
+    assign below_subheading = m_color
+  endif
+  capture m_color
+    echo block.settings.m_description
+  endcapture
+  assign m_color = m_color | strip | downcase
+  if m_color != blank and m_color != '#ffffff'
+    assign below_description = m_color
+  endif
+  capture m_button_colors
+    echo block.settings.m_button_bg
+    echo block.settings.m_button_text
+    echo block.settings.m_button_border
+  endcapture
+  assign m_button_colors = m_button_colors | strip | downcase
+  assign below_button_default = false
+  if m_button_colors == '#ffffff#000000#ffffff' or m_button_colors == ''
+    assign below_button_default = true
+  endif
 -%}
 
 <div
@@ -77,6 +115,12 @@
     --yv-slide-m-button-border: {{ block.settings.m_button_border }};
     --yv-slide-m-overlay: {{ block.settings.m_overlay }};
     --yv-slide-m-overlay-opacity: {{ block.settings.m_overlay_opacity }};
+    --yv-slide-b-heading: {{ below_heading }};
+    --yv-slide-b-subheading: {{ below_subheading }};
+    --yv-slide-b-description: {{ below_description }};
+    {%- unless below_button_default %}
+      --yv-slide-b-button-bg: var(--yv-slide-m-button-bg); --yv-slide-b-button-text: var(--yv-slide-m-button-text); --yv-slide-b-button-border: var(--yv-slide-m-button-border);
+    {%- endunless %}
   "
   {{ block.shopify_attributes }}
 >
@@ -286,7 +330,7 @@
     margin-block-end: 16px;
     border-radius: 30px;
     color: var(--yv-slide-subheading);
-    font-size: var(--yv-text-md, 15.36px);
+    font-size: var(--yv-text-lg, 15.36px);
     line-height: 1.6;
     letter-spacing: 0.025em;
   }
@@ -302,7 +346,7 @@
 
   @media screen and (min-width: 750px) {
     .yv-slide__subheading {
-      font-size: var(--yv-text-lg, 17.28px);
+      font-size: var(--yv-text-xl, 17.28px);
     }
 
     .yv-slide__subheading--pill-d {
@@ -357,7 +401,7 @@
   @media screen and (min-width: 750px) {
     .yv-slide__description {
       margin-block-end: 30px;
-      font-size: var(--yv-text-md, 15.36px);
+      font-size: var(--yv-text-lg, 15.36px);
     }
   }
 
@@ -371,22 +415,32 @@
   /* Outlined button 2: transparent, border in "Button border", text in "Button background". */
   .yv-slide__buttons .yv-button--outline {
     --button-background-color: transparent;
-    --button-color: var(--yv-btn-bg);
-    --button-border-color: var(--yv-btn-border);
-    --yv-btn-fill: var(--yv-btn-bg);
-    --yv-btn-label: var(--yv-btn-text);
+    --button-color: var(--yv-btn-bg, var(--color-foreground));
+    --button-border-color: var(--yv-btn-border, var(--color-foreground));
+    --yv-btn-fill: var(--yv-btn-bg, var(--color-foreground));
+    --yv-btn-label: var(--yv-btn-text, var(--color-background));
     --yv-btn-rest-bg: transparent;
-    --yv-btn-rest-border: var(--yv-btn-border);
+    --yv-btn-rest-border: var(--yv-btn-border, var(--color-foreground));
   }
 
   .yv-slide__buttons .yv-button--outline:hover {
-    --button-background-color: var(--yv-btn-bg);
-    --button-color: var(--yv-btn-text);
-    --button-border-color: var(--yv-btn-border);
+    --button-background-color: var(--yv-btn-bg, var(--color-foreground));
+    --button-color: var(--yv-btn-text, var(--color-background));
+    --button-border-color: var(--yv-btn-border, var(--color-foreground));
   }
 
-  /* Content below the image on mobile (section setting). */
+  /* Content below the image on mobile (section setting): on the section background, so the text and
+     button use the colour set and theme button unless the merchant changed the mobile colours. */
   @media screen and (max-width: 749px) {
+    .yv-slideshow--content-below .yv-slide {
+      --yv-slide-heading: var(--yv-slide-b-heading);
+      --yv-slide-subheading: var(--yv-slide-b-subheading);
+      --yv-slide-description: var(--yv-slide-b-description);
+      --yv-btn-bg: var(--yv-slide-b-button-bg);
+      --yv-btn-text: var(--yv-slide-b-button-text);
+      --yv-btn-border: var(--yv-slide-b-button-border);
+    }
+
     .yv-slideshow--content-below .yv-slide__content-wrap {
       position: static;
       padding: 24px 20px;

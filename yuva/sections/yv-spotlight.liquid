@@ -49,6 +49,9 @@
   endif
 -%}
 
+{% # A full-width first section runs under a transparent header; hotspots stay below it (`--header-height`) %}
+{%- if section.index == 1 and section.settings.full_width -%}{% render 'measure-header-heights' %}{%- endif -%}
+
 <div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
 <div
   class="section section--page-width yv-section-spacing yv-spotlight color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}{% if section.settings.full_width %} disable-section-top-offset{% endif %}"
@@ -154,25 +157,29 @@
     }
   }
 
-  /* Yuva spotlight hotspot: a 44px translucent ring with a 40% solid core. */
-  .yv-spotlight yv-hotspot {
-    --_dot: 44px;
+  /* Yuva spotlight hotspot: a 44px translucent ring with a 40% solid core (30px on phones); the card's
+     pointer keeps clear of the larger ring. */
+  .yv-spotlight {
+    --yv-hotspot-size: 30px;
   }
 
-  @media screen and (max-width: 749px) {
-    .yv-spotlight yv-hotspot {
-      --_dot: 30px;
-    }
-  }
-
-  /* Keep the card's pointer clear of the larger ring. */
   @media screen and (min-width: 750px) {
-    .yv-spotlight .yv-hotspot__popover:not([data-side='left']) {
-      left: 36px;
+    .yv-spotlight {
+      --yv-hotspot-size: 44px;
+      --yv-hotspot-gap: 36px;
     }
+  }
 
-    .yv-spotlight .yv-hotspot__popover[data-side='left'] {
-      right: 36px;
+  /* First section, full width: the image runs under a transparent header; hotspots stay below it. */
+  main > .shopify-section:first-child .yv-spotlight__box--full yv-hotspot {
+    --yv-spotlight-header-offset: calc(var(--header-height, 0px) * var(--transparent-header-offset-boolean, 0) + 30px);
+
+    top: max(var(--yv-hotspot-y-mobile, var(--yv-hotspot-y, 50%)), var(--yv-spotlight-header-offset));
+  }
+
+  @media screen and (min-width: 750px) {
+    main > .shopify-section:first-child .yv-spotlight__box--full yv-hotspot {
+      top: max(var(--yv-hotspot-y, 50%), var(--yv-spotlight-header-offset));
     }
   }
 {% endstylesheet %}
