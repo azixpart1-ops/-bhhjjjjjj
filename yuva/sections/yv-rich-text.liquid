@@ -5,7 +5,9 @@
   highlight heading (bold words switch to the highlight font and colour, optional rotating
   gradient words) and a description; Page blocks (`_yv-rich-text-page`) show a Shopify page;
   Button blocks (`_yv-button`) add a call to action. In the Yuva preset each rich text titles
-  the section below it (top spacing only).
+  the section below it (top spacing only). When no block has anything to show (e.g. only a Page
+  block with no page picked) the section renders nothing on the storefront, so it leaves no blank
+  band; the theme editor still shows it.
   Shared settings: color set, visibility, spacing.
   @example
   Theme editor > Add section > Text > "Rich text"
@@ -26,6 +28,12 @@
   assign align = section.settings.text_alignment | default: 'center'
 -%}
 
+{%- capture blocks_html -%}
+  {%- content_for 'blocks' -%}
+{%- endcapture -%}
+{%- assign blocks_trimmed = blocks_html | strip -%}
+
+{%- if blocks_trimmed != blank or request.design_mode -%}
 <div class="section-background color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
 <div
   class="section section--page-width yv-section-spacing yv-rich-text color-custom-{{ section.id }}{% render 'yv-section-classes', settings: section.settings %}"
@@ -33,9 +41,10 @@
   data-testid="yv-rich-text"
 >
   <div class="yv-container yv-container--{{ container }} yv-rich-text__inner yv-rich-text__inner--{{ align }}">
-    {%- content_for 'blocks' -%}
+    {{- blocks_html -}}
   </div>
 </div>
+{%- endif -%}
 
 {% stylesheet %}
   .yv-rich-text__inner {

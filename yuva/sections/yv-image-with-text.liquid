@@ -43,9 +43,18 @@
       assign height_mobile = height_desktop
   endcase
 
+  # The shadow sits on the image's outer side; in full width the outer side is the viewport edge,
+  # where the image must stay flush, so the shadow moves to the inner side.
   assign shadow_direction = 'left'
   if image_position == 'right'
     assign shadow_direction = 'right'
+  endif
+  if full_width
+    if image_position == 'right'
+      assign shadow_direction = 'left'
+    else
+      assign shadow_direction = 'right'
+    endif
   endif
 
   assign container = 'md'
@@ -83,7 +92,11 @@
           alt: image.alt
       }}
     {%- else -%}
-      {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-placeholder' }}
+      {{
+        'lifestyle-1'
+        | placeholder_svg_tag: 'yv-placeholder'
+        | replace: '<svg', '<svg preserveAspectRatio="xMidYMid slice"'
+      }}
     {%- endif -%}
   </div>
 {%- endcapture -%}
@@ -97,7 +110,7 @@
   <div class="yv-container yv-container--{{ container }} yv-draw-icon-host">
     {% render 'yv-draw-icon', icon_settings: section.settings %}
     <div
-      class="yv-iwt__grid yv-iwt__grid--image-{{ image_position }} yv-iwt__grid--{{ content_position }}{% if full_width %} yv-iwt__grid--full{% endif %}{% if section.settings.image_shadow %} yv-iwt__grid--shadow{% endif %}"
+      class="yv-iwt__grid yv-iwt__grid--image-{{ image_position }} yv-iwt__grid--{{ content_position }}{% if full_width %} yv-iwt__grid--full{% endif %}{% if section.settings.image_shadow %} yv-iwt__grid--shadow yv-iwt__grid--shadow-{{ shadow_direction }}{% endif %}"
       style="--yv-iwt-h: {{ height_desktop }}; --yv-iwt-h-mobile: {{ height_mobile }};"
     >
       <div class="yv-iwt__media">
@@ -118,6 +131,11 @@
 </div>
 
 {% stylesheet %}
+  /* "Icon over section" may be placed up to 100% across: never let it widen the page. */
+  .yv-iwt {
+    overflow-x: clip;
+  }
+
   .yv-iwt__grid {
     --yv-iwt-gap: 30px;
     --yv-iwt-shadow: 0px;
@@ -149,6 +167,10 @@
 
   .yv-iwt__grid--full .yv-iwt__image {
     --yv-media-radius: 0;
+  }
+
+  .yv-iwt__grid--full .yv-iwt__shadow {
+    --yv-shadow-radius: 0;
   }
 
   .yv-iwt__shadow {
@@ -202,7 +224,7 @@
       padding-inline: var(--yv-page-gutter, 20px);
     }
 
-    .yv-iwt__grid--shadow.yv-iwt__grid--image-left .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice) {
+    .yv-iwt__grid--shadow-left .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice) {
       inset-inline-start: calc(16px + var(--yv-iwt-shadow));
     }
   }
@@ -253,12 +275,21 @@
       inset-block-start: calc(50% + (var(--yv-iwt-h) + var(--yv-iwt-shadow)) / 2 - var(--yv-iwt-shadow) - 24px);
       inset-inline-start: auto;
       inset-inline-end: calc(50% + var(--yv-iwt-gap) / 2 + 24px);
-      max-width: calc(50% - var(--yv-iwt-gap) / 2 - 48px);
+      max-width: calc(50% - var(--yv-iwt-gap) / 2 - var(--yv-iwt-shadow) - 48px);
     }
 
     .yv-iwt__grid--image-right .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice) {
       inset-inline-start: calc(50% + var(--yv-iwt-gap) / 2 + 24px);
       inset-inline-end: auto;
+    }
+
+    /* Full width with a shadow: the shadow is on the image's inner side, so the inner edge moves in. */
+    .yv-iwt__grid--full.yv-iwt__grid--shadow.yv-iwt__grid--image-left .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice) {
+      inset-inline-end: calc(50% + var(--yv-iwt-gap) / 2 + var(--yv-iwt-shadow) + 24px);
+    }
+
+    .yv-iwt__grid--full.yv-iwt__grid--shadow.yv-iwt__grid--image-right .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice) {
+      inset-inline-start: calc(50% + var(--yv-iwt-gap) / 2 + var(--yv-iwt-shadow) + 24px);
     }
 
     .yv-iwt__grid--top .yv-iwt__content > .yv-stat-box:not(.yv-stat-box--notice),

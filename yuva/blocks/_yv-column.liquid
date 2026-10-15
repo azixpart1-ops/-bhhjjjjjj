@@ -1,8 +1,9 @@
 {% doc %}
   Multicolumn > Column: an image or a muted autoplay video (the image becomes its poster) in the
-  section's media ratio (a placeholder while both are blank), then a heading, a description and
-  a button or text link (shown only when both the text and the link are set). Alignment, media
-  ratio and button sizes come from the parent section.
+  section's media ratio, then a heading, a description and a button or text link (shown only when
+  both the text and the link are set). With no image and no video the media box is omitted, so
+  text-only columns are possible; the theme editor shows a placeholder there instead. Alignment,
+  media ratio and button sizes come from the parent section.
 
   @example
   {% content_for 'blocks' %}
@@ -36,6 +37,16 @@
   if block.settings.button_as_link
     assign button_variant = 'link'
   endif
+
+  # Columns per row follow the section: min(blocks, 4) at 990px and up, min(blocks, 2) from 750px.
+  # The page container is at most 1270px wide plus its gutters.
+  assign column_count = section.blocks.size | at_least: 1
+  assign columns_desktop = column_count | at_most: 4
+  assign columns_tablet = column_count | at_most: 2
+  capture image_sizes
+    echo '(min-width: 990px) calc(min(100vw, 1300px) / ' | append: columns_desktop | append: '), '
+    echo '(min-width: 750px) calc(100vw / ' | append: columns_tablet | append: '), 100vw'
+  endcapture
 -%}
 
 <div
@@ -89,17 +100,21 @@
         | image_url: width: 1500
         | image_tag:
           widths: '375, 550, 750, 1100, 1500',
-          sizes: '(min-width: 990px) 25vw, (min-width: 750px) 50vw, 100vw',
+          sizes: image_sizes,
           loading: 'lazy',
           class: 'yv-column__image'
       }}
     </div>
-  {%- else -%}
+  {%- elsif request.design_mode -%}
     <div
       class="yv-media yv-column__media"
       style="aspect-ratio: {{ ratio }};"
     >
-      {{ 'lifestyle-1' | placeholder_svg_tag: 'yv-placeholder yv-column__image' }}
+      {{
+        'lifestyle-1'
+        | placeholder_svg_tag: 'yv-placeholder yv-column__image'
+        | replace: '<svg', '<svg preserveAspectRatio="xMidYMid slice"'
+      }}
     </div>
   {%- endif -%}
 

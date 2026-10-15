@@ -18,6 +18,11 @@
   if rotation != 0
     assign is_rotated = true
   endif
+
+  # A strip tilted by θ rises and falls by (visible width / 2) × tan θ at the viewport edges.
+  # 50% × tan θ ≈ 0.8816% per degree up to 10° (exact at 10°, slightly generous below), as a
+  # percentage of the section width; it is reserved above and below the strip.
+  assign tilt_room = rotation | abs | times: 0.8816 | round: 3
 -%}
 
 {%- capture items -%}
@@ -35,6 +40,7 @@
     --yv-scrolling-text-gap-m: {{ section.settings.item_spacing_mobile }}px;
     --yv-scrolling-text-py: {{ section.settings.vertical_spacing }}px;
     --yv-scrolling-text-rotation: {{ rotation }}deg;
+    --yv-scrolling-text-tilt-room: {{ tilt_room }}%;
     {%- if section.settings.color_strip != blank %} --yv-scrolling-text-strip: {{ section.settings.color_strip }};{% endif %}
   "
   data-testid="yv-scrolling-text"
@@ -66,16 +72,26 @@
     background-color: var(--yv-scrolling-text-strip);
   }
 
+  /* Tilted strip: wider than the section so its ends stay off screen, with room reserved above and
+     below (percent margins resolve against the section width) so it never covers the neighbouring
+     sections; anything beyond the section is clipped. */
+  .yv-scrolling-text--rotated {
+    overflow: clip;
+  }
+
   .yv-scrolling-text--rotated .yv-scrolling-text__strip {
     width: 110%;
     max-width: none;
+    margin-block: calc(var(--yv-scrolling-text-tilt-room, 0%) + 2px);
     margin-inline: -5%;
     transform: rotate(var(--yv-scrolling-text-rotation, 0deg));
   }
 
+  /* At least 1px above and below the items, so outlines (pills) never sit on the section edge,
+     where the next section's background would paint over them. */
   .yv-scrolling-text__marquee .yv-marquee__group > * {
     flex: none;
-    padding: var(--yv-scrolling-text-py, 15px) calc(var(--yv-scrolling-text-gap) / 2);
+    padding: max(1px, var(--yv-scrolling-text-py, 15px)) calc(var(--yv-scrolling-text-gap) / 2);
   }
 
   @media screen and (min-width: 750px) {
