@@ -3,8 +3,9 @@
   Yuva page title banner (visual spec 04, shared component A; docs part 4 collection list and catalog
   banners): a full-bleed band with a centred title over an image or a flat colour, an optional
   description and an optional breadcrumb trail.
-  - Title: the "Heading" setting, or, when blank, the title of the current resource (collection,
-    page, blog, article, "Collections" on /collections, "Search results" on /search).
+  - Title ("Show title"): the "Heading" setting, or, when blank, the title of the current resource
+    (collection, page, blog, article, "Collections" on /collections, "Search results" on /search).
+  - Renders nothing when there is no title, description, image or breadcrumb trail left to show.
   - Description: the "Description" setting, else the collection description ("Show collection description").
   - Image: the collection's or article's own image ("Show collection image"), else "Banner image".
     Focal point from the image itself (Shopify focal point) or the "Focal point" setting.
@@ -51,7 +52,10 @@
       assign resource_title = product.title
   endcase
 
-  if section.settings.heading != blank
+  assign heading_html = ''
+  if section.settings.show_title == false
+    assign heading_html = ''
+  elsif section.settings.heading != blank
     assign heading_html = section.settings.heading
   else
     assign heading_html = resource_title | strip_html | escape
@@ -103,7 +107,18 @@
       render 'yv-breadcrumbs', class: 'yv-page-banner__breadcrumbs'
     endif
   endcapture
+
+  # The banner renders only when it has something to show: a title, a description, an image or
+  # the breadcrumb trail.
+  assign has_content = false
+  if heading_html != blank or description_html != blank or has_image or breadcrumbs != blank
+    assign has_content = true
+  endif
 -%}
+
+{%- unless has_content -%}
+  {%- break -%}
+{%- endunless -%}
 
 <div class="section-background{% render 'yv-section-classes', settings: section.settings, visibility_only: true %}"></div>
 <div
@@ -328,10 +343,17 @@
       "content": "t:yv.common.content.heading"
     },
     {
+      "type": "checkbox",
+      "id": "show_title",
+      "label": "t:yv.page_banner.settings.show_title",
+      "default": true
+    },
+    {
       "type": "inline_richtext",
       "id": "heading",
       "label": "t:yv.common.settings.heading",
-      "info": "t:yv.page_banner.settings.heading_info"
+      "info": "t:yv.page_banner.settings.heading_info",
+      "visible_if": "{{ section.settings.show_title }}"
     },
     {
       "type": "select",

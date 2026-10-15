@@ -119,28 +119,38 @@
   data-yv-reveal
   {{ block.shopify_attributes }}
 >
-  {%- if text_first -%}
-    {{ text_markup }}
-    {{ media_markup }}
-  {%- else -%}
-    {{ media_markup }}
-    {{ text_markup }}
-  {%- endif -%}
+  <div class="yv-media-grid-content__body">
+    {%- if text_first -%}
+      {{ text_markup }}
+      {{ media_markup }}
+    {%- else -%}
+      {{ media_markup }}
+      {{ text_markup }}
+    {%- endif -%}
+  </div>
 </div>
 
 {% stylesheet %}
+  /* The card is a size container, so a narrow card stacks its media and text (see below). */
   .yv-media-grid-content {
+    container: yv-mg-card / inline-size;
     display: flex;
-    flex-direction: column;
-    gap: 20px;
     padding: var(--yv-mg-pad, 15px);
     color: var(--yv-mg-card-text, inherit);
     background-color: var(--yv-mg-card-bg, #fff);
     border: 1px solid var(--yv-mg-card-border, #e9e9e9);
   }
 
-  .yv-media-grid-content--media_left,
-  .yv-media-grid-content--media_right {
+  .yv-media-grid-content__body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+  }
+
+  .yv-media-grid-content--media_left .yv-media-grid-content__body,
+  .yv-media-grid-content--media_right .yv-media-grid-content__body {
     flex-direction: row;
     align-items: center;
   }
@@ -195,8 +205,29 @@
     line-height: 1.5;
   }
 
+  /* Media beside the text needs room: in a card narrower than 340px (tablets, small desktops,
+     2-column phone grids) the media sits above or below the text instead, so words never split. */
+  @container yv-mg-card (max-width: 339px) {
+    .yv-media-grid-content--media_left .yv-media-grid-content__body,
+    .yv-media-grid-content--media_right .yv-media-grid-content__body {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .yv-media-grid-content--media_left .yv-media-grid-content__media,
+    .yv-media-grid-content--media_right .yv-media-grid-content__media {
+      flex: 1 1 auto;
+      min-height: 140px;
+    }
+
+    .yv-media-grid-content--media_left .yv-media-grid-content__text,
+    .yv-media-grid-content--media_right .yv-media-grid-content__text {
+      flex: 0 0 auto;
+    }
+  }
+
   @media screen and (max-width: 749px) {
-    .yv-media-grid-content {
+    .yv-media-grid-content__body {
       gap: 15px;
     }
 
