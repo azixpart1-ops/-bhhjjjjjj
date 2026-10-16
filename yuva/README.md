@@ -15,8 +15,8 @@ script add the conversion structure, copy and SEO described in
 yuva/
   assets/pln.css, pln.js            shared, loaded once, scoped under .pln
   config/pln-settings-group.json   a settings group to paste into Yuva's settings_schema.json
-  snippets/yv-*.liquid            assets loader, icons, product card, trial rule, buy-box promise, schema
-  sections/yv-*.liquid            the sections (editor names start "PL: ")
+  snippets/pln-*.liquid            assets loader, icons, product card, trial rule, buy-box promise, schema
+  sections/pln-*.liquid            the sections (editor names start "PL: ")
   templates/*.json                index, collection, product, 404, page, page.bed-finder,
                                   page.faq, page.about, page.100-night-trial, page.guide
 ```

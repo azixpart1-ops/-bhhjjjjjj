@@ -77,7 +77,7 @@ mega menu, swatch filters, infinite scroll, promo popups, age verifier.
 | Yuva's collection banner title | `pln-collection-intro` carries the single H1. |
 | Star ratings on cards and PDP | Until a reviews app holds ≥5 genuine buyer reviews per bed (`pln_show_ratings`). |
 
-**Custom sections** (`yuva/sections/yv-*.liquid`, 27 files, all self-contained,
+**Custom sections** (`yuva/sections/pln-*.liquid`, 27 files, all self-contained,
 one shared stylesheet and script, scoped under `.pln` so Yuva's CSS is untouched):
 
 | Section (editor name) | File | Job | Lever |
