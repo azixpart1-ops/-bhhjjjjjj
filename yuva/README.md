@@ -36,7 +36,7 @@ yuva/
    answers, offer (off), ratings (off), vet (off until consent).
 4. **Head**: in `layout/theme.liquid`, inside `<head>`, add
    `{% render 'pln-schema-org' %}` and `<html lang="en-GB">` if Yuva doesn't
-   already set the locale. Switch Yuva's product JSON-LD off in its settings
+   already set the locale. Horizon already emits ProductGroup and BreadcrumbList JSON-LD, so the PL: Why this bed "Emit Product structured data" setting is off on this theme
    (or remove its snippet render from the product section).
 5. **Templates**: the JSON templates reference Yuva's `main-product`,
    `main-collection` and `product-recommendations` by those names (read from
