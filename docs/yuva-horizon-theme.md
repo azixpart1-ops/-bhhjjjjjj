@@ -221,6 +221,10 @@ These keep Horizon's own sections (so variant handling, filters, the cart and se
   locale file, so Horizon's own keys and comments are untouched. Shopify allows 3,400 translations
   per locale file; the editor (`*.schema.json`) files hold about 3,100, so keep new setting labels
   lean or reuse existing keys.
+- **Shopify rules the local tools miss.** Shopify rejects a file that contains more than one
+  `{% content_for 'blocks' %}` tag, even in branches that never both run ("Duplicate entries for
+  content_for blocks"); capture the blocks once and output the variable instead. Keep Liquid tags out of
+  comments, and keep a section from naming itself in a `{% section %}` tag.
 - **Local preview and checks.** `scripts/theme-dev` renders the theme as a mock storefront:
   `node scripts/theme-dev/server.mjs --theme yuva` (then open http://127.0.0.1:9292), and
   `node scripts/theme-dev/render.mjs <path> --theme yuva` prints render errors for one URL.
