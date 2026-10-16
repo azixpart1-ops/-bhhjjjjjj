@@ -1,0 +1,64 @@
+{%- comment -%}
+  PL: Sleep trial. Risk reversal, given a whole section rather than a
+  footnote. Tokens [nights] [mid] read from settings. Calm surface.
+{%- endcomment -%}
+{%- render 'yv-assets' -%}
+{%- liquid
+  assign nights = settings.yv_trial_nights | default: 100
+  assign mid = nights | divided_by: 2
+-%}
+{%- if settings.yv_trial_enable -%}
+<section class="yv yv--{{ section.settings.tone }}">
+  <div class="yv-wrap">
+    <div class="yv-head">
+      <span class="yv-eyebrow">{{ section.settings.eyebrow | replace: '[nights]', nights }}</span>
+      <h2 class="yv-title">{{ section.settings.heading | replace: '[nights]', nights }}</h2>
+      <p class="yv-lede">{{ section.settings.lede | replace: '[nights]', nights }}</p>
+    </div>
+    <ol class="yv-timeline">
+      {%- for block in section.blocks -%}
+        <li class="yv-tl yv-reveal" {{ block.shopify_attributes }}>
+          <span class="yv-tl__when">{{ block.settings.night | replace: '[nights]', nights | replace: '[mid]', mid }}</span>
+          <h3>{{ block.settings.title }}</h3>
+          <p>{{ block.settings.text | replace: '[nights]', nights | replace: '[mid]', mid }}</p>
+        </li>
+      {%- endfor -%}
+    </ol>
+    <div style="margin-top:2rem;max-width:62ch">
+      <p><strong>{{ section.settings.reassurance }}</strong></p>
+      <p class="yv-small yv-muted" style="margin-top:.5rem">{{ section.settings.exclusions }}</p>
+    </div>
+    <div class="yv-actions">
+      <a class="yv-btn yv-btn--secondary" href="{{ settings.yv_trial_url | default: '/pages/100-night-trial' }}">{{ section.settings.policy_label }}</a>
+      <a class="yv-btn yv-btn--primary" href="/pages/bed-finder">Find their bed</a>
+    </div>
+  </div>
+</section>
+{%- endif -%}
+{% schema %}
+{
+  "name": "PL: Sleep trial",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The [nights]-night trial" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Try it for [nights] nights. At our risk, not yours." },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "Nobody expects a trial on a dog bed. We think it's the only honest way to sell one, because a bed only proves itself at 2am." },
+    { "type": "text", "id": "reassurance", "label": "Reassurance", "default": "It doesn't need to be unused. Send it back slept on, hair and all." },
+    { "type": "text", "id": "exclusions", "label": "Exclusions line", "default": "A few products aren't part of the trial. Where that's the case, the product page says so before you buy." },
+    { "type": "text", "id": "policy_label", "label": "Policy button", "default": "How the trial works" },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "calm", "label": "Calm" }, { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" } ], "default": "calm" }
+  ],
+  "blocks": [
+    { "type": "night", "name": "Night", "limit": 4, "settings": [
+      { "type": "text", "id": "night", "label": "When", "default": "Night 1" },
+      { "type": "text", "id": "title", "label": "Title", "default": "It arrives" },
+      { "type": "textarea", "id": "text", "label": "Text" }
+    ] }
+  ],
+  "presets": [ { "name": "PL: Sleep trial", "blocks": [
+    { "type": "night", "settings": { "night": "Night 1", "title": "It arrives", "text": "Put it where they already sleep, with a blanket that smells of home on top." } },
+    { "type": "night", "settings": { "night": "Night [mid]", "title": "Give them time", "text": "Plenty of dogs claim a new bed the first evening. Some take a fortnight. Both are normal, and you've got [nights]." } },
+    { "type": "night", "settings": { "night": "Night [nights]", "title": "Not right? Tell us", "text": "Any time inside the [nights] nights. We collect it free from the UK mainland and refund every penny." } }
+  ] } ]
+}
+{% endschema %}

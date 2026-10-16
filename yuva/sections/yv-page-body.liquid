@@ -1,0 +1,67 @@
+{%- comment -%}
+  PL: Page body. Renders a page's title as H1 and its content as readable
+  long-form (65ch measure), with an optional eyebrow and a sticky "Find
+  their bed" aside on guides. Used for every content page template so the
+  guide pages (size guide, foam explained, older dog sleep, care guide,
+  100-night trial, our story) share one reading layout and rank on their
+  own H1 + body.
+{%- endcomment -%}
+{%- render 'yv-assets' -%}
+<section class="yv yv--{{ section.settings.tone }}">
+  <div class="yv-wrap" style="display:grid;gap:3rem;{% if section.settings.aside %}grid-template-columns:minmax(0,1fr);{% endif %}">
+    <article style="max-width:70ch">
+      {%- if section.settings.eyebrow != blank -%}<span class="yv-eyebrow">{{ section.settings.eyebrow }}</span>{%- endif -%}
+      <h1 class="yv-title">{{ page.title }}</h1>
+      {%- if section.settings.show_meta -%}
+      <p class="yv-small yv-muted" style="margin-top:1rem">
+        {%- if settings.yv_vet_enable and settings.yv_vet_name != blank and section.settings.vet_reviewed -%}Reviewed by {{ settings.yv_vet_name }}{% if settings.yv_vet_rcvs != blank %}, RCVS {{ settings.yv_vet_rcvs }}{% endif %} · {% endif -%}
+        Updated {{ page.published_at | date: '%B %Y' }} · By {{ settings.yv_owner_name | default: 'Abbas' }}, {{ shop.name }}
+      </p>
+      {%- endif -%}
+      <div class="yv-rte" style="margin-top:2rem;font-size:1.0625rem">{{ page.content }}</div>
+    </article>
+    {%- if section.settings.aside -%}
+    <aside class="yv-card yv-card--pick" style="align-self:start">
+      <span class="yv-eyebrow">Still deciding?</span>
+      <strong class="yv-sub">{{ section.settings.aside_heading }}</strong>
+      <p class="yv-muted" style="margin-top:.5rem">{{ section.settings.aside_text }}</p>
+      <div class="yv-actions" style="margin-top:1rem"><a class="yv-btn yv-btn--primary" href="/pages/bed-finder">Find their bed</a></div>
+    </aside>
+    {%- endif -%}
+  </div>
+</section>
+{%- if section.settings.article_schema -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": {{ page.title | json }},
+  "url": {{ request.origin | append: page.url | json }},
+  "datePublished": {{ page.published_at | date: '%Y-%m-%d' | json }},
+  "dateModified": {{ page.updated_at | default: page.published_at | date: '%Y-%m-%d' | json }},
+  "inLanguage": "en-GB",
+  "author": { "@type": "Person", "name": {{ settings.yv_owner_name | default: 'Abbas' | json }} },
+  "publisher": { "@id": {{ request.origin | append: '/#organization' | json }} }
+  {%- if settings.yv_vet_enable and settings.yv_vet_name != blank and section.settings.vet_reviewed -%},
+  "reviewedBy": { "@type": "Person", "name": {{ settings.yv_vet_name | json }}, "jobTitle": "Veterinary surgeon"{% if settings.yv_vet_practice != blank %}, "worksFor": { "@type": "Organization", "name": {{ settings.yv_vet_practice | json }} }{% endif %} }
+  {%- endif -%}
+}
+</script>
+{%- endif -%}
+{% schema %}
+{
+  "name": "PL: Page body",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow" },
+    { "type": "checkbox", "id": "show_meta", "label": "Show author and date line", "default": true },
+    { "type": "checkbox", "id": "vet_reviewed", "label": "This page is vet-reviewed (needs the vet setting on)", "default": false },
+    { "type": "checkbox", "id": "article_schema", "label": "Emit Article structured data", "default": true },
+    { "type": "checkbox", "id": "aside", "label": "Show the Bed Finder aside", "default": true },
+    { "type": "text", "id": "aside_heading", "label": "Aside heading", "default": "Four questions, one bed." },
+    { "type": "text", "id": "aside_text", "label": "Aside text", "default": "How they sleep, their joints, their size, their name. About 30 seconds, no email." },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" } ], "default": "page" }
+  ],
+  "presets": [ { "name": "PL: Page body" } ]
+}
+{% endschema %}

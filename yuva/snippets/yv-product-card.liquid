@@ -1,0 +1,49 @@
+{%- comment -%}
+  Product card for yv sections (ladder, shop-by-need fallbacks, 404).
+  Yuva's own grids keep Yuva's cards; this one only appears inside yv sections.
+    product   required
+    role      optional "Best for stiff mornings"
+    show_per_night  optional boolean (foam beds only; uses the guarantee years)
+{%- endcomment -%}
+{%- liquid
+  assign p = product
+  assign sizes = ''
+  for v in p.variants
+    assign s = v.title | split: ' ' | first | split: '/' | first | strip
+    assign marker = '–' | append: s | append: '–'
+    assign probe = '–' | append: sizes
+    if v.title != 'Default Title'
+      unless probe contains marker
+        assign sizes = sizes | append: s | append: '–'
+      endunless
+    endif
+  endfor
+  assign sizes = sizes | split: '–'
+  assign is_foam = false
+  if p.metafields.custom.core_type.value contains 'foam' or p.title contains 'Memory Foam' or p.tags contains 'memory foam dog bed' or p.tags contains 'Memory foam'
+    assign is_foam = true
+  endif
+-%}
+<a class="yv-product" href="{{ p.url }}">
+  <div class="yv-media yv-media--4x3">
+    {%- if p.featured_image -%}
+      {{ p.featured_image | image_url: width: 900 | image_tag: loading: 'lazy', widths: '360, 540, 720, 900', sizes: '(min-width: 900px) 30vw, 90vw', alt: p.featured_image.alt | default: p.title }}
+    {%- else -%}
+      {{ 'product-1' | placeholder_svg_tag: 'yv-placeholder' }}
+    {%- endif -%}
+  </div>
+  {%- if role != blank -%}<span class="yv-product__role">{{ role }}</span>{%- endif -%}
+  <h3 class="yv-product__title">{{ p.title }}</h3>
+  <p class="yv-product__price">
+    {%- if p.price_varies -%}From {% endif -%}{{ p.price_min | money_without_trailing_zeros }}
+    {%- if p.compare_at_price_max > p.price_max -%}<s>{{ p.compare_at_price_max | money_without_trailing_zeros }}</s>{%- endif -%}
+  </p>
+  <p class="yv-product__meta">
+    {%- if sizes.size > 1 -%}{{ sizes.first }} to {{ sizes.last }}{%- elsif sizes.size == 1 -%}{{ sizes.first }}{%- endif -%}
+    {%- if show_per_night and is_foam and settings.yv_guarantee_enable -%}
+      {%- if sizes.size > 0 %} · {% endif -%}
+      <span data-yv-per-night="{{ p.price_min }}" hidden>about <span data-value></span> a night</span>
+    {%- endif -%}
+    {%- unless p.available %} · Sold out{%- endunless -%}
+  </p>
+</a>

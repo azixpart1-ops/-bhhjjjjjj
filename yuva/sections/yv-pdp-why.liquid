@@ -1,0 +1,106 @@
+{%- comment -%}
+  PL: Why this bed. Placed directly under Yuva's main product section.
+  Left: "Why the <bed>" bullets and the sleeping-style fit, all from the
+  product's own metafields (custom.why, custom.sleep_style, custom.low_entry,
+  custom.has_liner, custom.non_slip, custom.wash_temp) and never guessed.
+  Right: "What's inside" spec card (custom.core_type, foam_depth, feel,
+  density_kg_m3) and size cards from the variants (variant.metafields.
+  custom.sleep_area / suits_breeds / suits_weight).
+  Also emits the Product + Breadcrumb JSON-LD (snippets/yv-schema-product),
+  so switch off Yuva's own product structured data.
+{%- endcomment -%}
+{%- render 'yv-assets' -%}
+{%- liquid
+  assign m = product.metafields.custom
+  assign short = product.title | split: ' ' | first
+  assign is_foam = false
+  if m.core_type.value contains 'foam' or product.title contains 'Memory Foam'
+    assign is_foam = true
+  endif
+  assign styles = m.sleep_style.value | join: ', '
+-%}
+<section class="yv yv--{{ section.settings.tone }}">
+  <div class="yv-wrap yv-why">
+    <div>
+      <span class="yv-eyebrow">{{ section.settings.eyebrow | replace: '[bed]', short }}</span>
+      <h2 class="yv-title">{{ section.settings.heading | replace: '[bed]', short }}</h2>
+      {%- if m.subtitle.value != blank -%}<p class="yv-lede" style="margin-top:2rem">{{ m.subtitle.value }}</p>{%- endif -%}
+      <ul class="yv-list" style="margin-top:1.5rem">
+        {%- if m.why.value != blank -%}
+          {%- assign whys = m.why.value | newline_to_br | split: '<br />' -%}
+          {%- for w in whys -%}{%- if w != blank -%}<li class="yv-list__item">{% render 'yv-icon', name: 'check', class: 'yv-icon--success' %}<span>{{ w | strip }}</span></li>{%- endif -%}{%- endfor -%}
+        {%- endif -%}
+        {%- if styles != blank -%}<li class="yv-list__item">{% render 'yv-icon', name: 'moon', class: 'yv-icon--success' %}<span>Best for dogs who {{ styles | downcase }}.</span></li>{%- endif -%}
+        {%- if m.low_entry.value == true -%}<li class="yv-list__item">{% render 'yv-icon', name: 'check', class: 'yv-icon--success' %}<span>Low step-in{% if m.entry_height_cm.value != blank %}: about {{ m.entry_height_cm.value }}cm to lift a paw over{% endif %}. Easy in, easy out for stiff legs.</span></li>{%- endif -%}
+        {%- if m.has_liner.value == true -%}<li class="yv-list__item">{% render 'yv-icon', name: 'shield', class: 'yv-icon--success' %}<span>Waterproof inner liner between cover and foam.</span></li>{%- endif -%}
+        {%- if m.non_slip.value == true -%}<li class="yv-list__item">{% render 'yv-icon', name: 'check', class: 'yv-icon--success' %}<span>Non-slip base, so it stays put on wood and tile.</span></li>{%- endif -%}
+        {%- if m.wash_temp.value != blank -%}<li class="yv-list__item">{% render 'yv-icon', name: 'check', class: 'yv-icon--success' %}<span>Cover comes off and washes at {{ m.wash_temp.value }}°C.</span></li>{%- endif -%}
+        {%- if is_foam and settings.yv_guarantee_enable -%}<li class="yv-list__item">{% render 'yv-icon', name: 'shield', class: 'yv-icon--success' %}<span>{{ settings.yv_guarantee_years | default: 5 }}-year guarantee on the foam core.</span></li>{%- endif -%}
+        {%- if settings.yv_origin_enable and settings.yv_origin_line != blank -%}<li class="yv-list__item">{% render 'yv-icon', name: 'pin', class: 'yv-icon--success' %}<span>{{ settings.yv_origin_line }}.</span></li>{%- endif -%}
+      </ul>
+      {%- if section.settings.show_sizes and product.variants.size > 1 -%}
+      <h3 class="yv-sub" style="margin:2rem 0 1rem">{{ section.settings.sizes_heading }}</h3>
+      <div class="yv-sizes">
+        {%- for v in product.variants -%}
+          <div class="yv-size">
+            <strong>{{ v.title }}{% unless v.available %} · sold out{% endunless %}</strong>
+            {%- if v.metafields.custom.sleep_area.value != blank -%}<span>Sleeps about {{ v.metafields.custom.sleep_area.value }}</span>{%- endif -%}
+            {%- if v.metafields.custom.suits_breeds.value != blank -%}<span>{{ v.metafields.custom.suits_breeds.value }}</span>{%- endif -%}
+            {%- if v.metafields.custom.suits_weight.value != blank -%}<span>{{ v.metafields.custom.suits_weight.value }}</span>{%- endif -%}
+            <span>{{ v.price | money_without_trailing_zeros }}</span>
+          </div>
+        {%- endfor -%}
+      </div>
+      <p class="yv-small yv-muted" style="margin-top:.75rem">{{ section.settings.sizes_note }}{% if settings.yv_whatsapp != blank %} <a href="https://wa.me/{{ settings.yv_whatsapp }}">Send a photo on WhatsApp</a>.{% endif %}</p>
+      {%- endif -%}
+    </div>
+    <aside>
+      <div class="yv-card">
+        <h3 class="yv-sub" style="margin-bottom:1rem">{{ section.settings.spec_heading }}</h3>
+        <ul class="yv-spec">
+          {%- if m.core_type.value != blank -%}<li><span>Core</span><span>{{ m.core_type.value }}</span></li>{%- endif -%}
+          {%- if m.foam_depth.value != blank -%}<li><span>Foam depth</span><span>{{ m.foam_depth.value }}</span></li>{%- endif -%}
+          {%- if m.density_kg_m3.value != blank -%}<li><span>Foam density</span><span>{{ m.density_kg_m3.value }}kg/m³</span></li>{%- endif -%}
+          {%- if m.feel.value != blank -%}<li><span>Feel</span><span>{{ m.feel.value }} of 5 (1 soft, 5 firm)</span></li>{%- endif -%}
+          {%- if m.shape.value != blank -%}<li><span>Shape</span><span>{{ m.shape.value }}</span></li>{%- endif -%}
+          {%- if m.cover.value != blank -%}<li><span>Cover</span><span>{{ m.cover.value }}</span></li>{%- endif -%}
+          {%- if product.variants.size == 1 and product.selected_or_first_available_variant.metafields.custom.sleep_area.value != blank -%}<li><span>Sleeping area</span><span>About {{ product.selected_or_first_available_variant.metafields.custom.sleep_area.value }}</span></li>{%- endif -%}
+          {%- if m.ships_from.value != blank -%}<li><span>Ships from</span><span>{{ m.ships_from.value }}</span></li>{%- endif -%}
+          <li><span>Type</span><span>{{ product.type | split: '>' | last | strip }}</span></li>
+        </ul>
+        <p class="yv-small yv-muted" style="margin-top:1rem">{{ section.settings.spec_note }}</p>
+      </div>
+      {%- if section.settings.show_vet and is_foam -%}
+      <div class="yv-vet" style="margin-top:1.25rem;grid-template-columns:1fr">
+        <div>
+          <strong>{{ section.settings.vet_heading }}</strong>
+          <p class="yv-small" style="margin-top:.5rem">{{ section.settings.vet_text }}</p>
+          {%- if settings.yv_vet_enable and settings.yv_vet_name != blank -%}<p class="yv-vet__who">Reviewed by {{ settings.yv_vet_name }}{% if settings.yv_vet_rcvs != blank %}, RCVS {{ settings.yv_vet_rcvs }}{% endif %}.</p>{%- endif -%}
+        </div>
+      </div>
+      {%- endif -%}
+    </aside>
+  </div>
+</section>
+{%- if section.settings.schema -%}{% render 'yv-schema-product', product: product %}{%- endif -%}
+{% schema %}
+{
+  "name": "PL: Why this bed",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow ([bed] = first word of the title)", "default": "Why the [bed]" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "What the [bed] does for them." },
+    { "type": "checkbox", "id": "show_sizes", "label": "Show size cards", "default": true },
+    { "type": "text", "id": "sizes_heading", "label": "Sizes heading", "default": "Which size?" },
+    { "type": "text", "id": "sizes_note", "label": "Sizes note", "default": "Measure nose to base of tail lying down and add about 20cm. Between two sizes? Go up. Unsure? Send us their breed and weight." },
+    { "type": "text", "id": "spec_heading", "label": "Spec heading", "default": "What's inside" },
+    { "type": "text", "id": "spec_note", "label": "Spec note", "default": "Only what we know for certain is listed. Blank means we haven't measured it, not that it isn't there." },
+    { "type": "checkbox", "id": "show_vet", "label": "Show vet note on foam beds", "default": true },
+    { "type": "text", "id": "vet_heading", "label": "Vet note heading", "default": "Stiff joints or a diagnosis?" },
+    { "type": "textarea", "id": "vet_text", "label": "Vet note", "default": "Foam spreads their weight so hips and elbows don't sink to the floor, and a low front means stepping in rather than climbing over. A bed is for comfort, not a treatment: keep talking to your vet." },
+    { "type": "checkbox", "id": "schema", "label": "Emit Product structured data (switch Yuva's off)", "default": true },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" } ], "default": "page" }
+  ],
+  "presets": [ { "name": "PL: Why this bed" } ]
+}
+{% endschema %}

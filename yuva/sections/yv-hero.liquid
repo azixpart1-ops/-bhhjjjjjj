@@ -1,0 +1,68 @@
+{%- comment -%}
+  PL: Hero. Recognition first ("you notice it before they do"), the
+  mechanism as rational backup, the origin line as provenance, two calls to
+  action: one for the undecided (Bed Finder) and one for the ready.
+  The headline is the H1 of the homepage. Nothing here is a claim the
+  settings don't make.
+{%- endcomment -%}
+{%- render 'yv-assets' -%}
+{%- liquid
+  assign nights = settings.yv_trial_nights | default: 100
+  assign img = section.settings.image
+  if img == blank and section.settings.fallback_product != blank
+    assign img = section.settings.fallback_product.featured_image
+  endif
+  assign lede = section.settings.lede | replace: '[nights]', nights
+-%}
+<section class="yv yv-hero yv--{{ section.settings.tone }}" id="yv-hero" style="padding-top: clamp(2rem, 1rem + 3vw, 6rem)">
+  <div class="yv-wrap yv-split yv-split--media-{{ section.settings.image_position }}">
+    <div class="yv-split__body">
+      {%- if section.settings.eyebrow != blank -%}<span class="yv-eyebrow">{{ section.settings.eyebrow }}</span>{%- endif -%}
+      <h1 class="yv-display">{{ section.settings.heading }}</h1>
+      <div class="yv-lede yv-rte" style="margin-top:2rem">{{ lede }}</div>
+      <div class="yv-actions">
+        <a class="yv-btn yv-btn--primary" href="{{ section.settings.primary_link | default: '/pages/bed-finder' }}">{{ section.settings.primary_label }}</a>
+        <a class="yv-btn yv-btn--secondary" href="{{ section.settings.secondary_link | default: '/collections/dog-beds' }}">{{ section.settings.secondary_label }}</a>
+        {%- if section.settings.primary_note != blank -%}<span class="yv-actions__note">{{ section.settings.primary_note }}</span>{%- endif -%}
+      </div>
+      <ul class="yv-prov" aria-label="In short">
+        {%- if settings.yv_trial_enable -%}<li>{% render 'yv-icon', name: 'moon', class: 'yv-icon--success' %}{{ nights }} nights to decide</li>{%- endif -%}
+        {%- if settings.yv_guarantee_enable -%}<li>{% render 'yv-icon', name: 'shield', class: 'yv-icon--success' %}{{ settings.yv_guarantee_short | default: '5-year foam guarantee' }}</li>{%- endif -%}
+        {%- if settings.yv_origin_enable and settings.yv_origin_line != blank -%}<li>{% render 'yv-icon', name: 'pin', class: 'yv-icon--success' %}{{ settings.yv_origin_line }}</li>{%- endif -%}
+      </ul>
+    </div>
+    <div class="yv-split__media">
+      <div class="yv-media" style="aspect-ratio: 5 / 4; border-radius: var(--yv-radius-lg)">
+        {%- if img != blank -%}
+          {{ img | image_url: width: 1600 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '600, 900, 1200, 1600', sizes: '(min-width: 900px) 50vw, 100vw', alt: section.settings.image_alt | default: img.alt | default: section.settings.heading }}
+        {%- else -%}
+          {{ 'lifestyle-1' | placeholder_svg_tag }}
+        {%- endif -%}
+      </div>
+      {%- if section.settings.caption != blank -%}<p class="yv-small yv-muted" style="margin-top:.75rem">{{ section.settings.caption }}</p>{%- endif -%}
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "name": "PL: Hero",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Orthopaedic and memory foam dog beds" },
+    { "type": "text", "id": "heading", "label": "Headline (the page's H1)", "default": "They've earned a proper bed." },
+    { "type": "richtext", "id": "lede", "label": "Deck", "default": "<p>You notice it before they do. The pause at the bottom of the stairs, the longer stretch before the first step. Our beds are built for how your dog actually sleeps, sized by breed and weight, with [nights] nights at home to be sure.</p>" },
+    { "type": "text", "id": "primary_label", "label": "Primary button", "default": "Find my dog's bed" },
+    { "type": "url", "id": "primary_link", "label": "Primary link" },
+    { "type": "text", "id": "primary_note", "label": "Note under the buttons", "default": "4 questions · 30 seconds · no email" },
+    { "type": "text", "id": "secondary_label", "label": "Secondary button", "default": "Shop all beds" },
+    { "type": "url", "id": "secondary_link", "label": "Secondary link" },
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "product", "id": "fallback_product", "label": "Or use this product's photo" },
+    { "type": "text", "id": "image_alt", "label": "Image alt text", "default": "A greying dog asleep on a memory foam bolster bed" },
+    { "type": "text", "id": "caption", "label": "Caption", "default": "The Grasmere, memory foam bolster sofa" },
+    { "type": "select", "id": "image_position", "label": "Image", "options": [ { "value": "right", "label": "Right" }, { "value": "left", "label": "Left" } ], "default": "right" },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" } ], "default": "page" }
+  ],
+  "presets": [ { "name": "PL: Hero" } ]
+}
+{% endschema %}

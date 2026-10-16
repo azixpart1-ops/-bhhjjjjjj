@@ -1,0 +1,64 @@
+{%- comment -%}
+  PL: Honest proof. Until genuine buyer reviews exist, social proof is the
+  owner's own promise, a store rating line that renders only when filled,
+  an @app block for a reviews app, and merchant-entered quotes that are
+  clearly marked as owner messages (never dressed as reviews).
+{%- endcomment -%}
+{%- render 'yv-assets' -%}
+{%- liquid
+  assign owner = settings.yv_owner_name | default: 'Abbas'
+  assign has_rating = false
+  if settings.yv_store_rating != blank and settings.yv_store_review_count != blank
+    assign has_rating = true
+  endif
+-%}
+<section class="yv yv--{{ section.settings.tone }}">
+  <div class="yv-wrap">
+    <div class="yv-head">
+      <span class="yv-eyebrow">{{ section.settings.eyebrow }}</span>
+      <h2 class="yv-title">{% if has_rating %}{{ section.settings.heading_rated | replace: '[rating]', settings.yv_store_rating | replace: '[count]', settings.yv_store_review_count }}{% else %}{{ section.settings.heading }}{% endif %}</h2>
+    </div>
+    {%- for block in section.blocks -%}
+      {%- if block.type == '@app' -%}<div {{ block.shopify_attributes }}>{% render block %}</div>{%- endif -%}
+    {%- endfor -%}
+    <div class="yv-grid yv-grid--3">
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'quote' -%}
+          <figure class="yv-quote" {{ block.shopify_attributes }}>
+            <blockquote>{{ block.settings.text }}</blockquote>
+            <figcaption><cite>{{ block.settings.who }}</cite></figcaption>
+          </figure>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+    <div class="yv-owner">
+      {%- if settings.yv_owner_photo != blank -%}{{ settings.yv_owner_photo | image_url: width: 120 | image_tag: class: 'yv-owner__photo', alt: owner }}{%- else -%}<span class="yv-owner__photo" aria-hidden="true"></span>{%- endif -%}
+      <p>{{ section.settings.owner_line | replace: '[name]', owner }}</p>
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "name": "PL: Honest proof",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Straight talk" },
+    { "type": "text", "id": "heading", "label": "Heading (no reviews yet)", "default": "No wall of reviews yet. Here's what we can promise instead." },
+    { "type": "text", "id": "heading_rated", "label": "Heading (store rating set)", "default": "Rated [rating] out of 5 by [count] owners." },
+    { "type": "text", "id": "owner_line", "label": "Owner line", "default": "I'm [name]. I answer every message myself, usually the same day. If a bed isn't right, you tell me, and it comes back." },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" } ], "default": "page" }
+  ],
+  "blocks": [
+    { "type": "@app" },
+    { "type": "quote", "name": "Owner's note (not a review)", "limit": 3, "settings": [
+      { "type": "textarea", "id": "text", "label": "Text", "default": "Every size on the site is in centimetres, and where a measurement is the outside rather than the sleeping area, the page says so." },
+      { "type": "text", "id": "who", "label": "Attribution", "default": "A note from Abbas, PawLunova" }
+    ] }
+  ],
+  "presets": [ { "name": "PL: Honest proof", "blocks": [
+    { "type": "quote", "settings": { "text": "Every size on the site is in centimetres, and where a measurement is the outside rather than the sleeping area, the page says so.", "who": "On sizing, from Abbas" } },
+    { "type": "quote", "settings": { "text": "A bed is for comfort, not a treatment. If your dog is in pain, your vet comes first and we'll never tell you otherwise.", "who": "On claims, from Abbas" } },
+    { "type": "quote", "settings": { "text": "Reviews on this site will only ever be from people who bought here. Until there are enough of them, you'll see this instead of stars.", "who": "On reviews, from Abbas" } }
+  ] } ]
+}
+{% endschema %}
