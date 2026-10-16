@@ -224,7 +224,12 @@ These keep Horizon's own sections (so variant handling, filters, the cart and se
 - **Shopify rules the local tools miss.** Shopify rejects a file that contains more than one
   `{% content_for 'blocks' %}` tag, even in branches that never both run ("Duplicate entries for
   content_for blocks"); capture the blocks once and output the variable instead. Keep Liquid tags out of
-  comments, and keep a section from naming itself in a `{% section %}` tag.
+  comments, and keep a section from naming itself in a `{% section %}` tag. On upload Shopify also
+  requires: range settings with at least 3 steps; no `settings` on theme blocks inside a section's
+  `default`; `theme_author` of 25 characters or fewer; and metafield sources in template settings that
+  end in `.value` (`closest.product.metafields.descriptors.subtitle.value`). A theme zip that breaks
+  one of these still imports, but Shopify silently drops the failing file, so check the file list after
+  an upload.
 - **Local preview and checks.** `scripts/theme-dev` renders the theme as a mock storefront:
   `node scripts/theme-dev/server.mjs --theme yuva` (then open http://127.0.0.1:9292), and
   `node scripts/theme-dev/render.mjs <path> --theme yuva` prints render errors for one URL.
