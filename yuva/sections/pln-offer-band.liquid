@@ -1,0 +1,41 @@
+{%- comment -%}
+  PL: Current offer. A real deadline only: read from Theme settings →
+  Current offer. Liquid drops it once the end date has passed on the
+  server; pln.js drops it on the shopper's clock too. No countdown.
+{%- endcomment -%}
+{%- render 'pln-assets' -%}
+{%- liquid
+  assign show = false
+  if settings.pln_offer_enable and settings.pln_offer_ends != blank
+    assign ends = settings.pln_offer_ends | date: '%s' | plus: 0
+    assign now = 'now' | date: '%s' | plus: 0
+    if ends > now
+      assign show = true
+    endif
+  endif
+-%}
+{%- if show -%}
+<section class="pln pln--tight" data-pln-offer-ends="{{ settings.pln_offer_ends }}">
+  <div class="pln-wrap">
+    <div class="pln-offer">
+      <div>
+        <strong>{{ settings.pln_offer_label }}:</strong> £{{ settings.pln_offer_amount }} off orders over £{{ settings.pln_offer_min }}, taken off at checkout until {{ settings.pln_offer_ends | date: '%a %-d %b' }}.
+        {%- if settings.pln_offer_note != blank -%}<small>{{ settings.pln_offer_note }}</small>{%- endif -%}
+      </div>
+      <a class="pln-btn pln-btn--primary" href="{{ section.settings.cta_link | default: '/collections/dog-beds' }}">{{ section.settings.cta_label }}</a>
+    </div>
+  </div>
+</section>
+{%- endif -%}
+{% schema %}
+{
+  "name": "PL: Current offer",
+  "tag": "div",
+  "settings": [
+    { "type": "paragraph", "content": "The offer itself is set in Theme settings → PawLunova promises → Current offer. This section disappears when the offer is off or has ended." },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Shop the beds" },
+    { "type": "url", "id": "cta_link", "label": "Link" }
+  ],
+  "presets": [ { "name": "PL: Current offer" } ]
+}
+{% endschema %}

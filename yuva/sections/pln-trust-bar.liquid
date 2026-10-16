@@ -1,0 +1,84 @@
+{%- comment -%}
+  PL: Trust bar. Risk is removed before the first price is seen. Each item
+  can require a setting (trial / guarantee / delivery / origin) so it never
+  shows a promise the store has switched off. Tokens: [nights] [years]
+  [threshold] [origin] [owner].
+{%- endcomment -%}
+{%- render 'pln-assets' -%}
+{%- liquid
+  assign nights = settings.pln_trial_nights | default: 100
+  assign years = settings.pln_guarantee_years | default: 5
+  assign threshold = settings.pln_free_delivery_threshold | default: 40
+  assign origin = settings.pln_origin_line | default: ''
+  assign owner = settings.pln_owner_name | default: 'Abbas'
+-%}
+<section class="pln pln--tight pln--{{ section.settings.tone }}">
+  <div class="pln-wrap">
+    <ul class="pln-trust" aria-label="Our promises">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign show = true
+          case block.settings.requires
+            when 'trial'
+              unless settings.pln_trial_enable
+                assign show = false
+              endunless
+            when 'guarantee'
+              unless settings.pln_guarantee_enable
+                assign show = false
+              endunless
+            when 'delivery'
+              if threshold == 0
+                assign show = false
+              endif
+            when 'origin'
+              unless settings.pln_origin_enable and origin != ''
+                assign show = false
+              endunless
+          endcase
+        -%}
+        {%- if show -%}
+        <li class="pln-trust__item" {{ block.shopify_attributes }}>
+          {% render 'pln-icon', name: block.settings.icon, class: 'pln-icon--success' %}
+          <div>
+            <strong>{{ block.settings.title | replace: '[nights]', nights | replace: '[years]', years | replace: '[threshold]', threshold | replace: '[origin]', origin | replace: '[owner]', owner }}</strong>
+            <span>{{ block.settings.text | replace: '[nights]', nights | replace: '[years]', years | replace: '[threshold]', threshold | replace: '[origin]', origin | replace: '[owner]', owner }}</span>
+          </div>
+        </li>
+        {%- endif -%}
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+{% schema %}
+{
+  "name": "PL: Trust bar",
+  "tag": "section",
+  "settings": [
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" }, { "value": "calm", "label": "Calm" } ], "default": "oat" }
+  ],
+  "blocks": [
+    {
+      "type": "item", "name": "Promise", "limit": 5,
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "options": [ { "value": "moon", "label": "Moon" }, { "value": "shield", "label": "Shield" }, { "value": "truck", "label": "Van" }, { "value": "chat", "label": "Chat" }, { "value": "pin", "label": "Pin" }, { "value": "paw", "label": "Paw" } ], "default": "moon" },
+        { "type": "text", "id": "title", "label": "Title", "default": "[nights] nights to decide" },
+        { "type": "text", "id": "text", "label": "Text", "default": "Slept on, hair and all. Free collection if it isn't right." },
+        { "type": "select", "id": "requires", "label": "Show only when", "options": [ { "value": "always", "label": "Always" }, { "value": "trial", "label": "Trial is on" }, { "value": "guarantee", "label": "Guarantee is on" }, { "value": "delivery", "label": "Free delivery threshold is set" }, { "value": "origin", "label": "Origin line is on" } ], "default": "always" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "PL: Trust bar",
+      "blocks": [
+        { "type": "item", "settings": { "icon": "moon", "title": "[nights] nights to decide", "text": "Slept on, hair and all. Free collection if it isn't right.", "requires": "trial" } },
+        { "type": "item", "settings": { "icon": "shield", "title": "[years]-year foam guarantee", "text": "On our memory foam beds, marked on each bed's page.", "requires": "guarantee" } },
+        { "type": "item", "settings": { "icon": "pin", "title": "[origin]", "text": "Named for the Lakes, made in the Dales. A small UK business.", "requires": "origin" } },
+        { "type": "item", "settings": { "icon": "truck", "title": "Free UK delivery over £[threshold]", "text": "Tracked, with a dated delivery line before you order.", "requires": "delivery" } },
+        { "type": "item", "settings": { "icon": "chat", "title": "A real person in the UK", "text": "Message [owner] about sizing before you buy, or anything after.", "requires": "always" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

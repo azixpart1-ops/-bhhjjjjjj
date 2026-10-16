@@ -1,0 +1,65 @@
+{%- comment -%}
+  Organization + WebSite structured data, once per page. Render from
+  layout/theme.liquid inside <head>: {% render 'pln-schema-org' %}
+  The origin region comes from settings (Made in Yorkshire). The search
+  action lets Google show a sitelinks search box.
+{%- endcomment -%}
+{%- liquid
+  assign origin = request.origin
+  assign logo = settings.logo | default: settings.pln_owner_photo
+  assign same_as = ''
+  if settings.social_instagram_link != blank
+    assign same_as = same_as | append: settings.social_instagram_link | append: ','
+  endif
+  if settings.social_facebook_link != blank
+    assign same_as = same_as | append: settings.social_facebook_link | append: ','
+  endif
+  if settings.social_tiktok_link != blank
+    assign same_as = same_as | append: settings.social_tiktok_link | append: ','
+  endif
+  if settings.social_pinterest_link != blank
+    assign same_as = same_as | append: settings.social_pinterest_link | append: ','
+  endif
+  assign same_as = same_as | split: ','
+-%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": {{ origin | append: '/#organization' | json }},
+      "name": {{ shop.name | json }},
+      "url": {{ origin | append: routes.root_url | json }},
+      {%- if logo -%}
+      "logo": {{ logo | image_url: width: 600 | prepend: 'https:' | json }},
+      {%- endif -%}
+      "description": {{ shop.description | default: 'Orthopaedic and memory foam dog beds, sorted by how your dog sleeps, with a 100-night trial.' | json }},
+      {%- if settings.pln_origin_enable and settings.pln_origin_region != blank -%}
+      "address": { "@type": "PostalAddress", "addressRegion": {{ settings.pln_origin_region | json }}, {% if settings.pln_origin_town != blank %}"addressLocality": {{ settings.pln_origin_town | json }},{% endif %} "addressCountry": "GB" },
+      "areaServed": "GB",
+      {%- endif -%}
+      {%- if settings.pln_contact_email != blank or settings.pln_contact_phone != blank -%}
+      "contactPoint": { "@type": "ContactPoint", "contactType": "customer service", {% if settings.pln_contact_email != blank %}"email": {{ settings.pln_contact_email | json }},{% endif %} {% if settings.pln_contact_phone != blank %}"telephone": {{ settings.pln_contact_phone | json }},{% endif %} "availableLanguage": "en-GB" },
+      {%- endif -%}
+      {%- if same_as.size > 0 -%}
+      "sameAs": {{ same_as | json }},
+      {%- endif -%}
+      "founder": { "@type": "Person", "name": {{ settings.pln_owner_name | default: 'Abbas' | json }} }
+    },
+    {
+      "@type": "WebSite",
+      "@id": {{ origin | append: '/#website' | json }},
+      "url": {{ origin | append: routes.root_url | json }},
+      "name": {{ shop.name | json }},
+      "publisher": { "@id": {{ origin | append: '/#organization' | json }} },
+      "inLanguage": "en-GB",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": { "@type": "EntryPoint", "urlTemplate": {{ origin | append: routes.search_url | append: '?q={search_term_string}' | json }} },
+        "query-input": "required name=search_term_string"
+      }
+    }
+  ]
+}
+</script>

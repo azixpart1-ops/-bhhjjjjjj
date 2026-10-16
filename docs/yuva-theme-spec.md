@@ -7,7 +7,7 @@ houses and steps named for the Lakes, plus 2 upsell products and a few test
 products to delete), **27 collections**, 13 content pages, 4 menus, 21 redirects.
 
 This document is the whole site, page by page and section by section: what
-each section is, which Yuva feature or `yv-*` custom section builds it, the
+each section is, which Yuva feature or `pln-*` custom section builds it, the
 copy it carries, the psychological job it does, and the SEO it ranks on. The
 code is in `yuva/` (install steps in `yuva/README.md`).
 
@@ -73,46 +73,46 @@ mega menu, swatch filters, infinite scroll, promo popups, age verifier.
 |---|---|
 | Countdown timer, stock counter, "X viewing", promo popups with timers | Not bound to real inventory or a real deadline. Banned practice. |
 | Animated stickers, parallax, image rollover zoom on cards | Core Web Vitals. CLS and INP are ranking signals. |
-| Yuva's product JSON-LD and any reviews app rich snippets | `yv-pdp-why` emits one Product entity. Two conflict. |
-| Yuva's collection banner title | `yv-collection-intro` carries the single H1. |
-| Star ratings on cards and PDP | Until a reviews app holds ≥5 genuine buyer reviews per bed (`yv_show_ratings`). |
+| Yuva's product JSON-LD and any reviews app rich snippets | `pln-pdp-why` emits one Product entity. Two conflict. |
+| Yuva's collection banner title | `pln-collection-intro` carries the single H1. |
+| Star ratings on cards and PDP | Until a reviews app holds ≥5 genuine buyer reviews per bed (`pln_show_ratings`). |
 
 **Custom sections** (`yuva/sections/yv-*.liquid`, 27 files, all self-contained,
-one shared stylesheet and script, scoped under `.yv` so Yuva's CSS is untouched):
+one shared stylesheet and script, scoped under `.pln` so Yuva's CSS is untouched):
 
 | Section (editor name) | File | Job | Lever |
 |---|---|---|---|
-| PL: Hero | yv-hero | H1, deck, dual CTA, three-promise line | Recognition; protective pride |
-| PL: Trust bar | yv-trust-bar | 4–5 promises, each gated on a setting | Risk removed before the first price |
-| PL: Promise strip | yv-marquee | Static repetition of the promises | Mere exposure |
-| PL: Current offer | yv-offer-band | Real end date only; self-removes when over | Honest urgency |
-| PL: Three signs | yv-problem-signs | Self-diagnosis tonight | Problem awareness, no blame |
-| PL: First question | yv-sleep-start | Q1 as picture cards; one tap opens the finder on Q2 | Foot in the door |
-| PL: Bed Finder | yv-bed-finder | 3 questions + name → one bed, right size, add to basket | Choice architecture; endowment; default effect |
-| PL: Good, better, best | yv-ladder | Three real beds, the middle one marked | Anchoring; compromise effect |
-| PL: What's inside | yv-mechanism | Layer cross-section | Specificity; price justification |
-| PL: Real cost | yv-cost-reframe | Price ÷ (years × 365), basis shown | Price reframing |
-| PL: Sleep trial | yv-trial | The trial as a timeline | Risk reversal |
-| PL: The first fortnight | yv-after | Night 1, week 1, week 2 | Anticipated relief; outcome vividness |
-| PL: Vet note | yv-vet-note | What a bed can and can't do, 3 questions for the vet | Authority (honest), uncertainty reduction |
-| PL: Honest proof | yv-honest-proof | Owner's promises, @app block for real reviews | Social proof without fabrication |
-| PL: Shop by need | yv-shop-by-need | 8 collections framed by need | Internal linking; Hick's law |
-| PL: Side by side | yv-comparison | Ours vs generic alternatives | Contrast |
-| PL: Made in Yorkshire | yv-yorkshire | Provenance, Lake District naming | Identity; trust |
-| PL: After you order | yv-order-timeline | Four dated steps | Certainty after the click |
-| PL: FAQ | yv-faq | Objections in buying order + FAQPage schema | Objection handling; rich results |
-| PL: The close | yv-final-cta | Emotional close + the same two CTAs | Peak-end |
-| PL: Sticky finder bar | yv-sticky-bar | Phones: one next step always in reach | Friction removal |
-| PL: Collection intro | yv-collection-intro | H1, intro, breadcrumb, chips, image | Recognition; crawl paths |
-| PL: Start with sleep | yv-need-chips | 4 beds + finder tile above the grid | Hick's law |
-| PL: Collection guide | yv-collection-seo | Long-form body + collection FAQ | Topical depth; FAQ rich results |
-| PL: Why this bed | yv-pdp-why | Why-bullets, size cards, spec card, vet note, Product schema | Specificity; uncertainty reduction |
-| PL: Page body | yv-page-body | H1 + long-form + Article schema + finder aside | Guides that rank |
-| PL: Dead-end rescue | yv-empty-finder | 404 / empty states → the finder | Friction removal |
+| PL: Hero | pln-hero | H1, deck, dual CTA, three-promise line | Recognition; protective pride |
+| PL: Trust bar | pln-trust-bar | 4–5 promises, each gated on a setting | Risk removed before the first price |
+| PL: Promise strip | pln-marquee | Static repetition of the promises | Mere exposure |
+| PL: Current offer | pln-offer-band | Real end date only; self-removes when over | Honest urgency |
+| PL: Three signs | pln-problem-signs | Self-diagnosis tonight | Problem awareness, no blame |
+| PL: First question | pln-sleep-start | Q1 as picture cards; one tap opens the finder on Q2 | Foot in the door |
+| PL: Bed Finder | pln-bed-finder | 3 questions + name → one bed, right size, add to basket | Choice architecture; endowment; default effect |
+| PL: Good, better, best | pln-ladder | Three real beds, the middle one marked | Anchoring; compromise effect |
+| PL: What's inside | pln-mechanism | Layer cross-section | Specificity; price justification |
+| PL: Real cost | pln-cost-reframe | Price ÷ (years × 365), basis shown | Price reframing |
+| PL: Sleep trial | pln-trial | The trial as a timeline | Risk reversal |
+| PL: The first fortnight | pln-after | Night 1, week 1, week 2 | Anticipated relief; outcome vividness |
+| PL: Vet note | pln-vet-note | What a bed can and can't do, 3 questions for the vet | Authority (honest), uncertainty reduction |
+| PL: Honest proof | pln-honest-proof | Owner's promises, @app block for real reviews | Social proof without fabrication |
+| PL: Shop by need | pln-shop-by-need | 8 collections framed by need | Internal linking; Hick's law |
+| PL: Side by side | pln-comparison | Ours vs generic alternatives | Contrast |
+| PL: Made in Yorkshire | pln-yorkshire | Provenance, Lake District naming | Identity; trust |
+| PL: After you order | pln-order-timeline | Four dated steps | Certainty after the click |
+| PL: FAQ | pln-faq | Objections in buying order + FAQPage schema | Objection handling; rich results |
+| PL: The close | pln-final-cta | Emotional close + the same two CTAs | Peak-end |
+| PL: Sticky finder bar | pln-sticky-bar | Phones: one next step always in reach | Friction removal |
+| PL: Collection intro | pln-collection-intro | H1, intro, breadcrumb, chips, image | Recognition; crawl paths |
+| PL: Start with sleep | pln-need-chips | 4 beds + finder tile above the grid | Hick's law |
+| PL: Collection guide | pln-collection-seo | Long-form body + collection FAQ | Topical depth; FAQ rich results |
+| PL: Why this bed | pln-pdp-why | Why-bullets, size cards, spec card, vet note, Product schema | Specificity; uncertainty reduction |
+| PL: Page body | pln-page-body | H1 + long-form + Article schema + finder aside | Guides that rank |
+| PL: Dead-end rescue | pln-empty-finder | 404 / empty states → the finder | Friction removal |
 
-Snippets: `yv-assets`, `yv-icon`, `yv-product-card`, `yv-trial-eligible`,
-`yv-buybox-promise` (the under-the-button block), `yv-schema-org`,
-`yv-schema-product`. Settings group: `yuva/config/yv-settings-group.json`
+Snippets: `pln-assets`, `pln-icon`, `pln-product-card`, `pln-trial-eligible`,
+`pln-buybox-promise` (the under-the-button block), `pln-schema-org`,
+`pln-schema-product`. Settings group: `yuva/config/pln-settings-group.json`
 ("PawLunova promises": origin, trial, guarantee, delivery, who answers, vet,
 social proof, offer, sizing).
 
@@ -193,7 +193,7 @@ Inside Yuva's main product section, in this block order: title (H1, the
 product title) · price · one-line subtitle from `custom.subtitle` (text
 block) · variant picker (sizes with the sleeping area in the label where the
 variant has `sleep_area`) · quantity off · buy buttons (dynamic checkout on)
-· **Custom Liquid block**: `{% render 'yv-buybox-promise', product: product %}`
+· **Custom Liquid block**: `{% render 'pln-buybox-promise', product: product %}`
 · product tabs: Description / What's inside / Delivery & returns · size
 chart (Yuva's, fed from the size guide page).
 
@@ -293,10 +293,10 @@ The 20 collection titles and descriptions already live in Shopify (written
 ### 7.3 Structured data (all in `yuva/snippets`)
 
 - `Organization` (+ `PostalAddress` addressRegion Yorkshire, contact point,
-  founder, sameAs) and `WebSite` with `SearchAction`: `yv-schema-org`, once
+  founder, sameAs) and `WebSite` with `SearchAction`: `pln-schema-org`, once
   from theme.liquid.
 - `Product` + `Offer` per variant (+ shipping, returns, GTIN) and
-  `BreadcrumbList`: `yv-schema-product`, from PL: Why this bed.
+  `BreadcrumbList`: `pln-schema-product`, from PL: Why this bed.
 - `FAQPage`: PL: FAQ (home, FAQ page) and PL: Collection guide. One per page.
 - `Article` with `author` and, when the vet setting is on, `reviewedBy`:
   PL: Page body on guides and the story.
@@ -318,7 +318,7 @@ The 20 collection titles and descriptions already live in Shopify (written
 
 ### 7.5 Speed and crawl
 
-- `yv.css` (~16 KB) and `yv.js` (~14 KB) load once; no third-party fonts
+- `pln.css` (~16 KB) and `pln.js` (~14 KB) load once; no third-party fonts
   beyond Yuva's two; hero image `fetchpriority=high`, everything else lazy.
 - Turn off Yuva's animations, parallax and stickers (CLS/INP); keep
   `prefers-reduced-motion` respected (the yv layer already does).
@@ -429,5 +429,5 @@ told it is true.
 - [ ] Lighthouse mobile on /collections/orthopaedic-dog-beds ≥ 90.
 - [ ] Delivery dates on a Saturday read like Monday's order; a bank holiday
       in the list is skipped.
-- [ ] Offer band disappears the minute after `yv_offer_ends`.
+- [ ] Offer band disappears the minute after `pln_offer_ends`.
 - [ ] Yuva's own product JSON-LD and the reviews app rich snippets are off.

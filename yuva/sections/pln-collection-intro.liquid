@@ -1,0 +1,64 @@
+{%- comment -%}
+  PL: Collection intro. The collection's H1 (its title), a one-paragraph
+  intro that names the dog's behaviour before the product (recognition),
+  the collection image, and quick chips to sibling collections. Place it
+  ABOVE Yuva's main-collection section and switch Yuva's own collection
+  title/banner off, so there is one H1.
+  Intro text: collection.metafields.custom.intro, else the first paragraph
+  of the collection description, else the setting.
+{%- endcomment -%}
+{%- render 'pln-assets' -%}
+{%- liquid
+  assign intro = collection.metafields.custom.intro.value
+  if intro == blank and collection.description != blank
+    assign intro = collection.description | split: '</p>' | first | strip_html | strip
+  endif
+  if intro == blank
+    assign intro = section.settings.fallback_intro
+  endif
+  assign nights = settings.pln_trial_nights | default: 100
+-%}
+<section class="pln pln--{{ section.settings.tone }}" style="padding-bottom:1.5rem">
+  <div class="pln-wrap">
+    <nav class="pln-small pln-muted" aria-label="Breadcrumb" style="margin-bottom:1rem">
+      <a href="{{ routes.root_url }}">Home</a>
+      {%- if collection.handle != 'dog-beds' and collections['dog-beds'].url != blank %} › <a href="{{ collections['dog-beds'].url }}">Dog Beds</a>{%- endif %} › <span aria-current="page">{{ collection.title }}</span>
+    </nav>
+    <div class="pln-split" style="align-items:start">
+      <div>
+        <h1 class="pln-title">{{ collection.title }}</h1>
+        <p class="pln-lede" style="margin-top:1.5rem">{{ intro }}</p>
+        <p class="pln-small pln-muted" style="margin-top:1rem">{{ collection.all_products_count }} bed{% if collection.all_products_count != 1 %}s{% endif %}{% if settings.pln_trial_enable %} · {{ nights }} nights to decide{% endif %}{% if settings.pln_origin_enable and settings.pln_origin_line != blank %} · {{ settings.pln_origin_line }}{% endif %}</p>
+        {%- if section.blocks.size > 0 -%}
+        <div class="pln-chips" aria-label="Related collections">
+          {%- for block in section.blocks -%}
+            {%- assign c = block.settings.collection -%}
+            {%- if c != blank and c.handle != collection.handle -%}<a class="pln-chip" href="{{ c.url }}" {{ block.shopify_attributes }}>{{ block.settings.label | default: c.title }}</a>{%- endif -%}
+          {%- endfor -%}
+        </div>
+        {%- endif -%}
+      </div>
+      {%- if section.settings.show_image and collection.image -%}
+      <div class="pln-media pln-media--4x3" style="border-radius:var(--pln-radius-lg)">{{ collection.image | image_url: width: 1200 | image_tag: loading: 'eager', fetchpriority: 'high', alt: collection.image.alt | default: collection.title }}</div>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "name": "PL: Collection intro",
+  "tag": "div",
+  "settings": [
+    { "type": "checkbox", "id": "show_image", "label": "Show the collection image", "default": true },
+    { "type": "textarea", "id": "fallback_intro", "label": "Intro when the collection has none", "default": "Sorted by how a dog sleeps, not by what's cheapest to ship. Every bed lists what's inside and the sleeping area in centimetres." },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" } ], "default": "page" }
+  ],
+  "blocks": [
+    { "type": "chip", "name": "Related collection", "limit": 8, "settings": [
+      { "type": "collection", "id": "collection", "label": "Collection" },
+      { "type": "text", "id": "label", "label": "Label" }
+    ] }
+  ],
+  "presets": [ { "name": "PL: Collection intro" } ]
+}
+{% endschema %}

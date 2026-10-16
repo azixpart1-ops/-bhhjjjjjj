@@ -1,0 +1,26 @@
+{%- comment -%}
+  Prints "true" if the 100-night trial covers this product, else "false".
+  Rule: trial on; tag trial:no excludes, trial:yes includes; otherwise the
+  product's type or tags must not match a line in Theme settings →
+  PawLunova promises → Not covered by the trial.
+{%- endcomment -%}
+{%- liquid
+  assign ok = false
+  if settings.pln_trial_enable and product != blank
+    assign ok = true
+    if product.tags contains 'trial:no'
+      assign ok = false
+    elsif product.tags contains 'trial:yes'
+      assign ok = true
+    else
+      assign lines = settings.pln_trial_excluded | default: '' | newline_to_br | split: '<br />'
+      assign haystack = product.type | append: ' ' | append: product.title | append: ' ' | append: product.tags | join: ' ' | downcase
+      for line in lines
+        assign needle = line | strip | downcase
+        if needle != '' and haystack contains needle
+          assign ok = false
+        endif
+      endfor
+    endif
+  endif
+-%}{{ ok }}

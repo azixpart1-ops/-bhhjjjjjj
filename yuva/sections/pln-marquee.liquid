@@ -1,0 +1,43 @@
+{%- comment -%}
+  PL: Promise strip. Low-cost repetition of the proof points as a static
+  strip (no animation: Yuva's rotating text loop can replace it if motion
+  is wanted). Reads from settings only.
+{%- endcomment -%}
+{%- render 'pln-assets' -%}
+{%- liquid
+  assign items = ''
+  assign nights = settings.pln_trial_nights | default: 100
+  assign guarantee = settings.pln_guarantee_short | default: '5-year foam guarantee'
+  if settings.pln_trial_enable
+    assign items = items | append: nights | append: ' nights to decide|'
+  endif
+  if settings.pln_guarantee_enable
+    assign items = items | append: guarantee | append: '|'
+  endif
+  if settings.pln_free_delivery_threshold > 0
+    assign items = items | append: 'Free UK delivery over £' | append: settings.pln_free_delivery_threshold | append: '|'
+  endif
+  if settings.pln_origin_enable and settings.pln_origin_line != blank
+    assign items = items | append: settings.pln_origin_line | append: '|'
+  endif
+  if section.settings.extra != blank
+    assign items = items | append: section.settings.extra | append: '|'
+  endif
+  assign items = items | split: '|'
+-%}
+<div class="pln pln--tight pln--{{ section.settings.tone }}" style="padding-block:.75rem;border-block:1px solid var(--pln-sand)">
+  <ul class="pln-wrap" style="list-style:none;margin:0 auto;padding:0;display:flex;flex-wrap:wrap;gap:.5rem 2rem;justify-content:center;font-size:.9375rem">
+    {%- for i in items -%}{%- if i != blank -%}<li>{% render 'pln-icon', name: 'check', class: 'pln-icon--success' %} {{ i }}</li>{%- endif -%}{%- endfor -%}
+  </ul>
+</div>
+{% schema %}
+{
+  "name": "PL: Promise strip",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "extra", "label": "Extra item", "default": "Sized in centimetres, by breed and weight" },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "oat", "label": "Oat" }, { "value": "page", "label": "Page" } ], "default": "oat" }
+  ],
+  "presets": [ { "name": "PL: Promise strip" } ]
+}
+{% endschema %}

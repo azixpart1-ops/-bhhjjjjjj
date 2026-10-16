@@ -1,15 +1,20 @@
 # PawLunova layer for the Yuva theme
 
+> Prefix note: every file, class, CSS variable and setting in this layer is
+> prefixed `pln-` / `pln_` (PawLunova). The store's own "Yuva (Horizon)" theme
+> already uses a `yv-` prefix for its Yuva-look sections and snippets, so the
+> two never collide.
+
 Everything in this folder drops into an unmodified copy of **Yuva** (Shine
 Dezign Infonet). Yuva's own header, footer, cart, product form and collection
-grid stay native; the 27 `yv-*` sections, 7 snippets, one stylesheet and one
+grid stay native; the 27 `pln-*` sections, 7 snippets, one stylesheet and one
 script add the conversion structure, copy and SEO described in
 `docs/yuva-theme-spec.md`.
 
 ```
 yuva/
-  assets/yv.css, yv.js            shared, loaded once, scoped under .yv
-  config/yv-settings-group.json   a settings group to paste into Yuva's settings_schema.json
+  assets/pln.css, pln.js            shared, loaded once, scoped under .pln
+  config/pln-settings-group.json   a settings group to paste into Yuva's settings_schema.json
   snippets/yv-*.liquid            assets loader, icons, product card, trial rule, buy-box promise, schema
   sections/yv-*.liquid            the sections (editor names start "PL: ")
   templates/*.json                index, collection, product, 404, page, page.bed-finder,
@@ -25,12 +30,12 @@ yuva/
    (Or `shopify theme push --only` with the Shopify CLI from this folder
    merged over a theme pull.)
 3. **Settings group**: open `config/settings_schema.json`, and paste the
-   object in `config/yv-settings-group.json` as a new entry at the end of
+   object in `config/pln-settings-group.json` as a new entry at the end of
    the array. Save. Theme settings now shows **PawLunova promises**. Fill it:
    origin line, trial, guarantee, delivery days and bank holidays, who
    answers, offer (off), ratings (off), vet (off until consent).
 4. **Head**: in `layout/theme.liquid`, inside `<head>`, add
-   `{% render 'yv-schema-org' %}` and `<html lang="en-GB">` if Yuva doesn't
+   `{% render 'pln-schema-org' %}` and `<html lang="en-GB">` if Yuva doesn't
    already set the locale. Switch Yuva's product JSON-LD off in its settings
    (or remove its snippet render from the product section).
 5. **Templates**: the JSON templates reference Yuva's `main-product`,
@@ -42,7 +47,7 @@ yuva/
    section → Add block → **Custom Liquid**, placed right after the buy
    buttons, containing:
    ```liquid
-   {% render 'yv-buybox-promise', product: product %}
+   {% render 'pln-buybox-promise', product: product %}
    ```
 7. **Pages**: assign templates in Online Store → Pages: bed-finder →
    `page.bed-finder`; faq → `page.faq`; our-story → `page.about`;
@@ -67,5 +72,5 @@ liner, wash temperature, sleeping areas) are read from the product's own
 
 ```
 python3 scripts/lint-shopify.py --root yuva      # schema and Liquid checks, 0 errors
-node -e "new Function(require('fs').readFileSync('yuva/assets/yv.js','utf8'))"
+node -e "new Function(require('fs').readFileSync('yuva/assets/pln.js','utf8'))"
 ```

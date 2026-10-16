@@ -1,0 +1,71 @@
+{%- comment -%}
+  PL: After you order. Certainty after the click. The arrival step is
+  dated by pln.js from the real dispatch and transit settings and the bank
+  holiday list, so the date shown is the date they get.
+{%- endcomment -%}
+{%- render 'pln-assets' -%}
+{%- liquid
+  assign nights = settings.pln_trial_nights | default: 100
+  assign threshold = settings.pln_free_delivery_threshold | default: 40
+  assign d1 = settings.pln_dispatch_min | default: 1
+  assign d2 = settings.pln_dispatch_max | default: 2
+  assign t1 = settings.pln_transit_min | default: 4
+  assign t2 = settings.pln_transit_max | default: 6
+  assign dispatch = d1 | append: ' to ' | append: d2
+  assign transit = t1 | append: ' to ' | append: t2
+  if d1 == d2
+    assign dispatch = d1
+  endif
+  if t1 == t2
+    assign transit = t1
+  endif
+-%}
+<section class="pln pln--{{ section.settings.tone }}">
+  <div class="pln-wrap">
+    <div class="pln-head">
+      <span class="pln-eyebrow">{{ section.settings.eyebrow }}</span>
+      <h2 class="pln-title">{{ section.settings.heading }}</h2>
+      <p class="pln-lede">{{ section.settings.lede | replace: '[dispatch]', dispatch | replace: '[transit]', transit | replace: '[threshold]', threshold | replace: '[nights]', nights }}</p>
+    </div>
+    <ol class="pln-timeline">
+      {%- for block in section.blocks -%}
+        <li class="pln-tl{% if block.settings.kind == 'arrives' %} pln-tl--arrives{% endif %} pln-reveal" {{ block.shopify_attributes }}>
+          <span class="pln-tl__when">{{ block.settings.when | replace: '[dispatch]', dispatch | replace: '[transit]', transit | replace: '[nights]', nights }}</span>
+          <h3>{{ block.settings.title }}</h3>
+          <p>{{ block.settings.text | replace: '[dispatch]', dispatch | replace: '[transit]', transit | replace: '[threshold]', threshold | replace: '[nights]', nights }}</p>
+          {%- if block.settings.kind == 'arrives' -%}
+            <p class="pln-tl__date" data-pln-delivery="Ordered today: [dates]" data-dispatch-min="{{ d1 }}" data-dispatch-max="{{ d2 }}" data-transit-min="{{ t1 }}" data-transit-max="{{ t2 }}" hidden></p>
+          {%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ol>
+    {%- if section.settings.note != blank -%}<p class="pln-small pln-muted" style="margin-top:1.5rem;max-width:62ch">{{ section.settings.note }}</p>{%- endif -%}
+  </div>
+</section>
+{% schema %}
+{
+  "name": "PL: After you order",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "After you order" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Here's exactly what happens next." },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "No vague 'ships soon'. Own-stock beds leave us in [dispatch] working days and arrive [transit] working days later, tracked, with the dates below worked out for an order placed today." },
+    { "type": "textarea", "id": "note", "label": "Note", "default": "A few beds ship from our partner warehouse and take longer. Their pages say so, with the dates, before you order." },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "calm", "label": "Calm" }, { "value": "page", "label": "Page" } ], "default": "calm" }
+  ],
+  "blocks": [
+    { "type": "step", "name": "Step", "limit": 5, "settings": [
+      { "type": "select", "id": "kind", "label": "Kind", "options": [ { "value": "plain", "label": "Plain" }, { "value": "arrives", "label": "Arrives (dated)" } ], "default": "plain" },
+      { "type": "text", "id": "when", "label": "When", "default": "Today" },
+      { "type": "text", "id": "title", "label": "Title" },
+      { "type": "textarea", "id": "text", "label": "Text" }
+    ] }
+  ],
+  "presets": [ { "name": "PL: After you order", "blocks": [
+    { "type": "step", "settings": { "kind": "plain", "when": "Today", "title": "You order", "text": "A few taps. Card, PayPal, Apple Pay or Google Pay, on a secure checkout." } },
+    { "type": "step", "settings": { "kind": "plain", "when": "Within [dispatch] working days", "title": "It's dispatched", "text": "Own stock leaves us tracked. The tracking number lands in your inbox the moment it does." } },
+    { "type": "step", "settings": { "kind": "arrives", "when": "[transit] working days after dispatch", "title": "It arrives", "text": "Free over £[threshold]. Put it where they already sleep, with a blanket that smells of home on top." } },
+    { "type": "step", "settings": { "kind": "plain", "when": "Night 1 of [nights]", "title": "Your trial starts", "text": "Your [nights] nights start the day it arrives. Not right? Tell us and we collect it free, slept on, hair and all." } }
+  ] } ]
+}
+{% endschema %}

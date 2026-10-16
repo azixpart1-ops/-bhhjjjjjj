@@ -1,0 +1,167 @@
+{%- comment -%}
+  PL: Bed Finder. Choice architecture: 3 questions + the dog's name → one
+  bed in the right size, addable from the result. Merchant "Match" blocks
+  map sleeping style × joints to a product; sizes are resolved from the
+  product's own variants in the browser (pln.js). Dog's name stays on the
+  device. Trial + guarantee sit under the Add button (risk reversal).
+  Honest only: no stock counts, no timers.
+{%- endcomment -%}
+{%- render 'pln-assets' -%}
+{%- liquid
+  assign nights = settings.pln_trial_nights | default: 100
+  assign years = settings.pln_guarantee_years | default: 5
+  assign risk = ''
+  if settings.pln_trial_enable
+    assign risk = '<strong>' | append: nights | append: ' nights to decide.</strong> Sleep on it. If it isn’t right we collect it free and refund every penny.'
+  endif
+  if settings.pln_guarantee_enable
+    assign risk = risk | append: ' Memory foam beds carry a ' | append: years | append: '-year foam guarantee.'
+  endif
+  assign hints = settings.pln_size_hints | default: '' | newline_to_br | split: '<br />'
+-%}
+<pln-bed-finder id="bed-finder">
+<section class="pln pln--{{ section.settings.tone }}">
+  <div class="pln-wrap pln-finder">
+    <div class="pln-head" style="margin-bottom:1.5rem">
+      <span class="pln-eyebrow">{{ section.settings.eyebrow }}</span>
+      <h2 class="pln-title">{{ section.settings.heading }}</h2>
+    </div>
+    <div class="pln-finder__progress"><span data-step-label>Step 1 of 4</span><div class="pln-finder__bar" aria-hidden="true"><i></i></div></div>
+
+    <div class="pln-finder__step" data-step="1">
+      <h3 class="pln-sub">{{ section.settings.style_heading }}</h3>
+      <p class="pln-muted" style="margin-top:.5rem">{{ section.settings.style_text }}</p>
+      <div class="pln-finder__options">
+        <button type="button" class="pln-finder__opt" data-key="style" data-value="curl"><strong>Curls up</strong><span>Nose under the tail, back into something.</span></button>
+        <button type="button" class="pln-finder__opt" data-key="style" data-value="lean"><strong>Leans on something</strong><span>Chin on an arm, a cushion, or you.</span></button>
+        <button type="button" class="pln-finder__opt" data-key="style" data-value="sprawl"><strong>Sprawls flat out</strong><span>On their side, legs at full stretch.</span></button>
+      </div>
+    </div>
+
+    <div class="pln-finder__step" data-step="2" hidden>
+      <h3 class="pln-sub">{{ section.settings.stage_heading }}</h3>
+      <p class="pln-muted" style="margin-top:.5rem">{{ section.settings.stage_text }}</p>
+      <div class="pln-finder__options">
+        <button type="button" class="pln-finder__opt" data-key="stage" data-value="fine"><strong>No concerns</strong><span>Up like a shot, no stiffness.</span></button>
+        <button type="button" class="pln-finder__opt" data-key="stage" data-value="slowing"><strong>Slowing down</strong><span>A pause before the stairs, a slower first step.</span></button>
+        <button type="button" class="pln-finder__opt" data-key="stage" data-value="diagnosed"><strong>Stiff or diagnosed</strong><span>Arthritis, hips, or your vet has said so.</span></button>
+      </div>
+      <div class="pln-finder__nav"><button type="button" class="pln-btn pln-btn--ghost" data-back>Back</button></div>
+    </div>
+
+    <div class="pln-finder__step" data-step="3" hidden>
+      <h3 class="pln-sub">{{ section.settings.size_heading }}</h3>
+      <p class="pln-muted" style="margin-top:.5rem">{{ section.settings.size_text }}</p>
+      <div class="pln-finder__options">
+        {%- for h in hints -%}
+          {%- assign parts = h | split: '|' -%}
+          {%- if parts.size >= 2 -%}
+          <button type="button" class="pln-finder__opt" data-key="size" data-value="{{ parts[0] | strip }}"><strong>{{ parts[1] | strip }}</strong><span>{{ parts[2] | strip }}{% if parts[3] != blank %} · {{ parts[3] | strip }}{% endif %}</span></button>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+      <div class="pln-finder__nav"><button type="button" class="pln-btn pln-btn--ghost" data-back>Back</button></div>
+    </div>
+
+    <div class="pln-finder__step" data-step="4" hidden>
+      <h3 class="pln-sub">{{ section.settings.name_heading }}</h3>
+      <p class="pln-muted" style="margin-top:.5rem">{{ section.settings.name_text }}</p>
+      <form class="pln-finder__name">
+        <label class="pln-visually-hidden" for="pln-dog-name">Your dog's name</label>
+        <input id="pln-dog-name" type="text" maxlength="24" autocomplete="off" placeholder="Their name">
+        <button type="submit" class="pln-btn pln-btn--primary">Show me the bed</button>
+        <button type="button" class="pln-btn pln-btn--ghost" data-skip>Skip</button>
+      </form>
+      <div class="pln-finder__nav"><button type="button" class="pln-btn pln-btn--ghost" data-back>Back</button></div>
+    </div>
+
+    <div class="pln-finder__step" data-step="5" hidden>
+      <div class="pln-finder__status" role="status" aria-live="polite" data-status></div>
+      <div class="pln-result" data-result aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+<script type="application/json">
+{
+  "perNight": {{ section.settings.show_per_night | json }},
+  "guaranteeYears": {{ years | json }},
+  "riskText": {{ risk | json }},
+  "vetNote": {{ section.settings.vet_note | json }},
+  "strings": {
+    "heading": "Our recommendation",
+    "headingNamed": "[dog]'s bed",
+    "whyCurl": "Walls and a raised edge for a dog who curls up and presses their back into something.",
+    "whyLean": "A bolster or arm at the right height for a chin, so the neck and shoulders rest.",
+    "whySprawl": "Open surface edge to edge, so [dog] can lie flat out without a wall in the way.",
+    "whyFine": "Supportive without being firm; a bed that still holds its shape next winter.",
+    "whySlowing": "Foam that spreads their weight and a low way in, for the slower first step.",
+    "whyDiagnosed": "Memory foam over a support layer for hips and elbows, with the lowest step-in we make. Keep talking to your vet; a bed is for comfort, not a treatment.",
+    "whySize": "Size [size], from what you told us about [dog].",
+    "sizeLine": "Size: [size]",
+    "sizeUp": "Your size is sold out just now, so we've picked the next size up.",
+    "perNight": "About [per] a night over the [years]-year foam guarantee.",
+    "add": "Add to basket · [price]",
+    "addNamed": "Add [dog]'s bed · [price]",
+    "adding": "Adding…",
+    "addError": "Couldn't add it. Open the bed instead.",
+    "details": "See the bed",
+    "restart": "Start again",
+    "matching": "Matching…",
+    "empty": "Nothing matches yet. Browse every bed instead."
+  },
+  "matches": [
+    {%- for block in section.blocks -%}
+      {%- assign p = block.settings.product -%}
+      {%- if p != blank -%}
+      {%- liquid
+        assign foam = false
+        if p.metafields.custom.core_type.value contains 'foam' or p.title contains 'Memory Foam' or p.tags contains 'memory foam dog bed' or p.tags contains 'Memory foam'
+          assign foam = true
+        endif
+      -%}
+      { "style": {{ block.settings.style | json }}, "stage": {{ block.settings.stage | json }}, "url": {{ p.url | json }}, "title": {{ p.title | json }}, "price": {{ p.price_min | json }}, "available": {{ p.available | json }}, "foam": {{ foam | json }}, "image": {{ p.featured_image | image_url: width: 900 | json }} }{%- unless forloop.last -%},{%- endunless -%}
+      {%- endif -%}
+    {%- endfor -%}
+  ]
+}
+</script>
+</pln-bed-finder>
+{% schema %}
+{
+  "name": "PL: Bed Finder",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Four questions" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Find the bed they'll actually use." },
+    { "type": "text", "id": "style_heading", "label": "Q1 heading", "default": "How do they sleep?" },
+    { "type": "text", "id": "style_text", "label": "Q1 text", "default": "How you find them at 2am, not how they settle at 9pm." },
+    { "type": "text", "id": "stage_heading", "label": "Q2 heading", "default": "How are their joints?" },
+    { "type": "text", "id": "stage_text", "label": "Q2 text", "default": "Be honest; this decides how much support goes underneath." },
+    { "type": "text", "id": "size_heading", "label": "Q3 heading", "default": "How big are they?" },
+    { "type": "text", "id": "size_text", "label": "Q3 text", "default": "By weight is more reliable than by breed. Between two? Go up." },
+    { "type": "text", "id": "name_heading", "label": "Q4 heading", "default": "And their name?" },
+    { "type": "text", "id": "name_text", "label": "Q4 text", "default": "Optional. It stays on your device and only changes what we call the bed." },
+    { "type": "checkbox", "id": "show_per_night", "label": "Show per-night cost on foam beds", "default": true },
+    { "type": "text", "id": "vet_note", "label": "Vet note under the result", "default": "If your dog is in pain or recovering, keep talking to your vet. A bed changes how much effort lying down and getting up take; it isn't a treatment." },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" } ], "default": "oat" }
+  ],
+  "blocks": [
+    { "type": "match", "name": "Match", "settings": [
+      { "type": "select", "id": "style", "label": "Sleeping style", "options": [ { "value": "curl", "label": "Curls up" }, { "value": "lean", "label": "Leans on something" }, { "value": "sprawl", "label": "Sprawls flat out" } ], "default": "curl" },
+      { "type": "select", "id": "stage", "label": "Joints", "options": [ { "value": "fine", "label": "No concerns" }, { "value": "slowing", "label": "Slowing down" }, { "value": "diagnosed", "label": "Stiff or diagnosed" } ], "default": "fine" },
+      { "type": "product", "id": "product", "label": "Bed" }
+    ] }
+  ],
+  "presets": [ { "name": "PL: Bed Finder", "blocks": [
+    { "type": "match", "settings": { "style": "curl", "stage": "fine" } },
+    { "type": "match", "settings": { "style": "curl", "stage": "slowing" } },
+    { "type": "match", "settings": { "style": "curl", "stage": "diagnosed" } },
+    { "type": "match", "settings": { "style": "lean", "stage": "fine" } },
+    { "type": "match", "settings": { "style": "lean", "stage": "slowing" } },
+    { "type": "match", "settings": { "style": "lean", "stage": "diagnosed" } },
+    { "type": "match", "settings": { "style": "sprawl", "stage": "fine" } },
+    { "type": "match", "settings": { "style": "sprawl", "stage": "slowing" } },
+    { "type": "match", "settings": { "style": "sprawl", "stage": "diagnosed" } }
+  ] } ]
+}
+{% endschema %}
