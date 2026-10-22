@@ -1,5 +1,11 @@
 # Lunova: what's live and what's left
 
+> **Superseded on the store.** Since 12 October the published theme is the
+> Horizon-based "Yuva" build with the `pln-` layer (`yuva/`, `docs/yuva-theme-spec.md`);
+> the latest change to it is the product page pass in `docs/yuva-pdp-pass-oct2026.md`.
+> The Lunova theme below is unpublished. Its data rules (metafields, claims, policies)
+> still describe the store's content.
+
 October 2026 build: the mobile conversion audit
 (`docs/PawLunova_Mobile_Conversion_Audit_Oct2026.pdf`, contract in `docs/audit-oct-contract.md`).
 

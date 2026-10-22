@@ -2,35 +2,57 @@
   PL: Real cost. Price framing: price ÷ (guarantee years × 365), rounded
   up, with the basis printed. Compared with small everyday spends the
   merchant enters (no invented "competitor" prices).
+  On a product page, with no bed picked in the settings, it prices the
+  bed being viewed (foam beds only, since the maths rests on the foam
+  guarantee) and hides the "See the bed" button, which would point at itself.
 {%- endcomment -%}
 {%- render 'pln-assets' -%}
 {%- liquid
   assign p = section.settings.product
+  assign on_self = false
+  if p == blank and template.name == 'product'
+    assign p = product
+    assign on_self = true
+  elsif template.name == 'product' and p.id == product.id
+    assign on_self = true
+  endif
   assign years = settings.pln_guarantee_years | default: 5
   assign price = 0
+  assign is_foam = true
   if p != blank
     assign price = p.price_min
+    if on_self
+      assign is_foam = false
+      if p.metafields.custom.foam_guarantee.value == true
+        assign is_foam = true
+      elsif p.metafields.custom.foam_guarantee.value == false
+        assign is_foam = false
+      elsif p.metafields.custom.core_type.value contains 'foam' or p.metafields.custom.core_type.value contains 'Foam' or p.title contains 'Memory Foam'
+        assign is_foam = true
+      endif
+    endif
   endif
+  assign short = p.title | split: ' ' | first
   capture per_night_html
     echo '<span data-pln-per-night="' | append: price | append: '" data-years="' | append: years | append: '"><span data-value>a few pence</span></span>'
   endcapture
   assign heading_html = section.settings.heading | replace: '[per_night]', per_night_html
   assign price_text = price | money_without_trailing_zeros
 -%}
-{%- if p != blank and settings.pln_guarantee_enable -%}
+{%- if p != blank and settings.pln_guarantee_enable and is_foam -%}
 <section class="pln pln--{{ section.settings.tone }}">
   <div class="pln-wrap pln-cost">
     <div>
       <span class="pln-eyebrow">{{ section.settings.eyebrow }}</span>
       <h2 class="pln-title">{{ heading_html }}</h2>
-      <div class="pln-lede pln-rte" style="margin-top:2rem">{{ section.settings.body | replace: '[years]', years | replace: '[bed]', p.title | replace: '[price]', price_text }}</div>
-      <p class="pln-cost__basis">Worked out as the {{ p.title }} at {{ p.price_min | money_without_trailing_zeros }}, divided by {{ years }} years of nights ({{ years | times: 365 }}). Rounded up, never down.</p>
-      <div class="pln-actions"><a class="pln-btn pln-btn--secondary" href="{{ p.url }}">See the {{ p.title | split: ' ' | first }}</a></div>
+      <div class="pln-lede pln-rte" style="margin-top:2rem">{{ section.settings.body | replace: '[years]', years | replace: '[bed]', short | replace: '[price]', price_text }}</div>
+      <p class="pln-cost__basis">Worked out as the {{ short }} at {{ p.price_min | money_without_trailing_zeros }}{% if p.variants.size > 1 %} (smallest size){% endif %}, divided by {{ years }} years of nights ({{ years | times: 365 }}). Rounded up, never down.</p>
+      {%- unless on_self -%}<div class="pln-actions"><a class="pln-btn pln-btn--secondary" href="{{ p.url }}">See the {{ short }}</a></div>{%- endunless -%}
     </div>
     <div>
       <h3 class="pln-sub" style="margin-bottom:1rem">{{ section.settings.compare_heading }}</h3>
       <ul class="pln-compare">
-        <li><span>The {{ p.title | split: ' ' | first }}, per night</span><strong data-pln-per-night="{{ price }}" data-years="{{ years }}"><span data-value></span></strong></li>
+        <li><span>The {{ short }}, per night</span><strong data-pln-per-night="{{ price }}" data-years="{{ years }}"><span data-value></span></strong></li>
         {%- for block in section.blocks -%}
           <li {{ block.shopify_attributes }}><span>{{ block.settings.label }}</span><strong>{{ block.settings.price | times: 100 | round | money_without_trailing_zeros }}</strong></li>
         {%- endfor -%}
@@ -44,10 +66,10 @@
   "name": "PL: Real cost",
   "tag": "div",
   "settings": [
-    { "type": "product", "id": "product", "label": "Bed to price (a memory foam bed)" },
+    { "type": "product", "id": "product", "label": "Bed to price", "info": "Leave empty on product pages to price the bed being viewed." },
     { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "What it really costs" },
     { "type": "text", "id": "heading", "label": "Heading", "default": "About [per_night] a night." },
-    { "type": "richtext", "id": "body", "label": "Body", "default": "<p>Dogs spend twelve to fourteen hours a day lying down. Spread over the [years] years the foam is guaranteed for, a bed that actually holds them up works out at pennies a night. Worth comparing with a bed that's flat by spring, and the one you buy to replace it.</p>" },
+    { "type": "richtext", "id": "body", "label": "Body ([bed] [years] [price])", "default": "<p>Dogs spend twelve to fourteen hours a day lying down. Spread over the [years] years the foam is guaranteed for, a bed that actually holds them up works out at pennies a night. Worth comparing with a bed that's flat by spring, and the one you buy to replace it.</p>" },
     { "type": "text", "id": "compare_heading", "label": "Comparison heading", "default": "The same money, elsewhere" },
     { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" } ], "default": "page" }
   ],

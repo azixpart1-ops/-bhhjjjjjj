@@ -1,0 +1,111 @@
+{%- comment -%}
+  PL: Will it go flat? The objection every review thread in the category
+  comes back to, answered with the numbers this product actually carries
+  (custom.core_type, foam_depth, density_kg_m3) and the guarantee from
+  settings, with its exclusions in the same breath. Right-hand side: what's
+  inside, layer by layer, from the same metafields (cover_type / cover,
+  wash_temp, has_liner, non_slip). Blank metafields are skipped, never
+  guessed. Non-foam beds get the honest version: soft, not firm.
+  Tokens: [bed] [nights] [years] [core].
+{%- endcomment -%}
+{%- render 'pln-assets' -%}
+{%- liquid
+  assign m = product.metafields.custom
+  assign short = product.title | split: ' ' | first
+  assign nights = settings.pln_trial_nights | default: 100
+  assign years = settings.pln_guarantee_years | default: 5
+  assign is_foam = false
+  if m.foam_guarantee.value == true
+    assign is_foam = true
+  elsif m.foam_guarantee.value == false
+    assign is_foam = false
+  elsif m.core_type.value contains 'foam' or m.core_type.value contains 'Foam' or product.title contains 'Memory Foam'
+    assign is_foam = true
+  endif
+  assign core = m.core_type.value
+  assign core_label = core | default: 'fibre'
+  assign depth = m.foam_depth.value
+  assign density = m.density_kg_m3.value
+  assign cover = m.cover_type.value | default: m.cover.value
+  assign wash = m.wash_temp.value
+  assign threshold = section.settings.threshold_pct | default: 0
+  assign guarantee_line = section.settings.guarantee_text | replace: '[years]', years | replace: '[bed]', short
+  if threshold > 0
+    assign guarantee_line = section.settings.guarantee_text_threshold | replace: '[years]', years | replace: '[bed]', short | replace: '[pct]', threshold
+  endif
+-%}
+<section class="pln pln--{{ section.settings.tone }}" id="will-it-go-flat">
+  <div class="pln-wrap pln-split">
+    <div class="pln-split__body">
+      {%- if is_foam -%}
+      <span class="pln-eyebrow">{{ section.settings.eyebrow }}</span>
+      <h2 class="pln-title">{{ section.settings.heading | replace: '[bed]', short }}</h2>
+      <div class="pln-lede pln-rte" style="margin-top:2rem">{{ section.settings.lede | replace: '[bed]', short }}</div>
+      <ul class="pln-list" style="margin-top:1.75rem">
+        {%- if core != blank -%}<li class="pln-list__item">{% render 'pln-icon', name: 'check', class: 'pln-icon--success' %}<span><strong>{{ core }}{% if depth != blank %}, {{ depth }} deep{% endif %}.</strong> {{ section.settings.core_note }}</span></li>{%- endif -%}
+        {%- if density != blank -%}<li class="pln-list__item">{% render 'pln-icon', name: 'check', class: 'pln-icon--success' %}<span><strong>Foam density {{ density }}kg/m³.</strong> {{ section.settings.density_note }}</span></li>{%- endif -%}
+        {%- if m.feel.value != blank -%}<li class="pln-list__item">{% render 'pln-icon', name: 'moon', class: 'pln-icon--success' %}<span><strong>Feel {{ m.feel.value }} of 5</strong> (1 soft, 5 firm). Firmness is how it feels on day one; the core is what decides month six.</span></li>{%- endif -%}
+        {%- if settings.pln_guarantee_enable -%}<li class="pln-list__item">{% render 'pln-icon', name: 'shield', class: 'pln-icon--success' %}<span><strong>{{ years }}-year foam guarantee.</strong> {{ guarantee_line }}{% if section.settings.claim_link != blank %} <a href="{{ section.settings.claim_link }}">How a claim works</a>.{% endif %}</span></li>{%- endif -%}
+        <li class="pln-list__item">{% render 'pln-icon', name: 'moon', class: 'pln-icon--success' %}<span><strong>{{ nights }} nights to find out for yourself.</strong> Slept on, hair and all. If it isn't right, it comes back.</span></li>
+      </ul>
+      {%- if section.settings.test_heading != blank -%}
+      <div class="pln-card" style="margin-top:1.75rem">
+        <strong>{{ section.settings.test_heading }}</strong>
+        <p class="pln-small" style="margin-top:.5rem">{{ section.settings.test_text | replace: '[years]', years | replace: '[bed]', short }}</p>
+      </div>
+      {%- endif -%}
+      {%- else -%}
+      <span class="pln-eyebrow">{{ section.settings.soft_eyebrow }}</span>
+      <h2 class="pln-title">{{ section.settings.soft_heading | replace: '[bed]', short }}</h2>
+      <div class="pln-lede pln-rte" style="margin-top:2rem">{{ section.settings.soft_text | replace: '[bed]', short | replace: '[core]', core_label | replace: '[nights]', nights | replace: '[years]', years }}</div>
+      <div class="pln-actions"><a class="pln-btn pln-btn--secondary" href="{{ section.settings.foam_link | default: '/collections/orthopaedic-dog-beds' }}">{{ section.settings.foam_label }}</a></div>
+      {%- endif -%}
+    </div>
+    <div class="pln-split__media">
+      {%- if section.settings.image != blank -%}
+        <div class="pln-media" style="aspect-ratio:4/5;border-radius:var(--pln-radius-lg)">{{ section.settings.image | image_url: width: 1200 | image_tag: loading: 'lazy', alt: section.settings.image_alt | default: 'Cross-section of the bed, layer by layer' }}</div>
+      {%- endif -%}
+      <h3 class="pln-sub" style="margin:{% if section.settings.image != blank %}1.5rem{% else %}0{% endif %} 0 1rem">{{ section.settings.layers_heading | replace: '[bed]', short }}</h3>
+      <ol class="pln-layers">
+        <li class="pln-layer"><div><strong>Cover{% if cover != blank %}<em>{{ cover }}</em>{% endif %}</strong><p>{% if wash != blank %}Comes off and washes at {{ wash }}°C.{% elsif cover contains 'Zip' or cover contains 'zip' or cover contains 'off' %}Comes off to wash, following the care label sewn into it.{% elsif cover contains 'ipe' or cover contains 'oated' or cover contains 'aterproof' %}Wipes clean.{% else %}Follow the care label sewn into it.{% endif %}</p></div></li>
+        {%- if m.has_liner.value == true -%}<li class="pln-layer"><div><strong>Waterproof inner liner</strong><p>Sits between cover and core, so a wet coat or an accident stops before the foam.</p></div></li>{%- endif -%}
+        <li class="pln-layer"><div><strong>{{ core | default: 'Core' }}{% if depth != blank %}<em>{{ depth }}</em>{% endif %}</strong><p>{% if is_foam %}{% if density != blank %}{{ density }}kg/m³. {% endif %}The part the {{ years }}-year guarantee covers.{% else %}Soft filling. Not under the foam guarantee; the {{ nights }}-night trial still applies.{% endif %}</p></div></li>
+        {%- if m.non_slip.value == true -%}<li class="pln-layer"><div><strong>Non-slip base</strong><p>Grips wood and tile, so the bed stays where you put it.</p></div></li>{%- endif -%}
+      </ol>
+      <p class="pln-small pln-muted" style="margin-top:1rem">{{ section.settings.caption }}</p>
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "name": "PL: Will it go flat?",
+  "tag": "div",
+  "settings": [
+    { "type": "header", "content": "Foam beds" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The question we get asked most" },
+    { "type": "text", "id": "heading", "label": "Heading ([bed] = first word of the title)", "default": "Will it go flat?" },
+    { "type": "richtext", "id": "lede", "label": "Lede", "default": "<p>Fair question, because it's how most dog beds end: plump in the shop, flat by spring, and a dog sleeping on the floor with a cover over it. So here is what's actually inside the [bed], and what we'll do if it ever lets you down.</p>" },
+    { "type": "text", "id": "core_note", "label": "Note after the core line", "default": "Foam, not loose filling that packs down." },
+    { "type": "text", "id": "density_note", "label": "Note after the density line", "default": "Density, not feel, is what decides whether a foam still holds its shape in month six." },
+    { "type": "textarea", "id": "guarantee_text", "label": "Guarantee wording (no threshold set)", "default": "If the foam loses its structure under normal use inside [years] years, we replace the foam. Covers, zips and liners wear with use and sit outside it." },
+    { "type": "range", "id": "threshold_pct", "label": "Measured threshold (% depth loss). 0 = off", "min": 0, "max": 30, "step": 1, "default": 0, "info": "Only set this once you have a written claim process and a test you can run. Then the guarantee becomes measurable." },
+    { "type": "textarea", "id": "guarantee_text_threshold", "label": "Guarantee wording (threshold set)", "default": "If it loses more than [pct]% of its depth at the centre within [years] years of normal use, we replace the foam. Covers, zips and liners wear with use and sit outside it." },
+    { "type": "url", "id": "claim_link", "label": "How a claim works (link)" },
+    { "type": "text", "id": "test_heading", "label": "Hand test heading", "default": "The hand test, tonight" },
+    { "type": "textarea", "id": "test_text", "label": "Hand test text", "default": "Press a flat hand into the middle of their current bed, where they lie. If you can feel the floor through it, so can their hips and elbows. Do the same on the [bed] whenever you like: if the foam ever fails that test under normal use inside the guarantee, that's exactly what the guarantee is for." },
+    { "type": "header", "content": "Fibre and mesh beds" },
+    { "type": "text", "id": "soft_eyebrow", "label": "Eyebrow", "default": "Straight answer" },
+    { "type": "text", "id": "soft_heading", "label": "Heading", "default": "Soft, not firm." },
+    { "type": "richtext", "id": "soft_text", "label": "Text ([core] = the core type)", "default": "<p>The [bed] is a [core] bed: soft to sink into rather than supportive underneath, and it isn't under the foam guarantee. For a dog who gets up stiff, a foam bed will do more for them. For a dog who wants somewhere soft, this is it. The [nights]-night trial applies either way.</p>" },
+    { "type": "text", "id": "foam_label", "label": "Button", "default": "See the foam beds" },
+    { "type": "url", "id": "foam_link", "label": "Button link" },
+    { "type": "header", "content": "Layers" },
+    { "type": "text", "id": "layers_heading", "label": "Layers heading", "default": "Inside the [bed], top to bottom" },
+    { "type": "image_picker", "id": "image", "label": "Cross-section photo (optional)" },
+    { "type": "text", "id": "image_alt", "label": "Image alt" },
+    { "type": "text", "id": "caption", "label": "Caption", "default": "Only what we know for certain is listed. Blank means we haven't measured it, not that it isn't there." },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "moss", "label": "Moss (dark)" }, { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" } ], "default": "moss" }
+  ],
+  "presets": [ { "name": "PL: Will it go flat?" } ]
+}
+{% endschema %}

@@ -185,17 +185,22 @@ collection → **PL: Trust bar** (calm) → **PL: Collection guide** → sticky 
 
 ## 5. Product page (`templates/product.json`)
 
-Order: Yuva main product → **PL: Why this bed** → **PL: Sleep trial** →
-**PL: After you order** → **PL: FAQ** (product set, no schema) → Yuva
-recommendations.
+Order (as live, 22 Oct 2026): Yuva main product → **PL: Why this bed** →
+**PL: Owners' questions** (`custom.qa`) → **PL: Right for your dog?** →
+**PL: Will it go flat?** → **PL: Washing & accidents** → **PL: Sleep trial** →
+**PL: Real cost** → **PL: Honest proof** → **PL: FAQ** (product set, no schema) →
+Yuva recommendations → recently viewed. The product page pass that set this is
+in `docs/yuva-pdp-pass-oct2026.md`.
 
 Inside Yuva's main product section, in this block order: title (H1, the
-product title) · price · one-line subtitle from `custom.subtitle` (text
-block) · variant picker (sizes with the sleeping area in the label where the
-variant has `sleep_area`) · quantity off · buy buttons (dynamic checkout on)
-· **Custom Liquid block**: `{% render 'pln-buybox-promise', product: product %}`
-· product tabs: Description / What's inside / Delivery & returns · size
-chart (Yuva's, fed from the size guide page).
+product title) · subtitle (`descriptors.subtitle`) · reviews app block · price
+(left, no currency code, no shipping line) · variant picker · **Custom Liquid**
+`{% render 'pln-size-fit', product: product %}` (size help: the selected size's
+sleeping area, breeds and weight when set, best-for line, measuring rule, ask by
+WhatsApp or Bed Finder) · quantity and stock count off · buy buttons (dynamic
+checkout on) · **Custom Liquid** `{% render 'pln-buybox-promise', product: product %}`
+· payment logos · **Custom Liquid** `{% render 'pln-worth-it', product: product %}`
+(`custom.worth_it`) · product tabs: Description / Delivery & returns / Guarantee.
 
 The Custom Liquid block renders, directly under *Add to basket*:
 dated delivery (*Order today, arrives Fri 23 Oct to Tue 27 Oct*) · free UK

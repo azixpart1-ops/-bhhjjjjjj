@@ -14,8 +14,12 @@ script add the conversion structure, copy and SEO described in
 ```
 yuva/
   assets/pln.css, pln.js            shared, loaded once, scoped under .pln
+  assets/pln-pdp.css                product-page-only styles (size help, Worth it?, owners' questions)
+  assets/pln-gold.css, pln-surface.css  the store's Horizon build: button colours, surface tints
+  blocks/_pln-card-buy.liquid       Horizon only: buy button + two promises on a product card
   config/pln-settings-group.json   a settings group to paste into Yuva's settings_schema.json
-  snippets/pln-*.liquid            assets loader, icons, product card, trial rule, buy-box promise, schema
+  snippets/pln-*.liquid            assets loader, icons, product card, trial rule, buy-box promise, schema,
+                                    size help (pln-size-fit), Worth it? (pln-worth-it), cart promises
   sections/pln-*.liquid            the sections (editor names start "PL: ")
   templates/*.json                index, collection, product, 404, page, page.bed-finder,
                                   page.faq, page.about, page.100-night-trial, page.guide
@@ -49,6 +53,11 @@ yuva/
    ```liquid
    {% render 'pln-buybox-promise', product: product %}
    ```
+   Two more Custom Liquid blocks finish the buy column (22 Oct 2026 pass,
+   `docs/yuva-pdp-pass-oct2026.md`): `{% render 'pln-size-fit', product: product %}`
+   straight after the variant picker, and `{% render 'pln-worth-it', product: product %}`
+   under the payment logos. Remove Yuva's quantity and stock-count blocks; the
+   stylesheet `pln-pdp.css` hides the form's own stepper.
 7. **Pages**: assign templates in Online Store → Pages: bed-finder →
    `page.bed-finder`; faq → `page.faq`; our-story → `page.about`;
    100-night-trial → `page.100-night-trial`; size-guide, foam-explained,

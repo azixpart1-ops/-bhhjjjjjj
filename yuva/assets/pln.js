@@ -24,6 +24,12 @@
    endowment (the dog's name, kept on the device), default effect (size
    pre-chosen), price framing (per-night with its working), risk reversal
    (trial + guarantee under the button). No invented urgency anywhere.
+
+   20 Oct 2026: the dataset keys for delivery, per-night and offer-ends read
+   data-yv-* while the markup writes data-pln-*, so the per-night price never
+   filled and delivery only worked through its fallback string. Corrected to
+   plnDelivery / plnPerNight / plnOfferEnds. Reveal also now shows everything
+   after 1.5s as a failsafe, and the CSS no longer hides content without it.
    ========================================================================== */
 (function () {
   'use strict';
@@ -69,7 +75,7 @@
     qsa('[data-pln-delivery]').forEach(function (el) {
       var d = el.dataset;
       var w = deliveryWindow(+d.dispatchMin || 0, +d.dispatchMax || 0, +d.transitMin || 0, +d.transitMax || 0);
-      var tpl = d.yvDelivery || 'Arrives [dates]';
+      var tpl = d.plnDelivery || 'Arrives [dates]';
       el.textContent = tpl.replace('[dates]', w.text);
       el.hidden = false;
     });
@@ -83,7 +89,7 @@
   }
   function initPerNight() {
     qsa('[data-pln-per-night]').forEach(function (el) {
-      var pence = +el.dataset.yvPerNight, years = +el.dataset.years || cfg.guaranteeYears || 5;
+      var pence = +el.dataset.plnPerNight, years = +el.dataset.years || cfg.guaranteeYears || 5;
       if (!pence) return;
       qsa('[data-value]', el).forEach(function (v) { v.textContent = perNight(pence, years); });
       el.hidden = false;
@@ -94,11 +100,13 @@
   function initReveal() {
     var els = qsa('.pln-reveal');
     if (!els.length) return;
-    if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('is-in'); }); return; }
+    var showAll = function () { els.forEach(function (e) { e.classList.add('is-in'); }); };
+    if (!('IntersectionObserver' in window)) { showAll(); return; }
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('is-in'); io.unobserve(en.target); } });
     }, { rootMargin: '0px 0px -8% 0px' });
     els.forEach(function (e) { io.observe(e); });
+    setTimeout(showAll, 1500); /* failsafe: nothing stays hidden if the observer never fires */
   }
 
   /* ---------------- 4. Sticky bar ---------------- */
@@ -119,7 +127,7 @@
   /* ---------------- 5. Offer gate ---------------- */
   function initOffer() {
     qsa('[data-pln-offer-ends]').forEach(function (el) {
-      var t = Date.parse(el.dataset.yvOfferEnds.replace(' ', 'T'));
+      var t = Date.parse(el.dataset.plnOfferEnds.replace(' ', 'T'));
       if (t && Date.now() > t) el.remove();
     });
   }

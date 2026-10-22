@@ -1,0 +1,136 @@
+{%- comment -%}
+  PL: Right for your dog? Self-selection in the owner's own words, placed
+  before the long scroll so the wrong fit leaves now rather than after a
+  return. Three cards: "Yes, if" (the buyer recognising their own dog),
+  "Think twice if" (honest redirection), "Straight answers" (what the bed
+  is not). Merchant lines come from the blocks. Auto lines read only from
+  the product's own metafields (custom.best_for, core_type, low_entry,
+  ships_from, foam_guarantee) and never guess. Tokens: [bed] [nights]
+  [years].
+  20 Oct 2026: the "Still not sure?" note now always carries a button to
+  message Abbas (WhatsApp with a pre-filled message when Theme settings has
+  a number, otherwise the contact page, or the button link if one is set).
+{%- endcomment -%}
+{%- render 'pln-assets' -%}
+{%- liquid
+  assign m = product.metafields.custom
+  assign short = product.title | split: ' ' | first
+  assign nights = settings.pln_trial_nights | default: 100
+  assign years = settings.pln_guarantee_years | default: 5
+  assign is_foam = false
+  if m.foam_guarantee.value == true
+    assign is_foam = true
+  elsif m.foam_guarantee.value == false
+    assign is_foam = false
+  elsif m.core_type.value contains 'foam' or m.core_type.value contains 'Foam' or product.title contains 'Memory Foam'
+    assign is_foam = true
+  endif
+  assign core = m.core_type.value | downcase
+  assign best_for = m.best_for.value | downcase
+  assign partner = false
+  if m.ships_from.value == 'Partner warehouse'
+    assign partner = true
+  endif
+  capture trial_ok
+    render 'pln-trial-eligible', product: product
+  endcapture
+  assign trial_ok = trial_ok | strip
+  assign biggest = product.variants | last
+
+  assign owner = settings.pln_owner_name | default: 'Abbas'
+  assign cta_label = section.settings.cta_label | default: 'Message [name] with their breed and weight' | replace: '[name]', owner | replace: '[bed]', short
+  assign cta_external = false
+  if section.settings.cta_link != blank
+    assign cta_href = section.settings.cta_link
+  elsif settings.pln_whatsapp != blank
+    assign wa_text = 'Hi ' | append: owner | append: ', which size ' | append: short | append: ' for my dog? Breed: . Weight: kg.' | url_encode
+    assign cta_href = 'https://wa.me/' | append: settings.pln_whatsapp | append: '?text=' | append: wa_text
+    assign cta_external = true
+  else
+    assign cta_href = pages['contact'].url | default: '/pages/contact'
+  endif
+-%}
+<section class="pln pln--{{ section.settings.tone }}" id="right-for-your-dog">
+  <div class="pln-wrap">
+    <div class="pln-head">
+      <span class="pln-eyebrow">{{ section.settings.eyebrow | replace: '[bed]', short }}</span>
+      <h2 class="pln-title">{{ section.settings.heading | replace: '[bed]', short }}</h2>
+      {%- if section.settings.lede != blank -%}<p class="pln-lede">{{ section.settings.lede | replace: '[bed]', short }}</p>{%- endif -%}
+    </div>
+    <div class="pln-grid pln-grid--3">
+      <article class="pln-card">
+        <h3 class="pln-sub" style="margin-bottom:1rem">{{ section.settings.yes_heading }}</h3>
+        <ul class="pln-list">
+          {%- for block in section.blocks -%}{%- if block.type == 'yes' -%}
+            <li class="pln-list__item" {{ block.shopify_attributes }}>{% render 'pln-icon', name: 'check', class: 'pln-icon--success' %}<span>{{ block.settings.text | replace: '[bed]', short | replace: '[nights]', nights | replace: '[years]', years }}</span></li>
+          {%- endif -%}{%- endfor -%}
+          {%- if best_for != blank -%}<li class="pln-list__item">{% render 'pln-icon', name: 'paw', class: 'pln-icon--success' %}<span>Made with {{ best_for }} in mind.</span></li>{%- endif -%}
+          {%- if m.low_entry.value == true -%}<li class="pln-list__item">{% render 'pln-icon', name: 'check', class: 'pln-icon--success' %}<span>They struggle to lift a paw over a high side. This one is a low step-in{% if m.entry_height_cm.value != blank %}, about {{ m.entry_height_cm.value }}cm{% endif %}.</span></li>{%- endif -%}
+          {%- if product.variants.size > 1 -%}<li class="pln-list__item">{% render 'pln-icon', name: 'ruler', class: 'pln-icon--success' %}<span>Sizes run up to {{ biggest.title }}. Measure them lying stretched out, add about 20cm, and compare with the size cards above.</span></li>{%- endif -%}
+        </ul>
+      </article>
+      <article class="pln-card">
+        <h3 class="pln-sub" style="margin-bottom:1rem">{{ section.settings.no_heading }}</h3>
+        <ul class="pln-list">
+          {%- for block in section.blocks -%}{%- if block.type == 'no' -%}
+            <li class="pln-list__item" {{ block.shopify_attributes }}>{% render 'pln-icon', name: 'arrow' %}<span>{{ block.settings.text | replace: '[bed]', short | replace: '[nights]', nights | replace: '[years]', years }}</span></li>
+          {%- endif -%}{%- endfor -%}
+          {%- if m.low_entry.value == false -%}<li class="pln-list__item">{% render 'pln-icon', name: 'arrow' %}<span>They struggle to lift a paw. There's a step into this one, so look at the <a href="{{ section.settings.low_link | default: '/collections/dog-beds-for-older-dogs' }}">low step-in beds</a> first.</span></li>{%- endif -%}
+          {%- if is_foam == false -%}<li class="pln-list__item">{% render 'pln-icon', name: 'arrow' %}<span>They get up stiff. This is a {{ core | default: 'fibre' }} bed, soft rather than supportive, so a <a href="{{ section.settings.foam_link | default: '/collections/orthopaedic-dog-beds' }}">foam bed</a> will do more for them.</span></li>{%- endif -%}
+          {%- if section.settings.alt_label != blank and section.settings.alt_link != blank -%}<li class="pln-list__item">{% render 'pln-icon', name: 'arrow' %}<span><a href="{{ section.settings.alt_link }}">{{ section.settings.alt_label }}</a></span></li>{%- endif -%}
+        </ul>
+      </article>
+      <article class="pln-card">
+        <h3 class="pln-sub" style="margin-bottom:1rem">{{ section.settings.note_heading }}</h3>
+        <ul class="pln-list">
+          {%- for block in section.blocks -%}{%- if block.type == 'note' -%}
+            <li class="pln-list__item" {{ block.shopify_attributes }}>{% render 'pln-icon', name: 'chat', class: 'pln-icon--success' %}<span>{{ block.settings.text | replace: '[bed]', short | replace: '[nights]', nights | replace: '[years]', years }}</span></li>
+          {%- endif -%}{%- endfor -%}
+          {%- if trial_ok == 'true' -%}<li class="pln-list__item">{% render 'pln-icon', name: 'moon', class: 'pln-icon--success' %}<span>{{ nights }} nights to decide, slept on. If it isn't right, tell us and it comes back{% if settings.pln_trial_free_collection %}, collected free from the UK mainland{% endif %}, refunded in full.</span></li>{%- endif -%}
+          {%- if is_foam and settings.pln_guarantee_enable -%}<li class="pln-list__item">{% render 'pln-icon', name: 'shield', class: 'pln-icon--success' %}<span>The foam core is guaranteed for {{ years }} years. Covers, zips and liners wear with use and sit outside it.</span></li>{%- endif -%}
+          {%- if partner -%}<li class="pln-list__item">{% render 'pln-icon', name: 'truck', class: 'pln-icon--success' %}<span>Ships from our partner warehouse, so it takes longer than our own stock. Message us for the expected date before you order.</span></li>{%- endif -%}
+        </ul>
+      </article>
+    </div>
+    <div class="pln-fit-help" style="display:flex;flex-wrap:wrap;align-items:center;gap:.75rem 1rem;margin-top:1.5rem">
+      {%- if section.settings.note != blank -%}<p class="pln-sub" style="margin:0">{{ section.settings.note | replace: '[bed]', short }}</p>{%- endif -%}
+      <a class="pln-btn pln-btn--secondary" href="{{ cta_href }}"{% if cta_external %} target="_blank" rel="noopener"{% endif %}>{{ cta_label }}</a>
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "name": "PL: Right for your dog?",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow ([bed] = first word of the title)", "default": "Before you add it" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Is the [bed] right for your dog?" },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "Honest answers now beat a return later. Here's who this bed is for, and who it isn't." },
+    { "type": "text", "id": "yes_heading", "label": "First card heading", "default": "Yes, if" },
+    { "type": "text", "id": "no_heading", "label": "Second card heading", "default": "Think twice if" },
+    { "type": "text", "id": "note_heading", "label": "Third card heading", "default": "Straight answers" },
+    { "type": "text", "id": "alt_label", "label": "Alternative link label (optional)" },
+    { "type": "url", "id": "alt_link", "label": "Alternative link" },
+    { "type": "url", "id": "low_link", "label": "Low step-in beds link" },
+    { "type": "url", "id": "foam_link", "label": "Foam beds link (shown on fibre beds)" },
+    { "type": "textarea", "id": "note", "label": "Note under the cards", "default": "Still not sure?" },
+    { "type": "text", "id": "cta_label", "label": "Button under the note ([name] = owner name)", "default": "Message [name] with their breed and weight" },
+    { "type": "url", "id": "cta_link", "label": "Button link", "info": "Leave blank for WhatsApp (when Theme settings has a number) or the contact page." },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "oat", "label": "Oat" }, { "value": "page", "label": "Page" }, { "value": "warm", "label": "Warm" } ], "default": "oat" }
+  ],
+  "blocks": [
+    { "type": "yes", "name": "Yes, if", "limit": 5, "settings": [ { "type": "textarea", "id": "text", "label": "Line", "default": "They've started taking a moment to get up in the morning." } ] },
+    { "type": "no", "name": "Think twice if", "limit": 4, "settings": [ { "type": "textarea", "id": "text", "label": "Line", "default": "They chew beds. Nothing on this site is chew-proof, and covers sit outside the guarantee." } ] },
+    { "type": "note", "name": "Straight answer", "limit": 4, "settings": [ { "type": "textarea", "id": "text", "label": "Line", "default": "A bed is for comfort, not a treatment. If they're in pain, your vet comes first." } ] }
+  ],
+  "presets": [ { "name": "PL: Right for your dog?", "blocks": [
+    { "type": "yes", "settings": { "text": "They've started taking a moment to get up in the morning." } },
+    { "type": "yes", "settings": { "text": "They've started choosing the floor over their old bed." } },
+    { "type": "yes", "settings": { "text": "You've already paid for a bed that went flat, and you'd rather not do it twice." } },
+    { "type": "no", "settings": { "text": "They chew beds. Nothing on this site is chew-proof, and covers sit outside the guarantee." } },
+    { "type": "no", "settings": { "text": "You're guessing the size. Don't: measure them lying down, or send us a photo." } },
+    { "type": "note", "settings": { "text": "A bed is for comfort, not a treatment. If they're in pain, your vet comes first, and we'll never tell you otherwise." } },
+    { "type": "note", "settings": { "text": "Every size is in centimetres. Where a measurement is the outside rather than the sleeping area, the page says so." } }
+  ] } ]
+}
+{% endschema %}

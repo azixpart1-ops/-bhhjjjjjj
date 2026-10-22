@@ -1,0 +1,57 @@
+{%- comment -%}
+  PawLunova: what the shopper gets, shown under the Checkout button in the
+  cart drawer and on the cart page (rendered from snippets/cart-summary.liquid).
+  Each line shows only when it is true for what's in the basket:
+    - the trial, if at least one item is covered (snippets/pln-trial-eligible)
+    - the foam guarantee, if at least one item is a memory foam bed
+    - secure checkout (Shopify's own checkout)
+  Free delivery is handled by Yuva's shipping bar at the top of the drawer.
+  Styles: assets/pln-gold.css section 5.
+{%- endcomment -%}
+{%- liquid
+  assign nights = settings.pln_trial_nights | default: 100
+  assign years = settings.pln_guarantee_years | default: 5
+  assign any_trial = false
+  assign any_foam = false
+
+  for item in cart.items
+    capture item_trial
+      render 'pln-trial-eligible', product: item.product
+    endcapture
+    if item_trial contains 'true'
+      assign any_trial = true
+    endif
+
+    assign p = item.product
+    if p.metafields.custom.foam_guarantee.value == true
+      assign any_foam = true
+    elsif p.metafields.custom.foam_guarantee.value == false
+      continue
+    elsif p.metafields.custom.core_type.value contains 'foam' or p.title contains 'Memory Foam'
+      assign any_foam = true
+    endif
+  endfor
+-%}
+{%- if cart.item_count > 0 -%}
+  <ul class="pln-cart-promise" aria-label="Included with your order">
+    {%- if any_trial -%}
+      <li>
+        {% render 'pln-icon', name: 'moon' %}
+        <span>
+          <strong>{{ nights }} nights to decide.</strong>
+          {% if settings.pln_trial_free_collection %}If it isn't right, we collect it free and refund you.{% else %}If it isn't right, send it back for a full refund.{% endif %}
+        </span>
+      </li>
+    {%- endif -%}
+    {%- if any_foam and settings.pln_guarantee_enable -%}
+      <li>
+        {% render 'pln-icon', name: 'shield' %}
+        <span><strong>{{ years }}-year foam guarantee</strong> on your memory foam bed.</span>
+      </li>
+    {%- endif -%}
+    <li>
+      {% render 'pln-icon', name: 'lock' %}
+      <span>Secure checkout. Questions? {{ settings.pln_owner_name | default: 'Abbas' }} answers them personally.</span>
+    </li>
+  </ul>
+{%- endif -%}

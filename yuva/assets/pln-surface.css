@@ -1,0 +1,107 @@
+/* ==========================================================================
+   PawLunova on Yuva — pln-surface.css  (surface + layout pass, 16 Oct 2026)
+   Loaded straight after pln.css by snippets/pln-assets.liquid. Everything in
+   here is additive and uses the same tokens; nothing in pln.css is edited.
+
+   The homepage surface code (set per section in templates/index.json):
+
+     page  · bone  #faf6ef   reading, tools, tables
+                             hero · first question + bed finder · real cost ·
+                             honest proof · comparison · FAQ
+     oat   ·       #f1e9db   a grid of things to look at or pick from
+                             three signs · good/better/best · vet note ·
+                             shop by need · Yorkshire
+     calm  · green #e4ece6   promises and delivery
+                             trust bar · the trial · order timeline
+     warm  · clay  #f5e2d7   the one emotional payoff
+                             the first fortnight
+     moss  · dark  #1a2b24   anchors
+                             what's inside · final call to action
+
+   Rule of thumb: no two neighbours share a surface unless they are one flow
+   (first question → bed finder), and that pair gets a tighter join below.
+   ========================================================================== */
+
+/* ---------- 1. Cards always sit one step off their surface ----------
+   pln.css draws cards in bone. On a bone (page) surface they vanished behind
+   a hairline. On oat they already read as lighter tiles, so leave those. */
+.pln--page .pln-card,
+.pln--page .pln-style,
+.pln--page .pln-finder__opt,
+.pln--page .pln-need,
+.pln--page .pln-size {
+  background: var(--pln-oat);
+  border-color: var(--pln-sand);
+}
+.pln--page .pln-card--pick { background: var(--pln-accent-tint); }
+.pln--page .pln-card .pln-media,
+.pln--page .pln-style .pln-media { background: var(--pln-sand); }
+
+/* The reverse: oat-coloured tiles on an oat surface flip to bone. */
+.pln--oat .pln-quote,
+.pln--oat .pln-compare li,
+.pln--oat .pln-result__size { background: var(--pln-bone); }
+
+/* ---------- 2. Section rhythm ----------
+   Two neighbours on the same surface read as one block with a hole in it.
+   Close the join to a third of the normal gap. Shopify wraps every section
+   in .shopify-section, and two pln sections sit inside custom elements, so
+   match on descendants. */
+.shopify-section:has(.pln--page) + .shopify-section:has(.pln--page) .pln,
+.shopify-section:has(.pln--oat)  + .shopify-section:has(.pln--oat)  .pln,
+.shopify-section:has(.pln--calm) + .shopify-section:has(.pln--calm) .pln,
+.shopify-section:has(.pln--warm) + .shopify-section:has(.pln--warm) .pln,
+.shopify-section:has(.pln--moss) + .shopify-section:has(.pln--moss) .pln {
+  padding-top: calc(var(--pln-pad) * 0.35);
+}
+
+/* Anchor jumps (#bed-finder, #pln-hero) land clear of the sticky header. */
+.pln[id], pln-bed-finder[id] { scroll-margin-top: 5rem; }
+
+/* Tiles that are links lift a touch on hover. */
+.pln-need { transition: transform 180ms var(--pln-ease), border-color 180ms var(--pln-ease); }
+.pln-need:hover { transform: translateY(-2px); border-color: var(--pln-line); }
+
+/* ---------- 3. Phones ---------- */
+@media (max-width: 767px) {
+  :root { --pln-pad: clamp(2.5rem, 2rem + 2vw, 3.5rem); }
+
+  /* Trust bar: five stacked promises pushed the problem a full screen down.
+     Two columns, the odd last one spanning the row. */
+  .pln-trust { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 0.875rem; }
+  .pln-trust__item { flex-direction: column; gap: 0.5rem; }
+  .pln-trust__item .pln-icon { width: 1.25rem; height: 1.25rem; }
+  .pln-trust__item strong { font-size: 0.9375rem; line-height: 1.25; }
+  .pln-trust__item span { font-size: 0.8125rem; line-height: 1.35; }
+  .pln-trust__item:last-child:nth-child(odd) { grid-column: 1 / -1; flex-direction: row; }
+
+  /* First question: picture left, words right, instead of three tall cards. */
+  .pln-style {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    column-gap: 1rem;
+    row-gap: 0.25rem;
+    align-items: start;
+    padding: 1rem;
+  }
+  .pln-style .pln-media { grid-row: 1 / span 3; aspect-ratio: 1; }
+  .pln-style h3 { font-size: 1.125rem; }
+  .pln-style p { font-size: 0.9375rem; }
+  .pln-style__cta { margin-top: 0.25rem; }
+
+  /* Good / better / best: the sensible pick comes first on a phone. */
+  .pln-ladder .pln-card--pick { order: -1; }
+
+  /* Shop by need: eight tiles in two columns, not one long column. */
+  .pln-needs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  .pln-need__body { padding: 0 0.875rem 0.875rem; }
+  .pln-need h3 { font-size: 1rem; line-height: 1.2; }
+  .pln-need p { font-size: 0.8125rem; }
+  .pln-need__count { font-size: 0.8125rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pln-need { transition: none; }
+  .pln-need:hover { transform: none; }
+}

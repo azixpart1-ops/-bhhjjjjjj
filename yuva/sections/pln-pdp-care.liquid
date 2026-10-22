@@ -1,0 +1,88 @@
+{%- comment -%}
+  PL: Wet coats, accidents and washing. The second-biggest category
+  complaint after flattening is a bed you can't wash, or a liner you can't
+  remove that ends up smelling. Three cards from the product's own
+  metafields (custom.cover_type / cover, wash_temp, has_liner) plus an
+  optional spare-cover product. Nothing is claimed that a metafield
+  doesn't carry. Tokens: [bed] [nights].
+  20 Oct 2026: when has_liner is unset the accidents card now says so
+  directly instead of sending the reader back up the page to check.
+{%- endcomment -%}
+{%- render 'pln-assets' -%}
+{%- liquid
+  assign m = product.metafields.custom
+  assign short = product.title | split: ' ' | first
+  assign nights = settings.pln_trial_nights | default: 100
+  assign cover = m.cover_type.value | default: m.cover.value
+  assign wash = m.wash_temp.value
+  assign spare = section.settings.spare_product
+  assign comes_off = false
+  if wash != blank or cover contains 'Zip' or cover contains 'zip' or cover contains 'off' or cover contains 'emovable'
+    assign comes_off = true
+  endif
+  assign wipes = false
+  if cover contains 'ipe' or cover contains 'oated' or cover contains 'aterproof'
+    assign wipes = true
+  endif
+-%}
+<section class="pln pln--{{ section.settings.tone }}" id="washing">
+  <div class="pln-wrap">
+    <div class="pln-head">
+      <span class="pln-eyebrow">{{ section.settings.eyebrow }}</span>
+      <h2 class="pln-title">{{ section.settings.heading | replace: '[bed]', short }}</h2>
+      {%- if section.settings.lede != blank -%}<p class="pln-lede">{{ section.settings.lede | replace: '[bed]', short }}</p>{%- endif -%}
+    </div>
+    <div class="pln-grid pln-grid--3">
+      <article class="pln-card">
+        <h3 class="pln-sub" style="margin-bottom:.75rem">{{ section.settings.wash_heading }}</h3>
+        <p class="pln-muted">
+          {%- if wash != blank -%}The cover comes off and washes at {{ wash }}°C. Air-dry it rather than tumble-dry.
+          {%- elsif comes_off -%}The cover comes off. Wash it following the care label sewn into it, and air-dry.
+          {%- elsif wipes -%}The cover is {{ cover | downcase }}: wipe it clean rather than machine washing.
+          {%- else -%}Follow the care label sewn into the cover.
+          {%- endif %} Foam is never machine washed.{% if section.settings.care_link != blank %} <a href="{{ section.settings.care_link }}">Care guide</a>.{% endif %}
+        </p>
+      </article>
+      <article class="pln-card">
+        <h3 class="pln-sub" style="margin-bottom:.75rem">{{ section.settings.accident_heading }}</h3>
+        <p class="pln-muted">
+          {%- if m.has_liner.value == true -%}A waterproof inner liner sits between cover and core, so a wet coat or an accident stops before the foam. Wipe or wash the liner; it comes off too.
+          {%- elsif m.has_liner.value == false -%}The {{ short }} has no separate waterproof liner. If accidents are likely, protect the core with a liner or keep a second cover ready{% if section.settings.care_link != blank %}; the <a href="{{ section.settings.care_link }}">care guide</a> shows how{% endif %}.
+          {%- else -%}The {{ short }} is not listed with a waterproof liner, so treat it as having none. If accidents are likely, keep a second cover ready and ask us before you order.
+          {%- endif -%}
+        </p>
+      </article>
+      <article class="pln-card">
+        <h3 class="pln-sub" style="margin-bottom:.75rem">{{ section.settings.spare_heading }}</h3>
+        {%- if spare != blank -%}
+          <p class="pln-muted">{{ section.settings.spare_text | replace: '[bed]', short }}</p>
+          <div class="pln-actions" style="margin-top:1rem"><a class="pln-btn pln-btn--secondary" href="{{ spare.url }}">{{ spare.title }} · {{ spare.price_min | money_without_trailing_zeros }}</a></div>
+        {%- else -%}
+          <p class="pln-muted">{{ section.settings.spare_fallback | replace: '[bed]', short }}{% if settings.pln_whatsapp != blank %} <a href="https://wa.me/{{ settings.pln_whatsapp }}">Ask on WhatsApp</a>.{% endif %}</p>
+        {%- endif -%}
+      </article>
+    </div>
+    {%- if section.settings.note != blank -%}<p class="pln-small pln-muted" style="margin-top:1.5rem;max-width:60ch">{{ section.settings.note | replace: '[bed]', short | replace: '[nights]', nights }}</p>{%- endif -%}
+  </div>
+</section>
+{% schema %}
+{
+  "name": "PL: Washing & accidents",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Wet coats, accidents and washing" },
+    { "type": "text", "id": "heading", "label": "Heading ([bed] = first word of the title)", "default": "The bit nobody mentions until February." },
+    { "type": "textarea", "id": "lede", "label": "Lede", "default": "A bed that can't be washed is a bed you'll throw away. Here's how the [bed] stays a bed you'd let in the living room." },
+    { "type": "text", "id": "wash_heading", "label": "Washing card heading", "default": "Washing it" },
+    { "type": "text", "id": "accident_heading", "label": "Accidents card heading", "default": "Accidents and wet dogs" },
+    { "type": "text", "id": "spare_heading", "label": "Spare cover card heading", "default": "One on the bed, one in the wash" },
+    { "type": "product", "id": "spare_product", "label": "Spare cover product (optional)" },
+    { "type": "textarea", "id": "spare_text", "label": "Text when a spare cover is set", "default": "A second cover means the [bed] is never out of action on wash day, and the old-bed smell never gets a foothold." },
+    { "type": "textarea", "id": "spare_fallback", "label": "Text when no spare cover is set", "default": "Ask us about a spare cover before you order. A second cover means the bed is never out of action on wash day." },
+    { "type": "url", "id": "care_link", "label": "Care guide link" },
+    { "type": "textarea", "id": "note", "label": "Note", "default": "If it arrives rolled or vacuum-packed, unroll it somewhere ventilated and give it a few hours to come back to full depth before they try it." },
+    { "type": "select", "id": "tone", "label": "Surface", "options": [ { "value": "page", "label": "Page" }, { "value": "oat", "label": "Oat" }, { "value": "calm", "label": "Calm" } ], "default": "page" }
+  ],
+  "presets": [ { "name": "PL: Washing & accidents" } ]
+}
+{% endschema %}

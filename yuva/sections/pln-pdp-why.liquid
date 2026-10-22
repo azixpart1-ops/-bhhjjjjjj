@@ -4,8 +4,15 @@
   product's own metafields (custom.why, custom.sleep_style, custom.low_entry,
   custom.has_liner, custom.non_slip, custom.wash_temp) and never guessed.
   Right: "What's inside" spec card (custom.core_type, foam_depth, feel,
-  density_kg_m3) and size cards from the variants (variant.metafields.
-  custom.sleep_area / suits_breeds / suits_weight).
+  density_kg_m3, shape, cover_type, cover_fabric, wash_temp, non_slip,
+  bed_weight, ships_from) and size cards from the variants
+  (variant.metafields.custom.sleep_area / suits_breeds / suits_weight).
+  20 Oct 2026: Cover row now reads custom.cover_type (it was reading a key
+  that doesn't exist, so it never showed). Added Cover wash, Base and Bed
+  weight rows. The note under the card only shows when it has text.
+  20 Oct 2026 (later): the "Best for" line now uses custom.best_for when it
+  is set, and otherwise turns the sleep_style labels into real phrases, so
+  it no longer prints "dogs who head on the edge".
   Also emits the Product + Breadcrumb JSON-LD (snippets/pln-schema-product),
   so switch off Yuva's own product structured data.
 {%- endcomment -%}
@@ -17,7 +24,10 @@
   if m.core_type.value contains 'foam' or product.title contains 'Memory Foam'
     assign is_foam = true
   endif
-  assign styles = m.sleep_style.value | join: ', '
+  assign best_for = m.best_for.value
+  assign styles = m.sleep_style.value | join: ' or ' | replace: 'Curls up', 'curl up' | replace: 'Curled up', 'curl up' | replace: 'Stretches out', 'stretch out' | replace: 'Stretched out', 'stretch out' | replace: 'Head on the edge', 'rest their head on the edge' | replace: 'Sprawls', 'sprawl' | replace: 'Leans', 'lean'
+  assign cover_style = m.cover_type.value | default: m.cover.value
+  assign cover_fabric = m.cover_fabric.value
 -%}
 <section class="pln pln--{{ section.settings.tone }}">
   <div class="pln-wrap pln-why">
@@ -30,7 +40,8 @@
           {%- assign whys = m.why.value | newline_to_br | split: '<br />' -%}
           {%- for w in whys -%}{%- if w != blank -%}<li class="pln-list__item">{% render 'pln-icon', name: 'check', class: 'pln-icon--success' %}<span>{{ w | strip }}</span></li>{%- endif -%}{%- endfor -%}
         {%- endif -%}
-        {%- if styles != blank -%}<li class="pln-list__item">{% render 'pln-icon', name: 'moon', class: 'pln-icon--success' %}<span>Best for dogs who {{ styles | downcase }}.</span></li>{%- endif -%}
+        {%- if best_for != blank -%}<li class="pln-list__item">{% render 'pln-icon', name: 'moon', class: 'pln-icon--success' %}<span>Best for: {{ best_for }}.</span></li>
+        {%- elsif styles != blank -%}<li class="pln-list__item">{% render 'pln-icon', name: 'moon', class: 'pln-icon--success' %}<span>Best for dogs who {{ styles }}.</span></li>{%- endif -%}
         {%- if m.low_entry.value == true -%}<li class="pln-list__item">{% render 'pln-icon', name: 'check', class: 'pln-icon--success' %}<span>Low step-in{% if m.entry_height_cm.value != blank %}: about {{ m.entry_height_cm.value }}cm to lift a paw over{% endif %}. Easy in, easy out for stiff legs.</span></li>{%- endif -%}
         {%- if m.has_liner.value == true -%}<li class="pln-list__item">{% render 'pln-icon', name: 'shield', class: 'pln-icon--success' %}<span>Waterproof inner liner between cover and foam.</span></li>{%- endif -%}
         {%- if m.non_slip.value == true -%}<li class="pln-list__item">{% render 'pln-icon', name: 'check', class: 'pln-icon--success' %}<span>Non-slip base, so it stays put on wood and tile.</span></li>{%- endif -%}
@@ -63,12 +74,19 @@
           {%- if m.density_kg_m3.value != blank -%}<li><span>Foam density</span><span>{{ m.density_kg_m3.value }}kg/m³</span></li>{%- endif -%}
           {%- if m.feel.value != blank -%}<li><span>Feel</span><span>{{ m.feel.value }} of 5 (1 soft, 5 firm)</span></li>{%- endif -%}
           {%- if m.shape.value != blank -%}<li><span>Shape</span><span>{{ m.shape.value }}</span></li>{%- endif -%}
-          {%- if m.cover.value != blank -%}<li><span>Cover</span><span>{{ m.cover.value }}</span></li>{%- endif -%}
+          {%- if cover_fabric != blank -%}
+            <li><span>Cover</span><span>{{ cover_fabric }}{% if cover_style contains 'Zip' or cover_style contains 'zip' %}, zips off to wash{% elsif cover_style contains 'oated' %}, wipes clean{% endif %}</span></li>
+          {%- elsif cover_style != blank -%}
+            <li><span>Cover</span><span>{{ cover_style }}</span></li>
+          {%- endif -%}
+          {%- if m.wash_temp.value != blank -%}<li><span>Cover wash</span><span>{{ m.wash_temp.value }}°C</span></li>{%- endif -%}
+          {%- if m.non_slip.value == true -%}<li><span>Base</span><span>Non-slip</span></li>{%- elsif m.non_slip.value == false -%}<li><span>Base</span><span>Standard (not non-slip)</span></li>{%- endif -%}
+          {%- if m.bed_weight.value != blank -%}<li><span>Bed weight</span><span>{{ m.bed_weight.value }}</span></li>{%- endif -%}
           {%- if product.variants.size == 1 and product.selected_or_first_available_variant.metafields.custom.sleep_area.value != blank -%}<li><span>Sleeping area</span><span>About {{ product.selected_or_first_available_variant.metafields.custom.sleep_area.value }}</span></li>{%- endif -%}
           {%- if m.ships_from.value != blank -%}<li><span>Ships from</span><span>{{ m.ships_from.value }}</span></li>{%- endif -%}
           <li><span>Type</span><span>{{ product.type | split: '>' | last | strip }}</span></li>
         </ul>
-        <p class="pln-small pln-muted" style="margin-top:1rem">{{ section.settings.spec_note }}</p>
+        {%- if section.settings.spec_note != blank -%}<p class="pln-small pln-muted" style="margin-top:1rem">{{ section.settings.spec_note }}</p>{%- endif -%}
       </div>
       {%- if section.settings.show_vet and is_foam -%}
       <div class="pln-vet" style="margin-top:1.25rem;grid-template-columns:1fr">
@@ -94,7 +112,7 @@
     { "type": "text", "id": "sizes_heading", "label": "Sizes heading", "default": "Which size?" },
     { "type": "text", "id": "sizes_note", "label": "Sizes note", "default": "Measure nose to base of tail lying down and add about 20cm. Between two sizes? Go up. Unsure? Send us their breed and weight." },
     { "type": "text", "id": "spec_heading", "label": "Spec heading", "default": "What's inside" },
-    { "type": "text", "id": "spec_note", "label": "Spec note", "default": "Only what we know for certain is listed. Blank means we haven't measured it, not that it isn't there." },
+    { "type": "text", "id": "spec_note", "label": "Note under the spec card (leave blank to hide)", "default": "Want a measurement that isn't listed? Ask Abbas before you order." },
     { "type": "checkbox", "id": "show_vet", "label": "Show vet note on foam beds", "default": true },
     { "type": "text", "id": "vet_heading", "label": "Vet note heading", "default": "Stiff joints or a diagnosis?" },
     { "type": "textarea", "id": "vet_text", "label": "Vet note", "default": "Foam spreads their weight so hips and elbows don't sink to the floor, and a low front means stepping in rather than climbing over. A bed is for comfort, not a treatment: keep talking to your vet." },

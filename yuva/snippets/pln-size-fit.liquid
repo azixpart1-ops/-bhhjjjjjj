@@ -1,0 +1,81 @@
+{%- comment -%}
+  PawLunova: size help directly under the size picker, where the sizing
+  decision is made (audit PDP-08 and PDP-10). Paste into a Custom Liquid
+  block placed right after the Variant picker block:
+
+      {% render 'pln-size-fit', product: product %}
+
+  Horizon re-renders the product column when a size is chosen, so the
+  selected size's own lines update with it. Every line reads from data and
+  disappears when the data is blank:
+    - sleeping area, breeds and weight band: the selected variant's
+      custom.sleep_area / suits_breeds / suits_weight
+    - "Best for dogs who ...": the product's custom.best_for, else its
+      custom.sleep_style list turned into plain phrases
+    - the measuring rule and the two ways to ask (WhatsApp photo, Bed Finder)
+      only on products with more than one size
+  Styles: assets/pln-pdp.css (.pln-sizefit); the same file hides Horizon's quantity
+  stepper on product pages, so this snippet loads it on every product.
+{%- endcomment -%}
+{%- liquid
+  assign v = product.selected_or_first_available_variant
+  assign vm = v.metafields.custom
+  assign m = product.metafields.custom
+  assign short = product.title | split: ' ' | first
+  assign owner = settings.pln_owner_name | default: 'Abbas'
+  assign has_sizes = false
+  if product.variants.size > 1
+    assign has_sizes = true
+  endif
+
+  assign styles = m.sleep_style.value | join: ' or ' | replace: 'Curls up', 'curl up' | replace: 'Curled up', 'curl up' | replace: 'Stretches out', 'stretch out' | replace: 'Stretched out', 'stretch out' | replace: 'Head on the edge', 'rest their head on the edge' | replace: 'Sprawls', 'sprawl' | replace: 'Leans', 'lean'
+
+  assign fit_bits = ''
+  if vm.sleep_area.value != blank
+    assign fit_bits = 'sleeps about ' | append: vm.sleep_area.value
+  endif
+  if vm.suits_breeds.value != blank
+    if fit_bits != ''
+      assign fit_bits = fit_bits | append: ' · '
+    endif
+    assign fit_bits = fit_bits | append: vm.suits_breeds.value
+  endif
+  if vm.suits_weight.value != blank
+    if fit_bits != ''
+      assign fit_bits = fit_bits | append: ' · '
+    endif
+    assign fit_bits = fit_bits | append: vm.suits_weight.value
+  endif
+
+  assign wa_text = 'Hi ' | append: owner | append: ', which size ' | append: short | append: ' should I get? My dog is a (breed), about (weight)kg. Photo attached.' | url_encode
+  assign finder_url = '/pages/bed-finder'
+  if pages['bed-finder'].url != blank
+    assign finder_url = pages['bed-finder'].url
+  endif
+-%}
+{{ 'pln.css' | asset_url | stylesheet_tag }}
+{{ 'pln-pdp.css' | asset_url | stylesheet_tag }}
+{%- if has_sizes or fit_bits != '' or m.best_for.value != blank or styles != blank -%}
+<div class="pln-sizefit" data-pln-sizefit>
+  {%- if fit_bits != '' -%}
+    <p class="pln-sizefit__fit"><strong>{{ v.title | split: ' · ' | first | escape }}</strong> {{ fit_bits }}.</p>
+  {%- endif -%}
+  {%- if m.best_for.value != blank -%}
+    <p class="pln-sizefit__best">Best for: {{ m.best_for.value | downcase }}{% if styles != blank %}. Suits dogs who {{ styles }}{% endif %}.</p>
+  {%- elsif styles != blank -%}
+    <p class="pln-sizefit__best">Best for dogs who {{ styles }}.</p>
+  {%- endif -%}
+  {%- if has_sizes -%}
+    <p class="pln-sizefit__help">
+      <span>Not sure which size? Measure nose to base of tail lying down and add about 20cm. Between two sizes, go up.</span>
+      {%- if settings.pln_whatsapp != blank -%}
+        <a href="https://wa.me/{{ settings.pln_whatsapp }}?text={{ wa_text }}" target="_blank" rel="noopener">Send {{ owner }} a photo of them asleep</a>
+      {%- else -%}
+        <a href="{{ pages['contact'].url | default: '/pages/contact' }}">Ask {{ owner }} which size</a>
+      {%- endif -%}
+      <span class="pln-sizefit__sep" aria-hidden="true">·</span>
+      <a href="{{ finder_url }}">Take the 30-second Bed Finder</a>
+    </p>
+  {%- endif -%}
+</div>
+{%- endif -%}

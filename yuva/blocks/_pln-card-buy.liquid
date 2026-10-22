@@ -1,0 +1,136 @@
+{%- doc -%}
+  PawLunova: buy button and two short promises at the foot of a product card.
+  A child of the static `_product-card` block (added in templates/collection.json).
+
+  - One size, in stock: "Add to cart" adds straight to the basket with Horizon's
+    product form, so the cart drawer, fly-to-cart and cart events work as on the
+    product page.
+  - Several sizes or colours: "Choose size" opens Horizon's quick-add drawer with
+    the size picker, so nobody gets a size they didn't pick.
+  - Sold out: no button (the card's own sold-out badge says so).
+
+  Promises shown only when true for this product: free UK delivery (price at or
+  over Theme settings > PawLunova promises > Free UK delivery from) and the trial
+  (snippets/pln-trial-eligible.liquid).
+  Styles: assets/pln-gold.css section 3.
+{%- enddoc -%}
+
+{%- liquid
+  assign product = closest.product
+  if product == blank and request.visual_preview_mode
+    assign product = collections.all.products.first
+  endif
+
+  assign uses_selling_plans = false
+  if product.requires_selling_plan or product.selling_plan_groups.size > 0
+    assign uses_selling_plans = true
+  endif
+
+  assign card_variant = product.selected_or_first_available_variant
+  assign threshold = settings.pln_free_delivery_threshold | default: 40
+  assign threshold_cents = threshold | times: 100
+  assign nights = settings.pln_trial_nights | default: 100
+
+  capture trial_ok
+    render 'pln-trial-eligible', product: product
+  endcapture
+  assign trial_ok = trial_ok | strip
+
+  assign first_option = product.options | first | downcase
+  if product.options contains 'Size' or product.options contains 'size'
+    assign choose_label = 'Choose size'
+  elsif product.options.size == 1
+    assign choose_label = 'Choose ' | append: first_option
+  else
+    assign choose_label = 'Choose options'
+  endif
+
+  assign form_id = 'PlnCardBuy-' | append: section.id | append: '-' | append: product.id
+  assign atc_text = 'products.product.add_to_cart' | t
+-%}
+
+{%- if product != blank and product.available -%}
+  <div class="pln-card-buy" {{ block.shopify_attributes }}>
+    {%- if product.price_min >= threshold_cents or trial_ok == 'true' -%}
+      <ul class="pln-card-buy__perks" aria-label="Included">
+        {%- if product.price_min >= threshold_cents -%}
+          <li>{% render 'pln-icon', name: 'check' %}Free UK delivery</li>
+        {%- endif -%}
+        {%- if trial_ok == 'true' -%}
+          <li>{% render 'pln-icon', name: 'check' %}{{ nights }}-night trial</li>
+        {%- endif -%}
+      </ul>
+    {%- endif -%}
+
+    {%- if product.variants_count == 1 and uses_selling_plans == false -%}
+      <product-form-component
+        class="pln-card-buy__form"
+        data-section-id="{{ section.id }}"
+        data-product-id="{{ product.id }}"
+        on:submit="/handleSubmit"
+      >
+        <div
+          class="visually-hidden"
+          aria-live="assertive"
+          role="status"
+          aria-atomic="true"
+          ref="liveRegion"
+        ></div>
+        {%- form 'product', product, id: form_id, novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+          <input
+            type="hidden"
+            name="id"
+            ref="variantId"
+            value="{{ card_variant.id }}"
+          >
+          <input
+            type="hidden"
+            name="quantity"
+            value="{{ card_variant.quantity_rule.min | default: 1 }}"
+          >
+          {% render 'add-to-cart-button',
+            add_to_cart_text: atc_text,
+            class: 'pln-card-buy__btn add-to-cart-button',
+            can_add_to_cart: true,
+            show_icon: false,
+            product: product
+          %}
+        {%- endform -%}
+      </product-form-component>
+    {%- else -%}
+      <quick-add-component
+        class="pln-card-buy__qa"
+        data-product-title="{{ product.title | escape }}"
+        data-product-id="{{ product.id }}"
+        data-quick-add-button="choose"
+        data-product-options-count="{{ product.options.size }}"
+        data-uses-selling-plans="{{ uses_selling_plans }}"
+      >
+        <button
+          type="button"
+          class="button pln-card-buy__btn"
+          aria-haspopup="dialog"
+          aria-label="{{ choose_label }}: {{ product.title | escape }}"
+          on:click="quick-add-component/handleClick"
+        >
+          {{- choose_label -}}
+        </button>
+      </quick-add-component>
+    {%- endif -%}
+  </div>
+  {% render 'add-to-cart-button-styles' %}
+  {% render 'fly-to-cart-styles' %}
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "PL: Card buy button",
+  "tag": null,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Add to cart for one-size beds, Choose size (opens the size picker) for the rest. Free UK delivery and trial lines show only when true for the bed. Colours: assets/pln-gold.css."
+    }
+  ]
+}
+{% endschema %}
