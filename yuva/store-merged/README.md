@@ -31,3 +31,13 @@ sections. The only settings change on that theme is
 
 The "title level" fixes above (`pln-page-body.liquid`, `page.faq.json`) are still
 pending on the store.
+
+## 22 October 2026: premium design pass
+
+`config/settings_data.json`, `sections/header-group.json`, `sections/footer-group.json`,
+`layout/theme.liquid` and `templates/index.json` are the versions uploaded for the
+premium design pass (`docs/yuva-premium-pass-oct2026.md`): Playfair Display over DM
+Sans, bone page, quiet header, one-line announcement, oat footer, the hero's new
+"cover" layout, `assets/pln-premium.css` loaded from the layout. The owner published
+the first upload (theme 209699242326); the finished version with the three follow-up
+files is the unpublished "Premium pass v2" theme (209701699926).
