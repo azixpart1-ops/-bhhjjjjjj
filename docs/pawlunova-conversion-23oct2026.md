@@ -92,8 +92,33 @@ This is the one leak that survives every correction. On clean UK traffic:
   →   31 completed          43.1%   (benchmark 60–70%)  ← the leak
 ```
 
-**Why it leaks.** Your checkout offers exactly one way to pay. Extracted from the live
-checkout page today, after putting a real bed in a real basket and following it through:
+**Why it leaks — part one: you advertise eight payment methods you cannot accept.**
+
+Rendered in a real mobile browser, your product page paints **eleven payment logos 140
+pixels below the "Add to basket" button**: Mastercard, PayPal, Maestro, Visa, American
+Express, Google Pay, Apple Pay, Clearpay, Klarna, Afterpay, Amazon Pay.
+
+Your checkout accepts **Visa, Mastercard, Visa Electron and American Express.** Eight of
+the eleven are false.
+
+They come from the Vitals app — module 15, `vtl-pl-main-widget__logo`, with the logo list
+`mastercard,paypal,maestro,visa,american_express,google_pay,apple_pay,afterpay,klarna,afterpay2,amazon_pay`
+configured in it. They are injected by JavaScript at runtime, which is why they do not
+appear in the page source.
+
+*(I got this wrong earlier in the session. I checked the theme's footer payment-icon
+setting, found it unrendered, and told you there were no fake badges. That was true of the
+footer and false of the buy box. Vitals is the source, and the badges are real and visible
+— see the screenshot.)*
+
+The sequence a mobile buyer actually experiences: sees Apple Pay and Klarna under the
+button → taps Add to basket → reaches checkout → is asked to type a sixteen-digit card
+number → is redirected to an unfamiliar domain. Of your 47 available Vitals modules, this
+false badge row is the only one that renders anything.
+
+**Why it leaks — part two.** Your checkout offers exactly one way to pay. Extracted from
+the live checkout page today, after putting a real bed in a real basket and following it
+through:
 
 ```
 paymentMethodIdentifier : "Card Payments by Teya"
@@ -183,7 +208,7 @@ build that carries none of the `pln-` assets, so this commit improves the repo a
 apply whenever that layer next ships — it is not what is live today. The live theme already
 has `delivery_standard_price: "Free"` and its shipping progress bar switched off, so the
 remaining "over £40" text on your live site sits in the product template's shipping tab and
-in your shop meta description. Both are listed below as **O7** and **O8**.
+in your shop meta description. Both are listed below as **O8** and **O9**.
 
 ---
 
@@ -195,13 +220,14 @@ Ordered by money per minute of your time.
 |---|---|---|---|
 | **O1** | **Delete the four homepage testimonials.** Theme editor → Home → Testimonials → untick "These are real customers' words", or delete the four blocks. Do not rewrite them — delete them. | Theme editor | 2 min |
 | **O2** | **Fix the buy-button contrast.** Theme editor → Colours → set accent **text** to `#17150F`. Keeps your gold, takes contrast from 2.70:1 to 6.76:1. | Theme editor | 1 min |
-| **O3** | **Enable Shopify Payments** and switch on Apple Pay, Google Pay and Shop Pay. This is the single biggest lever in the business (+£1,700–£2,700 per three weeks). If you are on Teya for a reason — rates, a contract — tell me and I will work out whether Teya can serve wallets through Shopify, or whether running Shopify Payments alongside it is better. | Settings → Payments | 10 min |
-| **O4** | **Switch off the low-stock warnings.** Your bestseller's page says "Low stock in Medium" — on placeholder inventory. Nearly every variant in the catalogue reads exactly 5 units, which is not real stock data. Unfounded scarcity claims are an unfair-commercial-practice risk, and your theme's own preset ships them off. | Theme editor | 1 min |
-| **O5** | **Fix the Spanish chat widget.** "¿Necesitas ayuda?" renders on every page of your UK store — home, collection, product and cart — from the SupChat WhatsApp app. Set its language to English or remove it. | SupChat app | 2 min |
-| **O6** | **Pick one review app and uninstall the other two.** TrustShop, Loox and ProViews are all live. TrustShop is the heaviest (127 markers per product page) and is the one that wrote the imported ratings in October. Then collect real reviews from your 36 real buyers — the day-14 and day-60 emails are already written in `content/emails/`. | Apps | 15 min |
-| **O7** | **Fix your shop meta description.** It promises "free UK delivery over £40" — understating your own offer. Not editable via the API. | Online Store → Preferences | 1 min |
-| **O8** | **Fix the product shipping tab**, which still says free "on orders over £40 (£4.99 below)". | Theme editor → product template | 2 min |
-| **O9** | **Restore Google Search Console access.** Without it nobody can see which queries land on which page, so SEO work is guesswork. | — | 5 min |
+| **O3** | **Turn off the Vitals payment-badge module.** Eight of the eleven logos under your buy button are methods you cannot accept. Either switch that module off in Vitals, or disable the Vitals app embed entirely — it is the only Vitals module rendering anything, and it costs 209KB and 854ms of phone CPU to tell your customers something untrue. Say the word and I will disable the embed on the fixed theme. | Vitals app | 2 min |
+| **O4** | **Enable Shopify Payments** and switch on Apple Pay, Google Pay and Shop Pay. This is the single biggest lever in the business (+£1,700–£2,700 per three weeks). If you are on Teya for a reason — rates, a contract — tell me and I will work out whether Teya can serve wallets through Shopify, or whether running Shopify Payments alongside it is better. Doing **O3 and O4 together** is the point: either accept the methods you advertise, or stop advertising them. | Settings → Payments | 10 min |
+| **O5** | **Switch off the low-stock warnings.** Your bestseller's page says "Low stock in Medium" — on placeholder inventory. Nearly every variant in the catalogue reads exactly 5 units, which is not real stock data. Unfounded scarcity claims are an unfair-commercial-practice risk, and your theme's own preset ships them off. | Theme editor | 1 min |
+| **O6** | **Fix the Spanish chat widget.** "¿Necesitas ayuda?" renders on every page of your UK store — home, collection, product and cart — from the SupChat WhatsApp app. Set its language to English or remove it. | SupChat app | 2 min |
+| **O7** | **Pick one review app and uninstall the other six.** Seven are installed: Loox, ProViews, TrustShop, REVIEWS.io, Shping, Trust Flow and Star Product Reviews. **Keep Loox** — 1 request, 27KB, 29ms, eight times fewer requests than TrustShop and purchase-verified with photos, which is the right proof for a bed. TrustShop is also printing **"0 (0 review)"** above the price on every product page, because `show_rating_when_empty` is on — a zero-star rating on your best converter. Then collect real reviews from your 36 real buyers — the day-14 and day-60 emails are already written in `content/emails/`. | Apps | 15 min |
+| **O8** | **Fix your shop meta description.** It promises "free UK delivery over £40" — understating your own offer. Not editable via the API. | Online Store → Preferences | 1 min |
+| **O9** | **Fix the product shipping tab**, which still says free "on orders over £40 (£4.99 below)". | Theme editor → product template | 2 min |
+| **O10** | **Restore Google Search Console access.** Without it nobody can see which queries land on which page, so SEO work is guesswork. | — | 5 min |
 
 ---
 
@@ -283,10 +309,51 @@ is why nobody can tell you what worked.
 2. **Cross-sell.** 34 of your 36 real orders are a single bed. 95% of your customers buy one
    thing, from a brand selling beds, blankets and stairs.
 3. **Capture email.** 2,646 real UK visitors did not buy and were never contacted again.
-4. **Cut the app load.** 15 app embeds are live, including three review apps, two heatmap
-   apps and two Google feed apps. A product page ships **534KB of gzipped JavaScript**;
-   Vitals alone is 167KB, SupChat 56KB. Shopify's own "gptlab" embed emits JSON-LD with an
-   unescaped newline, so that block is invalid and Google discards it.
+4. **Cut the app load.** Measured on a throttled UK 4G phone: your pages need **14.8–16.5
+   seconds to become interactive**, and the product page's LCP on slow 4G is **7.8 seconds**
+   (Google rates anything over 4.0s as "poor"). Your own theme code is **2.9% of the bytes**.
+
+   Blocking the measurement stack and six storefront apps removed **6,082ms of blocking
+   time, 10.6 seconds of time-to-interactive and 1,786KB of JavaScript** — and add-to-basket
+   still worked. Removal list, in measured-cost order:
+
+   | Remove | Saves |
+   |---|---|
+   | Google tag duplication — 13 loads, 6 tag IDs, **2 GA4 properties, 2 Ads accounts** | −2,970ms, −1,475KB |
+   | MIDA Replay Heatmaps (duplicate of Microsoft Clarity) | −1,416ms |
+   | Vitals (its one rendered widget is the false badge row) | −854ms, −209KB |
+   | Microsoft Clarity | −345ms |
+   | SupChat (the Spanish widget) | −220ms |
+   | TrustShop, ProViews (keep Loox) | −145ms |
+
+   You are delivering roughly **7.85GB of Google tag JavaScript** across the window to
+   instrument a paid channel that produced **10 sessions and £0**. Consolidate to one GA4
+   property and one Ads account.
+
+   Also: the "gptlab" app embed emits JSON-LD containing an unescaped newline, so that whole
+   block is invalid and Google discards it.
+
+5. **Cut the navigation.** 26 collection links produce **559 listings of 73 products** —
+   each product appears 7.7 times. Twenty-five of those 26 links earned **155 sessions and
+   1 order in eight weeks**. Six links would partition the catalogue honestly: Orthopaedic &
+   memory foam, Bolster & nest, Mattresses & crate beds, Raised & cooling, Small dogs,
+   Large & XL. The 15-item "Shop by dog" menu is doing nothing.
+
+6. **Reorder the collection your traffic actually lands on.** `/collections/orthopaedic-dog-beds`
+   takes 424 sessions at 1.18% — your best major entry — but **three of your top five
+   revenue products are not in it**, and Buttermere, which converts at 8.11%, is not near the
+   top. Revenue order would be: Ambleside, Grasmere, Crummock, Buttermere, Scafell,
+   Elterwater. Ten products carry 77% of revenue; **58 of 77 have never sold**.
+
+7. **Stop discounting the beds that sell.** No order in 21 days was placed below £69, median
+   £129 — yet every bed that sells has been cut by a median 28%, and those cuts pushed 63%
+   of stock below the £129 minimum for your own £15 offer. The data says your prices are not
+   the problem (dearer beds convert better); the cuts lowered AOV 18% and bought nothing.
+
+8. **Check your real stock.** Nine of the twelve products that produced all your real orders
+   have their best-selling size down to **1–3 units** on `inventoryPolicy: DENY`, which makes
+   them unbuyable at zero. Ambleside Medium — 10.5% of your orders — has **one unit left**.
+   Nearly every other variant reads exactly 5, which is placeholder data, not stock.
 
 ---
 
