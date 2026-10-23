@@ -2,15 +2,22 @@
   PawLunova: what the shopper gets, shown under the Checkout button in the
   cart drawer and on the cart page (rendered from snippets/cart-summary.liquid).
   Each line shows only when it is true for what's in the basket:
+    - free delivery, from the one claim in snippets/pln-delivery-claim
     - the trial, if at least one item is covered (snippets/pln-trial-eligible)
     - the foam guarantee, if at least one item is a memory foam bed
     - secure checkout (Shopify's own checkout)
-  Free delivery is handled by Yuva's shipping bar at the top of the drawer.
+
+  The delivery line lives here rather than in Yuva's shipping bar. That bar
+  counts a basket up to a spend threshold, which is wrong for this store:
+  Settings → Shipping has one UK zone with Standard at £0.00 and no minimum, so
+  there is nothing to count toward. Switch `yv_shipping_bar` off and state the
+  promise plainly instead.
   Styles: assets/pln-gold.css section 5.
 {%- endcomment -%}
 {%- liquid
   assign nights = settings.pln_trial_nights | default: 100
   assign years = settings.pln_guarantee_years | default: 5
+  assign threshold_cents = settings.pln_free_delivery_threshold | default: 0 | plus: 0 | times: 100
   assign any_trial = false
   assign any_foam = false
 
@@ -34,6 +41,12 @@
 -%}
 {%- if cart.item_count > 0 -%}
   <ul class="pln-cart-promise" aria-label="Included with your order">
+    {%- if cart.total_price >= threshold_cents -%}
+      <li>
+        {% render 'pln-icon', name: 'truck' %}
+        <span><strong>{% render 'pln-delivery-claim' %}.</strong> Tracked, with a dated delivery line at checkout.</span>
+      </li>
+    {%- endif -%}
     {%- if any_trial -%}
       <li>
         {% render 'pln-icon', name: 'moon' %}

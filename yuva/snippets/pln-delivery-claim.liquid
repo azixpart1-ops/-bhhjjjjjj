@@ -1,0 +1,41 @@
+{%- comment -%}
+  PawLunova: the free-delivery claim, in one place.
+
+  Every template that mentions free delivery renders this, so the claim can
+  never drift from Settings → Delivery in the admin. Set
+  `pln_free_delivery_threshold` to 0 when standard delivery is free on
+  everything (the store's current setting: one UK zone, Standard £0.00 with no
+  minimum) and every surface says so without inventing a spend threshold.
+
+  Usage:
+    {% render 'pln-delivery-claim' %}                -> "Free UK delivery"
+    {% render 'pln-delivery-claim', style: 'long' %} -> "Free UK delivery, tracked"
+    {% render 'pln-delivery-claim', style: 'short' %}-> "Free delivery"
+
+  With a threshold set (say 40) the same calls append the minimum spend:
+  "Free UK delivery over £40", "Free UK delivery over £40, tracked" and
+  "Free delivery over £40".
+
+  Callers that need the number itself still read the setting directly; this
+  snippet exists so nobody has to write "over £[threshold]" into copy again.
+{%- endcomment -%}
+{%- liquid
+  assign threshold = settings.pln_free_delivery_threshold | default: 0 | plus: 0
+
+  case style
+    when 'short'
+      assign claim = 'Free delivery'
+    else
+      assign claim = 'Free UK delivery'
+  endcase
+
+  if threshold > 0
+    assign claim = claim | append: ' over £' | append: threshold
+  endif
+
+  if style == 'long'
+    assign claim = claim | append: ', tracked'
+  endif
+
+  echo claim
+-%}

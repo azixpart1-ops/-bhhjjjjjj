@@ -6,7 +6,11 @@
 {%- render 'pln-assets' -%}
 {%- liquid
   assign nights = settings.pln_trial_nights | default: 100
-  assign threshold = settings.pln_free_delivery_threshold | default: 40
+  assign threshold = settings.pln_free_delivery_threshold | default: 0 | plus: 0
+  capture delivery
+    render 'pln-delivery-claim'
+  endcapture
+  assign delivery = delivery | strip
   assign d1 = settings.pln_dispatch_min | default: 1
   assign d2 = settings.pln_dispatch_max | default: 2
   assign t1 = settings.pln_transit_min | default: 4
@@ -25,14 +29,14 @@
     <div class="pln-head">
       <span class="pln-eyebrow">{{ section.settings.eyebrow }}</span>
       <h2 class="pln-title">{{ section.settings.heading }}</h2>
-      <p class="pln-lede">{{ section.settings.lede | replace: '[dispatch]', dispatch | replace: '[transit]', transit | replace: '[threshold]', threshold | replace: '[nights]', nights }}</p>
+      <p class="pln-lede">{{ section.settings.lede | replace: '[dispatch]', dispatch | replace: '[transit]', transit | replace: '[delivery]', delivery | replace: '[threshold]', threshold | replace: '[nights]', nights }}</p>
     </div>
     <ol class="pln-timeline">
       {%- for block in section.blocks -%}
         <li class="pln-tl{% if block.settings.kind == 'arrives' %} pln-tl--arrives{% endif %} pln-reveal" {{ block.shopify_attributes }}>
           <span class="pln-tl__when">{{ block.settings.when | replace: '[dispatch]', dispatch | replace: '[transit]', transit | replace: '[nights]', nights }}</span>
           <h3>{{ block.settings.title }}</h3>
-          <p>{{ block.settings.text | replace: '[dispatch]', dispatch | replace: '[transit]', transit | replace: '[threshold]', threshold | replace: '[nights]', nights }}</p>
+          <p>{{ block.settings.text | replace: '[dispatch]', dispatch | replace: '[transit]', transit | replace: '[delivery]', delivery | replace: '[threshold]', threshold | replace: '[nights]', nights }}</p>
           {%- if block.settings.kind == 'arrives' -%}
             <p class="pln-tl__date" data-pln-delivery="Ordered today: [dates]" data-dispatch-min="{{ d1 }}" data-dispatch-max="{{ d2 }}" data-transit-min="{{ t1 }}" data-transit-max="{{ t2 }}" hidden></p>
           {%- endif -%}
@@ -64,7 +68,7 @@
   "presets": [ { "name": "PL: After you order", "blocks": [
     { "type": "step", "settings": { "kind": "plain", "when": "Today", "title": "You order", "text": "A few taps. Card, PayPal, Apple Pay or Google Pay, on a secure checkout." } },
     { "type": "step", "settings": { "kind": "plain", "when": "Within [dispatch] working days", "title": "It's dispatched", "text": "Own stock leaves us tracked. The tracking number lands in your inbox the moment it does." } },
-    { "type": "step", "settings": { "kind": "arrives", "when": "[transit] working days after dispatch", "title": "It arrives", "text": "Free over £[threshold]. Put it where they already sleep, with a blanket that smells of home on top." } },
+    { "type": "step", "settings": { "kind": "arrives", "when": "[transit] working days after dispatch", "title": "It arrives", "text": "[delivery]. Put it where they already sleep, with a blanket that smells of home on top." } },
     { "type": "step", "settings": { "kind": "plain", "when": "Night 1 of [nights]", "title": "Your trial starts", "text": "Your [nights] nights start the day it arrives. Not right? Tell us and we collect it free, slept on, hair and all." } }
   ] } ]
 }
