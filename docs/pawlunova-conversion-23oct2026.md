@@ -212,9 +212,55 @@ in your shop meta description. Both are listed below as **O8** and **O9**.
 
 ---
 
+## A theme is waiting for you, with five fixes already in it
+
+I could not write to your live theme — Shopify blocks that — so I duplicated it and applied
+the fixes to the copy. It is sitting unpublished in Online Store → Themes:
+
+> **"Conversion fixes 23 Oct — contrast, scarcity, ratings, payment copy"** (id 209750327638)
+
+Preview it: `https://pawlunova.co.uk/?preview_theme_id=209750327638`
+
+| In that theme | Verified in the preview |
+|---|---|
+| Buy-button label changed to ink `#17150F` | contrast 2.70:1 → **6.76:1**, your gold kept |
+| Four fabricated testimonials suppressed | "Owner reviews", Caleb, Willow, Victor, Daisy all **gone**; the honest line renders in their place: *"We're a young UK brand, so there's no wall of reviews yet. That's why our beds come with 100 nights at home, and free collection if one isn't right."* |
+| Low-stock scarcity off | "Low stock in Medium" **no longer renders** on your bestseller |
+| Payment copy corrected | **zero** Revolut references; now names the cards you actually take |
+| Star ratings off at theme level | stops the theme rendering stars from imported reviews |
+
+**The testimonial gate deserves a note.** The setting is a checkbox called `confirm_genuine`,
+labelled *"These are real customers' words"*, and it **defaults to off**. The theme's own
+source comment reads:
+
+> *"Guardrail (DMCC Act 2024 bans fake or invented reviews): quotes stay hidden on the live
+> store until the merchant ticks…"*
+
+Whoever built this theme put a guardrail in for exactly this situation, and at some point it
+was ticked. Turning it back off is the whole fix.
+
+One thing not to be caught out by: **inside the theme customiser the four quotes still
+show**, with an editor-only note. That is deliberate — it lets you compare them against real
+reviews. They do not render on the public site. Don't read that as the fix having failed.
+
+### Two ways to act
+
+**Fastest, for the legal item alone (about 30 seconds):** Online Store → Themes → Customize
+on your *live* theme → Home → Testimonials → untick **"These are real customers' words"** →
+Save. That removes the exposure immediately without publishing anything.
+
+**Then, for the rest:** preview the fixed theme above, and if it looks right, publish it.
+Everything in the table lands together.
+
+Nothing I put in that theme is live until you publish it. **The fabricated testimonials are
+on your homepage right now.**
+
+---
+
 ## What needs you (I cannot do these)
 
-Ordered by money per minute of your time.
+Ordered by money per minute of your time. **O1 and O2 are already done in the theme above —
+they just need publishing** (or, for O1, the 30-second route).
 
 | | Action | Where | Time |
 |---|---|---|---|
