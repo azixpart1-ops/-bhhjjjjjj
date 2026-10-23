@@ -347,15 +347,30 @@ Then change **one thing at a time** and give it three clean days. Eight simultan
 is why nobody can tell you what worked.
 
 ### After the settings, in order
-1. **Fill three metafields on your top ten beds** — `core_type`, `foam_depth`,
+1. **Recover the 28 abandoned baskets sitting in your admin right now.**
+   They total **£3,344 — 67% of everything the store has ever earned** — at an average of
+   £119, and **every one has an email address attached**. The most recent was abandoned at
+   09:19 this morning (£89, Ambleside). Ambleside appears in seven of them; it is both your
+   bestseller and your most-abandoned product, and its Medium size is down to one unit.
+
+   These 28 people are the payments problem with names on it: they reached checkout, met a
+   hand-typed card form and an off-site redirect, and left.
+
+   Only 2 of the 28 have marketing consent — but Shopify's abandoned-checkout email is
+   transactional for that same incomplete purchase, so under UK PECR soft opt-in it can go
+   to all 28, not just the two. Check it is switched on (Settings → Checkout → Abandoned
+   checkouts). At a typical 10% recovery that is ~£334; at 15%, ~£500 — from an email
+   Shopify sends for free.
+2. **Fill three metafields on your top ten beds** — `core_type`, `foam_depth`,
    `foam_guarantee`. Buttermere has them and converts at 18.92% add-to-cart (p=0.0005); 83
    of 85 products do not, and the missing fields silently remove a spec card, a per-night
    price line and a trust chip. This is a data fill, not a redesign. I can do it — say the
    word.
-2. **Cross-sell.** 34 of your 36 real orders are a single bed. 95% of your customers buy one
+3. **Cross-sell.** 34 of your 36 real orders are a single bed. 95% of your customers buy one
    thing, from a brand selling beds, blankets and stairs.
-3. **Capture email.** 2,646 real UK visitors did not buy and were never contacted again.
-4. **Cut the app load.** Measured on a throttled UK 4G phone: your pages need **14.8–16.5
+4. **Capture email.** 2,646 real UK visitors did not buy and were never contacted again.
+   You have 71 customers on file.
+5. **Cut the app load.** Measured on a throttled UK 4G phone: your pages need **14.8–16.5
    seconds to become interactive**, and the product page's LCP on slow 4G is **7.8 seconds**
    (Google rates anything over 4.0s as "poor"). Your own theme code is **2.9% of the bytes**.
 
@@ -378,25 +393,21 @@ is why nobody can tell you what worked.
 
    Also: the "gptlab" app embed emits JSON-LD containing an unescaped newline, so that whole
    block is invalid and Google discards it.
-
-5. **Cut the navigation.** 26 collection links produce **559 listings of 73 products** —
+6. **Cut the navigation.** 26 collection links produce **559 listings of 73 products** —
    each product appears 7.7 times. Twenty-five of those 26 links earned **155 sessions and
    1 order in eight weeks**. Six links would partition the catalogue honestly: Orthopaedic &
    memory foam, Bolster & nest, Mattresses & crate beds, Raised & cooling, Small dogs,
    Large & XL. The 15-item "Shop by dog" menu is doing nothing.
-
-6. **Reorder the collection your traffic actually lands on.** `/collections/orthopaedic-dog-beds`
+7. **Reorder the collection your traffic actually lands on.** `/collections/orthopaedic-dog-beds`
    takes 424 sessions at 1.18% — your best major entry — but **three of your top five
    revenue products are not in it**, and Buttermere, which converts at 8.11%, is not near the
    top. Revenue order would be: Ambleside, Grasmere, Crummock, Buttermere, Scafell,
    Elterwater. Ten products carry 77% of revenue; **58 of 77 have never sold**.
-
-7. **Stop discounting the beds that sell.** No order in 21 days was placed below £69, median
+8. **Stop discounting the beds that sell.** No order in 21 days was placed below £69, median
    £129 — yet every bed that sells has been cut by a median 28%, and those cuts pushed 63%
    of stock below the £129 minimum for your own £15 offer. The data says your prices are not
    the problem (dearer beds convert better); the cuts lowered AOV 18% and bought nothing.
-
-8. **Check your real stock.** Nine of the twelve products that produced all your real orders
+9. **Check your real stock.** Nine of the twelve products that produced all your real orders
    have their best-selling size down to **1–3 units** on `inventoryPolicy: DENY`, which makes
    them unbuyable at zero. Ambleside Medium — 10.5% of your orders — has **one unit left**.
    Nearly every other variant reads exactly 5, which is placeholder data, not stock.
