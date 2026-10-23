@@ -1,0 +1,95 @@
+{%- comment -%}
+  PawLunova: what this bed actually is, in four or five ticks, directly under the price.
+
+  The shopper's first question on a bed page is "does it fit my dog and is it the
+  right kind" — and today that answer is buried in the description, four scrolls
+  down, behind a size table. These ticks lift the four or five facts that decide
+  it up to the buy box.
+
+  Every line comes from the product's OWN data and renders only when that data
+  exists. Nothing is inferred, averaged or borrowed from a similar bed: a wrong
+  spec on a dog bed is a return, and blank is honest where unknown. A product
+  with no populated fields renders nothing at all rather than a stub.
+
+  Order is deliberate, most-decisive first:
+    1. which dog it takes      (custom.max_dog_weight, else parsed from the title)
+    2. what is inside it       (custom.core_type + custom.foam_depth)
+    3. the cover               (custom.cover_type)
+    4. getting in              (custom.low_entry, else custom.shape)
+    5. how long it is backed   (custom.foam_guarantee + the guarantee setting)
+
+  Capped at `max` ticks (default 5) so the buy box never grows a wall of text.
+
+  Usage, from the product template under the price:
+    {% render 'pln-spec-ticks', product: product %}
+    {% render 'pln-spec-ticks', product: product, max: 4 %}
+
+  Styles: assets/pln-pdp.css, section "spec ticks".
+{%- endcomment -%}
+{%- liquid
+  assign limit = max | default: 5
+  assign m = product.metafields.custom
+  assign ticks = ''
+
+  # 1. Which dog it takes. Prefer the metafield; otherwise read the weight out of
+  # the title, which is written "... for Dogs up to 70kg" across the range.
+  assign weight = m.max_dog_weight.value | default: ''
+  if weight == blank and product.title contains 'up to '
+    assign tail = product.title | split: 'up to ' | last
+    if tail contains 'kg'
+      assign weight = tail | split: 'kg' | first | append: 'kg'
+    endif
+  endif
+  if weight != blank
+    assign ticks = ticks | append: 'Fits dogs up to ' | append: weight | append: '|'
+  endif
+
+  # 2. What is inside it. Depth only joins when the store actually knows it.
+  assign core = m.core_type.value | default: ''
+  if core != blank
+    assign core_line = core | append: ' core'
+    if m.foam_depth.value != blank
+      assign core_line = core_line | append: ', ' | append: m.foam_depth.value | append: ' deep'
+    endif
+    assign ticks = ticks | append: core_line | append: '|'
+  endif
+
+  # 3. The cover. The metafield holds a short noun ("Zip-off fabric", "Coated,
+  # wipe clean"), which reads like a spec sheet on its own, so give the two
+  # common kinds their plain-English line and let anything else fall back.
+  assign cover = m.cover_type.value | default: ''
+  if cover != blank
+    assign cover_l = cover | downcase
+    if cover_l contains 'wipe' or cover_l contains 'coated'
+      assign cover_line = 'Wipe-clean cover'
+    elsif cover_l contains 'zip'
+      assign cover_line = 'Zip-off cover for washing'
+    else
+      assign cover_line = cover | append: ' cover'
+    endif
+    assign ticks = ticks | append: cover_line | append: '|'
+  endif
+
+  # 4. Getting in. Only a low front earns a line: the shape is already obvious
+  # from the title and the photographs, and "Nest shape" as a tick says nothing.
+  if m.low_entry.value == true
+    assign ticks = ticks | append: 'Low step-in front|'
+  endif
+
+  # 5. How long it is backed, only for beds the guarantee actually covers.
+  if m.foam_guarantee.value == true and settings.pln_guarantee_enable
+    assign years = settings.pln_guarantee_years | default: 5
+    assign ticks = ticks | append: years | append: '-year foam guarantee|'
+  endif
+
+  assign ticks = ticks | split: '|'
+-%}
+{%- if ticks.size > 0 -%}
+  <ul class="pln-spec-ticks" aria-label="What this bed is">
+    {%- for tick in ticks limit: limit -%}
+      {%- if tick != blank -%}
+        <li>{% render 'pln-icon', name: 'check', class: 'pln-icon--success' %}<span>{{ tick }}</span></li>
+      {%- endif -%}
+    {%- endfor -%}
+  </ul>
+{%- endif -%}
