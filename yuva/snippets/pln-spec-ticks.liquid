@@ -44,12 +44,19 @@
     assign ticks = ticks | append: 'Fits dogs up to ' | append: weight | append: '|'
   endif
 
-  # 2. What is inside it. Depth only joins when the store actually knows it.
+  # 2. What is inside it. Only beds that actually have a core get this line:
+  # core_type also carries values like "Mesh" on the elevated cots, and "Mesh core"
+  # would describe a bed that has no core at all. Depth joins only when the store
+  # knows it, and an approximate depth ("About 10cm") is lowercased so the line
+  # reads as a sentence rather than two fragments.
   assign core = m.core_type.value | default: ''
-  if core != blank
+  if core != blank and core contains 'oam'
     assign core_line = core | append: ' core'
-    if m.foam_depth.value != blank
-      assign core_line = core_line | append: ', ' | append: m.foam_depth.value | append: ' deep'
+    assign depth = m.foam_depth.value | default: ''
+    if depth != blank
+      assign d1 = depth | slice: 0 | downcase
+      assign drest = depth | slice: 1, 40
+      assign core_line = core_line | append: ', ' | append: d1 | append: drest | append: ' deep'
     endif
     assign ticks = ticks | append: core_line | append: '|'
   endif
@@ -85,6 +92,7 @@
   assign ticks = ticks | split: '|'
 -%}
 {%- if ticks.size > 0 -%}
+  {{ 'pln-pdp.css' | asset_url | stylesheet_tag }}
   <ul class="pln-spec-ticks" aria-label="What this bed is">
     {%- for tick in ticks limit: limit -%}
       {%- if tick != blank -%}
