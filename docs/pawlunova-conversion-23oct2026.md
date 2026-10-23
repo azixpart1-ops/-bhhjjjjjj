@@ -417,3 +417,74 @@ is why nobody can tell you what worked.
 *Measurements: live storefront fetched 23 Oct 2026; funnel from ShopifyQL over the store's
 full trading life (3–23 Oct 2026); contrast ratios computed to WCAG 2.1 relative-luminance;
 JS weights are gzipped transfer sizes measured per asset.*
+
+---
+
+## Late session: what changed after the audit, and what is still open
+
+The store was being worked on in the admin while this audit ran. Two themes were published
+mid-flight and one was deleted, so some findings above were overtaken. This section is the
+state as left.
+
+### Fixed and verified live
+- **False payment badges gone.** Vitals rendered 11 payment logos under the buy button, 8 for
+  methods the checkout cannot take. Its embed is disabled; 0 logos render on any page.
+- **TrustShop's "0 (0 review)" gone.** It printed a zero rating 247px above the price on every
+  product page, including the best converter. Embed disabled; 0 occurrences.
+- **The £40 delivery claim is gone from the storefront.** 0 occurrences of "£4.99" and 0 of
+  "over £0" (the interpolation trap) on home, product and cart. The cart shipping bar reads
+  `enabled: false, thresholdCents: 0`. All 80 product descriptions say "free on every order".
+  Four collection SEO descriptions corrected.
+- **Navigation halved**, 26 collection links to 13. No collection deleted, no URL changed.
+- **Discounts consolidated** to the single £15-over-£129, verified on live carts.
+- **Non-beds out of the bed collections**; "Outdoor Dog Beds & Kennels" is now
+  "Outdoor & Raised Dog Beds" holding 4 genuine beds.
+- **Prices raised onto the owner's own ladder**: 64 variant changes across 22 products. The
+  worst defect is fixed — Coniston, a memory-foam bolster, was £69 while the fibre nest sharing
+  its name was £105; it is now £109/£129/£149. Flat fibre pillows deliberately held at the £79
+  floor rather than forced up to £99, because they are a simpler product.
+- **Price copy recalculated against the new prices**: 27 corrections across 25 products.
+  Buttermere now reads "£109 works out at under 6p a night" against its actual £109, where it
+  said £89 and 5p. A residual audit against live prices returns zero findings.
+
+Every one of those passes had a backup taken first; paths are in the session log.
+
+### Still open, and why
+
+**Two "over £40" claims remain, both outside the theme:**
+1. `shop.description` — Online Store → Preferences. This is the meta description Google shows
+   for every page.
+2. The **Tapita SEO app's** Organization schema description, which feeds Google's knowledge
+   panel: "100 nights to try it. Free UK delivery over £40."
+
+**Ennerdale states its Large size two ways on one page** — the variant picker and the opening
+copy say 91 × 69cm, the size table says 107 × 76. There is also a £225 XXL the copy does not
+describe ("two large sizes"). Left untouched at the owner's instruction pending a stock check.
+Guessing here causes a return on a £165 bed with free collection.
+
+**41 purchasable active variants have no published dimensions anywhere** — 22 bare size labels
+across 8 products (Rydal High-Sided 5 labels × 3 colours = 15 variants, Windsor 3 × 4 = 12,
+Kentmere Houndstooth 4, Elterwater 3, Eskdale 3, Patterdale 2, Haweswater XL 1, Sawrey Small 1).
+The store has **no dimension metafields at all**, and four descriptions tell the customer to
+message for measurements — two of them on active products.
+
+This is why "write the size next to M/L/XL" could not be completed: it is a missing-data
+problem, not a labelling one. Two labels that did have dimensions in the wrong format were
+fixed (Cartmel, Ennerdale XXL). Once the measurements exist, filling both the labels and the
+size tables is about ten minutes.
+
+**`compareAtPrice` is null on every variant.** Prices have now gone up rather than down, so
+leaving it null is right for today — but it means the earlier cuts were invisible to shoppers
+and bought nothing. If anything is ever discounted again, set the compare-at.
+
+**A product was deleted mid-session**: `the-derwent-waterproof-dog-bed-mat-breathable-wipe-clean`.
+Noted in case it was not deliberate.
+
+### The sequencing lesson, recorded because it cost real money
+
+Two themes were published while half-built. The first was my fault: I named a staged theme
+"PUBLISH ME" while it still needed its settings work, and it went live carrying a contradiction
+— "Free UK delivery" in the announcement bar and "over £40" eighteen times across three pages.
+
+Before the next change, agree who publishes and when. A staged theme should not carry an
+imperative in its name until it has been rendered and verified.
