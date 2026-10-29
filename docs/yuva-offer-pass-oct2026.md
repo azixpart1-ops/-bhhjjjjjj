@@ -5,11 +5,19 @@ is the Horizon-based "Yuva" build with the `pln-` layer, now
 **Add to cart fixes - finder adds to the drawer (28 Oct)** (`gid://shopify/OnlineStoreTheme/210255577430`),
 which the owner published after the 28 October pass.
 
-**Where it lives.** A duplicate of the live theme was made and the change uploaded to it,
-so the live theme is untouched:
+**Where it lives.** A duplicate of the live theme was made and the change uploaded to it.
+Halfway through that upload (20:20 UTC) the duplicate was published from the admin and its
+`templates/product.json` edited there (price centred, "From" price and the shipping-policy line
+switched on), so the first four files (settings schema, `pln-pdp.css`, `pln-offer-line.liquid`,
+`pln-offer-band.liquid`) are now on the **live** theme
+**10% offer line under the price (29 Oct)** (`gid://shopify/OnlineStoreTheme/210333565270`),
+while the product template and settings could not follow: the Admin API refuses writes to a
+published theme. Nothing changed for shoppers: the live template has no offer block and the
+homepage band still has no end date, so neither renders. The finished version is a second
+duplicate, made from the live theme as it stands and carrying the last two files:
 
-> **10% offer line under the price (29 Oct)** ·
-> `gid://shopify/OnlineStoreTheme/210333565270` · unpublished
+> **10% offer line v2 - PUBLISH after creating the 10% discount (29 Oct)** ·
+> `gid://shopify/OnlineStoreTheme/210334908758` · unpublished
 
 Online Store → Themes → that theme → **Preview** to check it, **Publish** to ship it (after
 the step in "Before publishing" below). Roll back by publishing the previous theme.
@@ -57,7 +65,7 @@ Files:
 | `yuva/assets/pln-pdp.css` | `.pln-offer-line` styles (pill in the accent tint, body text, muted small print) |
 | `yuva/config/pln-settings-group.json` | `pln_offer_type` select and `pln_offer_percent` number; header and labels reworded; a paragraph saying the theme only describes the discount |
 | `yuva/sections/pln-offer-band.liquid` | the homepage band reads the new Type too ("10% off every product, taken off at checkout until …"); it still needs an end date, as before |
-| `yuva/store-merged/templates/product.json` | the live template plus a Custom Liquid block `pln_offer` (`{% render 'pln-offer-line', product: product %}`) directly after the `price` block |
+| `yuva/store-merged/templates/product.json` | the live template (including the owner's 20:20 edits) plus a Custom Liquid block `pln_offer` (`{% render 'pln-offer-line', product: product %}`) directly after the `price` block |
 | `yuva/store-merged/config/settings_data.json` | the live settings plus `pln_offer_type`, `pln_offer_percent`, `pln_offer_min` |
 | `yuva/README.md`, `yuva/store-merged/README.md` | install step and log |
 

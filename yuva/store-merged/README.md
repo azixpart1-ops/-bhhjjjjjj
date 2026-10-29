@@ -65,8 +65,12 @@ stock chip, quantity breaks and product icons added to the buy column; the
 `templates/product.json` and `config/settings_data.json` are now that live version plus
 this pass: a Custom Liquid block `{% render 'pln-offer-line', product: product %}` directly
 after the Price block, and `pln_offer_type: percent`, `pln_offer_percent: 10`,
-`pln_offer_min: 0` in the settings. Uploaded to the unpublished duplicate
-**10% offer line under the price (29 Oct)** (`gid://shopify/OnlineStoreTheme/210333565270`)
-together with `assets/pln-pdp.css`, `snippets/pln-offer-line.liquid`,
-`sections/pln-offer-band.liquid` and the live `config/settings_schema.json` with the
-updated PawLunova promises group. Full account: `docs/yuva-offer-pass-oct2026.md`.
+`pln_offer_min: 0` in the settings. The first duplicate, **10% offer line under the price
+(29 Oct)** (`gid://shopify/OnlineStoreTheme/210333565270`), was published from the admin while
+the upload was in progress, so it is now the live theme and carries `assets/pln-pdp.css`,
+`snippets/pln-offer-line.liquid`, `sections/pln-offer-band.liquid` and the live
+`config/settings_schema.json` with the updated PawLunova promises group, but not the template
+or settings (the API refuses writes to a published theme). Those two are on the second
+duplicate, **10% offer line v2 - PUBLISH after creating the 10% discount (29 Oct)**
+(`gid://shopify/OnlineStoreTheme/210334908758`), which is the theme to preview and publish.
+Full account: `docs/yuva-offer-pass-oct2026.md`.
