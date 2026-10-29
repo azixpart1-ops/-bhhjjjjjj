@@ -1,0 +1,77 @@
+{%- comment -%}
+  PawLunova: the current offer in the buy box, directly under the price.
+  Paste into a Custom Liquid block placed right after Horizon's Price block:
+
+      {% render 'pln-offer-line', product: product %}
+
+  Reads Theme settings → PawLunova promises → Current offer and prints ONE
+  line for the selected size, only when the offer is on, the size is
+  available, its price reaches the minimum (if one is set) and the end date
+  (if one is set) has not passed. Horizon re-renders the buy column on every
+  size change, so the figures follow the size.
+
+    % off  →  "10% off at checkout: you pay £98.10, not £109.00, until Sat 31 Oct."
+    £ off  →  "£15 off this size at checkout, until Sat 31 Oct."
+
+  The theme can only describe the discount. The automatic discount in
+  Shopify admin → Discounts is what takes it off at checkout, so the settings
+  must mirror it exactly (type, figure, minimum, end date) or the line is a
+  promise the checkout does not keep. pln.js also drops the line on the
+  shopper's clock once the end date passes ([data-pln-offer-ends]).
+  Styles: assets/pln-pdp.css (.pln-offer-line).
+{%- endcomment -%}
+{%- liquid
+  assign v = product.selected_or_first_available_variant
+  assign offer_type = settings.pln_offer_type | default: 'amount'
+  assign percent = settings.pln_offer_percent | default: 0 | plus: 0
+  assign amount = settings.pln_offer_amount | default: 0 | plus: 0
+  assign min = settings.pln_offer_min | default: 0 | plus: 0
+  assign min_cents = min | times: 100
+
+  assign show = false
+  if settings.pln_offer_enable and v != blank and v.available
+    if offer_type == 'percent' and percent > 0 and percent < 100
+      assign show = true
+    elsif offer_type == 'amount' and amount > 0
+      assign show = true
+    endif
+    if min > 0 and v.price < min_cents
+      assign show = false
+    endif
+  endif
+
+  assign ends_raw = settings.pln_offer_ends | default: '' | strip
+  assign ends_text = ''
+  if show and ends_raw != ''
+    assign ends_s = ends_raw | date: '%s' | plus: 0
+    assign now_s = 'now' | date: '%s' | plus: 0
+    if ends_s <= now_s
+      assign show = false
+    else
+      assign ends_text = ends_raw | date: '%a %-d %b'
+    endif
+  endif
+
+  if show and offer_type == 'percent'
+    assign saving = v.price | times: percent | divided_by: 100.0 | round
+    assign pay = v.price | minus: saving
+  endif
+-%}
+{%- if show -%}
+{{ 'pln.css' | asset_url | stylesheet_tag }}
+{{ 'pln-pdp.css' | asset_url | stylesheet_tag }}
+<div class="pln-offer-line" data-pln-offer-line{% if ends_raw != '' %} data-pln-offer-ends="{{ ends_raw | escape }}"{% endif %}>
+  <p class="pln-offer-line__main">
+    {%- if offer_type == 'percent' -%}
+      <span class="pln-offer-line__tag">{{ percent }}% off</span>
+      <span class="pln-offer-line__text">{% if settings.pln_offer_label != blank %}{{ settings.pln_offer_label | escape }}: {% endif %}{{ percent }}% off at checkout: you pay <strong>{{ pay | money }}</strong>, not {{ v.price | money }}{% if ends_text != '' %}, until {{ ends_text }}{% endif %}.</span>
+    {%- else -%}
+      <span class="pln-offer-line__tag">£{{ amount }} off</span>
+      <span class="pln-offer-line__text">{% if settings.pln_offer_label != blank %}{{ settings.pln_offer_label | escape }}: {% endif %}£{{ amount }} off this size at checkout{% if ends_text != '' %}, until {{ ends_text }}{% endif %}.</span>
+    {%- endif -%}
+  </p>
+  {%- if settings.pln_offer_note != blank -%}
+  <p class="pln-offer-line__note">{{ settings.pln_offer_note | escape }}</p>
+  {%- endif -%}
+</div>
+{%- endif -%}

@@ -58,6 +58,11 @@ yuva/
    straight after the variant picker, and `{% render 'pln-worth-it', product: product %}`
    under the payment logos. Remove Yuva's quantity and stock-count blocks; the
    stylesheet `pln-pdp.css` hides the form's own stepper.
+   A fourth Custom Liquid block, `{% render 'pln-offer-line', product: product %}`
+   directly after the Price block, prints the current offer for the selected size
+   ("10% off at checkout: you pay £98.10, not £109.00") from Theme settings →
+   Current offer (29 Oct 2026 pass, `docs/yuva-offer-pass-oct2026.md`). It only
+   describes the automatic discount set up in Discounts; keep the two identical.
 7. **Pages**: assign templates in Online Store → Pages: bed-finder →
    `page.bed-finder`; faq → `page.faq`; our-story → `page.about`;
    100-night-trial → `page.100-night-trial`; size-guide, foam-explained,
@@ -73,7 +78,9 @@ yuva/
 Every store-wide claim (trial nights, guarantee years, delivery days, free
 delivery threshold, origin line, owner name, vet attribution, offer) is read
 from Theme settings → PawLunova promises. Blank or off means the line
-disappears everywhere. Product-level claims (what's inside, low step-in,
+disappears everywhere. The offer is either £ off orders over a minimum or
+% off each product (Type); it must mirror the automatic discount in
+Discounts, because the theme only describes it and the checkout applies it. Product-level claims (what's inside, low step-in,
 liner, wash temperature, sleeping areas) are read from the product's own
 `custom.*` metafields and never guessed.
 

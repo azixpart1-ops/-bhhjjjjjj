@@ -54,3 +54,19 @@ Sans, bone page, quiet header, one-line announcement, oat footer, the hero's new
 "cover" layout, `assets/pln-premium.css` loaded from the layout. The owner published
 the first upload (theme 209699242326); the finished version with the three follow-up
 files is the unpublished "Premium pass v2" theme (209701699926).
+
+## 29 October 2026: 10% offer line under the price
+
+The owner published the 28 October theme, so **Add to cart fixes - finder adds to the
+drawer (28 Oct)** (`gid://shopify/OnlineStoreTheme/210255577430`) is now live. Its
+`templates/product.json` had moved on again in the editor (app blocks for tabs, stars,
+stock chip, quantity breaks and product icons added to the buy column; the
+`pln-buybox-promise` and TrustShop blocks removed; media on the right). The repo copies of
+`templates/product.json` and `config/settings_data.json` are now that live version plus
+this pass: a Custom Liquid block `{% render 'pln-offer-line', product: product %}` directly
+after the Price block, and `pln_offer_type: percent`, `pln_offer_percent: 10`,
+`pln_offer_min: 0` in the settings. Uploaded to the unpublished duplicate
+**10% offer line under the price (29 Oct)** (`gid://shopify/OnlineStoreTheme/210333565270`)
+together with `assets/pln-pdp.css`, `snippets/pln-offer-line.liquid`,
+`sections/pln-offer-band.liquid` and the live `config/settings_schema.json` with the
+updated PawLunova promises group. Full account: `docs/yuva-offer-pass-oct2026.md`.

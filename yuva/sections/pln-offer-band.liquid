@@ -1,6 +1,6 @@
 {%- comment -%}
   PL: Current offer. A real deadline only: read from Theme settings →
-  Current offer. Liquid drops it once the end date has passed on the
+  Current offer (£ off over a minimum, or % off each product). Liquid drops it once the end date has passed on the
   server; pln.js drops it on the shopper's clock too. No countdown.
 {%- endcomment -%}
 {%- render 'pln-assets' -%}
@@ -19,7 +19,15 @@
   <div class="pln-wrap">
     <div class="pln-offer">
       <div>
-        <strong>{{ settings.pln_offer_label }}:</strong> £{{ settings.pln_offer_amount }} off orders over £{{ settings.pln_offer_min }}, taken off at checkout until {{ settings.pln_offer_ends | date: '%a %-d %b' }}.
+        {%- liquid
+          assign min = settings.pln_offer_min | default: 0 | plus: 0
+          assign ends_text = settings.pln_offer_ends | date: '%a %-d %b'
+        -%}
+        {%- if settings.pln_offer_type == 'percent' -%}
+        <strong>{{ settings.pln_offer_label }}:</strong> {{ settings.pln_offer_percent }}% off every product{% if min > 0 %} on orders over £{{ min }}{% endif %}, taken off at checkout until {{ ends_text }}.
+        {%- else -%}
+        <strong>{{ settings.pln_offer_label }}:</strong> £{{ settings.pln_offer_amount }} off{% if min > 0 %} orders over £{{ min }}{% else %} every order{% endif %}, taken off at checkout until {{ ends_text }}.
+        {%- endif -%}
         {%- if settings.pln_offer_note != blank -%}<small>{{ settings.pln_offer_note }}</small>{%- endif -%}
       </div>
       <a class="pln-btn pln-btn--primary" href="{{ section.settings.cta_link | default: '/collections/dog-beds' }}">{{ section.settings.cta_label }}</a>
