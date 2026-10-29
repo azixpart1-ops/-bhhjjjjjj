@@ -208,7 +208,10 @@
     var a = this.answers, c = this.cfg, s = c.strings;
     var variants = (p && p.variants) || [];
     var want = a.size || 'M';
-    /* default effect: pre-choose the size from the answers; sold out → next size up, and say so */
+    /* default effect: pre-choose the size from the answers. If that size is sold out, or the bed
+       isn't made in it, take the nearest size up that is in stock and say which it was: "sold out"
+       only when the size exists, otherwise that the bed doesn't come in it. (Before, picking XS
+       for a bed that starts at Small was announced as "your size is sold out", which was untrue.) */
     var byIdx = function (v) { return SIZE_ORDER.indexOf(sizeOf(v.title)); };
     var want_i = SIZE_ORDER.indexOf(want);
     var chosen = null, note = '';
@@ -217,9 +220,13 @@
       var exact = variants.filter(function (v) { return byIdx(v) === want_i; })[0];
       if (exact && exact.available) chosen = exact;
       else {
-        var up = variants.filter(function (v) { return v.available && byIdx(v) === want_i + 1; })[0];
-        if (up) { chosen = up; note = s.sizeUp || 'Your size is sold out, so we\'ve chosen the next size up.'; }
-        else chosen = exact || variants.filter(function (v) { return v.available; })[0] || variants[0];
+        var up = variants.filter(function (v) { return v.available && byIdx(v) > want_i; }).sort(function (x, y) { return byIdx(x) - byIdx(y); })[0];
+        chosen = up || exact || variants.filter(function (v) { return v.available; })[0] || variants[0];
+        if (chosen && chosen !== exact && sizeOf(chosen.title)) {
+          note = exact
+            ? (s.sizeUp || 'Your size is sold out just now, so we\'ve picked the next size up.')
+            : (s.sizeNone || 'This bed isn\'t made in [size], so we\'ve picked the nearest size it comes in.').replace('[size]', want);
+        }
       }
     }
     var price = chosen ? chosen.price : (p ? p.price : hit.price);
@@ -243,8 +250,33 @@
     if (chosen && sizeOf(chosen.title)) html += '<span class="pln-result__size">' + (s.sizeLine || 'Size: [size]').replace('[size]', chosen.title) + '</span>';
     if (note) html += '<p class="pln-small pln-muted">' + note + '</p>';
     var can = chosen && chosen.available;
+    var addLabel = (name ? (s.addNamed || "Add [dog]'s bed · [price]").replace('[dog]', name) : (s.add || 'Add to basket · [price]')).replace('[price]', fmtMoney(price));
+    /* Horizon-based theme (the store's Yuva build): `Theme.routes` is defined by Horizon's
+       snippets/scripts.liquid (as a top-level `const`, so it is a global binding but not a
+       property of window) and product-form.js is loaded on every page. */
+    var horizon = false;
+    try { horizon = !!(Theme && Theme.routes && Theme.routes.cart_add_url); } catch (e) { horizon = false; }
     html += '<div class="pln-actions">';
-    if (can) html += '<button class="pln-btn pln-btn--primary" type="button" data-add="' + chosen.id + '">' + (name ? (s.addNamed || "Add [dog]'s bed · [price]").replace('[dog]', name) : (s.add || 'Add to basket · [price]')).replace('[price]', fmtMoney(price)) + '</button>';
+    if (can && horizon) {
+      /* 28 Oct 2026: the add now goes through the theme's own <product-form-component>, the same
+         element behind every other Add to cart on the store. So the cart drawer opens, the header
+         count updates, the button shows "Added" and the shopper stays on the page. Before, this
+         button posted to /cart/add.js itself, looked for drawer classes this theme doesn't have,
+         and after 400ms did a full page load onto /cart with the header count still on 0.
+         If the theme's script hasn't loaded yet, the form posts natively and lands on the basket. */
+      html += '<product-form-component class="pln-result__form" data-section-id="pln-bed-finder" data-product-id="' + (p && p.id ? p.id : '') + '" data-quantity-default="1" on:submit="/handleSubmit">'
+        + '<div class="visually-hidden" aria-live="assertive" role="status" aria-atomic="true" ref="liveRegion"></div>'
+        + '<form method="post" action="' + ((cfg.routes && cfg.routes.cartAdd) || '/cart/add') + '" class="pln-result__atc" novalidate>'
+        + '<input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓">'
+        + '<input type="hidden" name="id" ref="variantId" value="' + chosen.id + '"><input type="hidden" name="quantity" value="1">'
+        + '<span class="pln-result__error hidden" role="alert" ref="addToCartTextError"><span class="svg-wrapper"></span> </span>'
+        + '<add-to-cart-component ref="addToCartButtonContainer" data-add-to-cart-animation="false">'
+        + '<button type="submit" name="add" class="pln-btn pln-btn--primary pln-atc" ref="addToCartButton" on:click="/handleClick">'
+        + '<span class="pln-atc__label">' + addLabel + '</span><span class="pln-atc__added" aria-hidden="true">' + (s.added || 'Added') + ' ✓</span>'
+        + '</button></add-to-cart-component></form></product-form-component>';
+    } else if (can) {
+      html += '<button class="pln-btn pln-btn--primary" type="button" data-add="' + chosen.id + '">' + addLabel + '</button>';
+    }
     html += '<a class="pln-btn pln-btn--secondary" href="' + hit.url + (chosen ? '?variant=' + chosen.id : '') + '">' + (s.details || 'See the bed') + '</a>';
     html += '</div>';
     if (c.riskText) html += '<div class="pln-result__promise">' + c.riskText + '</div>';
@@ -255,6 +287,7 @@
     out.innerHTML = html;
     var self = this;
     on(qs('[data-restart]', out), 'click', function () { self.answers = {}; self.save(); self.step = 1; self.render(); });
+    /* Fallback for a theme without Horizon's product form (the generic Yuva target). */
     on(qs('[data-add]', out), 'click', function (e) {
       var b = e.currentTarget; b.disabled = true; b.textContent = s.adding || 'Adding…';
       fetch((cfg.routes && cfg.routes.cartAdd) || '/cart/add.js', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ items: [{ id: +b.dataset.add, quantity: 1 }] }) })

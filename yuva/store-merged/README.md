@@ -32,6 +32,19 @@ sections. The only settings change on that theme is
 The "title level" fixes above (`pln-page-body.liquid`, `page.faq.json`) are still
 pending on the store.
 
+## 28 October 2026: add to cart pass
+
+The published theme is now **LIVE - delivery + apps fixed (23 Oct)**
+(`gid://shopify/OnlineStoreTheme/209757995350`). Every add-to-cart path on it was
+clicked and read back (`docs/yuva-add-to-cart-pass-oct2026.md`); the Bed Finder's
+add was the one that bypassed the cart drawer and reloaded onto `/cart`. The fix
+(`assets/pln.js`, `assets/pln.css`, `sections/pln-bed-finder.liquid`) is uploaded to
+the unpublished duplicate **Add to cart fixes - finder adds to the drawer (28 Oct)**
+(`gid://shopify/OnlineStoreTheme/210255577430`). `snippets/pln-cart-promise.liquid`,
+`snippets/pln-buybox-promise.liquid`, `snippets/pln-delivery-claim.liquid` and
+`blocks/_pln-card-buy.liquid` were copied back from the live theme, which had moved
+on since the 22 October commits.
+
 ## 22 October 2026: premium design pass
 
 `config/settings_data.json`, `sections/header-group.json`, `sections/footer-group.json`,
