@@ -107,3 +107,53 @@ Either way, Theme settings → Current offer must match Discounts exactly, inclu
 date; the handover's rule 12 still applies.
 
 ## Verified on the preview theme
+
+Rendered through `?preview_theme_id=210334908758` in Chromium at 1440×900 and 390×844 (iPhone
+user agent), 29 October, 20:30 to 20:45 UTC:
+
+| Page | Result |
+|---|---|
+| Coniston (3 sizes, £109 / £129 / £149) | Line under the price: "**10% off** Cosy Season Saving: 10% off at checkout: you pay **£98.10**, not £109.00. No code needed. Can't be combined with other discounts." Choosing Medium: Horizon's price reads £129.00, the line reads "you pay £116.10, not £129.00". `?variant=` for Medium on a fresh load: same. One H1, no Liquid errors, no horizontal overflow on desktop. |
+| Coniston folding steps (single size, £89.99) | "you pay £80.99, not £89.99" (10% of 8,999p = 899.9p, rounded to 900p). |
+| Eskdale tartan bolster (partner warehouse, 3 sizes) | £80.10 / £98.10 for Medium / Large after a size change. |
+| Rydal high-sided nest (colour × size, 8 options) | "you pay £71.10, not £79.00"; a colour change keeps the line. |
+| Rydal orthopaedic cave (one size, £75) | "you pay £67.50, not £75.00". |
+
+- Checksums on the draft match the repo byte for byte for `pln-offer-line.liquid`,
+  `pln-pdp.css`, `pln-offer-band.liquid`; `templates/product.json` and
+  `config/settings_data.json` parse equal to the repo copies (Shopify rewrites JSON on save).
+- `python3 scripts/lint-shopify.py --root yuva`: 31 sections, 0 errors, 0 warnings.
+- Pre-existing on the live theme, not from this pass: a 61px horizontal overflow at 390px,
+  and the GBP currency code back on the price ("£109.00 GBP"); the 22 October pass had turned
+  it off. Console noise is the Vitals/Section Shop apps ("Failed to fetch offers: 404").
+
+### The first upload did not follow the size
+
+The 22 October notes assumed Horizon re-renders the whole buy column on a size change. It
+does not: `variant-picker.js` fetches the page for the new size and only Horizon's own
+components (`product-price`, the picker, the buy buttons) and Yuva's `<yv-variant-sync>`
+wrappers (`assets/yv-product.js`) copy themselves from that HTML. A Custom Liquid block is
+left as rendered. The first upload of the line showed £98.10 after Medium was chosen; the
+snippet now wraps the line in `<yv-variant-sync data-sync-id="pln-offer-<product id>">`,
+loads `yv-product.js` as Yuva's saved-amount pill does, and keeps the wrapper (empty) for a
+size that does not qualify so the next size can fill it. The same applies to
+`pln-size-fit.liquid`: its per-size lines (`sleep_area`, `suits_breeds`, `suits_weight`,
+none filled yet) will need the same wrapper once that data exists.
+
+## For the owner
+
+1. **Create the 10% automatic discount** (or switch Type back to £ off), then **publish**
+   "10% offer line v2 - PUBLISH after creating the 10% discount (29 Oct)". Until then the
+   line is a preview only; the live theme shows nothing new.
+2. The end date: type it into Theme settings → PawLunova promises → Current offer → Ends
+   (`YYYY-MM-DD HH:MM`) the moment the discount has one. The line and the homepage band read
+   it; the band shows only with a date, as before.
+3. **Publishing while files are uploading** turns a draft into the live theme mid-change,
+   which is what happened at 20:20 today. Duplicates named "… - PUBLISH …" are the ones meant
+   for publishing; the others are work in progress.
+4. **The buy column's new app blocks** (added in the editor since 22 October): the "Expert
+   Review" tab by "Sofia Ramos, Independent Product Reviewer, Verified Expert, 24 August
+   2026", the "Rated 4.8/5 based on 1800+ Testimonials" stars, and the stock chip with its
+   manual "Only 7 left" are invented review, count and scarcity signals of the kind the
+   handover's DMCC Act 2024 guardrails rule out (`docs/lunova-handover.md`, "Do now"). They
+   were left exactly as found; removing them is a one-click change in the editor.

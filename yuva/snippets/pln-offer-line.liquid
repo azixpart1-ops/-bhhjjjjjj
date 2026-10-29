@@ -7,8 +7,12 @@
   Reads Theme settings → PawLunova promises → Current offer and prints ONE
   line for the selected size, only when the offer is on, the size is
   available, its price reaches the minimum (if one is set) and the end date
-  (if one is set) has not passed. Horizon re-renders the buy column on every
-  size change, so the figures follow the size.
+  (if one is set) has not passed. On a size change Horizon fetches the page
+  for the new size but only re-renders its own components, never a Custom
+  Liquid block, so the line sits inside Yuva's <yv-variant-sync> wrapper
+  (assets/yv-product.js), which morphs its children from the fresh copy with
+  the same data-sync-id. The wrapper is always output while the offer runs,
+  empty for a size that does not qualify, so the next size can fill it.
 
     % off  →  "10% off at checkout: you pay £98.10, not £109.00, until Sat 31 Oct."
     £ off  →  "£15 off this size at checkout, until Sat 31 Oct."
@@ -28,27 +32,36 @@
   assign min = settings.pln_offer_min | default: 0 | plus: 0
   assign min_cents = min | times: 100
 
-  assign show = false
-  if settings.pln_offer_enable and v != blank and v.available
+  comment
+    running: the offer itself is on and in date (store-wide, so the wrapper
+    is output). show: this size qualifies (the line is output inside it).
+  endcomment
+  assign running = false
+  if settings.pln_offer_enable
     if offer_type == 'percent' and percent > 0 and percent < 100
-      assign show = true
+      assign running = true
     elsif offer_type == 'amount' and amount > 0
-      assign show = true
-    endif
-    if min > 0 and v.price < min_cents
-      assign show = false
+      assign running = true
     endif
   endif
 
   assign ends_raw = settings.pln_offer_ends | default: '' | strip
   assign ends_text = ''
-  if show and ends_raw != ''
+  if running and ends_raw != ''
     assign ends_s = ends_raw | date: '%s' | plus: 0
     assign now_s = 'now' | date: '%s' | plus: 0
     if ends_s <= now_s
-      assign show = false
+      assign running = false
     else
       assign ends_text = ends_raw | date: '%a %-d %b'
+    endif
+  endif
+
+  assign show = false
+  if running and v != blank and v.available
+    assign show = true
+    if min > 0 and v.price < min_cents
+      assign show = false
     endif
   endif
 
@@ -57,9 +70,12 @@
     assign pay = v.price | minus: saving
   endif
 -%}
-{%- if show -%}
+{%- if running -%}
 {{ 'pln.css' | asset_url | stylesheet_tag }}
 {{ 'pln-pdp.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'yv-product.js' | asset_url }}" type="module" fetchpriority="low"></script>
+<yv-variant-sync class="pln-offer-sync" data-sync-id="pln-offer-{{ product.id }}" data-product-id="{{ product.id }}">
+{%- if show -%}
 <div class="pln-offer-line" data-pln-offer-line{% if ends_raw != '' %} data-pln-offer-ends="{{ ends_raw | escape }}"{% endif %}>
   <p class="pln-offer-line__main">
     {%- if offer_type == 'percent' -%}
@@ -74,4 +90,6 @@
   <p class="pln-offer-line__note">{{ settings.pln_offer_note | escape }}</p>
   {%- endif -%}
 </div>
+{%- endif -%}
+</yv-variant-sync>
 {%- endif -%}
