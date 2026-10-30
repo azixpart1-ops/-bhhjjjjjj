@@ -26,8 +26,13 @@ the step in "Before publishing" below). Roll back by publishing the previous the
 
 Directly under the price in the buy column, one line for the selected size:
 
-> **10% off** &nbsp; Cosy Season Saving: 10% off at checkout: you pay **£98.10**, not £109.00.
+> **10% off** &nbsp; Cosy Season Saving: 10% off this size at checkout.
 > <br><small>No code needed. Can't be combined with other discounts.</small>
+
+(Until 30 October the line also printed the price after the discount, "you pay £98.10, not
+£109.00". The owner asked for every price to read .00; catalogue prices do, 10% of them does
+not, so that figure was dropped rather than rounded. Rounding it would show a price the
+checkout does not charge.)
 
 Horizon re-renders the buy column when a size is chosen, so the figures follow the size
 (Medium: you pay £116.10, not £129.00). The quick-add drawer renders the same column, so it
@@ -61,7 +66,7 @@ Files:
 
 | File | Change |
 |---|---|
-| `yuva/snippets/pln-offer-line.liquid` | new: the line, gated as above; percent maths in pence (`price × percent ÷ 100`, rounded to the penny, then subtracted) |
+| `yuva/snippets/pln-offer-line.liquid` | new: the line, gated as above; since 30 Oct it names the saving only, no after-discount price |
 | `yuva/assets/pln-pdp.css` | `.pln-offer-line` styles (pill in the accent tint, body text, muted small print) |
 | `yuva/config/pln-settings-group.json` | `pln_offer_type` select and `pln_offer_percent` number; header and labels reworded; a paragraph saying the theme only describes the discount |
 | `yuva/sections/pln-offer-band.liquid` | the homepage band reads the new Type too ("10% off every product, taken off at checkout until …"); it still needs an end date, as before |
@@ -157,3 +162,24 @@ none filled yet) will need the same wrapper once that data exists.
    manual "Only 7 left" are invented review, count and scarcity signals of the kind the
    handover's DMCC Act 2024 guardrails rule out (`docs/lunova-handover.md`, "Do now"). They
    were left exactly as found; removing them is a one-click change in the editor.
+
+## 30 October: every price at .00
+
+Request: "Make everything .00". The line's "you pay £98.10, not £109.00" was the only place a
+price ended in anything but .00 on the bed pages, so the percent line now reads "10% off this
+size at checkout." and prints no after-discount price. Uploaded to the same draft
+(`210334908758`, still unpublished); checksum matches the repo.
+
+Checked on the draft at 1440 and 390 on Coniston (Small, then Medium), Eskdale (Medium, then
+Large) and the Coniston folding steps. Every £ figure in the buy column was collected:
+
+| Page | Prices in the buy column |
+|---|---|
+| Coniston, Small → Medium | £109.00 → £129.00 |
+| Eskdale, Medium → Large | £89.00 → £109.00 |
+| Coniston folding steps | £89.99 |
+
+The steps are the one live product whose catalogue price is not .00 (Products → Coniston
+Folding Dog Steps with Storage). Changing it to £90.00 or £89.00 is a price change for the
+owner to make; nothing in the theme can show it as .00 honestly. At checkout the 10% discount
+still charges to the penny (£98.10 on a £109 bed).

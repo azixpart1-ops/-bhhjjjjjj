@@ -14,8 +14,13 @@
   the same data-sync-id. The wrapper is always output while the offer runs,
   empty for a size that does not qualify, so the next size can fill it.
 
-    % off  →  "10% off at checkout: you pay £98.10, not £109.00, until Sat 31 Oct."
+    % off  →  "10% off this size at checkout, until Sat 31 Oct."
     £ off  →  "£15 off this size at checkout, until Sat 31 Oct."
+
+  30 Oct 2026: the % line no longer prints the price after the discount
+  ("you pay £98.10"). Catalogue prices end in .00 and 10% of them does not,
+  so the line now names the saving only and the prices on the page stay at
+  .00. The checkout still charges to the penny (£98.10).
 
   The theme can only describe the discount. The automatic discount in
   Shopify admin → Discounts is what takes it off at checkout, so the settings
@@ -64,11 +69,6 @@
       assign show = false
     endif
   endif
-
-  if show and offer_type == 'percent'
-    assign saving = v.price | times: percent | divided_by: 100.0 | round
-    assign pay = v.price | minus: saving
-  endif
 -%}
 {%- if running -%}
 {{ 'pln.css' | asset_url | stylesheet_tag }}
@@ -80,7 +80,7 @@
   <p class="pln-offer-line__main">
     {%- if offer_type == 'percent' -%}
       <span class="pln-offer-line__tag">{{ percent }}% off</span>
-      <span class="pln-offer-line__text">{% if settings.pln_offer_label != blank %}{{ settings.pln_offer_label | escape }}: {% endif %}{{ percent }}% off at checkout: you pay <strong>{{ pay | money }}</strong>, not {{ v.price | money }}{% if ends_text != '' %}, until {{ ends_text }}{% endif %}.</span>
+      <span class="pln-offer-line__text">{% if settings.pln_offer_label != blank %}{{ settings.pln_offer_label | escape }}: {% endif %}{{ percent }}% off this size at checkout{% if ends_text != '' %}, until {{ ends_text }}{% endif %}.</span>
     {%- else -%}
       <span class="pln-offer-line__tag">£{{ amount }} off</span>
       <span class="pln-offer-line__text">{% if settings.pln_offer_label != blank %}{{ settings.pln_offer_label | escape }}: {% endif %}£{{ amount }} off this size at checkout{% if ends_text != '' %}, until {{ ends_text }}{% endif %}.</span>
